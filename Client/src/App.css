@@ -3,6 +3,38 @@
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
+  position: relative;
+}
+
+.test-button {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1000;
+}
+
+.test-result {
+  position: fixed;
+  top: 4rem;
+  right: 1rem;
+  background-color: rgba(26, 26, 26, 0.95);
+  border: 1px solid #646cff;
+  border-radius: 8px;
+  padding: 1rem;
+  max-width: 400px;
+  z-index: 1000;
+  text-align: left;
+}
+
+.test-result h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-size: 1em;
+}
+
+.test-result p {
+  margin: 0;
+  word-break: break-word;
 }
 
 .logo {
