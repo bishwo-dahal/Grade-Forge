@@ -38,6 +38,7 @@ jobs:
         username: ec2-user
         key: ${{ secrets.EC2_KEY }}
         script: |
+          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
           docker pull bishwodahal/grade-forge:latest
           if [ "${GITHUB_REF##*/}" = "bishwo_setting_up_automatic_deploy" ]; then
             # Main branch deployment
