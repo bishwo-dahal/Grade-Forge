@@ -10,7 +10,7 @@ WORKDIR /app/backend
 COPY Server/pom.xml .
 COPY Server/src ./src
 # Copy frontend build into backend
-COPY --from=frontend-build /app/frontend/build ./src/main/resources/static
+COPY --from=frontend-build /app/frontend/dist ./src/main/resources/static
 RUN mvn clean package -DskipTests
 
 # Stage 3: Final runtime image
