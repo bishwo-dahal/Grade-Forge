@@ -3,3 +3,4 @@ Backend: Java with SpringBoot, Docker for running code in isolation
 Database: PostgreSQL
 For Developing AI model: Python(pytorch, numpy, or tensorflow yet to be decided)
 Version Tracking/CI-CD: Git/Github Actions 
+Commit
