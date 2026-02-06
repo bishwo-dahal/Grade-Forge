@@ -1,30 +1,30 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
-import { Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Link, useNavigate, useLocation, Navigate } from "react-router";
+import { Eye, EyeOff } from "lucide-react";
 import { AuthSplitLayout } from "./auth/AuthSplitLayout";
+import { isAuthenticated, setAuthenticated } from "../auth";
 
 export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from ?? "/dashboard";
 
-  // NOTE: Temporary client-side redirect until real auth is wired to the backend.
+  if (isAuthenticated()) {
+    return <Navigate to={from} replace />;
+  }
+
+  // NOTE: Temporary client-side auth until real auth is wired to the backend.
   const handleSignIn = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    navigate("/");
+    setAuthenticated();
+    navigate(from, { replace: true });
   };
 
   return (
     <AuthSplitLayout activeDotIndex={1}>
       {/* NOTE: Shared auth shell keeps sign-in and sign-up layouts consistent. */}
-      {/* Back to Website Button */}
-      <Link
-        to="/"
-        className="inline-flex items-center gap-2 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors mb-8"
-      >
-        Back to website
-        <ArrowRight className="w-4 h-4" strokeWidth={2} />
-      </Link>
 
       {/* Header */}
       <h1 className="text-3xl font-bold text-[#2B2A2A] mb-2">
@@ -122,7 +122,10 @@ export default function SignInPage() {
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={() => navigate("/")}
+            onClick={() => {
+              setAuthenticated();
+              navigate(from, { replace: true });
+            }}
             className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] hover:bg-gray-50 transition-colors"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -148,7 +151,10 @@ export default function SignInPage() {
 
           <button
             type="button"
-            onClick={() => navigate("/")}
+            onClick={() => {
+              setAuthenticated();
+              navigate(from, { replace: true });
+            }}
             className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] hover:bg-gray-50 transition-colors"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="#2B2A2A">

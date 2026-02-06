@@ -5,6 +5,7 @@ import type { CourseDetail } from "../../types/class";
 import type { AssignmentSummary } from "../../types/assignment";
 import { getCourseDetailById } from "../../services/classService";
 import { listCourseAssignments } from "../../services/assignmentService";
+import React from "react";
 
 export function CoursePage() {
   const { courseId } = useParams();
@@ -33,7 +34,7 @@ export function CoursePage() {
       {/* Top Navigation */}
       <div className="bg-white border-b border-gray-200 px-6 py-3">
         <div className="flex items-center gap-2 text-[13px]">
-          <Link to="/" className="text-gray-500 hover:text-[#2B2A2A] flex items-center gap-1">
+          <Link to="/dashboard" className="text-gray-500 hover:text-[#2B2A2A] flex items-center gap-1">
             <ChevronLeft className="w-4 h-4" strokeWidth={2} />
             Dashboard
           </Link>

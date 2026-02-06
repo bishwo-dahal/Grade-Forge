@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { 
   Settings, 
@@ -82,7 +82,7 @@ export function FacultyClassPage() {
           {/* Back to Dashboard Link */}
           <div className="px-4 py-4 border-b border-gray-200">
             <Link 
-              to="/"
+              to="/dashboard"
               className="flex items-center gap-2 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors"
             >
               <ChevronLeft className="w-4 h-4" strokeWidth={2} />

@@ -1,3 +1,4 @@
+import React from "react";
 import { createBrowserRouter } from "react-router";
 import { GradeFlowDashboard } from "./components/GradeFlowDashboard";
 import { AssignmentPage } from "./components/AssignmentPage";
@@ -7,31 +8,61 @@ import { FacultyClassPage } from "./components/FacultyClassPage";
 import FacultyGradingPage from "./components/FacultyGradingPage";
 import SignUpPage from "./components/SignUpPage";
 import SignInPage from "./components/SignInPage";
+import LandingPage from "./components/LandingPage";
+import { ProtectedRoute } from "./ProtectedRoute";
 
 export const router = createBrowserRouter([
   {
     path: "/",
-    Component: GradeFlowDashboard,
+    Component: LandingPage,
+  },
+  {
+    path: "/dashboard",
+    element: (
+      <ProtectedRoute>
+        <GradeFlowDashboard />
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/class/:classId",
-    Component: ClassPage,
+    element: (
+      <ProtectedRoute>
+        <ClassPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/faculty/class/:classId",
-    Component: FacultyClassPage,
+    element: (
+      <ProtectedRoute>
+        <FacultyClassPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/course/:courseId",
-    Component: CoursePage,
+    element: (
+      <ProtectedRoute>
+        <CoursePage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/assignment/:assignmentId",
-    Component: AssignmentPage,
+    element: (
+      <ProtectedRoute>
+        <AssignmentPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/assignment/:assignmentId/grade/:submissionId",
-    Component: FacultyGradingPage,
+    element: (
+      <ProtectedRoute>
+        <FacultyGradingPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/signup",

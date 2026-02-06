@@ -1,11 +1,17 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, Navigate } from "react-router";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import { AuthSplitLayout } from "./auth/AuthSplitLayout";
+import { isAuthenticated } from "../auth";
+import React from "react";
 
 export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+
+  if (isAuthenticated()) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <AuthSplitLayout activeDotIndex={2}>
