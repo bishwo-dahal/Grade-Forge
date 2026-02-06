@@ -1,7 +1,7 @@
 # GradeForge Frontend
 The UI uses mock data today, but the structure is intentionally designed so real backend services can be wired in with minimal UI changes.
 
-## What This Repo Contains
+## What changes were done
 
 - A student and faculty dashboard experience (GradeFlow).
 - Pages for class, course, assignments, grading, and authentication screens.
@@ -39,17 +39,7 @@ When wiring backend responses, match these shapes. If the UI needs additional fi
 
 This is a checklist to connect real backend services.
 
-## Step 1: Decide your API base URL
-
-Pick where the backend will live in dev and production.
-
-Example (later):
-- Dev: `http://localhost:4000`
-- Prod: `https://api.yourdomain.com`
-
-You will use this in one place in the service layer.
-
-## Step 2: Replace mock services one by one
+## Step 1: Replace mock services one by one
 
 Each service file currently returns `Promise.resolve(mockData)`. Replace those with real API calls that return the same shape.
 
@@ -70,7 +60,7 @@ export async function listEnrolledCourses(): Promise<CourseCard[]> {
 
 Do this gradually for each service file.
 
-## Step 3: Keep return shapes identical
+## Step 2: Keep return shapes identical
 
 The UI expects the data to look a certain way. Keep the same fields and names:
 
@@ -79,7 +69,7 @@ The UI expects the data to look a certain way. Keep the same fields and names:
 
 This lets you avoid touching UI components later.
 
-## Step 4: Add basic error handling (recommended)
+## Step 3: Add basic error handling (recommended)
 
 Service functions should handle failures gracefully:
 
@@ -88,12 +78,12 @@ Service functions should handle failures gracefully:
 
 This avoids UI crashes while the backend is evolving.
 
-## Step 5: Add loading states only if needed
+## Step 4: Add loading states only if needed
 
 Some pages already handle `null` or empty values.
 If you add new async calls and see flicker or errors, add a simple loading check in the page component (not in the UI components).
 
-## Step 6: Authentication
+## Step 5: Authentication
 
 Right now the app is a mock flow. When you add authentication:
 
@@ -101,7 +91,7 @@ Right now the app is a mock flow. When you add authentication:
 - Add token handling in a shared place (for example, a fetch wrapper).
 - Keep UI components untouched.
 
-## Step 7: Confirm routes
+## Step 6: Confirm routes
 
 Routes are defined in `src/app/routes.tsx`.
 If backend needs new pages or parameters, update routes there only.
