@@ -1,6 +1,6 @@
 import React from "react";
 import { createBrowserRouter } from "react-router";
-import { GradeFlowDashboard } from "./components/GradeFlowDashboard";
+import { GradeForgeDashboard } from "./components/GradeForgeDashboard";
 import { AssignmentPage } from "./components/AssignmentPage";
 import { CoursePage } from "./components/CoursePage";
 import { ClassPage } from "./components/ClassPage";
@@ -20,7 +20,7 @@ export const router = createBrowserRouter([
     path: "/dashboard",
     element: (
       <ProtectedRoute>
-        <GradeFlowDashboard />
+        <GradeForgeDashboard />
       </ProtectedRoute>
     ),
   },

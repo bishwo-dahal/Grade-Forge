@@ -1,5 +1,3 @@
-import { GradeFlowDashboard } from "./components/GradeFlowDashboard";
-import { AssignmentPage } from "./components/AssignmentPage";
 import { RouterProvider } from "react-router";
 import { router } from "./routes";
 

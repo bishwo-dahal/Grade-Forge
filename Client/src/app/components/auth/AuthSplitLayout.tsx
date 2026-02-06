@@ -43,7 +43,7 @@ export function AuthSplitLayout({ activeDotIndex = 1, children }: AuthSplitLayou
 
         {/* Logo */}
         <div className="absolute top-8 left-8">
-          <div className="text-white text-2xl font-bold">GradeFlow</div>
+          <div className="text-white text-2xl font-bold">Grade Forge</div>
         </div>
       </div>
 

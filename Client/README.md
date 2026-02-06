@@ -3,7 +3,7 @@ The UI uses mock data today, but the structure is intentionally designed so real
 
 ## What changes were done
 
-- A student and faculty dashboard experience (GradeFlow).
+- A student and faculty dashboard experience (Grade Forge).
 - Pages for class, course, assignments, grading, and authentication screens.
 - A dedicated mock service layer that simulates backend responses.
 
