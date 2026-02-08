@@ -2,16 +2,50 @@ import { useState } from "react";
 import { Link, Navigate } from "react-router";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import { AuthSplitLayout } from "./auth/AuthSplitLayout";
-import { isAuthenticated } from "../auth";
-import React from "react";
+import { isAuthenticated, setAuthenticated } from "../auth";
+import { signup } from "../../services/authService";
 
 export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   if (isAuthenticated()) {
     return <Navigate to="/dashboard" replace />;
   }
+
+  const handleSignUp = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!agreedToTerms) {
+      setError("Please agree to the Terms & Conditions.");
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      const name = `${firstName.trim()} ${lastName.trim()}`.trim();
+      const response = await signup({
+        name: name || email,
+        email,
+        password,
+        role: "STUDENT",
+      });
+      setAuthenticated(response.token);
+      window.location.href = "/dashboard";
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+        : "Sign up failed. Please try again.";
+      setError(msg ?? "Sign up failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <AuthSplitLayout activeDotIndex={2}>
@@ -37,16 +71,22 @@ export default function SignUpPage() {
       </p>
 
       {/* Form */}
-      <form className="space-y-4">
+      <form className="space-y-4" onSubmit={handleSignUp}>
+        {error && (
+          <div className="py-2 px-3 bg-red-50 border border-red-200 rounded-lg text-[13px] text-red-700">
+            {error}
+          </div>
+        )}
         {/* First and Last Name */}
         <div className="grid grid-cols-2 gap-3">
-          {/* Accessibility: keep labels for screen readers without changing layout. */}
           <label htmlFor="first-name" className="sr-only">
             First name
           </label>
           <input
             id="first-name"
             type="text"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
             placeholder="First name"
             className="px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FEB05D] focus:border-transparent"
           />
@@ -56,20 +96,24 @@ export default function SignUpPage() {
           <input
             id="last-name"
             type="text"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
             placeholder="Last name"
             className="px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FEB05D] focus:border-transparent"
           />
         </div>
 
         {/* Email */}
-        {/* Accessibility: keep labels for screen readers without changing layout. */}
         <label htmlFor="signup-email" className="sr-only">
           Email
         </label>
         <input
           id="signup-email"
           type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           placeholder="Email"
+          required
           className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FEB05D] focus:border-transparent"
         />
 
@@ -81,7 +125,10 @@ export default function SignUpPage() {
           <input
             id="signup-password"
             type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             placeholder="Enter your password"
+            required
             className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FEB05D] focus:border-transparent pr-12"
           />
           {/* Accessibility: icon-only toggle needs an explicit label. */}
@@ -119,9 +166,10 @@ export default function SignUpPage() {
         {/* Create Account Button */}
         <button
           type="submit"
-          className="w-full py-3 bg-[#FEB05D] hover:bg-[#f5a04d] text-white rounded-lg text-[14px] font-semibold transition-colors mt-6"
+          disabled={loading}
+          className="w-full py-3 bg-[#FEB05D] hover:bg-[#f5a04d] disabled:opacity-60 text-white rounded-lg text-[14px] font-semibold transition-colors mt-6"
         >
-          Create account
+          {loading ? "Creating account..." : "Create account"}
         </button>
 
         {/* Divider */}
