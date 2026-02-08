@@ -28,14 +28,14 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(request->
                         request
+                                .requestMatchers("/api/v1/auth/login", "/api/v1/auth/signup").permitAll()
                                 .requestMatchers(
-                                        "/api/v1/auth/*",
                                         "/v3/api-docs/**",
                                         "/swagger-ui/**",
                                         "/swagger-ui.html",
                                         "/test"
-
                                 ).permitAll()
+                                .requestMatchers(req -> !req.getRequestURI().startsWith("/api")).permitAll()
                                 .requestMatchers("/api/v1/student/update/*").hasAnyAuthority("STUDENT","FACULTY","UNIVERSITY_ADMIN","SYSTEM_ADMIN")
                                 .requestMatchers("/api/v1/university_admin/faculty/*").hasAuthority("UNIVERSITY_ADMIN")
                                 .requestMatchers("/api/v1/system_admin/university/*").hasAuthority("SYSTEM_ADMIN")
