@@ -1,0 +1,22 @@
+# Dependencies & caches
+.npm-cache
+.npm_cache
+node_modules
+
+# IDE & editor
+.idea
+.vscode
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Env & secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs
