@@ -3,10 +3,15 @@ import { Link, useNavigate, useLocation, Navigate } from "react-router";
 import { Eye, EyeOff } from "lucide-react";
 import { AuthSplitLayout } from "./auth/AuthSplitLayout";
 import { isAuthenticated, setAuthenticated } from "../auth";
+import { login } from "../../services/authService";
 
 export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? "/dashboard";
@@ -15,11 +20,22 @@ export default function SignInPage() {
     return <Navigate to={from} replace />;
   }
 
-  // NOTE: Temporary client-side auth until real auth is wired to the backend.
-  const handleSignIn = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSignIn = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setAuthenticated();
-    navigate(from, { replace: true });
+    setError(null);
+    setLoading(true);
+    try {
+      const response = await login({ email, password });
+      setAuthenticated(response.token);
+      navigate(from, { replace: true });
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+        : "Sign in failed. Please check your email and password.";
+      setError(msg ?? "Sign in failed.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -39,6 +55,11 @@ export default function SignInPage() {
 
       {/* Form */}
       <form className="space-y-4" onSubmit={handleSignIn}>
+        {error && (
+          <div className="py-2 px-3 bg-red-50 border border-red-200 rounded-lg text-[13px] text-red-700">
+            {error}
+          </div>
+        )}
         {/* Email */}
         <div>
           <label htmlFor="email" className="block text-[13px] text-gray-600 mb-2">
@@ -47,7 +68,10 @@ export default function SignInPage() {
           <input
             type="email"
             id="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             placeholder="Enter your email"
+            required
             className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FEB05D] focus:border-transparent"
           />
         </div>
@@ -61,7 +85,10 @@ export default function SignInPage() {
             <input
               type={showPassword ? "text" : "password"}
               id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
+              required
               className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FEB05D] focus:border-transparent pr-12"
             />
             {/* Accessibility: icon-only toggle needs an explicit label. */}
@@ -102,9 +129,10 @@ export default function SignInPage() {
         {/* Sign In Button */}
         <button
           type="submit"
-          className="w-full py-3 bg-[#FEB05D] hover:bg-[#f5a04d] text-white rounded-lg text-[14px] font-semibold transition-colors mt-6"
+          disabled={loading}
+          className="w-full py-3 bg-[#FEB05D] hover:bg-[#f5a04d] disabled:opacity-60 text-white rounded-lg text-[14px] font-semibold transition-colors mt-6"
         >
-          Sign in
+          {loading ? "Signing in..." : "Sign in"}
         </button>
 
         {/* Divider */}
@@ -122,11 +150,8 @@ export default function SignInPage() {
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={() => {
-              setAuthenticated();
-              navigate(from, { replace: true });
-            }}
-            className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] hover:bg-gray-50 transition-colors"
+            disabled
+            className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-gray-400 cursor-not-allowed"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -151,11 +176,8 @@ export default function SignInPage() {
 
           <button
             type="button"
-            onClick={() => {
-              setAuthenticated();
-              navigate(from, { replace: true });
-            }}
-            className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] hover:bg-gray-50 transition-colors"
+            disabled
+            className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-gray-400 cursor-not-allowed"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="#2B2A2A">
               <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
