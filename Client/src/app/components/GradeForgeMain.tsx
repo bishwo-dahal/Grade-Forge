@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Search, Bell, Settings, Plus } from "lucide-react";
+import { Link } from "react-router";
 import { EnrolledCourses } from "./EnrolledCourses";
 import { UpcomingAssignments } from "./UpcomingAssignments";
 import type { CourseCard } from "../../types/class";
@@ -70,9 +71,9 @@ export function GradeForgeMain() {
             <button aria-label="Notifications" className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
               <Bell className="w-[18px] h-[18px] text-gray-600" strokeWidth={2} />
             </button>
-            <button aria-label="Settings" className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
+            <Link to="/settings" aria-label="Settings" className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
               <Settings className="w-[18px] h-[18px] text-gray-600" strokeWidth={2} />
-            </button>
+            </Link>
             
             <div className="ml-2 flex items-center gap-3 pl-3 border-l border-gray-200">
               <div className="w-9 h-9 bg-gradient-to-br from-[#FEB05D] to-[#ff9a3d] rounded-full flex items-center justify-center">

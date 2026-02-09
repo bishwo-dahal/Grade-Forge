@@ -10,6 +10,7 @@ import SignUpPage from "./components/SignUpPage";
 import SignInPage from "./components/SignInPage";
 import LandingPage from "./components/LandingPage";
 import { ProtectedRoute } from "./ProtectedRoute";
+import { SettingsPage } from "./components/SettingsPage";
 
 export const router = createBrowserRouter([
   {
@@ -21,6 +22,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <GradeForgeDashboard />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/settings",
+    element: (
+      <ProtectedRoute>
+        <SettingsPage />
       </ProtectedRoute>
     ),
   },
