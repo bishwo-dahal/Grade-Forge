@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { Search, Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff, LogOut } from "lucide-react";
 import { GradeForgeSidebar } from "./GradeForgeSidebar";
 import type { UserProfile } from "../../types/user";
 import { getStudentProfile } from "../../services/authService";
-import { getAuthenticatedUser } from "../auth";
+import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 
 export function SettingsPage() {
   const [viewMode, setViewMode] = useState<"student" | "faculty">("student");
@@ -16,6 +16,7 @@ export function SettingsPage() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showRepeatPassword, setShowRepeatPassword] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     getStudentProfile().then(setProfile);
@@ -33,6 +34,11 @@ export function SettingsPage() {
         .join("") || "AJ"
     : profile?.initials ?? "AJ";
   const displayStudentId = profile?.id ?? "2024-CS-1234";
+
+  const handleLogout = () => {
+    clearAuthenticated();
+    navigate("/signin", { replace: true });
+  };
 
   return (
     <div className="flex h-screen w-full bg-[#F5F2F2]">
@@ -160,6 +166,7 @@ export function SettingsPage() {
           <div className="max-w-[710px] mt-6 mb-2">
             <button
               type="button"
+              onClick={handleLogout}
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 transition-colors"
             >
               <LogOut className="w-4 h-4" strokeWidth={2} />
