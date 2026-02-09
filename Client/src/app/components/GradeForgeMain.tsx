@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Search, Bell, Settings, Plus } from "lucide-react";
+import { Link } from "react-router";
 import { EnrolledCourses } from "./EnrolledCourses";
 import { UpcomingAssignments } from "./UpcomingAssignments";
 import type { CourseCard } from "../../types/class";
@@ -8,6 +9,7 @@ import type { UserProfile } from "../../types/user";
 import { getStudentProfile } from "../../services/authService";
 import { listEnrolledCourses } from "../../services/classService";
 import { listUpcomingAssignments } from "../../services/assignmentService";
+import { getAuthenticatedUser } from "../auth";
 
 export function GradeForgeMain() {
   // NOTE: Data now comes from the mock service to create a clean backend integration seam.
@@ -22,9 +24,17 @@ export function GradeForgeMain() {
     listUpcomingAssignments().then(setUpcomingAssignments);
   }, []);
 
-  const displayName = profile?.name ?? "Alex Johnson";
-  const displayHandle = profile?.handle ?? "@alexj.edu";
-  const displayInitials = profile?.initials ?? "AJ";
+  const loggedInUser = getAuthenticatedUser();
+  const displayName = loggedInUser?.name ?? profile?.name ?? "Alex Johnson";
+  const displayHandle = loggedInUser?.email ?? profile?.handle ?? "@alexj.edu";
+  const displayInitials = loggedInUser?.name
+    ? loggedInUser.name
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() ?? "")
+        .join("") || "AJ"
+    : profile?.initials ?? "AJ";
   const firstName = displayName.split(" ")[0] || displayName;
 
   return (
@@ -61,9 +71,9 @@ export function GradeForgeMain() {
             <button aria-label="Notifications" className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
               <Bell className="w-[18px] h-[18px] text-gray-600" strokeWidth={2} />
             </button>
-            <button aria-label="Settings" className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
+            <Link to="/settings" aria-label="Settings" className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
               <Settings className="w-[18px] h-[18px] text-gray-600" strokeWidth={2} />
-            </button>
+            </Link>
             
             <div className="ml-2 flex items-center gap-3 pl-3 border-l border-gray-200">
               <div className="w-9 h-9 bg-gradient-to-br from-[#FEB05D] to-[#ff9a3d] rounded-full flex items-center justify-center">
