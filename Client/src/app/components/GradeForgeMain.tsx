@@ -8,6 +8,7 @@ import type { UserProfile } from "../../types/user";
 import { getStudentProfile } from "../../services/authService";
 import { listEnrolledCourses } from "../../services/classService";
 import { listUpcomingAssignments } from "../../services/assignmentService";
+import { getAuthenticatedUser } from "../auth";
 
 export function GradeForgeMain() {
   // NOTE: Data now comes from the mock service to create a clean backend integration seam.
@@ -22,9 +23,17 @@ export function GradeForgeMain() {
     listUpcomingAssignments().then(setUpcomingAssignments);
   }, []);
 
-  const displayName = profile?.name ?? "Alex Johnson";
-  const displayHandle = profile?.handle ?? "@alexj.edu";
-  const displayInitials = profile?.initials ?? "AJ";
+  const loggedInUser = getAuthenticatedUser();
+  const displayName = loggedInUser?.name ?? profile?.name ?? "Alex Johnson";
+  const displayHandle = loggedInUser?.email ?? profile?.handle ?? "@alexj.edu";
+  const displayInitials = loggedInUser?.name
+    ? loggedInUser.name
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() ?? "")
+        .join("") || "AJ"
+    : profile?.initials ?? "AJ";
   const firstName = displayName.split(" ")[0] || displayName;
 
   return (

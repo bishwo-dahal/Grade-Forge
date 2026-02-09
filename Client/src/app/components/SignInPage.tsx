@@ -26,7 +26,11 @@ export default function SignInPage() {
     setLoading(true);
     try {
       const response = await login({ email, password });
-      setAuthenticated(response.token);
+      setAuthenticated(response.token, {
+        name: response.name,
+        email: response.email,
+        role: response.role,
+      });
       navigate(from, { replace: true });
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "response" in err
