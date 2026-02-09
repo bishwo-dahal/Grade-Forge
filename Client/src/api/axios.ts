@@ -19,7 +19,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const requestUrl = typeof error.config?.url === "string" ? error.config.url : "";
+    const isAuthEndpoint = requestUrl.startsWith("/api/v1/auth/");
+
+    // Keep users signed in when auth endpoints return validation/auth errors
+    // (e.g. wrong current password during update-password).
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       clearAuthenticated();
       window.location.href = "/signin";
     }

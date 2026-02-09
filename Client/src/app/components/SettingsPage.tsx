@@ -3,8 +3,8 @@ import { Link, useNavigate } from "react-router";
 import { Search, Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff, LogOut } from "lucide-react";
 import { GradeForgeSidebar } from "./GradeForgeSidebar";
 import type { UserProfile } from "../../types/user";
-import { getStudentProfile } from "../../services/authService";
-import { clearAuthenticated, getAuthenticatedUser } from "../auth";
+import { getStudentProfile, updatePassword } from "../../services/authService";
+import { clearAuthenticated, getAuthenticatedUser, setAuthenticated } from "../auth";
 
 export function SettingsPage() {
   const [viewMode, setViewMode] = useState<"student" | "faculty">("student");
@@ -16,6 +16,9 @@ export function SettingsPage() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showRepeatPassword, setShowRepeatPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [updatingPassword, setUpdatingPassword] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -38,6 +41,70 @@ export function SettingsPage() {
   const handleLogout = () => {
     clearAuthenticated();
     navigate("/signin", { replace: true });
+  };
+
+  const closeChangePasswordModal = () => {
+    setShowChangePasswordModal(false);
+    setCurrentPassword("");
+    setNewPassword("");
+    setRepeatPassword("");
+    setPasswordError(null);
+    setPasswordSuccess(null);
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowRepeatPassword(false);
+  };
+
+  const handlePasswordUpdate = async () => {
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (!currentPassword || !newPassword || !repeatPassword) {
+      setPasswordError("Please fill in all password fields.");
+      return;
+    }
+
+    if (newPassword !== repeatPassword) {
+      setPasswordError("New password and repeat password do not match.");
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      setPasswordError("New password must be different from current password.");
+      return;
+    }
+
+    if (!loggedInUser?.email) {
+      setPasswordError("Unable to identify logged in user. Please sign in again.");
+      return;
+    }
+
+    setUpdatingPassword(true);
+    try {
+      const response = await updatePassword({
+        email: loggedInUser.email,
+        oldPassword: currentPassword,
+        newPassword,
+      });
+
+      setAuthenticated(response.token, {
+        name: response.name,
+        email: response.email,
+        role: response.role,
+      });
+
+      setPasswordSuccess(response.message || "Password updated successfully.");
+      setCurrentPassword("");
+      setNewPassword("");
+      setRepeatPassword("");
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+        : "Failed to update password. Please try again.";
+      setPasswordError(msg ?? "Failed to update password.");
+    } finally {
+      setUpdatingPassword(false);
+    }
   };
 
   return (
@@ -184,7 +251,7 @@ export function SettingsPage() {
               <button
                 type="button"
                 aria-label="Close dialog"
-                onClick={() => setShowChangePasswordModal(false)}
+                onClick={closeChangePasswordModal}
                 className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
               >
                 <X className="w-5 h-5" strokeWidth={2} />
@@ -192,6 +259,16 @@ export function SettingsPage() {
             </div>
 
             <div className="px-6 py-6 space-y-5">
+              {passwordError && (
+                <div className="py-2 px-3 bg-red-50 border border-red-200 rounded-lg text-[13px] text-red-700">
+                  {passwordError}
+                </div>
+              )}
+              {passwordSuccess && (
+                <div className="py-2 px-3 bg-green-50 border border-green-200 rounded-lg text-[13px] text-green-700">
+                  {passwordSuccess}
+                </div>
+              )}
               <div>
                 <label htmlFor="current-password" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
                   Current Password
@@ -268,17 +345,19 @@ export function SettingsPage() {
             <div className="px-6 py-5 border-t border-gray-200 flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setShowChangePasswordModal(false)}
+                onClick={closeChangePasswordModal}
                 className="px-5 py-2.5 bg-white border border-gray-300 rounded-xl text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5A7ACD] hover:bg-[#4a6abd] rounded-xl text-[14px] font-semibold text-white transition-colors"
+                onClick={handlePasswordUpdate}
+                disabled={updatingPassword}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5A7ACD] hover:bg-[#4a6abd] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
               >
                 <Lock className="w-4 h-4" strokeWidth={2} />
-                <span>Update Password</span>
+                <span>{updatingPassword ? "Updating..." : "Update Password"}</span>
               </button>
             </div>
           </div>

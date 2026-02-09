@@ -22,6 +22,12 @@ export interface SignupRequest {
   role: "STUDENT" | "FACULTY" | "UNIVERSITY_ADMIN" | "SYSTEM_ADMIN";
 }
 
+export interface PasswordUpdateRequest {
+  email: string;
+  oldPassword: string;
+  newPassword: string;
+}
+
 export async function login(credentials: LoginRequest): Promise<AuthResponse> {
   const { data } = await api.post<AuthResponse>("/api/v1/auth/login", credentials);
   return data;
@@ -29,6 +35,11 @@ export async function login(credentials: LoginRequest): Promise<AuthResponse> {
 
 export async function signup(payload: SignupRequest): Promise<AuthResponse> {
   const { data } = await api.post<AuthResponse>("/api/v1/auth/signup", payload);
+  return data;
+}
+
+export async function updatePassword(payload: PasswordUpdateRequest): Promise<AuthResponse> {
+  const { data } = await api.post<AuthResponse>("/api/v1/auth/update-password", payload);
   return data;
 }
 
