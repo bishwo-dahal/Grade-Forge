@@ -1,6 +1,7 @@
 package com.grade.forge.faculty.entity;
 
-import com.grade.forge.university.entity.University;
+import com.grade.forge.classmgmt.entity.Course;
+import com.grade.forge.user.entity.Users;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -9,6 +10,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.Instant;
+import java.util.List;
 
 @Entity
 @Getter
@@ -37,11 +39,16 @@ public class Faculty {
 
     private String officeLocation;
 
-    private boolean isActive;
-
+    @Column(name = "is_active")
+    private Boolean active;
 
     @CreationTimestamp
     private Instant createTime;
+
+    @OneToMany(mappedBy = "faculty", cascade = CascadeType.ALL)
+    private List<Course> courses;
+
+
 }
 
 

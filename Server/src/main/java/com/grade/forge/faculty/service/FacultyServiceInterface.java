@@ -1,6 +1,8 @@
 package com.grade.forge.faculty.service;
 
+import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.faculty.entity.Faculty;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import java.util.List;
 import java.util.Optional;

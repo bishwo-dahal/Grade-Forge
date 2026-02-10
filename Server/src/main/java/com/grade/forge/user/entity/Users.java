@@ -1,5 +1,6 @@
 package com.grade.forge.user.entity;
 
+import com.grade.forge.faculty.entity.Faculty;
 import com.grade.forge.user.enums.Role;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -24,4 +25,5 @@ public class Users {
 
     @Enumerated(EnumType.STRING)
     private Role role;
+
 }
