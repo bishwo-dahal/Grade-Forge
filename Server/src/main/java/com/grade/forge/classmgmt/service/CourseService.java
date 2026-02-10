@@ -1,0 +1,179 @@
+package com.grade.forge.classmgmt.service;
+
+import com.grade.forge.classmgmt.dto.CourseRequestDto;
+import com.grade.forge.classmgmt.dto.CourseResponseDto;
+import com.grade.forge.classmgmt.entity.Course;
+import com.grade.forge.classmgmt.repository.CourseRepository;
+import com.grade.forge.classmgmt.repository.EnrollmentRepository;
+import com.grade.forge.exceptionhandler.ResourceNotFoundException;
+import com.grade.forge.faculty.entity.Faculty;
+import com.grade.forge.faculty.repository.FacultyRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.modelmapper.ModelMapper;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+@Slf4j
+public class CourseService {
+
+    private final CourseRepository courseRepository;
+    private final EnrollmentRepository enrollmentRepository;
+    private final FacultyRepository facultyRepository;
+    private final ModelMapper modelMapper;
+
+    /**
+     * Create a new course
+     * @param courseRequestDto the course request DTO
+     * @return the created course response DTO
+     */
+    public CourseResponseDto createCourse(CourseRequestDto courseRequestDto) {
+        // Validate that faculty exists
+        if (courseRequestDto.getFacultyId() == null) {
+            throw new ResourceNotFoundException("Faculty is required to create a course");
+        }
+
+        Faculty faculty = facultyRepository.findById(courseRequestDto.getFacultyId())
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with id: " + courseRequestDto.getFacultyId()));
+
+        // Map DTO to entity
+
+        Course course = modelMapper.map(courseRequestDto, Course.class);
+
+//        Have to include this because mapping from DTO to entity will try to set the id which is auto generated and always 1 and will cause an error. So we skip setting the id.
+        modelMapper.typeMap(CourseRequestDto.class, Course.class)
+                .addMappings(mapper -> mapper.skip(Course::setId));
+
+        course.setFaculty(faculty);
+        // Set active by default if not provided
+        if (course.getActive() == null) {
+            course.setActive(true);
+        }
+
+        Course savedCourse = courseRepository.save(course);
+        log.info("Course created: {}", savedCourse.getId());
+        return mapToResponseDto(savedCourse);
+    }
+
+    /**
+     * Update an existing course
+     * @param id the course id
+     * @param courseRequestDto the updated course request DTO
+     * @return the updated course response DTO
+     */
+    public CourseResponseDto updateCourse(Long id, CourseRequestDto courseRequestDto) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+
+        // Map non-null fields from DTO to entity
+        if (courseRequestDto.getName() != null) {
+            course.setName(courseRequestDto.getName());
+        }
+        if (courseRequestDto.getSection() != null) {
+            course.setSection(courseRequestDto.getSection());
+        }
+        if (courseRequestDto.getSemester() != null) {
+            course.setSemester(courseRequestDto.getSemester());
+        }
+        if (courseRequestDto.getActive() != null) {
+            course.setActive(courseRequestDto.getActive());
+        }
+        if (courseRequestDto.getFacultyId() != null) {
+            // Validate that the new faculty exists
+            Faculty faculty = facultyRepository.findById(courseRequestDto.getFacultyId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with id: " + courseRequestDto.getFacultyId()));
+            course.setFaculty(faculty);
+        }
+
+        Course updatedCourse = courseRepository.save(course);
+        return mapToResponseDto(updatedCourse);
+    }
+
+    /**
+     * Delete a course by id
+     * @param id the course id
+     */
+    public void deleteCourse(Long id) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+        courseRepository.delete(course);
+    }
+
+    /**
+     * Disable a course (soft delete)
+     * @param id the course id
+     * @return the disabled course response DTO
+     */
+    public CourseResponseDto disableCourse(Long id) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+
+        course.setActive(false);
+        Course disabledCourse = courseRepository.save(course);
+        return mapToResponseDto(disabledCourse);
+    }
+
+    /**
+     * Get a course by id
+     * @param id the course id
+     * @return the course response DTO
+     */
+    public CourseResponseDto getCourseById(Long id) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+        return mapToResponseDto(course);
+    }
+
+    /**
+     * Get all courses
+     * @return list of all course response DTOs
+     */
+    public List<CourseResponseDto> getAllCourses() {
+        return courseRepository.findAll().stream()
+                .map(this::mapToResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get all active courses
+     * @return list of active course response DTOs
+     */
+    public List<CourseResponseDto> getActiveCourses() {
+        return courseRepository.findAll().stream()
+                .filter(course -> Boolean.TRUE.equals(course.getActive()))
+                .map(this::mapToResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Map Course entity to CourseResponseDto
+     * @param course the course entity
+     * @return the course response DTO
+     */
+    private CourseResponseDto mapToResponseDto(Course course) {
+        CourseResponseDto.FacultyBasicDto facultyDto = CourseResponseDto.FacultyBasicDto.builder()
+                .id(course.getFaculty().getId())
+                .name(course.getFaculty().getName())
+                .email(course.getFaculty().getEmail())
+                .department(course.getFaculty().getDepartment())
+                .qualifications(course.getFaculty().getQualifications())
+                .build();
+
+        return CourseResponseDto.builder()
+                .id(course.getId())
+                .name(course.getName())
+                .section(course.getSection())
+                .semester(course.getSemester())
+                .active(course.getActive())
+                .faculty(facultyDto)
+                .build();
+    }
+
+}
+

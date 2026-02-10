@@ -1,21 +1,17 @@
 package com.grade.forge.classmgmt.entity;
 
-import com.grade.forge.university.entity.University;
-import com.grade.forge.user.entity.Users;
+import com.grade.forge.faculty.entity.Faculty;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-
-import java.time.Instant;
 
 @Entity
-@Table(name = "classrooms")
+@Table(name = "courses")
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
 @Setter
 @Builder
-public class ClassRoom {
+public class Course {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -24,7 +20,15 @@ public class ClassRoom {
     private String name;          // CS101, Math-1
     private String section;       // A, B (optional)
     private String semester;      // Fall 2026
-    private boolean active;
+
+    @Builder.Default
+    @Column(name = "is_active", nullable = false, columnDefinition = "boolean default true")
+    private Boolean active = true;
+
+    @ManyToOne
+    @JoinColumn(name = "faculty_id", nullable = false)
+    private Faculty faculty;
+
 
 }
 

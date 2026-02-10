@@ -3,22 +3,27 @@ package com.grade.forge.faculty.service;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.faculty.entity.Faculty;
 import com.grade.forge.faculty.repository.FacultyRepository;
+import com.grade.forge.user.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 public class FacultyService implements FacultyServiceInterface {
 
     private final FacultyRepository facultyRepository;
 
-    public FacultyService(FacultyRepository facultyRepository) {
+
+    public FacultyService(FacultyRepository facultyRepository, UserRepository userRepository) {
         this.facultyRepository = facultyRepository;
     }
 
     @Override
     public Faculty createFaculty(Faculty faculty) {
+        faculty.setDepartment(faculty.getDepartment().toUpperCase());
         return facultyRepository.save(faculty);
     }
 
@@ -39,7 +44,7 @@ public class FacultyService implements FacultyServiceInterface {
             faculty.setEmail(facultyDetails.getEmail());
         }
         if (facultyDetails.getDepartment() != null) {
-            faculty.setDepartment(facultyDetails.getDepartment());
+            faculty.setDepartment(facultyDetails.getDepartment().toUpperCase());
         }
         if (facultyDetails.getQualifications() != null) {
             faculty.setQualifications(facultyDetails.getQualifications());
