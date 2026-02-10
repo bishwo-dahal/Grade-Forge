@@ -35,7 +35,11 @@ export default function SignUpPage() {
         password,
         role: "STUDENT",
       });
-      setAuthenticated(response.token);
+      setAuthenticated(response.token, {
+        name: response.name,
+        email: response.email,
+        role: response.role,
+      });
       window.location.href = "/dashboard";
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "response" in err
