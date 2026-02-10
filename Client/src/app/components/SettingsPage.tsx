@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router";
-import { Search, Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff, LogOut } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router";
+import { Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff, LogOut, SunMedium } from "lucide-react";
 import { GradeForgeSidebar } from "./GradeForgeSidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 import type { UserProfile } from "../../types/user";
 import { getStudentProfile, updatePassword } from "../../services/authService";
 import { clearAuthenticated, getAuthenticatedUser, setAuthenticated } from "../auth";
@@ -9,6 +17,7 @@ import { clearAuthenticated, getAuthenticatedUser, setAuthenticated } from "../a
 export function SettingsPage() {
   const [viewMode, setViewMode] = useState<"student" | "faculty">("student");
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [activeSection, setActiveSection] = useState<"profile" | "security" | "notifications" | "appearance">("profile");
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -20,10 +29,19 @@ export function SettingsPage() {
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [updatingPassword, setUpdatingPassword] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     getStudentProfile().then(setProfile);
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const section = params.get("section");
+    if (section === "profile" || section === "security" || section === "notifications" || section === "appearance") {
+      setActiveSection(section);
+    }
+  }, [location.search]);
 
   const loggedInUser = getAuthenticatedUser();
   const displayName = loggedInUser?.name ?? profile?.name ?? "Alex Johnson";
@@ -41,6 +59,11 @@ export function SettingsPage() {
   const handleLogout = () => {
     clearAuthenticated();
     navigate("/signin", { replace: true });
+  };
+
+  const goToSettingsSection = (section: "profile" | "security" | "notifications" | "appearance") => {
+    setActiveSection(section);
+    navigate(`/settings?section=${section}`, { replace: true });
   };
 
   const closeChangePasswordModal = () => {
@@ -113,29 +136,65 @@ export function SettingsPage() {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="bg-white border-b border-gray-200 px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 max-w-md">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={2} />
-                <input
-                  type="text"
-                  placeholder="Search settings..."
-                  aria-label="Search settings"
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-[13px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
-                />
-              </div>
-            </div>
-
+          <div className="flex items-center justify-end">
             <div className="flex items-center gap-3">
-              <button aria-label="Notifications" className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
+              <button
+                aria-label="Notifications"
+                className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+              >
                 <Bell className="w-[18px] h-[18px] text-gray-600" strokeWidth={2} />
               </button>
-              <button
-                aria-label="Settings"
-                className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 text-gray-900"
-              >
-                <Settings className="w-[18px] h-[18px]" strokeWidth={2} />
-              </button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    aria-label="Open settings menu"
+                    className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 text-gray-900 hover:bg-gray-200 transition-colors"
+                  >
+                    <Settings className="w-[18px] h-[18px]" strokeWidth={2} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-64">
+                  <DropdownMenuLabel className="flex flex-col gap-0.5">
+                    <span className="text-[13px] font-semibold text-[#2B2A2A]">Settings</span>
+                    <span className="text-[11px] text-gray-500">Quickly jump between settings sections</span>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => goToSettingsSection("profile")}>
+                    <User className="w-4 h-4 text-gray-600" strokeWidth={2} />
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-medium text-[#2B2A2A]">Account</span>
+                      <span className="text-[11px] text-gray-500">Profile info and basic details</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => goToSettingsSection("security")}>
+                    <Lock className="w-4 h-4 text-gray-600" strokeWidth={2} />
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-medium text-[#2B2A2A]">Security</span>
+                      <span className="text-[11px] text-gray-500">Password and sign-in settings</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => goToSettingsSection("notifications")}>
+                    <Bell className="w-4 h-4 text-gray-600" strokeWidth={2} />
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-medium text-[#2B2A2A]">Notifications</span>
+                      <span className="text-[11px] text-gray-500">Email and in-app alerts</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => goToSettingsSection("appearance")}>
+                    <SunMedium className="w-4 h-4 text-gray-600" strokeWidth={2} />
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-medium text-[#2B2A2A]">Appearance</span>
+                      <span className="text-[11px] text-gray-500">Theme and display preferences</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
+                    <LogOut className="w-4 h-4" strokeWidth={2} />
+                    <span className="text-[13px] font-medium">Logout</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               <div className="ml-2 flex items-center gap-3 pl-3 border-l border-gray-200">
                 <div className="w-9 h-9 bg-gradient-to-br from-[#FEB05D] to-[#ff9a3d] rounded-full flex items-center justify-center">
@@ -162,83 +221,104 @@ export function SettingsPage() {
           <h1 className="text-[38px] leading-none font-bold text-[#2B2A2A] mb-3">Settings</h1>
           <p className="text-[14px] text-gray-600 mb-8">Manage your account preferences and settings</p>
 
-          <section className="bg-white rounded-2xl border border-gray-200 p-6 max-w-[710px]">
-            <h2 className="text-[28px] font-semibold text-[#2B2A2A] mb-5 flex items-center gap-2">
-              <User className="w-6 h-6 text-[#5A7ACD]" strokeWidth={2} />
-              <span>Profile Information</span>
-            </h2>
+          <div className="max-w-[710px] space-y-6">
+            {activeSection === "profile" && (
+              <section className="bg-white rounded-2xl border border-gray-200 p-6">
+                  <h2 className="text-[28px] font-semibold text-[#2B2A2A] mb-5 flex items-center gap-2">
+                    <User className="w-6 h-6 text-[#5A7ACD]" strokeWidth={2} />
+                    <span>Profile Information</span>
+                  </h2>
 
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="settings-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
-                  Full Name
-                </label>
-                <input
-                  id="settings-full-name"
-                  value={displayName}
-                  readOnly
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
-                />
-              </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="settings-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                        Full Name
+                      </label>
+                      <input
+                        id="settings-full-name"
+                        value={displayName}
+                        readOnly
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                      />
+                    </div>
 
-              <div>
-                <label htmlFor="settings-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
-                  Email Address
-                </label>
-                <input
-                  id="settings-email"
-                  value={displayEmail}
-                  readOnly
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
-                />
-              </div>
+                    <div>
+                      <label htmlFor="settings-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                        Email Address
+                      </label>
+                      <input
+                        id="settings-email"
+                        value={displayEmail}
+                        readOnly
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                      />
+                    </div>
 
-              <div>
-                <label htmlFor="settings-student-id" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
-                  Student ID
-                </label>
-                <input
-                  id="settings-student-id"
-                  value={displayStudentId}
-                  readOnly
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
-                />
-              </div>
-            </div>
-          </section>
+                    <div>
+                      <label htmlFor="settings-student-id" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                        Student ID
+                      </label>
+                      <input
+                        id="settings-student-id"
+                        value={displayStudentId}
+                        readOnly
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+              </section>
+            )}
 
-          <section className="bg-white rounded-2xl border border-gray-200 p-6 max-w-[710px] mt-6">
-            <h2 className="text-[28px] font-semibold text-[#2B2A2A] mb-5 flex items-center gap-2">
-              <Lock className="w-6 h-6 text-[#5A7ACD]" strokeWidth={2} />
-              <span>Security</span>
-            </h2>
+            {activeSection === "security" && (
+              <section className="bg-white rounded-2xl border border-gray-200 p-6">
+                  <h2 className="text-[28px] font-semibold text-[#2B2A2A] mb-5 flex items-center gap-2">
+                    <Lock className="w-6 h-6 text-[#5A7ACD]" strokeWidth={2} />
+                    <span>Security</span>
+                  </h2>
 
-            <div className="space-y-4">
-              <button
-                type="button"
-                onClick={() => setShowChangePasswordModal(true)}
-                className="w-full text-left px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] hover:bg-gray-100 transition-colors"
-              >
-                Change Password
-              </button>
-              <button
-                type="button"
-                className="w-full text-left px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] hover:bg-gray-100 transition-colors"
-              >
-                Enable Two-Factor Authentication
-              </button>
-            </div>
-          </section>
+                  <div className="space-y-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowChangePasswordModal(true)}
+                      className="w-full text-left px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] hover:bg-gray-100 transition-colors"
+                    >
+                      Change Password
+                    </button>
+                    <button
+                      type="button"
+                      className="w-full text-left px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] hover:bg-gray-100 transition-colors"
+                    >
+                      Enable Two-Factor Authentication
+                    </button>
+                  </div>
+              </section>
+            )}
 
-          <div className="max-w-[710px] mt-6 mb-2">
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 transition-colors"
-            >
-              <LogOut className="w-4 h-4" strokeWidth={2} />
-              <span>Logout</span>
-            </button>
+            {activeSection === "notifications" && (
+              <section className="bg-white rounded-2xl border border-gray-200 p-6">
+                  <h2 className="text-[28px] font-semibold text-[#2B2A2A] mb-3 flex items-center gap-2">
+                    <Bell className="w-6 h-6 text-[#5A7ACD]" strokeWidth={2} />
+                    <span>Notifications</span>
+                  </h2>
+                  <p className="text-[14px] text-gray-600">
+                    Control how you receive updates about assignments, grades, and class activity. Notification controls
+                    will live here.
+                  </p>
+              </section>
+            )}
+
+            {activeSection === "appearance" && (
+              <section className="bg-white rounded-2xl border border-gray-200 p-6">
+                  <h2 className="text-[28px] font-semibold text-[#2B2A2A] mb-3 flex items-center gap-2">
+                    <Settings className="w-6 h-6 text-[#5A7ACD]" strokeWidth={2} />
+                    <span>Appearance</span>
+                  </h2>
+                  <p className="text-[14px] text-gray-600">
+                    Choose between light and dark modes and customize how Grade Forge looks. Theme options will be added
+                    here.
+                  </p>
+              </section>
+            )}
           </div>
         </main>
       </div>

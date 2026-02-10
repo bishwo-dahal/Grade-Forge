@@ -9,6 +9,7 @@ import {
   Users,
   ClipboardCheck
 } from "lucide-react";
+import { Link } from "react-router";
 
 interface GradeForgeSidebarProps {
   viewMode: 'student' | 'faculty';
@@ -42,12 +43,16 @@ export function GradeForgeSidebar({ viewMode, onViewChange }: GradeForgeSidebarP
     <aside className="w-60 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col">
       {/* Logo */}
       <div className="px-6 py-6">
-        <div className="flex items-center gap-2">
+        <Link
+          to="/dashboard"
+          className="flex items-center gap-2 hover:opacity-90 transition-opacity"
+          aria-label="Go to dashboard"
+        >
           <div className="w-7 h-7 bg-[#2B2A2A] rounded-lg flex items-center justify-center">
             <div className="w-4 h-4 border-2 border-white rounded"></div>
           </div>
           <span className="text-[15px] font-semibold text-[#2B2A2A]">Grade Forge</span>
-        </div>
+        </Link>
       </div>
 
       {/* Navigation */}
