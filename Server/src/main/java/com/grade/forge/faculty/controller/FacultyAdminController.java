@@ -9,7 +9,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/v1/university_admin/faculty")
@@ -50,6 +49,12 @@ public class FacultyAdminController {
     @GetMapping("/department/{department}")
     public ResponseEntity<List<FacultyResponse>> getAllFacultyByDepartment(@PathVariable String department) {
         List<FacultyResponse> faculties = facultyService.getAllFacultyByDepartment(department);
+        return new ResponseEntity<>(faculties, HttpStatus.OK);
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<List<FacultyResponse>> getAllFaculty() {
+        List<FacultyResponse> faculties = facultyService.getAllFaculty();
         return new ResponseEntity<>(faculties, HttpStatus.OK);
     }
 

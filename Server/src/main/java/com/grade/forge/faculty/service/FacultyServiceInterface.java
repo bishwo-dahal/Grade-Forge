@@ -11,6 +11,7 @@ public interface FacultyServiceInterface {
     FacultyResponse getFacultyById(Long id);
     FacultyResponse updateFaculty(Long id, Faculty faculty);
     FacultyResponse disableFaculty(Long id);
+    List<FacultyResponse> getAllFaculty();
     List<FacultyResponse> getAllFacultyByDepartment(String department);
     List<FacultyResponse> getAllActiveFaculty();
     void deleteFaculty(Long id);
