@@ -8,6 +8,8 @@ import com.grade.forge.classmgmt.repository.EnrollmentRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.faculty.entity.Faculty;
 import com.grade.forge.faculty.repository.FacultyRepository;
+import com.grade.forge.semester.entity.Semester;
+import com.grade.forge.semester.repository.SemesterRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -26,6 +28,7 @@ public class CourseService {
     private final CourseRepository courseRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final FacultyRepository facultyRepository;
+    private final SemesterRepository semesterRepository;
     private final ModelMapper modelMapper;
 
     /**
@@ -38,9 +41,15 @@ public class CourseService {
         if (courseRequestDto.getFacultyId() == null) {
             throw new ResourceNotFoundException("Faculty is required to create a course");
         }
+        if (courseRequestDto.getSemesterId() == null) {
+            throw new ResourceNotFoundException("Semester is required to create a course");
+        }
 
         Faculty faculty = facultyRepository.findById(courseRequestDto.getFacultyId())
                 .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with id: " + courseRequestDto.getFacultyId()));
+
+        Semester semester = semesterRepository.findById(courseRequestDto.getSemesterId())
+                .orElseThrow(() -> new ResourceNotFoundException("Semester not found with id: " + courseRequestDto.getSemesterId()));
 
         // Map DTO to entity
 
@@ -51,6 +60,7 @@ public class CourseService {
                 .addMappings(mapper -> mapper.skip(Course::setId));
 
         course.setFaculty(faculty);
+        course.setSemester(semester);
         // Set active by default if not provided
         if (course.getActive() == null) {
             course.setActive(true);
@@ -78,9 +88,6 @@ public class CourseService {
         if (courseRequestDto.getSection() != null) {
             course.setSection(courseRequestDto.getSection());
         }
-        if (courseRequestDto.getSemester() != null) {
-            course.setSemester(courseRequestDto.getSemester());
-        }
         if (courseRequestDto.getActive() != null) {
             course.setActive(courseRequestDto.getActive());
         }
@@ -89,6 +96,11 @@ public class CourseService {
             Faculty faculty = facultyRepository.findById(courseRequestDto.getFacultyId())
                     .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with id: " + courseRequestDto.getFacultyId()));
             course.setFaculty(faculty);
+        }
+        if (courseRequestDto.getSemesterId() != null) {
+            Semester semester = semesterRepository.findById(courseRequestDto.getSemesterId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Semester not found with id: " + courseRequestDto.getSemesterId()));
+            course.setSemester(semester);
         }
 
         Course updatedCourse = courseRepository.save(course);
@@ -157,23 +169,29 @@ public class CourseService {
      * @return the course response DTO
      */
     private CourseResponseDto mapToResponseDto(Course course) {
-        CourseResponseDto.FacultyBasicDto facultyDto = CourseResponseDto.FacultyBasicDto.builder()
-                .id(course.getFaculty().getId())
-                .name(course.getFaculty().getName())
-                .email(course.getFaculty().getEmail())
-                .department(course.getFaculty().getDepartment())
-                .qualifications(course.getFaculty().getQualifications())
-                .build();
+         CourseResponseDto.SemesterBasicDto semesterDto = CourseResponseDto.SemesterBasicDto.builder()
+                 .id(course.getSemester().getId())
+                 .name(course.getSemester().getName())
+                 .startDate(course.getSemester().getStartDate().toString())
+                 .endDate(course.getSemester().getEndDate().toString())
+                 .build();
 
-        return CourseResponseDto.builder()
-                .id(course.getId())
-                .name(course.getName())
-                .section(course.getSection())
-                .semester(course.getSemester())
-                .active(course.getActive())
-                .faculty(facultyDto)
-                .build();
-    }
+         CourseResponseDto.FacultyBasicDto facultyDto = CourseResponseDto.FacultyBasicDto.builder()
+                 .id(course.getFaculty().getId())
+                 .name(course.getFaculty().getName())
+                 .email(course.getFaculty().getEmail())
+                 .department(course.getFaculty().getDepartment())
+                 .qualifications(course.getFaculty().getQualifications())
+                 .build();
+
+         return CourseResponseDto.builder()
+                 .id(course.getId())
+                 .name(course.getName())
+                 .section(course.getSection())
+                 .active(course.getActive())
+                 .semester(semesterDto)
+                 .faculty(facultyDto)
+                 .build();
+     }
 
 }
-

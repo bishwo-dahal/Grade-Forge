@@ -11,8 +11,7 @@ public class CourseRequestDto {
 
     private String name;
     private String section;
-    private String semester;
+    private Long semesterId;
     private Boolean active;
     private Long facultyId;
 }
-

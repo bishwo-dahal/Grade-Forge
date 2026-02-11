@@ -1,6 +1,7 @@
 package com.grade.forge.classmgmt.entity;
 
 import com.grade.forge.faculty.entity.Faculty;
+import com.grade.forge.semester.entity.Semester;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -19,11 +20,19 @@ public class Course {
 
     private String name;          // CS101, Math-1
     private String section;       // A, B (optional)
-    private String semester;      // Fall 2026
+
+    private String description;   // Optional course description
+
 
     @Builder.Default
     @Column(name = "is_active", nullable = false, columnDefinition = "boolean default true")
     private Boolean active = true;
+
+
+    // Many courses belong to one semester
+    @ManyToOne
+    @JoinColumn(name = "semester_id", nullable = false)
+    private Semester semester;
 
     @ManyToOne
     @JoinColumn(name = "faculty_id", nullable = false)
@@ -31,4 +40,3 @@ public class Course {
 
 
 }
-
