@@ -1,5 +1,7 @@
 package com.grade.forge.faculty.controller;
 
+import com.grade.forge.faculty.dto.FacultyCreateRequest;
+import com.grade.forge.faculty.dto.FacultyResponse;
 import com.grade.forge.faculty.entity.Faculty;
 import com.grade.forge.faculty.service.FacultyService;
 import org.springframework.http.HttpStatus;
@@ -21,39 +23,39 @@ public class FacultyAdminController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<Faculty> createFaculty(@RequestBody Faculty faculty) {
-        Faculty createdFaculty = facultyService.createFaculty(faculty);
+    public ResponseEntity<FacultyResponse> createFaculty(@RequestBody FacultyCreateRequest facultyCreateRequest) {
+        FacultyResponse createdFaculty = facultyService.createFaculty(facultyCreateRequest);
         return new ResponseEntity<>(createdFaculty, HttpStatus.CREATED);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Optional<Faculty>> getFacultyById(@PathVariable Long id) {
-        Optional<Faculty> faculty = facultyService.getFacultyById(id);
+    public ResponseEntity<FacultyResponse> getFacultyById(@PathVariable Long id) {
+        FacultyResponse faculty = facultyService.getFacultyById(id);
         return new ResponseEntity<>(faculty, HttpStatus.OK);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Faculty> updateFaculty(@PathVariable Long id, @RequestBody Faculty faculty) {
-        Faculty updatedFaculty = facultyService.updateFaculty(id, faculty);
+    public ResponseEntity<FacultyResponse> updateFaculty(@PathVariable Long id, @RequestBody Faculty faculty) {
+        FacultyResponse updatedFaculty = facultyService.updateFaculty(id, faculty);
         return new ResponseEntity<>(updatedFaculty, HttpStatus.OK);
     }
 
     @PatchMapping("/disable/{id}")
-    public ResponseEntity<Faculty> disableFaculty(@PathVariable Long id) {
-        Faculty disabledFaculty = facultyService.disableFaculty(id);
+    public ResponseEntity<FacultyResponse> disableFaculty(@PathVariable Long id) {
+        FacultyResponse disabledFaculty = facultyService.disableFaculty(id);
         return new ResponseEntity<>(disabledFaculty, HttpStatus.OK);
     }
 
 
     @GetMapping("/department/{department}")
-    public ResponseEntity<List<Faculty>> getAllFacultyByDepartment(@PathVariable String department) {
-        List<Faculty> faculties = facultyService.getAllFacultyByDepartment(department);
+    public ResponseEntity<List<FacultyResponse>> getAllFacultyByDepartment(@PathVariable String department) {
+        List<FacultyResponse> faculties = facultyService.getAllFacultyByDepartment(department);
         return new ResponseEntity<>(faculties, HttpStatus.OK);
     }
 
     @GetMapping("/active")
-    public ResponseEntity<List<Faculty>> getAllActiveFaculty() {
-        List<Faculty> faculties = facultyService.getAllActiveFaculty();
+    public ResponseEntity<List<FacultyResponse>> getAllActiveFaculty() {
+        List<FacultyResponse> faculties = facultyService.getAllActiveFaculty();
         return new ResponseEntity<>(faculties, HttpStatus.OK);
     }
 
