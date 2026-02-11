@@ -12,7 +12,6 @@ import lombok.Setter;
 @NoArgsConstructor
 public class FacultyCreateRequest {
 
-
     private String name;
     private String email;
     private String department;

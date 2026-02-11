@@ -48,7 +48,7 @@ public class ForgeApplication {
 					passwordEncoder,
 					"Faculty Test",
 					"faculty@gmail.com",
-					"faculty123",
+					"faculty",
 					Role.FACULTY
 			);
 
@@ -57,7 +57,7 @@ public class ForgeApplication {
 					passwordEncoder,
 					"Student Test",
 					"student@gmail.com",
-					"student123",
+					"student",
 					Role.STUDENT
 			);
 		};
