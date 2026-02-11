@@ -30,6 +30,15 @@ public class AdminCourseController {
     }
 
     /**
+     * Get courses by faculty id
+     */
+    @GetMapping("/user/{facultyId}")
+    public ResponseEntity<List<CourseResponseDto>> getCoursesByFaculty(@PathVariable Long facultyId) {
+        List<CourseResponseDto> courses = courseService.getCoursesByFacultyId(facultyId);
+        return new ResponseEntity<>(courses, HttpStatus.OK);
+    }
+
+    /**
      * Disable a course (soft delete)
      * @param id the course ID
      * @return the disabled course
@@ -50,6 +59,8 @@ public class AdminCourseController {
         courseService.deleteCourse(id);
         return new ResponseEntity<>("Course deleted successfully", HttpStatus.OK);
     }
+
+
 
 
 

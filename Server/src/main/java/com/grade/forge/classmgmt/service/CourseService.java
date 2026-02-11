@@ -220,6 +220,15 @@ public class CourseService {
     }
 
     /**
+     * Get all courses by faculty id (admin use)
+     */
+    public List<CourseResponseDto> getCoursesByFacultyId(Long facultyId) {
+        return courseRepository.findByFaculty_Id(facultyId).stream()
+                .map(this::mapToResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Map Course entity to CourseResponseDto
      * @param course the course entity
      * @return the course response DTO
