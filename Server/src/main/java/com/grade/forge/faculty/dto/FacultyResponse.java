@@ -10,16 +10,17 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class FacultyCreateRequest {
-
+public class FacultyResponse {
+    private Long facultyId;
     private String name;
-    private String email;
     private String department;
     private String qualifications;
     private String phoneNumber;
     private String officeLocation;
-    private String password;
+    private Boolean active;
 
-
-
+    // login info (safe only)
+    private Long userId;
+    private String email;
+    private String role;
 }

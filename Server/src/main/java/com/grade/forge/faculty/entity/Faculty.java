@@ -48,6 +48,9 @@ public class Faculty {
     @OneToMany(mappedBy = "faculty", cascade = CascadeType.ALL)
     private List<Course> courses;
 
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "user_id", nullable = false)
+    private Users user;
 
 }
 

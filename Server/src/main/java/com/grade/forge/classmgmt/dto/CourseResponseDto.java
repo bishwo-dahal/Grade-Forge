@@ -11,10 +11,27 @@ public class CourseResponseDto {
 
     private Long id;
     private String name;
+    private String courseCode;
     private String section;
-    private String semester;
+    private String description;
+    private String imageUrl;
+    private String canvasCourseId;
     private Boolean active;
+    private Boolean isPublished;
+    private SemesterBasicDto semester;
     private FacultyBasicDto faculty;
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class SemesterBasicDto {
+        private Long id;
+        private String name;
+        private String startDate;
+        private String endDate;
+    }
 
     @Getter
     @Setter
@@ -29,4 +46,3 @@ public class CourseResponseDto {
         private String qualifications;
     }
 }
-

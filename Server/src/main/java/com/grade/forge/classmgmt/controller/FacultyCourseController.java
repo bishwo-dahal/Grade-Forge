@@ -7,9 +7,7 @@ import com.grade.forge.configuration.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,9 +26,8 @@ public class FacultyCourseController {
      * @return the created course
      */
     @PostMapping("/create")
-    public ResponseEntity<CourseResponseDto> createCourse(@RequestBody CourseRequestDto courseRequestDto) {
-
-        CourseResponseDto createdCourse = courseService.createCourse(courseRequestDto);
+    public ResponseEntity<CourseResponseDto> createCourse(@AuthenticationPrincipal CustomUserDetails customUserDetails, @RequestBody CourseRequestDto courseRequestDto) {
+        CourseResponseDto createdCourse = courseService.createCourse(customUserDetails.getUsername(), courseRequestDto);
         return new ResponseEntity<>(createdCourse, HttpStatus.CREATED);
     }
 
@@ -45,14 +42,14 @@ public class FacultyCourseController {
         return new ResponseEntity<>(course, HttpStatus.OK);
     }
 
+
+
     /**
-     * Get all courses
-     * @return list of all courses
+     * Get all courses for the authenticated faculty user
      */
     @GetMapping
-    public ResponseEntity<List<CourseResponseDto>> getAllCourses(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
-        System.out.println(customUserDetails.getUsername());
-        List<CourseResponseDto> courses = courseService.getAllCourses();
+    public ResponseEntity<List<CourseResponseDto>> getCoursesForCurrentUser(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+        List<CourseResponseDto> courses = courseService.getCoursesByUserEmail(customUserDetails.getUsername());
         return new ResponseEntity<>(courses, HttpStatus.OK);
     }
 
@@ -101,4 +98,3 @@ public class FacultyCourseController {
     }
 
 }
-

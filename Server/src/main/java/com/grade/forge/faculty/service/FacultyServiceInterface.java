@@ -1,19 +1,19 @@
 package com.grade.forge.faculty.service;
 
-import com.grade.forge.configuration.security.CustomUserDetails;
+import com.grade.forge.faculty.dto.FacultyCreateRequest;
+import com.grade.forge.faculty.dto.FacultyResponse;
 import com.grade.forge.faculty.entity.Faculty;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface FacultyServiceInterface {
-    Faculty createFaculty(Faculty faculty);
-    Optional<Faculty> getFacultyById(Long id);
-    Faculty updateFaculty(Long id, Faculty faculty);
-    Faculty disableFaculty(Long id);
-    List<Faculty> getAllFacultyByDepartment(String department);
-    List<Faculty> getAllActiveFaculty();
+    FacultyResponse createFaculty(FacultyCreateRequest facultyCreateRequest);
+    FacultyResponse getFacultyById(Long id);
+    FacultyResponse updateFaculty(Long id, Faculty faculty);
+    FacultyResponse disableFaculty(Long id);
+    List<FacultyResponse> getAllFaculty();
+    List<FacultyResponse> getAllFacultyByDepartment(String department);
+    List<FacultyResponse> getAllActiveFaculty();
     void deleteFaculty(Long id);
 }
 
