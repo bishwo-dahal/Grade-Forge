@@ -11,8 +11,13 @@ public class CourseResponseDto {
 
     private Long id;
     private String name;
+    private String courseCode;
     private String section;
+    private String description;
+    private String imageUrl;
+    private String canvasCourseId;
     private Boolean active;
+    private Boolean isPublished;
     private SemesterBasicDto semester;
     private FacultyBasicDto faculty;
 

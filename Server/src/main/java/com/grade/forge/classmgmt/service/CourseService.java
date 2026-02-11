@@ -10,9 +10,10 @@ import com.grade.forge.faculty.entity.Faculty;
 import com.grade.forge.faculty.repository.FacultyRepository;
 import com.grade.forge.semester.entity.Semester;
 import com.grade.forge.semester.repository.SemesterRepository;
+import com.grade.forge.user.entity.Users;
+import com.grade.forge.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,41 +30,46 @@ public class CourseService {
     private final EnrollmentRepository enrollmentRepository;
     private final FacultyRepository facultyRepository;
     private final SemesterRepository semesterRepository;
-    private final ModelMapper modelMapper;
+    private final UserRepository userRepository;
 
     /**
-     * Create a new course
-     * @param courseRequestDto the course request DTO
-     * @return the created course response DTO
+
+    /**
+     * Create a new course using faculty resolved from authenticated email
      */
-    public CourseResponseDto createCourse(CourseRequestDto courseRequestDto) {
-        // Validate that faculty exists
-        if (courseRequestDto.getFacultyId() == null) {
-            throw new ResourceNotFoundException("Faculty is required to create a course");
-        }
+    public CourseResponseDto createCourse(String email, CourseRequestDto courseRequestDto) {
         if (courseRequestDto.getSemesterId() == null) {
             throw new ResourceNotFoundException("Semester is required to create a course");
         }
 
-        Faculty faculty = facultyRepository.findById(courseRequestDto.getFacultyId())
-                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with id: " + courseRequestDto.getFacultyId()));
+        Faculty faculty = facultyRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found for email: " + email));
+        log.info(faculty.getDepartment()+ " "+ faculty.getEmail() + " " + faculty.getName());
+        return createCourseInternal(courseRequestDto, faculty);
+    }
 
+    private CourseResponseDto createCourseInternal(CourseRequestDto courseRequestDto, Faculty faculty) {
         Semester semester = semesterRepository.findById(courseRequestDto.getSemesterId())
                 .orElseThrow(() -> new ResourceNotFoundException("Semester not found with id: " + courseRequestDto.getSemesterId()));
 
-        // Map DTO to entity
-
-        Course course = modelMapper.map(courseRequestDto, Course.class);
-
-//        Have to include this because mapping from DTO to entity will try to set the id which is auto generated and always 1 and will cause an error. So we skip setting the id.
-        modelMapper.typeMap(CourseRequestDto.class, Course.class)
-                .addMappings(mapper -> mapper.skip(Course::setId));
+        // Map DTO to entity manually to avoid ModelMapper conflicts
+        Course course = new Course();
+        course.setName(courseRequestDto.getName());
+        course.setCourseCode(courseRequestDto.getCourseCode());
+        course.setSection(courseRequestDto.getSection());
+        course.setDescription(courseRequestDto.getDescription());
+        course.setImageUrl(courseRequestDto.getImageUrl());
+        course.setCanvasCourseId(courseRequestDto.getCanvasCourseId());
+        course.setIsPublished(courseRequestDto.getIsPublished());
 
         course.setFaculty(faculty);
         course.setSemester(semester);
         // Set active by default if not provided
         if (course.getActive() == null) {
             course.setActive(true);
+        }
+        if (course.getIsPublished() == null) {
+            course.setIsPublished(false);
         }
 
         Course savedCourse = courseRepository.save(course);
@@ -85,11 +91,26 @@ public class CourseService {
         if (courseRequestDto.getName() != null) {
             course.setName(courseRequestDto.getName());
         }
+        if (courseRequestDto.getCourseCode() != null) {
+            course.setCourseCode(courseRequestDto.getCourseCode());
+        }
         if (courseRequestDto.getSection() != null) {
             course.setSection(courseRequestDto.getSection());
         }
+        if (courseRequestDto.getDescription() != null) {
+            course.setDescription(courseRequestDto.getDescription());
+        }
+        if (courseRequestDto.getImageUrl() != null) {
+            course.setImageUrl(courseRequestDto.getImageUrl());
+        }
+        if (courseRequestDto.getCanvasCourseId() != null) {
+            course.setCanvasCourseId(courseRequestDto.getCanvasCourseId());
+        }
         if (courseRequestDto.getActive() != null) {
             course.setActive(courseRequestDto.getActive());
+        }
+        if (courseRequestDto.getIsPublished() != null) {
+            course.setIsPublished(courseRequestDto.getIsPublished());
         }
         if (courseRequestDto.getFacultyId() != null) {
             // Validate that the new faculty exists
@@ -164,6 +185,41 @@ public class CourseService {
     }
 
     /**
+     * Get all courses for a faculty user id
+     * @param userId the user id associated with a faculty
+     * @return list of course response DTOs
+     */
+    public List<CourseResponseDto> getCoursesByUserId(Long userId) {
+        Faculty faculty = facultyRepository.findByUser_Id(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found for user id: " + userId));
+
+        return courseRepository.findByFaculty_Id(faculty.getId()).stream()
+                .map(this::mapToResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get all courses for a faculty email
+     * @param email the authenticated user's email
+     * @return list of course response DTOs
+     */
+    public List<CourseResponseDto> getCoursesByUserEmail(String email) {
+        Faculty faculty = facultyRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found for email: " + email));
+
+        log.info(faculty.getName());
+        log.info(faculty.getEmail());
+
+     Users user = userRepository.findByEmail(email).orElseThrow(() -> new ResourceNotFoundException("User not found for email: " + email));
+      log.info(String.valueOf(user.getId()));
+
+
+        return courseRepository.findByFaculty_Id(faculty.getId()).stream()
+                .map(this::mapToResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Map Course entity to CourseResponseDto
      * @param course the course entity
      * @return the course response DTO
@@ -187,8 +243,13 @@ public class CourseService {
          return CourseResponseDto.builder()
                  .id(course.getId())
                  .name(course.getName())
+                 .courseCode(course.getCourseCode())
                  .section(course.getSection())
+                 .description(course.getDescription())
+                 .imageUrl(course.getImageUrl())
+                 .canvasCourseId(course.getCanvasCourseId())
                  .active(course.getActive())
+                 .isPublished(course.getIsPublished())
                  .semester(semesterDto)
                  .faculty(facultyDto)
                  .build();
