@@ -1,4 +1,4 @@
-package com.grade.forge.classmgmt.dto;
+package com.grade.forge.coursemgmt.dto;
 
 import lombok.*;
 

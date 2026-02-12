@@ -1,6 +1,6 @@
-package com.grade.forge.classmgmt.controller;
+package com.grade.forge.coursemgmt.controller;
 
-import com.grade.forge.classmgmt.service.CourseService;
+import com.grade.forge.coursemgmt.service.CourseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;

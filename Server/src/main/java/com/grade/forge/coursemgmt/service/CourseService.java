@@ -1,10 +1,10 @@
-package com.grade.forge.classmgmt.service;
+package com.grade.forge.coursemgmt.service;
 
-import com.grade.forge.classmgmt.dto.CourseRequestDto;
-import com.grade.forge.classmgmt.dto.CourseResponseDto;
-import com.grade.forge.classmgmt.entity.Course;
-import com.grade.forge.classmgmt.repository.CourseRepository;
-import com.grade.forge.classmgmt.repository.EnrollmentRepository;
+import com.grade.forge.coursemgmt.dto.CourseRequestDto;
+import com.grade.forge.coursemgmt.dto.CourseResponseDto;
+import com.grade.forge.coursemgmt.entity.Course;
+import com.grade.forge.coursemgmt.repository.CourseRepository;
+import com.grade.forge.coursemgmt.repository.EnrollmentRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.faculty.entity.Faculty;
 import com.grade.forge.faculty.repository.FacultyRepository;

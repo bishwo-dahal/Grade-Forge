@@ -1,9 +1,12 @@
-package com.grade.forge.classmgmt.entity;
+package com.grade.forge.coursemgmt.entity;
 
+import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.faculty.entity.Faculty;
 import com.grade.forge.semester.entity.Semester;
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.util.List;
 
 @Entity
 @Table(name = "courses")
@@ -53,5 +56,8 @@ public class Course {
     @JoinColumn(name = "faculty_id", nullable = false)
     private Faculty faculty;
 
+
+    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Assignment> assignment;
 
 }

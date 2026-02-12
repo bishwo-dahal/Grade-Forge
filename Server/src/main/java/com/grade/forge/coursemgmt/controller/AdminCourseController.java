@@ -1,8 +1,8 @@
-package com.grade.forge.classmgmt.controller;
+package com.grade.forge.coursemgmt.controller;
 
 
-import com.grade.forge.classmgmt.dto.CourseResponseDto;
-import com.grade.forge.classmgmt.service.CourseService;
+import com.grade.forge.coursemgmt.dto.CourseResponseDto;
+import com.grade.forge.coursemgmt.service.CourseService;
 import com.grade.forge.configuration.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

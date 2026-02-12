@@ -1,4 +1,4 @@
-package com.grade.forge.classmgmt.entity;
+package com.grade.forge.coursemgmt.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
