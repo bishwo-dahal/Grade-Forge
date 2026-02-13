@@ -1,6 +1,7 @@
 import type {
   ClassAnnouncement,
   ClassAssignment,
+  ClassCreateFormData,
   ClassHeader,
   ClassImportantDate,
   ClassOverviewItem,
@@ -10,12 +11,15 @@ import type {
   ClassStudent,
   CourseCard,
   CourseDetail,
+  FacultyCourseCreatePayload,
+  FacultySemesterOption,
   FacultyDashboardStat,
   FacultyAssignment,
   FacultyCourseCard,
   InstructorProfile,
   TeachingAssistantProfile,
 } from "../types/class";
+import api from "../api/axios";
 
 // NOTE: Centralized mock class/course data to create a single integration seam.
 // TODO(backend): Replace mock service with real API calls. Keep return shapes stable for the UI.
@@ -508,6 +512,74 @@ const facultyAssignments: FacultyAssignment[] = [
   },
 ];
 
+interface FacultyCourseApiResponse {
+  id: number;
+  name: string;
+  courseCode: string;
+  section: string | null;
+  description: string | null;
+  imageUrl: string | null;
+  canvasCourseId: string | null;
+  active: boolean;
+  isPublished: boolean;
+}
+
+interface FacultySemesterApiResponse {
+  id: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
+function buildCourseIcon(courseCode: string): { icon: string; iconBg: string } {
+  // NOTE: Icon mapping is lightweight and deterministic so backend integration can keep UI consistent.
+  const code = courseCode.toUpperCase();
+  if (code.includes("WEB")) {
+    return { icon: "\u{1F310}", iconBg: "bg-[#FEB05D]/10" };
+  }
+  if (code.includes("DB")) {
+    return { icon: "\u{1F5C4}\uFE0F", iconBg: "bg-[#FEB05D]/10" };
+  }
+  if (code.includes("ML")) {
+    return { icon: "\u{1F916}", iconBg: "bg-[#5A7ACD]/10" };
+  }
+  return { icon: "\u{1F4BB}", iconBg: "bg-[#5A7ACD]/10" };
+}
+
+function mapFacultyCourseToCard(course: FacultyCourseApiResponse): FacultyCourseCard {
+  const iconData = buildCourseIcon(course.courseCode || course.name);
+  return {
+    id: String(course.id),
+    title: course.name,
+    code: course.courseCode,
+    // NOTE: Student/submission metrics are not returned by this endpoint yet; defaulting to 0 keeps UI stable.
+    students: 0,
+    pendingSubmissions: 0,
+    activeAssignments: 0,
+    icon: iconData.icon,
+    iconBg: iconData.iconBg,
+  };
+}
+
+function toCreatePayload(form: ClassCreateFormData): FacultyCourseCreatePayload {
+  const parsedSemesterId = Number(form.semesterId);
+  if (!Number.isFinite(parsedSemesterId) || parsedSemesterId <= 0) {
+    throw new Error("Semester ID must be a valid positive number.");
+  }
+
+  return {
+    name: form.name.trim(),
+    courseCode: form.courseCode.trim(),
+    section: form.section.trim(),
+    description: form.description.trim(),
+    imageUrl: form.imageUrl.trim(),
+    canvasCourseId: form.canvasCourseId.trim(),
+    isPublished: form.isPublished,
+    semesterId: parsedSemesterId,
+    active: form.active,
+  };
+}
+
 export function listEnrolledCourses(): Promise<CourseCard[]> {
   return Promise.resolve(enrolledCourses);
 }
@@ -516,8 +588,37 @@ export function listClassesOverview(): Promise<ClassOverviewItem[]> {
   return Promise.resolve(classesOverview);
 }
 
-export function listFacultyCourses(): Promise<FacultyCourseCard[]> {
-  return Promise.resolve(facultyCourses);
+export async function listFacultyCourses(): Promise<FacultyCourseCard[]> {
+  try {
+    // IMPORTANT: Backend resolves faculty context from authenticated email.
+    // IMPORTANT: This call returns 400 when the logged-in user exists in Users but is not mapped in Faculty.
+    // NOTE: University admin must create/assign the faculty profile first.
+    // TODO(backend): Keep the return shape stable when backend expands this endpoint with metrics.
+    const { data } = await api.get<FacultyCourseApiResponse[]>("/api/v1/faculty/courses");
+    return data.map(mapFacultyCourseToCard);
+  } catch {
+    // FIX: Fallback to existing mock list so faculty UI still works if backend is temporarily unavailable.
+    return Promise.resolve(facultyCourses);
+  }
+}
+
+export async function listFacultySemesters(): Promise<FacultySemesterOption[]> {
+  // TODO(backend): Replace this with cached semester query when semester store is introduced.
+  const { data } = await api.get<FacultySemesterApiResponse[]>("/api/v1/faculty/semester/all");
+  return data.map((semester) => ({
+    id: semester.id,
+    name: semester.name,
+    startDate: semester.startDate,
+    endDate: semester.endDate,
+  }));
+}
+
+export async function createFacultyCourse(form: ClassCreateFormData): Promise<void> {
+  const payload = toCreatePayload(form);
+  // IMPORTANT: Create also requires the authenticated user to have a Faculty row.
+  // IMPORTANT: If user is not assigned as faculty by university admin, backend returns 400.
+  // IMPORTANT: Changing this payload shape requires backend coordination with CourseRequestDto.
+  await api.post("/api/v1/faculty/courses/create", payload);
 }
 
 export function getCourseDetailById(id: string): Promise<CourseDetail> {

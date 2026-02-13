@@ -15,9 +15,10 @@ interface FacultyMainViewProps {
 
 interface FacultyMainProps {
   onOpenCreateClass?: () => void;
+  refreshSignal?: number;
 }
 
-export function FacultyMain({ onOpenCreateClass }: FacultyMainProps) {
+export function FacultyMain({ onOpenCreateClass, refreshSignal = 0 }: FacultyMainProps) {
   // NOTE: Faculty dashboard keeps independent workflow data while shell/topbar is centralized.
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [courses, setCourses] = useState<FacultyCourseCard[]>([]);
@@ -25,7 +26,8 @@ export function FacultyMain({ onOpenCreateClass }: FacultyMainProps) {
   useEffect(() => {
     getFacultyProfile().then(setProfile);
     listFacultyCourses().then(setCourses);
-  }, []);
+    // NOTE: Refresh signal lets the Add Class modal trigger a new list pull after create succeeds.
+  }, [refreshSignal]);
 
   return <FacultyMainView profile={profile} courses={courses} onOpenCreateClass={onOpenCreateClass} />;
 }

@@ -9,6 +9,8 @@ import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import { clearAuthenticated, getAuthenticatedRole, getAuthenticatedUser } from "../auth";
 import type { ClassCreateFormData } from "../../types/class";
+import type { FacultySemesterOption } from "../../types/class";
+import { createFacultyCourse, listFacultySemesters } from "../../services/classService";
 
 const EMPTY_CLASS_FORM: ClassCreateFormData = {
   name: "",
@@ -30,6 +32,11 @@ export function GradeForgeDashboard() {
   const [showCreateClassModal, setShowCreateClassModal] = useState(false);
   // NOTE: Form state stays in dashboard container so modal remains presentation-only and backend wiring can be added safely later.
   const [classForm, setClassForm] = useState<ClassCreateFormData>(EMPTY_CLASS_FORM);
+  const [facultySemesters, setFacultySemesters] = useState<FacultySemesterOption[]>([]);
+  const [isLoadingSemesters, setIsLoadingSemesters] = useState(false);
+  const [isCreatingClass, setIsCreatingClass] = useState(false);
+  const [createClassError, setCreateClassError] = useState<string | null>(null);
+  const [facultyRefreshSignal, setFacultyRefreshSignal] = useState(0);
 
   if (role === "UNIVERSITY_ADMIN") {
     // NOTE: University admins should never render student/faculty dashboard UI.
@@ -61,16 +68,42 @@ export function GradeForgeDashboard() {
 
   const handleOpenCreateClass = () => {
     setClassForm(EMPTY_CLASS_FORM);
+    setCreateClassError(null);
     setShowCreateClassModal(true);
+    setIsLoadingSemesters(true);
+    // NOTE: Modal semester options come from backend so the form can submit valid semester IDs.
+    listFacultySemesters()
+      .then(setFacultySemesters)
+      .catch(() => setCreateClassError("Unable to load semesters. Please try again."))
+      .finally(() => setIsLoadingSemesters(false));
   };
 
   const handleCloseCreateClass = () => {
     setShowCreateClassModal(false);
+    setCreateClassError(null);
   };
 
-  const handleCreateClassPlaceholderSubmit = () => {
-    // TODO(backend): Replace this placeholder submit with a call to the faculty course create API.
-    setShowCreateClassModal(false);
+  const handleCreateClassSubmit = async () => {
+    if (!classForm.name.trim() || !classForm.courseCode.trim() || !classForm.semesterId.trim()) {
+      setCreateClassError("Class name, course code, and semester are required.");
+      return;
+    }
+
+    setIsCreatingClass(true);
+    setCreateClassError(null);
+
+    try {
+      await createFacultyCourse(classForm);
+      setShowCreateClassModal(false);
+      // NOTE: Incrementing refresh signal triggers faculty dashboard list reload through container useEffect.
+      setFacultyRefreshSignal((value) => value + 1);
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message ? error.message : "Unable to create class. Please verify the fields and try again.";
+      setCreateClassError(message);
+    } finally {
+      setIsCreatingClass(false);
+    }
   };
 
   const topBar = (
@@ -92,7 +125,13 @@ export function GradeForgeDashboard() {
         roleView={viewMode}
         topBar={topBar}
         // NOTE: Main workflow content stays split by role to avoid mixing student and faculty business flows.
-        mainContent={viewMode === "student" ? <GradeForgeMain /> : <FacultyMain onOpenCreateClass={handleOpenCreateClass} />}
+        mainContent={
+          viewMode === "student" ? (
+            <GradeForgeMain />
+          ) : (
+            <FacultyMain onOpenCreateClass={handleOpenCreateClass} refreshSignal={facultyRefreshSignal} />
+          )
+        }
         // NOTE: Right panel remains role-specific since data and widgets are fundamentally different.
         rightPanel={viewMode === "student" ? <GradeForgeRightPanel /> : <FacultyRightPanel />}
       />
@@ -116,6 +155,11 @@ export function GradeForgeDashboard() {
             </div>
 
             <div className="px-6 py-5 space-y-4">
+              {createClassError && (
+                <p className="text-[13px] text-[#C23A42] bg-[#FDEBEC] border border-[#F3CDD1] rounded-xl px-3 py-2">
+                  {createClassError}
+                </p>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="class-name" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
@@ -158,15 +202,24 @@ export function GradeForgeDashboard() {
                 </div>
                 <div>
                   <label htmlFor="class-semester-id" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                    Semester ID
+                    Semester
                   </label>
-                  <input
+                  <select
                     id="class-semester-id"
                     value={classForm.semesterId}
                     onChange={(event) => setClassForm((prev) => ({ ...prev, semesterId: event.target.value }))}
-                    placeholder="e.g., 1"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                  />
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    disabled={isLoadingSemesters}
+                  >
+                    <option value="">
+                      {isLoadingSemesters ? "Loading semesters..." : "Select semester"}
+                    </option>
+                    {facultySemesters.map((semester) => (
+                      <option key={semester.id} value={String(semester.id)}>
+                        {semester.name} ({semester.startDate} - {semester.endDate})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -241,15 +294,17 @@ export function GradeForgeDashboard() {
                 type="button"
                 onClick={handleCloseCreateClass}
                 className="px-5 py-2.5 rounded-xl border border-gray-300 bg-white text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 transition-colors"
+                disabled={isCreatingClass}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={handleCreateClassPlaceholderSubmit}
-                className="px-5 py-2.5 rounded-xl bg-[#5A7ACD] text-white text-[14px] font-semibold hover:bg-[#4a6abd] transition-colors"
+                onClick={handleCreateClassSubmit}
+                className="px-5 py-2.5 rounded-xl bg-[#5A7ACD] text-white text-[14px] font-semibold hover:bg-[#4a6abd] transition-colors disabled:opacity-60"
+                disabled={isCreatingClass}
               >
-                Create Class
+                {isCreatingClass ? "Creating..." : "Create Class"}
               </button>
             </div>
           </div>

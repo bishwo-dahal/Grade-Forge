@@ -55,6 +55,27 @@ export interface ClassCreateFormData {
   active: boolean;
 }
 
+// NOTE: This payload mirrors the faculty course create contract and is used by service integration.
+export interface FacultyCourseCreatePayload {
+  name: string;
+  courseCode: string;
+  section: string;
+  description: string;
+  imageUrl: string;
+  canvasCourseId: string;
+  isPublished: boolean;
+  semesterId: number;
+  active: boolean;
+}
+
+// NOTE: UI-driven semester type for the Add Class modal selector.
+export interface FacultySemesterOption {
+  id: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
 export interface CourseDetail {
   id: string | number;
   title: string;
