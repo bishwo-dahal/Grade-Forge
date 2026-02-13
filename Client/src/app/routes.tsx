@@ -11,6 +11,7 @@ import SignInPage from "./components/SignInPage";
 import LandingPage from "./components/LandingPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { SettingsPage } from "./components/SettingsPage";
+import { UniversityAdminDashboard } from "./components/UniversityAdminDashboard";
 
 export const router = createBrowserRouter([
   {
@@ -30,6 +31,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <SettingsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/university-admin",
+    element: (
+      <ProtectedRoute>
+        <UniversityAdminDashboard />
       </ProtectedRoute>
     ),
   },
