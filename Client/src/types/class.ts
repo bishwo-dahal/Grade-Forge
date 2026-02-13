@@ -42,6 +42,19 @@ export interface FacultyCourseCard {
   iconBg: string;
 }
 
+// NOTE: UI-driven create-class form shape mirrors current backend CourseRequestDto fields used by the faculty workflow.
+export interface ClassCreateFormData {
+  name: string;
+  courseCode: string;
+  section: string;
+  description: string;
+  imageUrl: string;
+  canvasCourseId: string;
+  semesterId: string;
+  isPublished: boolean;
+  active: boolean;
+}
+
 export interface CourseDetail {
   id: string | number;
   title: string;

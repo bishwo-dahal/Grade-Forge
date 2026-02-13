@@ -10,9 +10,14 @@ interface FacultyMainViewProps {
   // NOTE: View props keep this workflow component presentation-only and API-source agnostic.
   profile: UserProfile | null;
   courses: FacultyCourseCard[];
+  onOpenCreateClass?: () => void;
 }
 
-export function FacultyMain() {
+interface FacultyMainProps {
+  onOpenCreateClass?: () => void;
+}
+
+export function FacultyMain({ onOpenCreateClass }: FacultyMainProps) {
   // NOTE: Faculty dashboard keeps independent workflow data while shell/topbar is centralized.
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [courses, setCourses] = useState<FacultyCourseCard[]>([]);
@@ -22,10 +27,10 @@ export function FacultyMain() {
     listFacultyCourses().then(setCourses);
   }, []);
 
-  return <FacultyMainView profile={profile} courses={courses} />;
+  return <FacultyMainView profile={profile} courses={courses} onOpenCreateClass={onOpenCreateClass} />;
 }
 
-function FacultyMainView({ profile, courses }: FacultyMainViewProps) {
+function FacultyMainView({ profile, courses, onOpenCreateClass }: FacultyMainViewProps) {
   const loggedInUser = getAuthenticatedUser();
   const displayName = loggedInUser?.name ?? profile?.name ?? "Dr. Sarah Miller";
   const firstName = displayName.split(" ")[0] || displayName;
@@ -43,21 +48,35 @@ function FacultyMainView({ profile, courses }: FacultyMainViewProps) {
           </p>
         </div>
 
-        <TeachingCourses courses={courses} />
+        <TeachingCourses courses={courses} onOpenCreateClass={onOpenCreateClass} />
       </div>
     </main>
   );
 }
 
-function TeachingCourses({ courses }: { courses: FacultyCourseCard[] }) {
+function TeachingCourses({
+  courses,
+  onOpenCreateClass,
+}: {
+  courses: FacultyCourseCard[];
+  onOpenCreateClass?: () => void;
+}) {
   // NOTE: Keeps faculty-specific course management flow separate from student dashboard workflow.
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-lg font-semibold text-[#2B2A2A]">Teaching This Semester</h2>
-        <button className="text-[13px] text-[#5A7ACD] hover:text-[#4a6abd] font-medium">
-          View All Courses &rarr;
-        </button>
+        <div className="flex items-center gap-3">
+          {/* NOTE: Add Class action moved next to View All per UX request; modal state remains in dashboard container. */}
+          <button
+            type="button"
+            onClick={onOpenCreateClass}
+            className="px-3 py-2 rounded-lg bg-[#2B2A2A] hover:bg-[#3a3939] text-white text-[13px] font-medium transition-colors"
+          >
+            Add Class
+          </button>
+          <button className="text-[13px] text-[#5A7ACD] hover:text-[#4a6abd] font-medium">View All Courses &rarr;</button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">

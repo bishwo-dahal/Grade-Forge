@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Navigate, useNavigate } from "react-router";
+import { X } from "lucide-react";
 import { GradeForgeMain } from "./GradeForgeMain";
 import { GradeForgeRightPanel } from "./GradeForgeRightPanel";
 import { FacultyMain } from "./FacultyMain";
@@ -6,12 +8,28 @@ import { FacultyRightPanel } from "./FacultyRightPanel";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import { clearAuthenticated, getAuthenticatedRole, getAuthenticatedUser } from "../auth";
+import type { ClassCreateFormData } from "../../types/class";
+
+const EMPTY_CLASS_FORM: ClassCreateFormData = {
+  name: "",
+  courseCode: "",
+  section: "",
+  description: "",
+  imageUrl: "",
+  canvasCourseId: "",
+  semesterId: "",
+  isPublished: false,
+  active: true,
+};
 
 export function GradeForgeDashboard() {
   // NOTE: This component is now the only dashboard shell entrypoint; legacy GradeFlowDashboard was removed as dead code.
   const navigate = useNavigate();
   const role = getAuthenticatedRole();
   const loggedInUser = getAuthenticatedUser();
+  const [showCreateClassModal, setShowCreateClassModal] = useState(false);
+  // NOTE: Form state stays in dashboard container so modal remains presentation-only and backend wiring can be added safely later.
+  const [classForm, setClassForm] = useState<ClassCreateFormData>(EMPTY_CLASS_FORM);
 
   if (role === "UNIVERSITY_ADMIN") {
     // NOTE: University admins should never render student/faculty dashboard UI.
@@ -41,12 +59,26 @@ export function GradeForgeDashboard() {
     navigate("/signin", { replace: true });
   };
 
+  const handleOpenCreateClass = () => {
+    setClassForm(EMPTY_CLASS_FORM);
+    setShowCreateClassModal(true);
+  };
+
+  const handleCloseCreateClass = () => {
+    setShowCreateClassModal(false);
+  };
+
+  const handleCreateClassPlaceholderSubmit = () => {
+    // TODO(backend): Replace this placeholder submit with a call to the faculty course create API.
+    setShowCreateClassModal(false);
+  };
+
   const topBar = (
     <AuthTopBar
       roleView={viewMode}
       profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
       searchPlaceholder={viewMode === "faculty" ? "Search students, assignments, classes..." : "Search courses, lessons, grad..."}
-      // NOTE: Student dashboard keeps the enroll CTA; faculty workflow intentionally has no primary CTA in this position.
+      // NOTE: Faculty add-class action was moved into FacultyMain header next to View All Courses.
       primaryActionLabel={viewMode === "student" ? "Enroll in Class" : undefined}
       onPrimaryAction={() => undefined}
       onSettingsSectionSelect={goToSettingsSection}
@@ -55,13 +87,174 @@ export function GradeForgeDashboard() {
   );
 
   return (
-    <AuthShell
-      roleView={viewMode}
-      topBar={topBar}
-      // NOTE: Main workflow content stays split by role to avoid mixing student and faculty business flows.
-      mainContent={viewMode === "student" ? <GradeForgeMain /> : <FacultyMain />}
-      // NOTE: Right panel remains role-specific since data and widgets are fundamentally different.
-      rightPanel={viewMode === "student" ? <GradeForgeRightPanel /> : <FacultyRightPanel />}
-    />
+    <>
+      <AuthShell
+        roleView={viewMode}
+        topBar={topBar}
+        // NOTE: Main workflow content stays split by role to avoid mixing student and faculty business flows.
+        mainContent={viewMode === "student" ? <GradeForgeMain /> : <FacultyMain onOpenCreateClass={handleOpenCreateClass} />}
+        // NOTE: Right panel remains role-specific since data and widgets are fundamentally different.
+        rightPanel={viewMode === "student" ? <GradeForgeRightPanel /> : <FacultyRightPanel />}
+      />
+
+      {viewMode === "faculty" && showCreateClassModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4">
+          <div className="w-full max-w-[620px] rounded-3xl border border-gray-200 bg-white overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
+              <div>
+                <h3 className="text-[28px] font-bold leading-none text-[#1F2430]">Add New Class</h3>
+                <p className="mt-1 text-[13px] text-[#5D6A80]">Fill fields required by current course schema.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseCreateClass}
+                aria-label="Close Add Class dialog"
+                className="h-8 w-8 rounded-lg text-[#8B96A8] hover:bg-gray-100 flex items-center justify-center"
+              >
+                <X className="h-5 w-5" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="class-name" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                    Class Name
+                  </label>
+                  <input
+                    id="class-name"
+                    value={classForm.name}
+                    onChange={(event) => setClassForm((prev) => ({ ...prev, name: event.target.value }))}
+                    placeholder="e.g., Data Structures and Algorithms"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="class-course-code" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                    Course Code
+                  </label>
+                  <input
+                    id="class-course-code"
+                    value={classForm.courseCode}
+                    onChange={(event) => setClassForm((prev) => ({ ...prev, courseCode: event.target.value }))}
+                    placeholder="e.g., CS-301"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="class-section" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                    Section
+                  </label>
+                  <input
+                    id="class-section"
+                    value={classForm.section}
+                    onChange={(event) => setClassForm((prev) => ({ ...prev, section: event.target.value }))}
+                    placeholder="e.g., Section 001"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="class-semester-id" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                    Semester ID
+                  </label>
+                  <input
+                    id="class-semester-id"
+                    value={classForm.semesterId}
+                    onChange={(event) => setClassForm((prev) => ({ ...prev, semesterId: event.target.value }))}
+                    placeholder="e.g., 1"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="class-description" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                  Description
+                </label>
+                <textarea
+                  id="class-description"
+                  value={classForm.description}
+                  onChange={(event) => setClassForm((prev) => ({ ...prev, description: event.target.value }))}
+                  placeholder="Optional course description"
+                  rows={3}
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="class-image-url" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                    Image URL
+                  </label>
+                  <input
+                    id="class-image-url"
+                    value={classForm.imageUrl}
+                    onChange={(event) => setClassForm((prev) => ({ ...prev, imageUrl: event.target.value }))}
+                    placeholder="Optional cover image URL"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="class-canvas-id" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                    Canvas Course ID
+                  </label>
+                  <input
+                    id="class-canvas-id"
+                    value={classForm.canvasCourseId}
+                    onChange={(event) => setClassForm((prev) => ({ ...prev, canvasCourseId: event.target.value }))}
+                    placeholder="Optional LMS id"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="flex items-center gap-2 text-[14px] text-[#1F2430]">
+                  <input
+                    type="checkbox"
+                    checked={classForm.active}
+                    onChange={(event) => setClassForm((prev) => ({ ...prev, active: event.target.checked }))}
+                    className="h-4 w-4 rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
+                  />
+                  Active
+                </label>
+                <label className="flex items-center gap-2 text-[14px] text-[#1F2430]">
+                  <input
+                    type="checkbox"
+                    checked={classForm.isPublished}
+                    onChange={(event) => setClassForm((prev) => ({ ...prev, isPublished: event.target.checked }))}
+                    className="h-4 w-4 rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
+                  />
+                  Published
+                </label>
+              </div>
+
+              {/* NOTE: Faculty ID is database-required but auto-resolved from authenticated faculty email by backend service. */}
+              <p className="text-[12px] text-[#6D7B91]">Faculty is auto-derived from your logged-in account on create.</p>
+            </div>
+
+            <div className="px-6 py-5 border-t border-gray-200 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={handleCloseCreateClass}
+                className="px-5 py-2.5 rounded-xl border border-gray-300 bg-white text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateClassPlaceholderSubmit}
+                className="px-5 py-2.5 rounded-xl bg-[#5A7ACD] text-white text-[14px] font-semibold hover:bg-[#4a6abd] transition-colors"
+              >
+                Create Class
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
