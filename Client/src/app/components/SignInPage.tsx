@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useLocation, Navigate } from "react-router";
 import { Eye, EyeOff } from "lucide-react";
 import { AuthSplitLayout } from "./auth/AuthSplitLayout";
-import { isAuthenticated, setAuthenticated } from "../auth";
+import { getAuthenticatedRole, getDefaultRouteForRole, isAuthenticated, setAuthenticated } from "../auth";
 import { login } from "../../services/authService";
 
 export default function SignInPage() {
@@ -14,10 +14,12 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? "/dashboard";
+  // NOTE: Preserve deep-link target when allowed, otherwise fall back to role default after login.
+  const from = (location.state as { from?: string } | null)?.from;
 
   if (isAuthenticated()) {
-    return <Navigate to={from} replace />;
+    // NOTE: Prevent landing on wrong dashboard when already signed in.
+    return <Navigate to={getDefaultRouteForRole(getAuthenticatedRole())} replace />;
   }
 
   const handleSignIn = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -31,7 +33,9 @@ export default function SignInPage() {
         email: response.email,
         role: response.role,
       });
-      navigate(from, { replace: true });
+      const fallbackRoute = getDefaultRouteForRole(response.role);
+      const targetRoute = from && from !== "/signin" && from !== "/signup" ? from : fallbackRoute;
+      navigate(targetRoute, { replace: true });
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "response" in err
         ? (err as { response?: { data?: { message?: string } } }).response?.data?.message

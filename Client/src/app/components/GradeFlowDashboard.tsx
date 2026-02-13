@@ -6,12 +6,13 @@ import { FacultyMain } from "./FacultyMain";
 import { FacultyRightPanel } from "./FacultyRightPanel";
 
 export function GradeForgeDashboard() {
-  const [viewMode, setViewMode] = useState<'student' | 'faculty'>('student');
+  // NOTE: This screen still renders a static student mock; no role switch control in sidebar anymore.
+  const [viewMode] = useState<'student' | 'faculty'>('student');
 
   return (
     <div className="flex h-screen w-full bg-[#F5F2F2]">
       {/* Left Sidebar */}
-      <GradeForgeSidebar viewMode={viewMode} onViewChange={setViewMode} />
+      <GradeForgeSidebar viewMode={viewMode} />
       
       {/* Main Content */}
       {viewMode === 'student' ? <GradeForgeMain /> : <FacultyMain />}

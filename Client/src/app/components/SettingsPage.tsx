@@ -12,10 +12,9 @@ import {
 } from "./ui/dropdown-menu";
 import type { UserProfile } from "../../types/user";
 import { getStudentProfile, updatePassword } from "../../services/authService";
-import { clearAuthenticated, getAuthenticatedUser, setAuthenticated } from "../auth";
+import { clearAuthenticated, getAuthenticatedRole, getAuthenticatedUser, setAuthenticated } from "../auth";
 
 export function SettingsPage() {
-  const [viewMode, setViewMode] = useState<"student" | "faculty">("student");
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activeSection, setActiveSection] = useState<"profile" | "security" | "notifications" | "appearance">("profile");
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
@@ -44,6 +43,9 @@ export function SettingsPage() {
   }, [location.search]);
 
   const loggedInUser = getAuthenticatedUser();
+  const role = getAuthenticatedRole();
+  // NOTE: Settings sidebar mode follows logged-in role; no runtime role toggle.
+  const viewMode: "student" | "faculty" = role === "FACULTY" ? "faculty" : "student";
   const displayName = loggedInUser?.name ?? profile?.name ?? "Alex Johnson";
   const displayEmail = loggedInUser?.email ?? profile?.handle ?? "alex.johnson@university.edu";
   const displayInitials = loggedInUser?.name
@@ -132,7 +134,7 @@ export function SettingsPage() {
 
   return (
     <div className="flex h-screen w-full bg-[#F5F2F2]">
-      <GradeForgeSidebar viewMode={viewMode} onViewChange={setViewMode} />
+      <GradeForgeSidebar viewMode={viewMode} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="bg-white border-b border-gray-200 px-8 py-4">

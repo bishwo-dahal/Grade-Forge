@@ -8,6 +8,9 @@ export interface AuthenticatedUser {
   role: string;
 }
 
+// NOTE: Centralized app role union used by route-guard logic.
+export type AppRole = "STUDENT" | "FACULTY" | "UNIVERSITY_ADMIN" | "SYSTEM_ADMIN";
+
 export function isAuthenticated(): boolean {
   return !!getToken();
 }
@@ -30,6 +33,39 @@ export function getAuthenticatedUser(): AuthenticatedUser | null {
     return parsed;
   } catch {
     return null;
+  }
+}
+
+// NOTE: Normalizes role from session so route checks use one reliable source.
+export function getAuthenticatedRole(): AppRole | null {
+  const user = getAuthenticatedUser();
+  if (!user?.role) {
+    return null;
+  }
+
+  const normalizedRole = user.role.toUpperCase();
+  if (
+    normalizedRole === "STUDENT" ||
+    normalizedRole === "FACULTY" ||
+    normalizedRole === "UNIVERSITY_ADMIN" ||
+    normalizedRole === "SYSTEM_ADMIN"
+  ) {
+    return normalizedRole;
+  }
+
+  return null;
+}
+
+// NOTE: Defines default landing page by role to prevent cross-role dashboard access.
+export function getDefaultRouteForRole(role?: string | null): string {
+  switch ((role ?? "").toUpperCase()) {
+    case "UNIVERSITY_ADMIN":
+      return "/university-admin";
+    case "FACULTY":
+    case "STUDENT":
+      return "/dashboard";
+    default:
+      return "/dashboard";
   }
 }
 
