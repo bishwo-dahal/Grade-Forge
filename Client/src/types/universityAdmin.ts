@@ -25,6 +25,42 @@ export interface AcademicSemester {
   courses: number;
 }
 
+export interface FacultyCreatePayload {
+  name: string;
+  email: string;
+  department: string;
+  qualifications: string;
+  phoneNumber: string;
+  officeLocation: string;
+  password: string;
+}
+
+export interface SemesterCreatePayload {
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface FacultyApiResponse {
+  facultyId: number;
+  name: string;
+  department: string;
+  qualifications: string;
+  phoneNumber: string | null;
+  officeLocation: string | null;
+  active: boolean;
+  userId: number;
+  email: string;
+  role: string;
+}
+
+export interface SemesterApiResponse {
+  id: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
 export interface SupportedLanguage {
   name: string;
   version: string;
