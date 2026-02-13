@@ -3,9 +3,11 @@ package com.grade.forge.coursemgmt.entity;
 import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.faculty.entity.Faculty;
 import com.grade.forge.semester.entity.Semester;
+import com.grade.forge.student.entity.Enrollment;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -59,5 +61,9 @@ public class Course {
 
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Assignment> assignment;
+
+    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Enrollment> enrollments = new ArrayList<>();
+
 
 }
