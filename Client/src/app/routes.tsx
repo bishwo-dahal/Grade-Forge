@@ -30,7 +30,8 @@ export const router = createBrowserRouter([
   {
     path: "/settings",
     element: (
-      <ProtectedRoute>
+      // NOTE: Settings shell is student/faculty-only; university admin uses dedicated university pages.
+      <ProtectedRoute allowedRoles={["STUDENT", "FACULTY"]}>
         <SettingsPage />
       </ProtectedRoute>
     ),

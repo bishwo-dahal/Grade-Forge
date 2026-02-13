@@ -8,6 +8,7 @@ import { AuthTopBar } from "./layout/AuthTopBar";
 import { clearAuthenticated, getAuthenticatedRole, getAuthenticatedUser } from "../auth";
 
 export function GradeForgeDashboard() {
+  // NOTE: This component is now the only dashboard shell entrypoint; legacy GradeFlowDashboard was removed as dead code.
   const navigate = useNavigate();
   const role = getAuthenticatedRole();
   const loggedInUser = getAuthenticatedUser();
