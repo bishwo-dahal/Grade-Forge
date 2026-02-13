@@ -46,4 +46,3 @@ public class Student {
     @Column(columnDefinition = "jsonb", nullable = false)
     private Map<String, Object> preferences = new HashMap<>();
 }
-
