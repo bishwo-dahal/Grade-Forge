@@ -19,7 +19,9 @@ import {
   Lock,
   Phone,
   MapPin,
+  LogOut,
 } from "lucide-react";
+import { useNavigate } from "react-router";
 import type {
   AcademicSemester,
   FacultyCreatePayload,
@@ -36,6 +38,7 @@ import {
   listFacultyMembers,
   listSupportedLanguages,
 } from "../../services/universityAdminService";
+import { clearAuthenticated } from "../auth";
 
 type FacultyFormState = FacultyCreatePayload;
 type SemesterFormState = SemesterCreatePayload;
@@ -68,6 +71,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export function UniversityAdminDashboard() {
+  const navigate = useNavigate();
   const [facultyMembers, setFacultyMembers] = useState<FacultyMember[]>([]);
   const [academicSemesters, setAcademicSemesters] = useState<AcademicSemester[]>([]);
   const [supportedLanguages, setSupportedLanguages] = useState<SupportedLanguage[]>([]);
@@ -217,17 +221,33 @@ export function UniversityAdminDashboard() {
     }
   };
 
+  const handleLogout = () => {
+    // NOTE: University-admin logout uses the same session clear flow as other dashboards.
+    clearAuthenticated();
+    navigate("/signin", { replace: true });
+  };
+
   return (
     <main className="min-h-screen bg-[#F5F2F2] px-4 py-5 sm:px-6 sm:py-6">
       <div className="mx-auto w-full max-w-[1180px]">
-        <div className="mb-8 flex items-start gap-3">
-          <div className="h-12 w-12 rounded-2xl bg-[#5A7ACD] text-white flex items-center justify-center">
-            <Shield className="h-6 w-6" strokeWidth={2} />
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="h-12 w-12 rounded-2xl bg-[#5A7ACD] text-white flex items-center justify-center">
+              <Shield className="h-6 w-6" strokeWidth={2} />
+            </div>
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-bold text-[#1F2430] leading-tight">University Administration</h1>
+              <p className="text-[15px] text-[#506080]">Manage faculty accounts and system configurations</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-[#1F2430] leading-tight">University Administration</h1>
-            <p className="text-[15px] text-[#506080]">Manage faculty accounts and system configurations</p>
-          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-[15px] font-semibold text-[#C23A42] border border-[#F3CDD1] hover:bg-[#FFF5F6] transition-colors"
+          >
+            <LogOut className="h-4 w-4" strokeWidth={2} />
+            <span>Logout</span>
+          </button>
         </div>
 
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-8">
