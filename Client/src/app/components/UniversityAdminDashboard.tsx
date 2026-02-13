@@ -1,9 +1,14 @@
+import { useEffect, useState } from "react";
 import {
   Shield,
   Users,
   Code2,
   Plus,
   CalendarDays,
+  User,
+  Mail,
+  ChevronDown,
+  X,
   CircleCheck,
   CircleX,
   Trash2,
@@ -11,112 +16,39 @@ import {
   Cog,
   Bug,
 } from "lucide-react";
-
-type FacultyMember = {
-  initials: string;
-  name: string;
-  email: string;
-  department: string;
-  classes: number;
-  students: number;
-  status: "active" | "inactive";
-};
-
-type SupportedLanguage = {
-  name: string;
-  version: string;
-  addedOn: string;
-  icon: "python" | "javascript" | "java" | "cpp" | "rust" | "go";
-};
-
-type AcademicSemester = {
-  name: string;
-  status: "active" | "upcoming" | "past";
-  startDate: string;
-  endDate: string;
-  courses: number;
-};
-
-const summaryCards = [
-  { icon: Users, label: "Active Faculty", value: "3", accent: "blue" as const },
-  { icon: Code2, label: "Supported Languages", value: "6", accent: "orange" as const },
-  { icon: Users, label: "Total Classes", value: "9", accent: "blue" as const },
-  { icon: Users, label: "Total Students", value: "247", accent: "orange" as const },
-];
-
-const facultyMembers: FacultyMember[] = [
-  {
-    initials: "DRC",
-    name: "Dr. Rachel Chen",
-    email: "r.chen@university.edu",
-    department: "Computer Science",
-    classes: 4,
-    students: 104,
-    status: "active",
-  },
-  {
-    initials: "PMT",
-    name: "Prof. Michael Torres",
-    email: "m.torres@university.edu",
-    department: "Computer Science",
-    classes: 3,
-    students: 87,
-    status: "active",
-  },
-  {
-    initials: "DSW",
-    name: "Dr. Sarah Williams",
-    email: "s.williams@university.edu",
-    department: "Software Engineering",
-    classes: 2,
-    students: 56,
-    status: "active",
-  },
-  {
-    initials: "PJK",
-    name: "Prof. James Kim",
-    email: "j.kim@university.edu",
-    department: "Computer Science",
-    classes: 0,
-    students: 0,
-    status: "inactive",
-  },
-];
-
-const supportedLanguages: SupportedLanguage[] = [
-  { name: "Python", version: "v3.11", addedOn: "Added Jan 14, 2023", icon: "python" },
-  { name: "JavaScript", version: "vES2023", addedOn: "Added Jan 14, 2023", icon: "javascript" },
-  { name: "Java", version: "v17 LTS", addedOn: "Added Jan 14, 2023", icon: "java" },
-  { name: "C++", version: "vC++20", addedOn: "Added Feb 19, 2023", icon: "cpp" },
-  { name: "Rust", version: "v1.75", addedOn: "Added Jan 9, 2024", icon: "rust" },
-  { name: "Go", version: "v1.21", addedOn: "Added Jan 9, 2024", icon: "go" },
-];
-
-const academicSemesters: AcademicSemester[] = [
-  {
-    name: "Fall 2023",
-    status: "active",
-    startDate: "Aug 14, 2023",
-    endDate: "Dec 14, 2023",
-    courses: 10,
-  },
-  {
-    name: "Spring 2024",
-    status: "upcoming",
-    startDate: "Jan 14, 2024",
-    endDate: "May 14, 2024",
-    courses: 0,
-  },
-  {
-    name: "Summer 2023",
-    status: "past",
-    startDate: "May 14, 2023",
-    endDate: "Aug 14, 2023",
-    courses: 5,
-  },
-];
+import type {
+  AcademicSemester,
+  FacultyMember,
+  SupportedLanguage,
+  UniversitySummaryStat,
+} from "../../types/universityAdmin";
+import {
+  listAcademicSemesters,
+  listDepartmentOptions,
+  listFacultyMembers,
+  listSupportedLanguages,
+  listUniversitySummaryStats,
+} from "../../services/universityAdminService";
 
 export function UniversityAdminDashboard() {
+  const [summaryCards, setSummaryCards] = useState<UniversitySummaryStat[]>([]);
+  const [facultyMembers, setFacultyMembers] = useState<FacultyMember[]>([]);
+  const [academicSemesters, setAcademicSemesters] = useState<AcademicSemester[]>([]);
+  const [supportedLanguages, setSupportedLanguages] = useState<SupportedLanguage[]>([]);
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
+
+  const [showFacultyModal, setShowFacultyModal] = useState(false);
+  const [showSemesterModal, setShowSemesterModal] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+
+  useEffect(() => {
+    listUniversitySummaryStats().then(setSummaryCards);
+    listFacultyMembers().then(setFacultyMembers);
+    listAcademicSemesters().then(setAcademicSemesters);
+    listSupportedLanguages().then(setSupportedLanguages);
+    listDepartmentOptions().then(setDepartmentOptions);
+  }, []);
+
   return (
     <main className="min-h-screen bg-[#F5F2F2] px-6 py-6">
       <div className="max-w-[1320px] mx-auto">
@@ -132,7 +64,7 @@ export function UniversityAdminDashboard() {
 
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-9">
         {summaryCards.map((card) => {
-          const Icon = card.icon;
+          const Icon = card.iconKey === "code" ? Code2 : Users;
           const iconClass =
             card.accent === "blue"
               ? "text-[#5A7ACD] bg-[#E8EEFF]"
@@ -158,6 +90,7 @@ export function UniversityAdminDashboard() {
           </div>
           <button
             type="button"
+            onClick={() => setShowFacultyModal(true)}
             className="inline-flex items-center gap-2 px-5 py-3 bg-[#5A7ACD] hover:bg-[#4a6abd] text-white rounded-2xl text-[15px] font-semibold transition-colors"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -233,6 +166,7 @@ export function UniversityAdminDashboard() {
           </div>
           <button
             type="button"
+            onClick={() => setShowSemesterModal(true)}
             className="inline-flex items-center gap-2 px-5 py-3 bg-[#5A7ACD] hover:bg-[#4a6abd] text-white rounded-2xl text-[15px] font-semibold transition-colors"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -286,6 +220,7 @@ export function UniversityAdminDashboard() {
           </div>
           <button
             type="button"
+            onClick={() => setShowLanguageModal(true)}
             className="inline-flex items-center gap-2 px-5 py-3 bg-[#F5A54A] hover:bg-[#e7983f] text-white rounded-2xl text-[15px] font-semibold transition-colors"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -323,6 +258,312 @@ export function UniversityAdminDashboard() {
         </div>
       </section>
       </div>
+
+      {showFacultyModal && (
+        <div className="fixed inset-0 bg-black/35 flex items-center justify-center p-4 z-50">
+          <div className="w-full max-w-[560px] bg-white rounded-3xl border border-gray-200 overflow-hidden">
+            <div className="px-7 py-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#E8EEFF] text-[#5A7ACD] flex items-center justify-center">
+                  <Users className="w-6 h-6" strokeWidth={2} />
+                </div>
+                <h3 className="text-[38px] leading-none font-bold text-[#1F2430]">Add New Faculty</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFacultyModal(false)}
+                className="w-8 h-8 rounded-lg text-[#8B96A8] hover:bg-gray-100 flex items-center justify-center"
+                aria-label="Close Add Faculty dialog"
+              >
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="px-7 pb-7 space-y-5">
+              <div>
+                <label htmlFor="faculty-name" className="block text-[15px] font-medium text-[#1F2430] mb-2">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-[#8B96A8]" strokeWidth={2} />
+                  <input
+                    id="faculty-name"
+                    type="text"
+                    placeholder="Dr. John Smith"
+                    className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-[15px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="faculty-email" className="block text-[15px] font-medium text-[#1F2430] mb-2">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-[#8B96A8]" strokeWidth={2} />
+                  <input
+                    id="faculty-email"
+                    type="email"
+                    placeholder="john.smith@university.edu"
+                    className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-[15px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="faculty-department" className="block text-[15px] font-medium text-[#1F2430] mb-2">
+                  Department
+                </label>
+                <div className="relative">
+                  <select
+                    id="faculty-department"
+                    defaultValue=""
+                    className="w-full appearance-none px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-[15px] text-[#1F2430] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                  >
+                    <option value="" disabled>
+                      Select Department
+                    </option>
+                    {departmentOptions.map((department) => (
+                      <option key={department} value={department}>
+                        {department}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-[#5D6A80] pointer-events-none" strokeWidth={2} />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="faculty-qualifications" className="block text-[15px] font-medium text-[#1F2430] mb-2">
+                  Qualifications
+                </label>
+                <input
+                  id="faculty-qualifications"
+                  type="text"
+                  placeholder="e.g., PhD in Computer Science"
+                  className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-[15px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="faculty-phone-number" className="block text-[15px] font-medium text-[#1F2430] mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    id="faculty-phone-number"
+                    type="text"
+                    placeholder="e.g., +1 555 123 4567"
+                    className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-[15px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="faculty-office-location" className="block text-[15px] font-medium text-[#1F2430] mb-2">
+                    Office Location
+                  </label>
+                  <input
+                    id="faculty-office-location"
+                    type="text"
+                    placeholder="e.g., ENG-214"
+                    className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-[15px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="faculty-password" className="block text-[15px] font-medium text-[#1F2430] mb-2">
+                  Password
+                </label>
+                <input
+                  id="faculty-password"
+                  type="password"
+                  placeholder="Enter temporary password"
+                  className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-[15px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowFacultyModal(false)}
+                  className="py-3 rounded-2xl bg-[#EEF1F5] text-[#44506B] text-[15px] font-semibold hover:bg-[#e4e8ef] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="py-3 rounded-2xl bg-[#5A7ACD] text-white text-[15px] font-semibold hover:bg-[#4a6abd] transition-colors"
+                >
+                  Add Faculty
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSemesterModal && (
+        <div className="fixed inset-0 bg-black/35 flex items-center justify-center p-4 z-50">
+          <div className="w-full max-w-[560px] bg-white rounded-3xl border border-gray-200 overflow-hidden">
+            <div className="px-7 py-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#E8EEFF] text-[#5A7ACD] flex items-center justify-center">
+                  <CalendarDays className="w-6 h-6" strokeWidth={2} />
+                </div>
+                <h3 className="text-[38px] leading-none font-bold text-[#1F2430]">Create Semester</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSemesterModal(false)}
+                className="w-8 h-8 rounded-lg text-[#8B96A8] hover:bg-gray-100 flex items-center justify-center"
+                aria-label="Close Create Semester dialog"
+              >
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="px-7 pb-7 space-y-5">
+              <div>
+                <label htmlFor="semester-name-modal" className="block text-[15px] font-medium text-[#1F2430] mb-2">
+                  Semester Name
+                </label>
+                <input
+                  id="semester-name-modal"
+                  type="text"
+                  placeholder="Fall 2026"
+                  className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-[15px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="semester-term-modal" className="block text-[15px] font-medium text-[#1F2430] mb-2">
+                  Term
+                </label>
+                <div className="relative">
+                  <select
+                    id="semester-term-modal"
+                    defaultValue=""
+                    className="w-full appearance-none px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-[15px] text-[#1F2430] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                  >
+                    <option value="" disabled>
+                      Select Term
+                    </option>
+                    <option value="Fall">Fall</option>
+                    <option value="Spring">Spring</option>
+                    <option value="Summer">Summer</option>
+                    <option value="Winter">Winter</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-[#5D6A80] pointer-events-none" strokeWidth={2} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="semester-start-modal" className="block text-[15px] font-medium text-[#1F2430] mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    id="semester-start-modal"
+                    type="date"
+                    className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-[15px] text-[#1F2430] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="semester-end-modal" className="block text-[15px] font-medium text-[#1F2430] mb-2">
+                    End Date
+                  </label>
+                  <input
+                    id="semester-end-modal"
+                    type="date"
+                    className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-[15px] text-[#1F2430] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowSemesterModal(false)}
+                  className="py-3 rounded-2xl bg-[#EEF1F5] text-[#44506B] text-[15px] font-semibold hover:bg-[#e4e8ef] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="py-3 rounded-2xl bg-[#5A7ACD] text-white text-[15px] font-semibold hover:bg-[#4a6abd] transition-colors"
+                >
+                  Create Semester
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLanguageModal && (
+        <div className="fixed inset-0 bg-black/35 flex items-center justify-center p-4 z-50">
+          <div className="w-full max-w-[520px] bg-white rounded-3xl border border-gray-200 overflow-hidden">
+            <div className="px-7 py-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#FFF1E1] text-[#F5A54A] flex items-center justify-center">
+                  <Code2 className="w-6 h-6" strokeWidth={2} />
+                </div>
+                <h3 className="text-[38px] leading-none font-bold text-[#1F2430]">Add Programming Language</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLanguageModal(false)}
+                className="w-8 h-8 rounded-lg text-[#8B96A8] hover:bg-gray-100 flex items-center justify-center"
+                aria-label="Close Add Programming Language dialog"
+              >
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="px-7 pb-7 space-y-5">
+              <div>
+                <label htmlFor="language-name-modal" className="block text-[15px] font-medium text-[#1F2430] mb-2">
+                  Language Name
+                </label>
+                <input
+                  id="language-name-modal"
+                  type="text"
+                  placeholder="e.g., Python, Java, C++"
+                  className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-[15px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:outline-none focus:ring-2 focus:ring-[#F5A54A] focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="language-version-modal" className="block text-[15px] font-medium text-[#1F2430] mb-2">
+                  Version
+                </label>
+                <input
+                  id="language-version-modal"
+                  type="text"
+                  placeholder="e.g., 3.11, ES2023, 17 LTS"
+                  className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-[15px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:outline-none focus:ring-2 focus:ring-[#F5A54A] focus:border-transparent"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowLanguageModal(false)}
+                  className="py-3 rounded-2xl bg-[#EEF1F5] text-[#44506B] text-[15px] font-semibold hover:bg-[#e4e8ef] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="py-3 rounded-2xl bg-[#F5A54A] text-white text-[15px] font-semibold hover:bg-[#e7983f] transition-colors"
+                >
+                  Add Language
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
