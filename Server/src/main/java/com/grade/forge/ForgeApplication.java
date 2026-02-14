@@ -1,8 +1,11 @@
 package com.grade.forge;
 
+import com.grade.forge.faculty.dto.FacultyCreateRequest;
+import com.grade.forge.faculty.service.FacultyService;
 import com.grade.forge.user.entity.Users;
 import com.grade.forge.user.enums.Role;
 import com.grade.forge.user.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -11,6 +14,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 @SpringBootApplication
 public class ForgeApplication {
+
+	@Autowired
+	private FacultyService facultyService;
 
 	public static void main(String[] args) {
 				SpringApplication.run(ForgeApplication.class, args);
@@ -22,6 +28,18 @@ public class ForgeApplication {
 			UserRepository userRepository,
 			PasswordEncoder passwordEncoder
 	) {
+		FacultyCreateRequest facultyCreateRequest = new FacultyCreateRequest(
+				"Dr. John Smith",
+				"faculty@gmail.com",
+				"Computer Science",
+				"PhD in Computer Science",
+				"+1-555-123-4567",
+				"Room 305, Science Building",
+				"faculty"
+		);
+
+
+		facultyService.createFaculty(facultyCreateRequest);
 		return args -> {
 
 			createIfNotExists(
@@ -40,15 +58,6 @@ public class ForgeApplication {
 					"university@gmail.com",
 					"university",
 					Role.UNIVERSITY_ADMIN
-			);
-
-			createIfNotExists(
-					userRepository,
-					passwordEncoder,
-					"Faculty Test",
-					"faculty@gmail.com",
-					"faculty",
-					Role.FACULTY
 			);
 
 			createIfNotExists(
