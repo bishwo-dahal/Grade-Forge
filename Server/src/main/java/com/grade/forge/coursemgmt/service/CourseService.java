@@ -11,6 +11,11 @@ import com.grade.forge.semester.entity.Semester;
 import com.grade.forge.semester.repository.SemesterRepository;
 import com.grade.forge.user.entity.Users;
 import com.grade.forge.user.repository.UserRepository;
+import com.grade.forge.student.entity.Enrollment;
+import com.grade.forge.student.entity.Student;
+import com.grade.forge.student.enums.EnrolledStatus;
+import com.grade.forge.student.repository.EnrollmentRepository;
+import com.grade.forge.student.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,6 +35,8 @@ public class CourseService {
     private final FacultyRepository facultyRepository;
     private final SemesterRepository semesterRepository;
     private final UserRepository userRepository;
+    private final StudentRepository studentRepository;
+    private final EnrollmentRepository enrollmentRepository;
 
     /**
 
@@ -223,6 +230,19 @@ public class CourseService {
      */
     public List<CourseResponseDto> getCoursesByFacultyId(Long facultyId) {
         return courseRepository.findByFaculty_Id(facultyId).stream()
+                .map(this::mapToResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    public List<CourseResponseDto> getCoursesForStudentEmail(String email) {
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found for email: " + email));
+        Student student = studentRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found for user email: " + email));
+
+        return enrollmentRepository.findByStudent_Id(student.getId()).stream()
+                .filter(enrollment -> EnrolledStatus.ENROLLED.equals(enrollment.getEnrolledStatus()))
+                .map(Enrollment::getCourse)
                 .map(this::mapToResponseDto)
                 .collect(Collectors.toList());
     }

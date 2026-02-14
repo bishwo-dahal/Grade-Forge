@@ -1,11 +1,13 @@
 package com.grade.forge.student.controller;
 
+import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.student.dto.StudentRequest;
 import com.grade.forge.student.dto.StudentResponse;
 import com.grade.forge.student.service.StudentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,13 +21,14 @@ public class StudentController {
 
     @PostMapping
     public ResponseEntity<StudentResponse> createStudent(@RequestBody StudentRequest request) {
+        System.out.println(request.getMajor());
         StudentResponse created = studentService.createStudent(request);
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<StudentResponse> getStudent(@PathVariable Long id) {
-        StudentResponse response = studentService.getStudent(id);
+    @GetMapping("/me")
+    public ResponseEntity<StudentResponse> getStudent(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+        StudentResponse response = studentService.getStudentByUserEmail(customUserDetails.getUsername());
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
@@ -35,9 +38,9 @@ public class StudentController {
         return new ResponseEntity<>(students, HttpStatus.OK);
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<StudentResponse> updateStudent(@PathVariable Long id, @RequestBody StudentRequest request) {
-        StudentResponse updated = studentService.updateStudent(id, request);
+    @PutMapping("/me")
+    public ResponseEntity<StudentResponse> updateStudent(@AuthenticationPrincipal CustomUserDetails customUserDetails, @RequestBody StudentRequest request) {
+        StudentResponse updated = studentService.updateCurrentStudent(customUserDetails.getUsername(), request);
         return new ResponseEntity<>(updated, HttpStatus.OK);
     }
 
@@ -47,4 +50,3 @@ public class StudentController {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 }
-

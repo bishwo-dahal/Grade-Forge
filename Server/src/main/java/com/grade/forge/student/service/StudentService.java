@@ -44,47 +44,26 @@ public class StudentService {
         return mapToResponse(saved);
     }
 
-    public StudentResponse updateStudent(Long id, StudentRequest request) {
-        Student student = studentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + id));
 
-        if (request.getCwid() != null && !request.getCwid().isBlank()) {
-            if (!request.getCwid().equalsIgnoreCase(student.getCwid())) {
-                Optional<Student> existingByCwid = studentRepository.findByCwid(request.getCwid());
-                if (existingByCwid.isPresent() && !existingByCwid.get().getId().equals(id)) {
-                    throw new IllegalArgumentException("Student already exists with CWID: " + request.getCwid());
-                }
-                student.setCwid(request.getCwid());
-            }
-        }
-        if (request.getMajor() != null && !request.getMajor().isBlank()) {
-            student.setMajor(request.getMajor());
-        }
-        if (request.getCanvasUserId() != null) {
-            student.setCanvasUserId(request.getCanvasUserId());
-        }
-        if (request.getPreferences() != null) {
-            student.setPreferences(request.getPreferences());
-        } else if (student.getPreferences() == null) {
-            student.setPreferences(new HashMap<>());
-        }
-
+    public StudentResponse updateCurrentStudent(String email, StudentRequest request) {
+        Student student = resolveStudentByUserEmail(email);
+        applyUpdates(student, request);
         Student saved = studentRepository.save(student);
         return mapToResponse(saved);
     }
 
-    @Transactional(readOnly = true)
-    public StudentResponse getStudent(Long id) {
-        Student student = studentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + id));
-        return mapToResponse(student);
-    }
 
     @Transactional(readOnly = true)
     public List<StudentResponse> getAllStudents() {
         return studentRepository.findAll().stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public StudentResponse getStudentByUserEmail(String email) {
+        Student student = resolveStudentByUserEmail(email);
+        return mapToResponse(student);
     }
 
     public void deleteStudent(Long id) {
@@ -114,6 +93,36 @@ public class StudentService {
         } else if (student.getPreferences() == null) {
             student.setPreferences(new HashMap<>());
         }
+    }
+
+    private void applyUpdates(Student student, StudentRequest request) {
+        if (request.getCwid() != null && !request.getCwid().isBlank()) {
+            if (!request.getCwid().equalsIgnoreCase(student.getCwid())) {
+                Optional<Student> existingByCwid = studentRepository.findByCwid(request.getCwid());
+                if (existingByCwid.isPresent() && !existingByCwid.get().getId().equals(student.getId())) {
+                    throw new IllegalArgumentException("Student already exists with CWID: " + request.getCwid());
+                }
+                student.setCwid(request.getCwid());
+            }
+        }
+        if (request.getMajor() != null && !request.getMajor().isBlank()) {
+            student.setMajor(request.getMajor());
+        }
+        if (request.getCanvasUserId() != null) {
+            student.setCanvasUserId(request.getCanvasUserId());
+        }
+        if (request.getPreferences() != null) {
+            student.setPreferences(request.getPreferences());
+        } else if (student.getPreferences() == null) {
+            student.setPreferences(new HashMap<>());
+        }
+    }
+
+    private Student resolveStudentByUserEmail(String email) {
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+        return studentRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found for user email: " + email));
     }
 
     private StudentResponse mapToResponse(Student student) {

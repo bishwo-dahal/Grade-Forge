@@ -9,6 +9,8 @@ import com.grade.forge.student.entity.Student;
 import com.grade.forge.student.enums.EnrolledStatus;
 import com.grade.forge.student.repository.EnrollmentRepository;
 import com.grade.forge.student.repository.StudentRepository;
+import com.grade.forge.user.entity.Users;
+import com.grade.forge.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,10 +27,26 @@ public class EnrollmentService {
     private final EnrollmentRepository enrollmentRepository;
     private final StudentRepository studentRepository;
     private final CourseRepository courseRepository;
+    private final UserRepository userRepository;
 
-    public EnrollmentResponse enrollStudentInCourse(Long studentId, Long courseId) {
-        Student student = studentRepository.findById(studentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
+    public EnrollmentResponse enrollCurrentStudentInCourse(String userEmail, Long courseId) {
+        Student student = getStudentByUserEmail(userEmail);
+        return enrollStudentInCourse(student, courseId);
+    }
+
+    public EnrollmentResponse dropCurrentStudentFromCourse(String userEmail, Long courseId) {
+        Student student = getStudentByUserEmail(userEmail);
+        return dropStudentFromCourse(student, courseId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<EnrollmentResponse> getCurrentStudentEnrollments(String userEmail) {
+        Student student = getStudentByUserEmail(userEmail);
+        return getEnrollmentsForStudent(student);
+    }
+
+    private EnrollmentResponse enrollStudentInCourse(Student student, Long courseId) {
+        Long studentId = student.getId();
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
 
@@ -46,7 +64,8 @@ public class EnrollmentService {
         return mapToResponse(saved);
     }
 
-    public EnrollmentResponse dropStudentFromCourse(Long studentId, Long courseId) {
+    private EnrollmentResponse dropStudentFromCourse(Student student, Long courseId) {
+        Long studentId = student.getId();
         Enrollment enrollment = enrollmentRepository.findByStudent_IdAndCourse_Id(studentId, courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found for student " + studentId + " and course " + courseId));
         enrollment.setEnrolledStatus(EnrolledStatus.DROPPED);
@@ -55,12 +74,18 @@ public class EnrollmentService {
     }
 
     @Transactional(readOnly = true)
-    public List<EnrollmentResponse> getEnrollmentsForStudent(Long studentId) {
-        studentRepository.findById(studentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
+    protected List<EnrollmentResponse> getEnrollmentsForStudent(Student student) {
+        Long studentId = student.getId();
         return enrollmentRepository.findByStudent_Id(studentId).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+    }
+
+    private Student getStudentByUserEmail(String email) {
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+        return studentRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found for user email: " + email));
     }
 
     private EnrollmentResponse mapToResponse(Enrollment enrollment) {
@@ -74,4 +99,3 @@ public class EnrollmentService {
                 .build();
     }
 }
-

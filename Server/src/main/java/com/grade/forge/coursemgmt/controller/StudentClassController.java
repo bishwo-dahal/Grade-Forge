@@ -1,9 +1,21 @@
 package com.grade.forge.coursemgmt.controller;
 
+import com.grade.forge.coursemgmt.dto.CourseResponseDto;
 import com.grade.forge.coursemgmt.service.CourseService;
+import com.grade.forge.configuration.security.CustomUserDetails;
+import com.grade.forge.student.dto.EnrollmentResponse;
+import com.grade.forge.student.service.EnrollmentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/student/classes")
@@ -11,6 +23,31 @@ import org.springframework.web.bind.annotation.RestController;
 public class StudentClassController {
 
     private final CourseService courseService;
+    private final EnrollmentService enrollmentService;
+
+    @GetMapping
+    public ResponseEntity<List<CourseResponseDto>> getAllCourses() {
+        List<CourseResponseDto> courses = courseService.getAllCourses();
+        return new ResponseEntity<>(courses, HttpStatus.OK);
+    }
+
+    @GetMapping("/{courseId}")
+    public ResponseEntity<CourseResponseDto> getCourseById(@PathVariable Long courseId) {
+        CourseResponseDto course = courseService.getCourseById(courseId);
+        return new ResponseEntity<>(course, HttpStatus.OK);
+    }
+
+    @GetMapping("/enrolled")
+    public ResponseEntity<List<CourseResponseDto>> getEnrolledCourses(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+        List<CourseResponseDto> courses = courseService.getCoursesForStudentEmail(customUserDetails.getUsername());
+        return new ResponseEntity<>(courses, HttpStatus.OK);
+    }
+
+    @PostMapping("/{courseId}/enroll")
+    public ResponseEntity<EnrollmentResponse> enrollInCourse(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                             @PathVariable Long courseId) {
+        EnrollmentResponse response = enrollmentService.enrollCurrentStudentInCourse(customUserDetails.getUsername(), courseId);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
 
 }
-
