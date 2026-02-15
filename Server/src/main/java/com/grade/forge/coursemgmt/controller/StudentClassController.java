@@ -43,10 +43,16 @@ public class StudentClassController {
         return new ResponseEntity<>(courses, HttpStatus.OK);
     }
 
+    @GetMapping("/waitlisted")
+    public ResponseEntity<List<EnrollmentResponse>> getWaitlistedCourses(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+        List<EnrollmentResponse> waitlisted = enrollmentService.getCurrentStudentWaitlistedEnrollments(customUserDetails.getUsername());
+        return new ResponseEntity<>(waitlisted, HttpStatus.OK);
+    }
+
     @PostMapping("/{courseId}/enroll")
     public ResponseEntity<EnrollmentResponse> enrollInCourse(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                                              @PathVariable Long courseId) {
-        EnrollmentResponse response = enrollmentService.enrollCurrentStudentInCourse(customUserDetails.getUsername(), courseId);
+        EnrollmentResponse response = enrollmentService.waitListCurrentStudentInCourse(customUserDetails.getUsername(), courseId);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 

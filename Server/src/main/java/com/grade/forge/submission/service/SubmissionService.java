@@ -7,6 +7,7 @@ import com.grade.forge.student.entity.Student;
 import com.grade.forge.student.repository.StudentRepository;
 import com.grade.forge.submission.dto.SubmissionFileResponse;
 import com.grade.forge.submission.dto.SubmissionResponse;
+import com.grade.forge.submission.dto.SubmissionGradeRequest;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.entity.SubmissionFile;
 import com.grade.forge.submission.repository.SubmissionRepository;
@@ -115,6 +116,29 @@ public class SubmissionService {
         return submissions.stream()
                 .map(this::mapToResponse)
                 .toList();
+    }
+
+    @Transactional
+    public SubmissionResponse updateGradeForSubmission(String facultyEmail, Long submissionId, SubmissionGradeRequest request) {
+        Faculty faculty = facultyRepository.findByEmail(facultyEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with email: " + facultyEmail));
+
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
+
+        if (!submission.getAssignment().getCourse().getFaculty().getId().equals(faculty.getId())) {
+            throw new IllegalArgumentException("You are not allowed to grade this submission");
+        }
+
+        if (request.getMarks() != null) {
+            submission.setMarks(request.getMarks());
+        }
+        if (request.getFeedback() != null) {
+            submission.setFeedback(request.getFeedback());
+        }
+
+        Submission saved = submissionRepository.save(submission);
+        return mapToResponse(saved);
     }
 
     private void validateRequest(Long assignmentId, List<MultipartFile> files) {

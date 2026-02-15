@@ -14,16 +14,18 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/student/enrollments")
 @RequiredArgsConstructor
-public class EnrollmentController {
+public class EnrollmentStudentController {
 
     private final EnrollmentService enrollmentService;
 
     @PostMapping("/{courseId}")
-    public ResponseEntity<EnrollmentResponse> enrollInCourse(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+    public ResponseEntity<EnrollmentResponse> waitListInCourse(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                                              @PathVariable Long courseId) {
-        EnrollmentResponse response = enrollmentService.enrollCurrentStudentInCourse(customUserDetails.getUsername(), courseId);
+        EnrollmentResponse response = enrollmentService.waitListCurrentStudentInCourse(customUserDetails.getUsername(), courseId);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
+
+
 
     @PatchMapping("/{courseId}/drop")
     public ResponseEntity<EnrollmentResponse> dropCourse(@AuthenticationPrincipal CustomUserDetails customUserDetails,

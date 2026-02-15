@@ -29,9 +29,9 @@ public class EnrollmentService {
     private final CourseRepository courseRepository;
     private final UserRepository userRepository;
 
-    public EnrollmentResponse enrollCurrentStudentInCourse(String userEmail, Long courseId) {
+    public EnrollmentResponse waitListCurrentStudentInCourse(String userEmail, Long courseId) {
         Student student = getStudentByUserEmail(userEmail);
-        return enrollStudentInCourse(student, courseId);
+        return waitListStudentInCourse(student, courseId);
     }
 
     public EnrollmentResponse dropCurrentStudentFromCourse(String userEmail, Long courseId) {
@@ -45,23 +45,41 @@ public class EnrollmentService {
         return getEnrollmentsForStudent(student);
     }
 
-    private EnrollmentResponse enrollStudentInCourse(Student student, Long courseId) {
+    @Transactional(readOnly = true)
+    public List<EnrollmentResponse> getCourseEnrollments(Long courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
+        return enrollmentRepository.findByCourse_Id(course.getId()).stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    private EnrollmentResponse waitListStudentInCourse(Student student, Long courseId) {
         Long studentId = student.getId();
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
 
-        if (enrollmentRepository.existsByStudent_IdAndCourse_Id(studentId, courseId)) {
-            throw new IllegalArgumentException("Student is already enrolled in this course");
+        Enrollment existingEnrollment = enrollmentRepository.findByStudent_IdAndCourse_Id(studentId, courseId)
+                .orElse(null);
+
+        if (existingEnrollment == null) {
+            Enrollment enrollment = new Enrollment();
+            enrollment.setStudent(student);
+            enrollment.setCourse(course);
+            enrollment.setEnrolledStatus(EnrolledStatus.WAITLIST);
+            enrollment.setEnrolledAt(LocalDateTime.now());
+
+            Enrollment saved = enrollmentRepository.save(enrollment);
+            return mapToResponse(saved);
+        }
+        else{
+            existingEnrollment.setEnrolledAt(LocalDateTime.now());
+            existingEnrollment.setEnrolledStatus(EnrolledStatus.WAITLIST);
+            Enrollment saved = enrollmentRepository.save(existingEnrollment);
+            return mapToResponse(saved);
         }
 
-        Enrollment enrollment = new Enrollment();
-        enrollment.setStudent(student);
-        enrollment.setCourse(course);
-        enrollment.setEnrolledStatus(EnrolledStatus.ENROLLED);
-        enrollment.setEnrolledAt(LocalDateTime.now());
 
-        Enrollment saved = enrollmentRepository.save(enrollment);
-        return mapToResponse(saved);
     }
 
     private EnrollmentResponse dropStudentFromCourse(Student student, Long courseId) {
@@ -71,6 +89,30 @@ public class EnrollmentService {
         enrollment.setEnrolledStatus(EnrolledStatus.DROPPED);
         Enrollment saved = enrollmentRepository.save(enrollment);
         return mapToResponse(saved);
+    }
+
+    public EnrollmentResponse enrollCurrentStudentFromCourse(Long studentId, Long courseId) {
+        Student student = getStudentById(studentId);
+        Enrollment enrollment = enrollmentRepository.findByStudent_IdAndCourse_Id(student.getId(), courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found for student " + student.getId()+ " and course " + courseId));
+        enrollment.setEnrolledStatus(EnrolledStatus.ENROLLED);
+        Enrollment saved = enrollmentRepository.save(enrollment);
+        return mapToResponse(saved);
+    }
+
+    public EnrollmentResponse dropStudentFromCourse(Long studentId, Long courseId) {
+        Student student = getStudentById(studentId);
+        return dropStudentFromCourse(student, courseId);
+    }
+
+
+    @Transactional(readOnly = true)
+    public List<EnrollmentResponse> getCurrentStudentWaitlistedEnrollments(String userEmail) {
+        Student student = getStudentByUserEmail(userEmail);
+        return enrollmentRepository.findByStudent_Id(student.getId()).stream()
+                .filter(enrollment -> EnrolledStatus.WAITLIST.equals(enrollment.getEnrolledStatus()))
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -88,10 +130,18 @@ public class EnrollmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found for user email: " + email));
     }
 
+    private Student getStudentById(Long studentId) {
+        return studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
+    }
+
     private EnrollmentResponse mapToResponse(Enrollment enrollment) {
+        Student student = enrollment.getStudent();
+        String studentName = student != null && student.getUser() != null ? student.getUser().getName() : null;
         return EnrollmentResponse.builder()
                 .id(enrollment.getId())
-                .studentId(enrollment.getStudent() != null ? enrollment.getStudent().getId() : null)
+                .studentId(student != null ? student.getId() : null)
+                .studentName(studentName)
                 .courseId(enrollment.getCourse() != null ? enrollment.getCourse().getId() : null)
                 .enrolledAt(enrollment.getEnrolledAt())
                 .enrolledStatus(enrollment.getEnrolledStatus())

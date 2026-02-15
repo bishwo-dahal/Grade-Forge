@@ -38,6 +38,7 @@ public class Enrollment {
 
     private LocalDateTime enrolledAt = LocalDateTime.now();
 
+    @Enumerated(EnumType.STRING)
     private EnrolledStatus enrolledStatus;
 
     private String grade;

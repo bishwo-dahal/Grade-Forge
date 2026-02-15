@@ -17,9 +17,9 @@ import java.time.LocalDateTime;
 public class EnrollmentResponse {
     private Long id;
     private Long studentId;
+    private String studentName;
     private Long courseId;
     private LocalDateTime enrolledAt;
     private EnrolledStatus enrolledStatus;
     private String grade;
 }
-
