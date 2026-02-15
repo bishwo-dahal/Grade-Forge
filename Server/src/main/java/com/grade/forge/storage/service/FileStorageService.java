@@ -64,7 +64,7 @@ public class FileStorageService {
                                             MultipartFile multipartFile) {
         String fileId = UUID.randomUUID().toString();
         String originalName = multipartFile.getOriginalFilename();
-        String key = String.format("uploads/student/%d/course/%d/assignment/%d/file/%s/%s",
+        String key = String.format("uploads/student/%d/course/%d/assignment/%d/file/%s-%s",
                 studentId, courseId, assignmentId, fileId, originalName);
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
