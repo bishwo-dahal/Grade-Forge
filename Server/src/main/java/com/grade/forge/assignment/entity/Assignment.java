@@ -3,6 +3,7 @@ package com.grade.forge.assignment.entity;
 import com.grade.forge.assignment.enums.SubmissionType;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.programminglanguage.entity.ProgrammingLanguage;
+import com.grade.forge.submission.entity.Submission;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -10,6 +11,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "assignments")
@@ -30,6 +32,9 @@ public class Assignment {
     @ManyToOne(optional = false)
     @JoinColumn(name = "language_id", nullable = false)
     private ProgrammingLanguage programmingLanguage;
+
+    @OneToMany(mappedBy = "assignment")
+    private List<Submission> submissions;
 
     @Column(nullable = false)
     private String name;
@@ -55,5 +60,7 @@ public class Assignment {
 
     @Column(name = "late_due_date")
     private LocalDateTime lateDueDate;
+
+
 }
 

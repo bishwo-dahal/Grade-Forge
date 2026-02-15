@@ -1,5 +1,6 @@
 package com.grade.forge.student.entity;
 
+import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.user.entity.Users;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -32,6 +33,9 @@ public class Student {
     @OneToMany(mappedBy = "student", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Enrollment> enrollments = new ArrayList<>();
 
+
+    @OneToMany(mappedBy = "student")
+    private List<Submission> submissions;
 
     @Column(nullable = false, unique = true)
     private String cwid;
