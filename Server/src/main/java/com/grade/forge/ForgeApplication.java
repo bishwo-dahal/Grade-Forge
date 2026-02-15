@@ -38,8 +38,10 @@ public class ForgeApplication {
 				"faculty"
 		);
 
-
+	if(userRepository.findByEmail(facultyCreateRequest.getEmail()).isEmpty()){
 		facultyService.createFaculty(facultyCreateRequest);
+	}
+
 		return args -> {
 
 			createIfNotExists(
