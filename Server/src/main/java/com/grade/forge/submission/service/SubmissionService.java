@@ -5,22 +5,24 @@ import com.grade.forge.assignment.repository.AssignmentRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.student.entity.Student;
 import com.grade.forge.student.repository.StudentRepository;
-import com.grade.forge.submission.dto.SubmissionFileRequest;
 import com.grade.forge.submission.dto.SubmissionFileResponse;
-import com.grade.forge.submission.dto.SubmissionRequest;
 import com.grade.forge.submission.dto.SubmissionResponse;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.entity.SubmissionFile;
 import com.grade.forge.submission.repository.SubmissionRepository;
+import com.grade.forge.submission.repository.SubmissionFileRepository;
 import com.grade.forge.user.entity.Users;
 import com.grade.forge.user.repository.UserRepository;
+import com.grade.forge.storage.service.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -31,9 +33,11 @@ public class SubmissionService {
     private final AssignmentRepository assignmentRepository;
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
+    private final FileStorageService fileStorageService;
+    private final SubmissionFileRepository submissionFileRepository;
 
-    public SubmissionResponse submitAssignment(String userEmail, SubmissionRequest request) {
-        validateRequest(request);
+    public SubmissionResponse submitAssignment(String userEmail, Long assignmentId, List<MultipartFile> files) {
+        validateRequest(assignmentId, files);
 
         Users user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + userEmail));
@@ -41,58 +45,85 @@ public class SubmissionService {
         Student student = studentRepository.findByUserId(user.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found for user email: " + userEmail));
 
-        Assignment assignment = assignmentRepository.findById(request.getAssignmentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + request.getAssignmentId()));
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId));
 
         Submission submission = new Submission();
         submission.setAssignment(assignment);
         submission.setStudent(student);
         submission.setSubmittedAt(LocalDateTime.now());
 
-        List<SubmissionFile> files = request.getFiles().stream()
-                .map(fileRequest -> mapToSubmissionFile(fileRequest, submission))
-                .collect(Collectors.toList());
-        submission.setFiles(files);
+        List<SubmissionFile> submissionFiles = fileStorageService.uploadSubmissionFiles(
+                submission,
+                student.getId(),
+                assignment.getCourse().getId(),
+                assignment.getId(),
+                files);
+        submission.setFiles(submissionFiles);
 
         Submission saved = submissionRepository.save(submission);
+        submissionFiles.forEach(file -> file.setSubmission(saved));
+        submissionFileRepository.saveAll(submissionFiles);
+        saved.setFiles(submissionFiles);
         return mapToResponse(saved);
     }
 
-    private void validateRequest(SubmissionRequest request) {
-        if (request.getAssignmentId() == null) {
+    @Transactional(readOnly = true)
+    public SubmissionResponse getSubmissionForCurrentStudent(String userEmail, Long submissionId) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
+
+        if (!submission.getStudent().getUser().getEmail().equalsIgnoreCase(userEmail)) {
+            throw new IllegalArgumentException("You are not allowed to access this submission");
+        }
+
+        return mapToResponse(submission);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SubmissionResponse> getSubmissionsForCurrentStudentByAssignment(String userEmail, Long assignmentId) {
+        Users user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + userEmail));
+
+        Student student = studentRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found for user email: " + userEmail));
+
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId));
+
+        List<Submission> submissions = submissionRepository.findByAssignment_IdAndStudent_Id(assignment.getId(), student.getId());
+        return submissions.stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    private void validateRequest(Long assignmentId, List<MultipartFile> files) {
+        if (assignmentId == null) {
             throw new IllegalArgumentException("assignmentId is required");
         }
-        if (request.getFiles() == null || request.getFiles().isEmpty()) {
+        if (files == null || files.isEmpty()) {
             throw new IllegalArgumentException("At least one file is required");
         }
-        request.getFiles().forEach(file -> {
-            if (file.getFileName() == null || file.getFileName().isBlank()) {
+        files.forEach(file -> {
+            if (file.getOriginalFilename() == null || file.getOriginalFilename().isBlank()) {
                 throw new IllegalArgumentException("fileName is required for all files");
             }
-            if (file.getFileKey() == null || file.getFileKey().isBlank()) {
-                throw new IllegalArgumentException("fileKey is required for all files");
-            }
-            if (file.getFileType() == null || file.getFileType().isBlank()) {
+            if (file.getContentType() == null || file.getContentType().isBlank()) {
                 throw new IllegalArgumentException("fileType is required for all files");
             }
         });
-    }
-
-    private SubmissionFile mapToSubmissionFile(SubmissionFileRequest request, Submission submission) {
-        SubmissionFile file = new SubmissionFile();
-        file.setSubmission(submission);
-        file.setFileName(request.getFileName());
-        file.setFileKey(request.getFileKey());
-        file.setFileType(request.getFileType());
-        file.setFileSize(request.getFileSize());
-        return file;
     }
 
     private SubmissionResponse mapToResponse(Submission submission) {
         return SubmissionResponse.builder()
                 .id(submission.getId())
                 .assignmentId(submission.getAssignment().getId())
+                .assignmentName(submission.getAssignment().getName())
+                .courseId(submission.getAssignment().getCourse().getId())
+                .courseName(submission.getAssignment().getCourse().getName())
                 .studentId(submission.getStudent().getId())
+                .studentName(submission.getStudent().getUser().getName())
+                .studentEmail(submission.getStudent().getUser().getEmail())
                 .files(submission.getFiles() == null ? List.of() : submission.getFiles().stream()
                         .map(this::mapToFileResponse)
                         .collect(Collectors.toList()))
@@ -109,6 +140,7 @@ public class SubmissionService {
                 .fileKey(file.getFileKey())
                 .fileType(file.getFileType())
                 .fileSize(file.getFileSize())
+                .downloadUrl(fileStorageService.buildFileUrl(file.getFileKey()))
                 .build();
     }
 }

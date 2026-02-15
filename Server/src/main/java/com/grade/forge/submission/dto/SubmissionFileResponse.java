@@ -17,5 +17,5 @@ public class SubmissionFileResponse {
     private String fileKey;
     private String fileType;
     private Long fileSize;
+    private String downloadUrl;
 }
-
