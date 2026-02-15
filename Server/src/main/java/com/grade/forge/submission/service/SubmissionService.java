@@ -14,6 +14,8 @@ import com.grade.forge.submission.repository.SubmissionFileRepository;
 import com.grade.forge.user.entity.Users;
 import com.grade.forge.user.repository.UserRepository;
 import com.grade.forge.storage.service.FileStorageService;
+import com.grade.forge.faculty.entity.Faculty;
+import com.grade.forge.faculty.repository.FacultyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,7 +24,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +36,7 @@ public class SubmissionService {
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
     private final SubmissionFileRepository submissionFileRepository;
+    private final FacultyRepository facultyRepository;
 
     public SubmissionResponse submitAssignment(String userEmail, Long assignmentId, List<MultipartFile> files) {
         validateRequest(assignmentId, files);
@@ -92,6 +94,24 @@ public class SubmissionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId));
 
         List<Submission> submissions = submissionRepository.findByAssignment_IdAndStudent_Id(assignment.getId(), student.getId());
+        return submissions.stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SubmissionResponse> getSubmissionsForFacultyByAssignment(String facultyEmail, Long assignmentId) {
+        Faculty faculty = facultyRepository.findByEmail(facultyEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with email: " + facultyEmail));
+
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId));
+
+        if (!assignment.getCourse().getFaculty().getId().equals(faculty.getId())) {
+            throw new IllegalArgumentException("You are not allowed to view submissions for this assignment");
+        }
+
+        List<Submission> submissions = submissionRepository.findByAssignment_Id(assignmentId);
         return submissions.stream()
                 .map(this::mapToResponse)
                 .toList();
