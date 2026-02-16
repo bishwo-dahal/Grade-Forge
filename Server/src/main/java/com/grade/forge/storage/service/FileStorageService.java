@@ -1,5 +1,6 @@
 package com.grade.forge.storage.service;
 
+import com.grade.forge.exceptionhandler.IncorrectFileException;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.entity.SubmissionFile;
 import lombok.RequiredArgsConstructor;
@@ -64,8 +65,18 @@ public class FileStorageService {
                                             MultipartFile multipartFile) {
         String fileId = UUID.randomUUID().toString();
         String originalName = multipartFile.getOriginalFilename();
+
+        if (originalName == null ||
+                !(originalName.toLowerCase().endsWith(".java") ||
+                        originalName.toLowerCase().endsWith(".py"))) {
+
+            throw new IncorrectFileException("Incorrect File Type");
+        }
+
         String key = String.format("uploads/student/%d/course/%d/assignment/%d/file/%s-%s",
                 studentId, courseId, assignmentId, fileId, originalName);
+
+
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucketName)

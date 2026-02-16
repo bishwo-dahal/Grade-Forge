@@ -24,7 +24,7 @@ public class ProgrammingLanguage {
     @Column(nullable = false)
     private String name;
 
-    @Column(name = "docker_image", nullable = false)
+    @Column(name = "docker_image", columnDefinition = "TEXT", nullable = false)
     private String dockerImage;
 
     @Column(name = "execution_code", columnDefinition = "TEXT")
