@@ -1,8 +1,15 @@
 # Stage 1: Build React frontend
-FROM node:20-bullseye AS frontend-build
+FROM node:24-bullseye AS frontend-build
+ENV ROLLUP_SKIP_NATIVE=true
 WORKDIR /app/frontend
-COPY Client/ .
-RUN npm install && npm run build
+# Only copy package.json and package-lock.json
+COPY Client/package.json Client/package-lock.json ./
+
+RUN npm ci
+# Copy the rest of the client code
+COPY Client/ ./
+
+RUN npm run build
 
 # Stage 2: Build Spring Boot backend
 FROM maven:3.9.12-eclipse-temurin-21 AS backend-build
