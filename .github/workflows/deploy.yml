@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - production
+      - 'deployment_fixing_*'
       - bishwodahal_fixing_deployment
 
 jobs:
@@ -40,7 +41,7 @@ jobs:
         script: |
           docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
           docker pull bishwodahal/grade-forge:latest
-          if [ "${{ github.ref_name }}" = "bishwodahal_fixing_deployment" ]; then
+          if [[ "${{ github.ref_name }}" = "bishwodahal_fixing_deployment" || "${{ github.ref_name }}" = deployment_fixing_* ]]; then
             # Main branch deployment
             docker stop grade-forge-main || true
             docker rm grade-forge-main || true

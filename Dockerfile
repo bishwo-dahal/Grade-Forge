@@ -1,14 +1,11 @@
 # Stage 1: Build React frontend
-FROM node:24-bullseye AS frontend-build
-ENV ROLLUP_SKIP_NATIVE=true
+FROM node:24-bullseye-slim AS frontend-build
 WORKDIR /app/frontend
 # Only copy package.json and package-lock.json
 COPY Client/package.json Client/package-lock.json ./
-
 RUN npm ci
 # Copy the rest of the client code
 COPY Client/ ./
-
 RUN npm run build
 
 # Stage 2: Build Spring Boot backend
