@@ -1,6 +1,6 @@
 package com.grade.forge.semester.entity;
 
-import com.grade.forge.classmgmt.entity.Course;
+import com.grade.forge.coursemgmt.entity.Course;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

@@ -16,6 +16,12 @@ public class GlobalExceptionHandling {
         return  new ResponseEntity<>(errorResponse,HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(IncorrectFileException.class)
+    public ResponseEntity<ErrorResponseDto> handleIncorrectFileException(IncorrectFileException exception){
+        ErrorResponseDto errorResponse= new ErrorResponseDto(exception.getMessage(),401,false);
+        return  new ResponseEntity<>(errorResponse,HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDto> Exception(Exception exception){
         System.out.println(exception);
