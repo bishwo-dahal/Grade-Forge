@@ -1,5 +1,5 @@
 # Stage 1: Build React frontend
-FROM node:20-alpine AS frontend-build
+FROM node:20-bullseye AS frontend-build
 WORKDIR /app/frontend
 COPY Client/ .
 RUN npm install && npm run build
