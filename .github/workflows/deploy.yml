@@ -5,18 +5,44 @@ on:
     branches:
       - main
       - production
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy'
+        required: true
+        default: 'main'
+        type: choice
+        options:
+          - main
+          - production
+          - other
+      branch_other:
+        description: 'Branch name (when "other" is selected)'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      # Branch we're deploying: from manual input (or "other" -> custom name) or from the branch that was pushed
+      DEPLOY_BRANCH: ${{ github.event_name == 'workflow_dispatch' && (inputs.branch == 'other' && inputs.branch_other || inputs.branch) || github.ref_name }}
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
+      with:
+        ref: ${{ env.DEPLOY_BRANCH }}
 
-    # Build Docker image
+    - name: Set deployment info
+      run: |
+        echo "Deploying branch: ${{ env.DEPLOY_BRANCH }}"
+        echo "Image tag: bishwodahal/grade-forge:${{ env.DEPLOY_BRANCH }}"
+
+    # Build Docker image (tagged by branch so main and production never overwrite each other)
     - name: Build Docker image
-      run: docker build -t bishwodahal/grade-forge:latest .
+      run: docker build -t bishwodahal/grade-forge:${{ env.DEPLOY_BRANCH }} .
 
     # Docker Hub login
     - name: Docker Login
@@ -25,11 +51,11 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    # Push Docker image to Docker Hub
+    # Push Docker image (branch-specific tag)
     - name: Push Docker image
-      run: docker push bishwodahal/grade-forge:latest
+      run: docker push bishwodahal/grade-forge:${{ env.DEPLOY_BRANCH }}
 
-    # Deploy to EC2
+    # Deploy to EC2 (pull and run the branch-specific image, not :latest)
     - name: Deploy to EC2
       uses: appleboy/ssh-action@v0.1.5
       with:
@@ -37,17 +63,23 @@ jobs:
         username: ec2-user
         key: ${{ secrets.EC2_KEY }}
         script: |
+          set -e
+          IMAGE_TAG="${{ env.DEPLOY_BRANCH }}"
+          echo "Pulling and deploying image: bishwodahal/grade-forge:${IMAGE_TAG}"
           docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-          docker pull bishwodahal/grade-forge:latest
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            # Main branch deployment
-            docker stop grade-forge-main || true
-            docker rm grade-forge-main || true
-            docker run -d -p 8080:8080 --name grade-forge-main bishwodahal/grade-forge:latest
-          elif [ "${{ github.ref_name }}" = "production" ]; then
-            # Production branch deployment
-            docker stop grade-forge-production || true
-            docker rm grade-forge-production || true
-            docker run -d -p 8081:8080 --name grade-forge-production bishwodahal/grade-forge:latest
+          docker pull bishwodahal/grade-forge:${IMAGE_TAG}
+          if [ "${IMAGE_TAG}" = "main" ]; then
+            CONTAINER_NAME="grade-forge-main"
+            PORT=8080
+          elif [ "${IMAGE_TAG}" = "production" ]; then
+            CONTAINER_NAME="grade-forge-production"
+            PORT=8081
+          else
+            CONTAINER_NAME="grade-forge-other"
+            PORT=8989
           fi
+          docker stop "${CONTAINER_NAME}" || true
+          docker rm "${CONTAINER_NAME}" || true
+          docker run -d -p ${PORT}:8080 --name "${CONTAINER_NAME}" bishwodahal/grade-forge:${IMAGE_TAG}
+          echo "Deployed bishwodahal/grade-forge:${IMAGE_TAG} on port ${PORT} (container: ${CONTAINER_NAME})"
  
