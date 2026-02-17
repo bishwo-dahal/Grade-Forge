@@ -36,7 +36,7 @@ public class SecurityConfig {
                                         "/test"
                                 ).permitAll()
                                 .requestMatchers(req -> !req.getRequestURI().startsWith("/api")).permitAll()
-                                .requestMatchers("/api/v1/student/update/*").hasAnyAuthority("STUDENT","FACULTY","UNIVERSITY_ADMIN","SYSTEM_ADMIN")
+                                .requestMatchers("/api/v1/student/*").hasAnyAuthority("STUDENT","FACULTY","UNIVERSITY_ADMIN","SYSTEM_ADMIN")
                                 .requestMatchers("/api/v1/faculty/courses/*","/api/v1/faculty/semester/").hasAuthority("FACULTY")
                                 .requestMatchers("/api/v1/university_admin/*").hasAuthority("UNIVERSITY_ADMIN")
                                 .requestMatchers("/api/v1/system_admin/university/*").hasAuthority("SYSTEM_ADMIN")

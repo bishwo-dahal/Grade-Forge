@@ -1,6 +1,7 @@
 package com.grade.forge.user.entity;
 
 import com.grade.forge.faculty.entity.Faculty;
+import com.grade.forge.student.entity.Student;
 import com.grade.forge.user.enums.Role;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -31,4 +32,9 @@ public class Users {
 
     @OneToOne(mappedBy = "user")
     private Faculty faculty;
+
+    @OneToOne(mappedBy = "user")
+    private Student student;
+
+
 }
