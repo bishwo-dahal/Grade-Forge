@@ -1,21 +1,13 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router";
-import { Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff, LogOut, SunMedium } from "lucide-react";
-import { GradeForgeSidebar } from "./GradeForgeSidebar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
+import { Link, Navigate, useLocation, useNavigate } from "react-router";
+import { Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff } from "lucide-react";
 import type { UserProfile } from "../../types/user";
-import { getStudentProfile, updatePassword } from "../../services/authService";
-import { clearAuthenticated, getAuthenticatedUser, setAuthenticated } from "../auth";
+import { getFacultyProfile, getStudentProfile, updatePassword } from "../../services/authService";
+import { clearAuthenticated, getAuthenticatedRole, getAuthenticatedUser, setAuthenticated } from "../auth";
+import { AuthShell } from "./layout/AuthShell";
+import { AuthTopBar } from "./layout/AuthTopBar";
 
 export function SettingsPage() {
-  const [viewMode, setViewMode] = useState<"student" | "faculty">("student");
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activeSection, setActiveSection] = useState<"profile" | "security" | "notifications" | "appearance">("profile");
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
@@ -30,10 +22,19 @@ export function SettingsPage() {
   const [updatingPassword, setUpdatingPassword] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const role = getAuthenticatedRole();
+  // NOTE: Settings keeps the same role mapping as dashboard so the shared shell renders matching navigation.
+  const viewMode: "student" | "faculty" = role === "FACULTY" ? "faculty" : "student";
 
   useEffect(() => {
+    // NOTE: Profile fallback source now follows role to avoid showing student mock data in faculty settings.
+    if (role === "FACULTY") {
+      getFacultyProfile().then(setProfile);
+      return;
+    }
+
     getStudentProfile().then(setProfile);
-  }, []);
+  }, [role]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -130,85 +131,29 @@ export function SettingsPage() {
     }
   };
 
+  if (role === "UNIVERSITY_ADMIN") {
+    // NOTE: University admins use their dedicated dashboard/settings surface, not the student/faculty shell.
+    return <Navigate to="/university-admin" replace />;
+  }
+
+  const topBar = (
+    <AuthTopBar
+      roleView={viewMode}
+      profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
+      showSearch={false}
+      isSettingsActive
+      onSettingsSectionSelect={goToSettingsSection}
+      onLogout={handleLogout}
+    />
+  );
+
   return (
-    <div className="flex h-screen w-full bg-[#F5F2F2]">
-      <GradeForgeSidebar viewMode={viewMode} onViewChange={setViewMode} />
-
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="bg-white border-b border-gray-200 px-8 py-4">
-          <div className="flex items-center justify-end">
-            <div className="flex items-center gap-3">
-              <button
-                aria-label="Notifications"
-                className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <Bell className="w-[18px] h-[18px] text-gray-600" strokeWidth={2} />
-              </button>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    aria-label="Open settings menu"
-                    className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 text-gray-900 hover:bg-gray-200 transition-colors"
-                  >
-                    <Settings className="w-[18px] h-[18px]" strokeWidth={2} />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-64">
-                  <DropdownMenuLabel className="flex flex-col gap-0.5">
-                    <span className="text-[13px] font-semibold text-[#2B2A2A]">Settings</span>
-                    <span className="text-[11px] text-gray-500">Quickly jump between settings sections</span>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => goToSettingsSection("profile")}>
-                    <User className="w-4 h-4 text-gray-600" strokeWidth={2} />
-                    <div className="flex flex-col">
-                      <span className="text-[13px] font-medium text-[#2B2A2A]">Account</span>
-                      <span className="text-[11px] text-gray-500">Profile info and basic details</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => goToSettingsSection("security")}>
-                    <Lock className="w-4 h-4 text-gray-600" strokeWidth={2} />
-                    <div className="flex flex-col">
-                      <span className="text-[13px] font-medium text-[#2B2A2A]">Security</span>
-                      <span className="text-[11px] text-gray-500">Password and sign-in settings</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => goToSettingsSection("notifications")}>
-                    <Bell className="w-4 h-4 text-gray-600" strokeWidth={2} />
-                    <div className="flex flex-col">
-                      <span className="text-[13px] font-medium text-[#2B2A2A]">Notifications</span>
-                      <span className="text-[11px] text-gray-500">Email and in-app alerts</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => goToSettingsSection("appearance")}>
-                    <SunMedium className="w-4 h-4 text-gray-600" strokeWidth={2} />
-                    <div className="flex flex-col">
-                      <span className="text-[13px] font-medium text-[#2B2A2A]">Appearance</span>
-                      <span className="text-[11px] text-gray-500">Theme and display preferences</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
-                    <LogOut className="w-4 h-4" strokeWidth={2} />
-                    <span className="text-[13px] font-medium">Logout</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <div className="ml-2 flex items-center gap-3 pl-3 border-l border-gray-200">
-                <div className="w-9 h-9 bg-gradient-to-br from-[#FEB05D] to-[#ff9a3d] rounded-full flex items-center justify-center">
-                  <span className="text-white text-[13px] font-medium">{displayInitials}</span>
-                </div>
-                <div>
-                  <div className="text-[13px] font-semibold text-[#2B2A2A]">{displayName}</div>
-                  <div className="text-[11px] text-gray-500">{displayEmail}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
+    <>
+      <AuthShell
+        roleView={viewMode}
+        topBar={topBar}
+        // NOTE: Settings page now reuses the shared shell instead of duplicating sidebar/topbar wrappers.
+        mainContent={
         <main className="flex-1 overflow-y-auto px-8 py-8">
           <Link
             to="/dashboard"
@@ -321,7 +266,8 @@ export function SettingsPage() {
             )}
           </div>
         </main>
-      </div>
+        }
+      />
 
       {showChangePasswordModal && (
         <div className="fixed inset-0 bg-black/35 flex items-center justify-center p-4 z-50">
@@ -443,6 +389,6 @@ export function SettingsPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

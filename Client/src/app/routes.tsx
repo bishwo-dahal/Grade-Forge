@@ -11,6 +11,7 @@ import SignInPage from "./components/SignInPage";
 import LandingPage from "./components/LandingPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { SettingsPage } from "./components/SettingsPage";
+import { UniversityAdminDashboard } from "./components/UniversityAdminDashboard";
 
 export const router = createBrowserRouter([
   {
@@ -20,7 +21,8 @@ export const router = createBrowserRouter([
   {
     path: "/dashboard",
     element: (
-      <ProtectedRoute>
+      // NOTE: Student/Faculty shared shell; university admin has a separate dashboard.
+      <ProtectedRoute allowedRoles={["STUDENT", "FACULTY"]}>
         <GradeForgeDashboard />
       </ProtectedRoute>
     ),
@@ -28,15 +30,25 @@ export const router = createBrowserRouter([
   {
     path: "/settings",
     element: (
-      <ProtectedRoute>
+      // NOTE: Settings shell is student/faculty-only; university admin uses dedicated university pages.
+      <ProtectedRoute allowedRoles={["STUDENT", "FACULTY"]}>
         <SettingsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/university-admin",
+    element: (
+      // NOTE: University dashboard is strictly limited to UNIVERSITY_ADMIN role.
+      <ProtectedRoute allowedRoles={["UNIVERSITY_ADMIN"]}>
+        <UniversityAdminDashboard />
       </ProtectedRoute>
     ),
   },
   {
     path: "/class/:classId",
     element: (
-      <ProtectedRoute>
+      <ProtectedRoute allowedRoles={["STUDENT"]}>
         <ClassPage />
       </ProtectedRoute>
     ),
@@ -44,7 +56,7 @@ export const router = createBrowserRouter([
   {
     path: "/faculty/class/:classId",
     element: (
-      <ProtectedRoute>
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
         <FacultyClassPage />
       </ProtectedRoute>
     ),
@@ -52,7 +64,7 @@ export const router = createBrowserRouter([
   {
     path: "/course/:courseId",
     element: (
-      <ProtectedRoute>
+      <ProtectedRoute allowedRoles={["STUDENT"]}>
         <CoursePage />
       </ProtectedRoute>
     ),
@@ -60,7 +72,7 @@ export const router = createBrowserRouter([
   {
     path: "/assignment/:assignmentId",
     element: (
-      <ProtectedRoute>
+      <ProtectedRoute allowedRoles={["STUDENT"]}>
         <AssignmentPage />
       </ProtectedRoute>
     ),
@@ -68,7 +80,7 @@ export const router = createBrowserRouter([
   {
     path: "/assignment/:assignmentId/grade/:submissionId",
     element: (
-      <ProtectedRoute>
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
         <FacultyGradingPage />
       </ProtectedRoute>
     ),
