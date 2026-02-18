@@ -32,7 +32,7 @@ The pipeline returns a single JSON object. Use it to update grades in your DB an
 ### Top level
 
 - **`assignment_id`** – Which assignment this run was for.
-- **`results`** – One object per student. Each has grades, similarity info, and a **`comparisons`** array (only the pairs that involve that student).
+- **`results`** – One object per student. Each has grades, similarity info, and a **`comparisons`** array. Each comparison is attached only to the student who is the **subject** (the one whose code was tested, i.e. the “right” side in the pair). So a similarity between student A and B appears in exactly one report—the one for the student who was the subject in that comparison—not in both. That avoids duplicate pairs; the viewer shows “You” (subject) vs “Other”.
 - **`highlight_markers`** – `{ "start": ">>", "end": "<<" }`. Code in comparisons uses these to mark copied regions so the frontend can highlight them.
 
 ### Per-student result
@@ -46,11 +46,11 @@ Every item in `results` looks like this:
 | `similarity_score` | 0–1; how much of this submission matched others. |
 | `similarity_warning` | If there was a match, a short message (e.g. path to the other file); otherwise `null`. |
 | `ai_flag` | Reserved for future AI-generated detection; `null` for now. |
-| `comparisons` | List of plagiarism pairs where this student is either left or right. Each pair has `left`, `right`, and `overlap_tokens`. |
+| `comparisons` | List of pairs for this student. Each has `left` (you), `right` (other), and `overlap_tokens`. |
 
 **Backend:** You can take each element of `results`, update the grade (and any flags) for that `student_id`, and persist that same object’s `comparisons` in one go (e.g. one row or document per student with a JSON column or related table for comparisons).
 
-**Frontend:** For a given student, use `result.comparisons` to show side-by-side code. Each comparison has `left` and `right`, each with `student_id`, `file_path`, `code`, and `similarity`. The `code` strings contain `>>` and `<<` around the matched snippets—split on `highlight_markers.start` / `highlight_markers.end` and render those segments with a highlight style (e.g. red for left column, green for right).
+**Frontend:** For a given student, use `result.comparisons` to show side-by-side code. In each pair, **`left`** = you (current student), **`right`** = other. Each side has `student_id`, `file_path`, `code`, and `similarity`. The `code` strings may contain HTML `<span class='highlight-…'>` or `>>`/`<<` markers for matched regions.
 
 ---
 

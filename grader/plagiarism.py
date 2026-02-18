@@ -12,6 +12,9 @@ from data_parser import Assignment
 HIGHLIGHT_START = ">>"
 HIGHLIGHT_END = "<<"
 
+# Minimum similarity (0–1) to report a pair. Raise to 0.6–0.7 to reduce false positives.
+DISPLAY_THRESHOLD = 0.5
+
 
 def _path_matches(sub_path, reported_path):
     a = os.path.abspath(sub_path)
@@ -46,7 +49,7 @@ def run_similarity_check(assignment: Assignment):
     )
     detector = CopyDetector(
         extensions=[ext],
-        display_t=0.5,
+        display_t=DISPLAY_THRESHOLD,
         silent=True,
     )
 
@@ -71,11 +74,14 @@ def run_similarity_check(assignment: Assignment):
         test_sim, ref_sim, test_path, ref_path = item[0], item[1], item[2], item[3]
         score = max(test_sim, ref_sim)
 
-        student_id = _student_for_path(assignment, test_path)
-        if student_id is not None and score > best_match[student_id][0]:
-            best_match[student_id] = (score, ref_path)
+        # Only the suspect (test) gets the similarity score — "how much did YOUR code match someone else".
+        # The source (ref) still sees the comparison in their report but won't get a high % in the summary.
+        test_student = _student_for_path(assignment, test_path)
+        if test_student is not None and score > best_match[test_student][0]:
+            best_match[test_student] = (score, ref_path)
 
-        # Build comparison entry for frontend (side-by-side view)
+        # Build comparison entry for frontend. We want left=person we're checking (suspect),
+        # right=potential source. Copydetect: test_path=file being checked, ref_path=reference.
         if len(item) >= 6:
             # item: [test_sim, ref_sim, test_path, ref_path, highlighted_test_code, highlighted_ref_code, ...]
             highlighted_test = item[4]
@@ -83,20 +89,21 @@ def run_similarity_check(assignment: Assignment):
             overlap_tokens = item[6] if len(item) > 6 else None
             if overlap_tokens is not None:
                 overlap_tokens = int(overlap_tokens)  # numpy int64 -> native int for JSON
-            left_student = _student_for_path(assignment, ref_path)
-            right_student = _student_for_path(assignment, test_path)
+            # left = suspect (test = "did they copy?"), right = source (ref)
+            left_student = _student_for_path(assignment, test_path)
+            right_student = _student_for_path(assignment, ref_path)
             comparisons.append({
                 "left": {
                     "student_id": left_student,
-                    "file_path": ref_path,
-                    "code": highlighted_ref,
-                    "similarity": round(ref_sim, 2),
-                },
-                "right": {
-                    "student_id": right_student,
                     "file_path": test_path,
                     "code": highlighted_test,
                     "similarity": round(test_sim, 2),
+                },
+                "right": {
+                    "student_id": right_student,
+                    "file_path": ref_path,
+                    "code": highlighted_ref,
+                    "similarity": round(ref_sim, 2),
                 },
                 "overlap_tokens": overlap_tokens,
             })

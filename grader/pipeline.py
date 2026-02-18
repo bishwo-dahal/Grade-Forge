@@ -12,12 +12,18 @@ def run_pipeline(assignment: Assignment) -> dict:
         sid = r.pop("student_id")
         by_student[sid].update(r)
 
-    # Attach only the comparisons that involve each student (left or right)
+    # Attach every comparison to both students involved, so each sees "you vs other".
+    # For each (left=A, right=B): A gets (you=A, other=B), B gets (you=B, other=A).
     for sid in by_student:
-        by_student[sid]["comparisons"] = [
-            c for c in comparisons
-            if c["left"]["student_id"] == sid or c["right"]["student_id"] == sid
-        ]
+        out = []
+        for c in comparisons:
+            left_id = c["left"]["student_id"]
+            right_id = c["right"]["student_id"]
+            if sid == left_id:
+                out.append({"left": c["left"], "right": c["right"], "overlap_tokens": c.get("overlap_tokens")})
+            elif sid == right_id:
+                out.append({"left": c["right"], "right": c["left"], "overlap_tokens": c.get("overlap_tokens")})
+        by_student[sid]["comparisons"] = out
         if "ai_flag" not in by_student[sid]:
             by_student[sid]["ai_flag"] = None
 
