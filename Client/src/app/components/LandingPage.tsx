@@ -1,10 +1,11 @@
 import { Link, Navigate } from "react-router";
-import { isAuthenticated } from "../auth";
+import { getAuthenticatedRole, getDefaultRouteForRole, isAuthenticated } from "../auth";
 import React from "react";
 
 export default function LandingPage() {
   if (isAuthenticated()) {
-    return <Navigate to="/dashboard" replace />;
+    // NOTE: Redirect authenticated users directly to the route allowed for their role.
+    return <Navigate to={getDefaultRouteForRole(getAuthenticatedRole())} replace />;
   }
 
   return (

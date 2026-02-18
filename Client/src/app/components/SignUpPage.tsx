@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, Navigate } from "react-router";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import { AuthSplitLayout } from "./auth/AuthSplitLayout";
-import { isAuthenticated, setAuthenticated } from "../auth";
+import { getAuthenticatedRole, getDefaultRouteForRole, isAuthenticated, setAuthenticated } from "../auth";
 import { signup } from "../../services/authService";
 
 export default function SignUpPage() {
@@ -16,7 +16,8 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
 
   if (isAuthenticated()) {
-    return <Navigate to="/dashboard" replace />;
+    // NOTE: Signed-in users are routed to their own dashboard by role.
+    return <Navigate to={getDefaultRouteForRole(getAuthenticatedRole())} replace />;
   }
 
   const handleSignUp = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -33,6 +34,7 @@ export default function SignUpPage() {
         name: name || email,
         email,
         password,
+        // NOTE: Public signup is student-only; other roles are provisioned/admin-managed.
         role: "STUDENT",
       });
       setAuthenticated(response.token, {
@@ -40,7 +42,8 @@ export default function SignUpPage() {
         email: response.email,
         role: response.role,
       });
-      window.location.href = "/dashboard";
+      // NOTE: Hard redirect keeps the post-signup flow consistent with current auth bootstrap.
+      window.location.href = getDefaultRouteForRole(response.role);
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "response" in err
         ? (err as { response?: { data?: { message?: string } } }).response?.data?.message

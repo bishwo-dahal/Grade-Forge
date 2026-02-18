@@ -5,7 +5,6 @@ import {
   Calendar,
   FolderOpen,
   MessageSquare,
-  RefreshCw,
   Users,
   ClipboardCheck
 } from "lucide-react";
@@ -13,10 +12,9 @@ import { Link } from "react-router";
 
 interface GradeForgeSidebarProps {
   viewMode: 'student' | 'faculty';
-  onViewChange: (view: 'student' | 'faculty') => void;
 }
 
-export function GradeForgeSidebar({ viewMode, onViewChange }: GradeForgeSidebarProps) {
+export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
   const studentItems = [
     { icon: LayoutDashboard, label: "Dashboard", active: true },
     { icon: BookOpen, label: "My Courses", active: false },
@@ -41,6 +39,7 @@ export function GradeForgeSidebar({ viewMode, onViewChange }: GradeForgeSidebarP
 
   return (
     <aside className="w-60 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col">
+      {/* NOTE: Role switcher was removed intentionally; access is controlled by auth role + route guards. */}
       {/* Logo */}
       <div className="px-6 py-6">
         <Link
@@ -108,27 +107,6 @@ export function GradeForgeSidebar({ viewMode, onViewChange }: GradeForgeSidebarP
         </div>
       </nav>
 
-      {/* View Switcher */}
-      <div className="p-4">
-        <button 
-          onClick={() => onViewChange(viewMode === 'student' ? 'faculty' : 'student')}
-          className="w-full flex items-center justify-between px-4 py-3 bg-[#5A7ACD]/10 hover:bg-[#5A7ACD]/20 rounded-xl transition-colors group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-              <RefreshCw className="w-4 h-4 text-[#5A7ACD]" strokeWidth={2} />
-            </div>
-            <div className="text-left">
-              <div className="text-[13px] font-semibold text-[#2B2A2A]">
-                {viewMode === 'student' ? 'Student View' : 'Faculty View'}
-              </div>
-              <div className="text-[11px] text-gray-600">
-                Switch to {viewMode === 'student' ? 'Faculty' : 'Student'}
-              </div>
-            </div>
-          </div>
-        </button>
-      </div>
     </aside>
   );
 }
