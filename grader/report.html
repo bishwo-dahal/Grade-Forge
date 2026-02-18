@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grader report</title>
+  <style>
+    :root {
+      --bg: #1a1b26;
+      --surface: #24283b;
+      --text: #c0caf5;
+      --dim: #565f89;
+      --green: #9ece6a;
+      --red: #f7768e;
+      --border: #3b4261;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1rem 2rem 2rem;
+      font-size: 14px;
+    }
+    h1 { font-size: 1.25rem; color: var(--dim); margin-bottom: 0.5rem; }
+    .pick-file {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      text-align: center;
+      color: var(--dim);
+    }
+    .pick-file input[type="file"] { margin-top: 0.5rem; cursor: pointer; }
+    .pick-file.has-file { border-color: var(--green); color: var(--text); }
+    .assignment { color: var(--text); margin-bottom: 1.5rem; }
+    table { border-collapse: collapse; width: 100%; max-width: 960px; }
+    th, td { padding: 0.5rem 0.75rem; text-align: left; border: 1px solid var(--border); }
+    th { background: var(--surface); color: var(--dim); }
+    tr:nth-child(even) { background: rgba(36,40,59,0.5); }
+    .warning-cell { max-width: 320px; word-break: break-all; color: var(--red); }
+    .toggle-btn {
+      background: var(--surface);
+      color: var(--green);
+      border: 1px solid var(--border);
+      padding: 0.25rem 0.5rem;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+    }
+    .toggle-btn:hover { background: var(--border); }
+    .comparison-panel { margin-top: 1rem; margin-bottom: 2rem; }
+    .comparison-block { margin-bottom: 2rem; }
+    .comparison-header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding: 0.5rem 0;
+      color: var(--dim);
+      font-size: 12px;
+    }
+    .side-by-side {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .code-pane {
+      margin: 0;
+      padding: 0.75rem;
+      background: var(--surface);
+      overflow: auto;
+      max-height: 70vh;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre;
+    }
+    .code-pane code { font-family: inherit; background: none; padding: 0; }
+    /* Grader output: highlight-red = "you" (test), highlight-green = "other" (ref). We show You left, Other right. */
+    .highlight-green { background: rgba(158, 206, 106, 0.25); }
+    .highlight-red { background: rgba(247, 118, 142, 0.25); }
+    #report { display: none; }
+    #report.visible { display: block; }
+    .error { color: var(--red); margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>Grader report</h1>
+  <div class="pick-file" id="pickFile">
+    <label>Choose grader output JSON (e.g. out.json)</label><br>
+    <input type="file" id="fileInput" accept=".json,application/json">
+    <div class="error" id="error"></div>
+  </div>
+  <div id="report">
+    <p class="assignment">Assignment: <strong id="assignmentId"></strong></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Grade</th>
+          <th>Similarity</th>
+          <th>Warning</th>
+          <th>Comparisons</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="summaryBody"></tbody>
+    </table>
+    <div id="comparisons"></div>
+  </div>
+
+  <script>
+    function escapeHtml(s) {
+      if (s == null) return '—';
+      const t = String(s);
+      return t
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+    function basename(path) {
+      return path ? path.replace(/^.*[/\\]/, '') : '—';
+    }
+    function pct(val) {
+      return typeof val === 'number' ? (val * 100).toFixed(0) + '%' : String(val);
+    }
+
+    function renderReport(data) {
+      const assignmentId = data.assignment_id ?? '—';
+      const results = data.results ?? [];
+      document.getElementById('assignmentId').textContent = escapeHtml(assignmentId);
+
+      const tbody = document.getElementById('summaryBody');
+      tbody.innerHTML = '';
+      const comparisonsContainer = document.getElementById('comparisons');
+      comparisonsContainer.innerHTML = '';
+
+      results.forEach((r, idx) => {
+        const sid = r.student_id ?? '—';
+        const grade = r.final_grade ?? '—';
+        const sim = r.similarity_score;
+        const simStr = typeof sim === 'number' ? (sim * 100).toFixed(0) + '%' : String(sim ?? '—');
+        const warning = r.similarity_warning || '—';
+        const comps = r.comparisons ?? [];
+        const nComp = comps.length;
+
+        const row = document.createElement('tr');
+        row.innerHTML =
+          '<td>' + escapeHtml(sid) + '</td>' +
+          '<td>' + escapeHtml(grade) + '</td>' +
+          '<td>' + escapeHtml(simStr) + '</td>' +
+          '<td class="warning-cell">' + escapeHtml(warning) + '</td>' +
+          '<td>' + nComp + '</td>' +
+          '<td><button type="button" class="toggle-btn" data-idx="' + idx + '">' +
+          (nComp ? 'Hide comparisons' : 'Show comparisons') + '</button></td>';
+        tbody.appendChild(row);
+
+        const panel = document.createElement('div');
+        panel.className = 'comparison-panel';
+        panel.dataset.idx = String(idx);
+        if (!nComp) panel.hidden = true;
+
+        comps.forEach(c => {
+          const left = c.left || {};
+          const right = c.right || {};
+          const overlap = c.overlap_tokens ?? 0;
+          // Pipeline stores left=you (current student), right=other.
+          const block = document.createElement('div');
+          block.className = 'comparison-block';
+          block.innerHTML =
+            '<div class="comparison-header">' +
+              '<span>You (' + escapeHtml(left.student_id) + ') — ' + escapeHtml(basename(left.file_path)) + ' (' + pct(left.similarity) + ')</span>' +
+              '<span>Other (' + escapeHtml(right.student_id) + ') — ' + escapeHtml(basename(right.file_path)) + ' (' + pct(right.similarity) + ')</span>' +
+              '<span>' + overlap + ' overlap tokens</span>' +
+            '</div>' +
+            '<div class="side-by-side">' +
+              '<pre class="code-pane left"><code></code></pre>' +
+              '<pre class="code-pane right"><code></code></pre>' +
+            '</div>';
+          const leftCode = block.querySelector('.code-pane.left code');
+          const rightCode = block.querySelector('.code-pane.right code');
+          leftCode.innerHTML = left.code ?? '';
+          rightCode.innerHTML = right.code ?? '';
+          panel.appendChild(block);
+        });
+        comparisonsContainer.appendChild(panel);
+      });
+
+      document.querySelectorAll('.toggle-btn').forEach(btn => {
+        btn.onclick = () => {
+          const idx = btn.getAttribute('data-idx');
+          const panel = document.querySelector('.comparison-panel[data-idx="' + idx + '"]');
+          if (panel.hidden) {
+            panel.hidden = false;
+            btn.textContent = 'Hide comparisons';
+          } else {
+            panel.hidden = true;
+            btn.textContent = 'Show comparisons';
+          }
+        };
+      });
+
+      document.getElementById('report').classList.add('visible');
+    }
+
+    document.getElementById('fileInput').addEventListener('change', e => {
+      const file = e.target.files[0];
+      const errEl = document.getElementById('error');
+      errEl.textContent = '';
+      if (!file) return;
+      document.getElementById('pickFile').classList.add('has-file');
+      const r = new FileReader();
+      r.onload = () => {
+        try {
+          const data = JSON.parse(r.result);
+          if (!data.results) throw new Error('Invalid format: missing "results"');
+          renderReport(data);
+        } catch (err) {
+          errEl.textContent = 'Invalid JSON or format: ' + err.message;
+        }
+      };
+      r.onerror = () => { errEl.textContent = 'Failed to read file'; };
+      r.readAsText(file, 'UTF-8');
+    });
+  </script>
+</body>
+</html>
