@@ -8,6 +8,7 @@ import {
   Phone,
   Plus,
   Search,
+  Trash2,
   User,
   X,
   XCircle,
@@ -169,11 +170,13 @@ function UniversityFacultyView({
                       <button
                         type="button"
                         onClick={() => onDeleteFaculty(member.id)}
-                        className="rounded-xl bg-[#FDEBEC] px-4 py-1.5 text-[14px] font-medium text-[#E0474C] disabled:opacity-60"
+                        aria-label={deletingFacultyId === member.id ? `Deleting ${member.name}` : `Delete ${member.name}`}
+                        // FIX: Added visible hover background so icon-only delete action has clearer affordance.
+                        className="rounded-lg p-1.5 text-[#E0474C] transition-colors hover:bg-[#FDEBEC] hover:text-[#CB2F34] disabled:opacity-60"
                         disabled={deletingFacultyId === member.id}
                       >
-                        {/* CLEANUP: Replaced old enable/disable placeholder with backend-backed delete action. */}
-                        {deletingFacultyId === member.id ? "Deleting..." : "Delete"}
+                        {/* CLEANUP: Switched to icon-only delete action to match the language table action style. */}
+                        <Trash2 className="h-4 w-4" strokeWidth={2} />
                       </button>
                     </td>
                   </tr>

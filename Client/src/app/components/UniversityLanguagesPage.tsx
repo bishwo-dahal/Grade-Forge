@@ -139,7 +139,8 @@ function UniversityLanguagesView({
                           type="button"
                           onClick={() => onRemoveLanguage(language.id)}
                           aria-label={`Remove ${language.name}`}
-                          className="text-[#E0474C] hover:text-[#CB2F34]"
+                          // FIX: Added visible hover background so icon-only delete action has clearer affordance.
+                          className="rounded-lg p-1.5 text-[#E0474C] transition-colors hover:bg-[#FDEBEC] hover:text-[#CB2F34]"
                         >
                           <Trash2 className="h-4 w-4" strokeWidth={2} />
                         </button>

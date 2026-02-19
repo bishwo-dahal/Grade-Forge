@@ -77,7 +77,8 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
         <div className="px-4 py-4 border-b border-[#CFD2D9]">
           {/* FIX: Use the same divider color token as the top bar so horizontal lines align visually. */}
           {/* FIX: Keep university title on a single line with a smaller, natural size per updated design feedback. */}
-          <h1 className="text-[18px] font-semibold leading-none text-[#1F2430] whitespace-nowrap">University Admin</h1>
+          {/* FIX: Set university heading to 22px to match the requested sidebar title size. */}
+          <h1 className="text-[22px] font-semibold leading-none text-[#1F2430] whitespace-nowrap">University Admin</h1>
           <p className="mt-1.5 text-[14px] text-[#5D667A]">System Management</p>
         </div>
       ) : (

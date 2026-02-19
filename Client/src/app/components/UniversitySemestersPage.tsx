@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, CheckCircle2, Plus, Search, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, Plus, Search, Trash2, X } from "lucide-react";
 import type { AcademicSemester, SemesterCreatePayload } from "../../types/universityAdmin";
 import {
   createAcademicSemester,
@@ -137,11 +137,13 @@ function UniversitySemestersView({
                 <button
                   type="button"
                   onClick={() => onDeleteSemester(semester.id)}
-                  className="rounded-xl bg-[#FDEBEC] px-4 py-1.5 text-[14px] font-medium text-[#E0474C] disabled:opacity-60"
+                  aria-label={deletingSemesterId === semester.id ? `Deleting ${semester.name}` : `Delete ${semester.name}`}
+                  // FIX: Added visible hover background so icon-only delete action has clearer affordance.
+                  className="rounded-lg p-1.5 text-[#E0474C] transition-colors hover:bg-[#FDEBEC] hover:text-[#CB2F34] disabled:opacity-60"
                   disabled={deletingSemesterId === semester.id}
                 >
-                  {/* NOTE: Semester cards now expose the same backend-backed delete action style as faculty rows. */}
-                  {deletingSemesterId === semester.id ? "Deleting..." : "Delete"}
+                  {/* CLEANUP: Switched to icon-only delete action to match language and faculty action styling. */}
+                  <Trash2 className="h-4 w-4" strokeWidth={2} />
                 </button>
               </div>
             </article>

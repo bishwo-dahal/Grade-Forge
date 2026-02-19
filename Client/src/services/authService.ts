@@ -20,6 +20,10 @@ export interface SignupRequest {
   email: string;
   password: string;
   role: "STUDENT" | "FACULTY" | "UNIVERSITY_ADMIN" | "SYSTEM_ADMIN";
+  // NOTE: Student signup collects profile fields that backend stores in linked student record.
+  cwid: string;
+  major: string;
+  canvasUserId: string;
 }
 
 export interface PasswordUpdateRequest {
