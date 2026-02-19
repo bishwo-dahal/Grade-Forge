@@ -15,6 +15,7 @@ import type {
   FacultySemesterOption,
   FacultyDashboardStat,
   FacultyAssignment,
+  FacultyMyClassItem,
   FacultyCourseCard,
   InstructorProfile,
   TeachingAssistantProfile,
@@ -561,6 +562,12 @@ interface FacultyCourseApiResponse {
   canvasCourseId: string | null;
   active: boolean;
   isPublished: boolean;
+  semester?: {
+    id: number;
+    name: string;
+    startDate: string;
+    endDate: string;
+  } | null;
 }
 
 interface FacultySemesterApiResponse {
@@ -595,6 +602,28 @@ function mapFacultyCourseToCard(course: FacultyCourseApiResponse): FacultyCourse
     students: 0,
     pendingSubmissions: 0,
     activeAssignments: 0,
+    icon: iconData.icon,
+    iconBg: iconData.iconBg,
+  };
+}
+
+function mapFacultyCourseToWorkspaceItem(course: FacultyCourseApiResponse): FacultyMyClassItem {
+  const iconData = buildCourseIcon(course.courseCode || course.name);
+  return {
+    id: String(course.id),
+    title: course.name,
+    code: course.courseCode,
+    section: course.section ?? "0",
+    semester: course.semester?.name ?? "0",
+    isActive: Boolean(course.active),
+    // NOTE: Metrics are not provided by current faculty courses endpoint; keep them at 0 until backend expands the contract.
+    students: 0,
+    assignments: 0,
+    avgScore: 0,
+    pendingGrading: 0,
+    pendingReview: 0,
+    schedule: "0",
+    location: "0",
     icon: iconData.icon,
     iconBg: iconData.iconBg,
   };
@@ -639,6 +668,12 @@ export async function listFacultyCourses(): Promise<FacultyCourseCard[]> {
     // FIX: Fallback to existing mock list so faculty UI still works if backend is temporarily unavailable.
     return Promise.resolve(facultyCourses);
   }
+}
+
+export async function listFacultyMyClasses(): Promise<FacultyMyClassItem[]> {
+  // TODO(backend): Keep this endpoint shape stable so faculty my-classes view can map DB courses without UI rewrites.
+  const { data } = await api.get<FacultyCourseApiResponse[]>("/api/v1/faculty/courses");
+  return data.map(mapFacultyCourseToWorkspaceItem);
 }
 
 export async function listFacultySemesters(): Promise<FacultySemesterOption[]> {

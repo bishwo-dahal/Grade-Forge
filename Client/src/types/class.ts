@@ -46,6 +46,25 @@ export interface FacultyCourseCard {
   iconBg: string;
 }
 
+// NOTE: UI-driven model for Faculty My Classes workspace cards; keep fields aligned to what the page renders.
+export interface FacultyMyClassItem {
+  id: string;
+  title: string;
+  code: string;
+  section: string;
+  semester: string;
+  isActive: boolean;
+  students: number;
+  assignments: number;
+  avgScore: number;
+  pendingGrading: number;
+  pendingReview: number;
+  schedule: string;
+  location: string;
+  icon: string;
+  iconBg: string;
+}
+
 // NOTE: UI-driven create-class form shape mirrors current backend CourseRequestDto fields used by the faculty workflow.
 export interface ClassCreateFormData {
   name: string;

@@ -5,6 +5,7 @@ import type { SettingsSection } from "./layout/AuthTopBar";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { StudentMyCoursesPage as StudentMyCoursesWorkspacePage } from "./StudentMyCoursesPage";
 import { StudentAssignmentsPage as StudentAssignmentsWorkspacePage } from "./StudentAssignmentsPage";
+import { FacultyMyClassesPage as FacultyMyClassesWorkspacePage } from "./FacultyMyClassesPage";
 
 interface RoleWorkspacePageProps {
   roleView: "student" | "faculty";
@@ -91,7 +92,8 @@ export function StudentDiscussionsPage() {
 
 // NOTE: Faculty workspace placeholders mirror sidebar entries so every navigation target resolves to a route now.
 export function FacultyMyClassesPage() {
-  return <RoleWorkspacePage roleView="faculty" title="My Classes" description="Manage your active teaching classes." />;
+  // REFACTOR: Faculty My Classes now has a dedicated DB-backed implementation; keep this export stable for route imports.
+  return <FacultyMyClassesWorkspacePage />;
 }
 
 export function FacultyGradingHubPage() {
