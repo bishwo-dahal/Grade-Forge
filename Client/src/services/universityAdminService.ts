@@ -3,6 +3,7 @@ import type {
   FacultyApiResponse,
   FacultyCreatePayload,
   FacultyMember,
+  LanguageCreatePayload,
   SemesterApiResponse,
   SemesterCreatePayload,
   SupportedLanguage,
@@ -10,13 +11,13 @@ import type {
 } from "../types/universityAdmin";
 import api from "../api/axios";
 
-const supportedLanguages: SupportedLanguage[] = [
-  { name: "Python", version: "v3.11", addedOn: "Added Jan 14, 2023", icon: "python" },
-  { name: "JavaScript", version: "vES2023", addedOn: "Added Jan 14, 2023", icon: "javascript" },
-  { name: "Java", version: "v17 LTS", addedOn: "Added Jan 14, 2023", icon: "java" },
-  { name: "C++", version: "vC++20", addedOn: "Added Feb 19, 2023", icon: "cpp" },
-  { name: "Rust", version: "v1.75", addedOn: "Added Jan 9, 2024", icon: "rust" },
-  { name: "Go", version: "v1.21", addedOn: "Added Jan 9, 2024", icon: "go" },
+let supportedLanguages: SupportedLanguage[] = [
+  { id: "language-python", name: "Python", version: "v3.11", addedOn: "Added Jan 14, 2023", icon: "python" },
+  { id: "language-javascript", name: "JavaScript", version: "vES2023", addedOn: "Added Jan 14, 2023", icon: "javascript" },
+  { id: "language-java", name: "Java", version: "v17 LTS", addedOn: "Added Jan 14, 2023", icon: "java" },
+  { id: "language-cpp", name: "C++", version: "vC++20", addedOn: "Added Feb 19, 2023", icon: "cpp" },
+  { id: "language-rust", name: "Rust", version: "v1.75", addedOn: "Added Jan 9, 2024", icon: "rust" },
+  { id: "language-go", name: "Go", version: "v1.21", addedOn: "Added Jan 9, 2024", icon: "go" },
 ];
 
 const departmentOptions = ["Computer Science", "Software Engineering", "Data Science"];
@@ -100,6 +101,39 @@ export async function createAcademicSemester(payload: SemesterCreatePayload): Pr
 
 export function listSupportedLanguages(): Promise<SupportedLanguage[]> {
   return Promise.resolve(supportedLanguages);
+}
+
+export function createSupportedLanguage(payload: LanguageCreatePayload): Promise<SupportedLanguage> {
+  const name = payload.name.trim();
+  const version = payload.version.trim();
+  const normalizedName = name.toLowerCase();
+  const normalizedVersion = version.toLowerCase();
+  const alreadyExists = supportedLanguages.some(
+    (language) => language.name.toLowerCase() === normalizedName && language.version.toLowerCase() === normalizedVersion,
+  );
+
+  if (alreadyExists) {
+    return Promise.reject(new Error("This language and version already exists."));
+  }
+
+  const createdLanguage: SupportedLanguage = {
+    id: `language-${Date.now()}`,
+    name,
+    version: version.startsWith("v") ? version : `v${version}`,
+    addedOn: `Added ${dateFormatter.format(new Date())}`,
+    // NOTE: Newly created custom languages use a neutral generic icon until icon mapping is backend-driven.
+    icon: "code",
+  };
+
+  // NOTE: Mutate in-memory mock store so add/remove actions behave like real management workflow before backend integration.
+  supportedLanguages = [createdLanguage, ...supportedLanguages];
+  return Promise.resolve(createdLanguage);
+}
+
+export function removeSupportedLanguage(languageId: string): Promise<void> {
+  // TODO(backend): Replace in-memory removal with DELETE endpoint once language management APIs are available.
+  supportedLanguages = supportedLanguages.filter((language) => language.id !== languageId);
+  return Promise.resolve();
 }
 
 export function listDepartmentOptions(): Promise<string[]> {

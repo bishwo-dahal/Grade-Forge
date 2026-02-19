@@ -34,7 +34,8 @@ export function UniversityAdminWorkspace() {
         <AuthTopBar
           roleView="university"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search faculty, semesters, courses..."
+          // NOTE: Keep shared topbar copy aligned with all current university sections.
+          searchPlaceholder="Search faculty, semesters, courses, languages..."
           // NOTE: University workspace keeps settings navigation inactive until dedicated university settings routing is introduced.
           onLogout={handleLogout}
         />

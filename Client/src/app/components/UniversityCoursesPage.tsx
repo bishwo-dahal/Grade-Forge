@@ -31,7 +31,8 @@ function UniversityCoursesView({ courses, isLoading, error, searchTerm, onSearch
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-8 py-6">
       <section className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-[34px] leading-none font-bold text-[#2B2A2A]">Courses</h1>
+          {/* FIX: Reduced section heading size so university pages match the natural typography used elsewhere. */}
+          <h1 className="text-[28px] leading-none font-bold text-[#2B2A2A]">Courses</h1>
           <p className="mt-3 text-[14px] text-[#5D6A80]">Manage all courses across semesters</p>
         </div>
         <button

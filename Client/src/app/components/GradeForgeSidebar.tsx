@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Users,
   ClipboardCheck,
+  Code2,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { Link, useLocation } from "react-router";
@@ -45,6 +46,8 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
     { icon: Users, label: "Faculty", to: "/university-admin/faculty" },
     { icon: Calendar, label: "Semesters", to: "/university-admin/semesters" },
     { icon: BookOpen, label: "Courses", to: "/university-admin/courses" },
+    // NOTE: Languages management has its own university section route for easier backend ownership boundaries.
+    { icon: Code2, label: "Languages", to: "/university-admin/languages" },
   ];
 
   const learningItems =
@@ -68,12 +71,14 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
   };
 
   return (
-    <aside className="w-60 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col">
+    <aside className="w-60 bg-white border-r border-[#CFD2D9] flex-shrink-0 flex flex-col">
       {/* NOTE: Role switcher was removed intentionally; access is controlled by auth role + route guards. */}
       {viewMode === "university" ? (
-        <div className="px-4 py-6 border-b border-gray-200">
-          <h1 className="text-[32px] font-semibold leading-none text-[#1F2430]">University Admin</h1>
-          <p className="mt-2 text-[14px] text-[#5D667A]">System Management</p>
+        <div className="px-4 py-4 border-b border-[#CFD2D9]">
+          {/* FIX: Use the same divider color token as the top bar so horizontal lines align visually. */}
+          {/* FIX: Keep university title on a single line with a smaller, natural size per updated design feedback. */}
+          <h1 className="text-[18px] font-semibold leading-none text-[#1F2430] whitespace-nowrap">University Admin</h1>
+          <p className="mt-1.5 text-[14px] text-[#5D667A]">System Management</p>
         </div>
       ) : (
         /* REFACTOR: Keep existing logo header for student/faculty while university mode uses title-style sidebar header. */
@@ -92,7 +97,8 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 px-4">
+      {/* FIX: Add top spacing in university mode so the first nav item does not stick to the header divider. */}
+      <nav className={`flex-1 px-4 ${viewMode === "university" ? "pt-4" : ""}`}>
         {/* Learning Section */}
         <div className="mb-6">
           {viewMode !== "university" && (

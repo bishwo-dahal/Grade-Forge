@@ -451,7 +451,7 @@ export function UniversityAdminDashboard() {
 
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
             {supportedLanguages.map((language) => (
-              <div key={language.name} className="rounded-2xl border border-gray-200 bg-white p-5">
+              <div key={language.id} className="rounded-2xl border border-gray-200 bg-white p-5">
                 <div className="mb-5 flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#F3F5F8] text-[#5A7ACD]">
@@ -461,6 +461,7 @@ export function UniversityAdminDashboard() {
                       {language.icon === "cpp" && <Cog className="h-5 w-5 text-[#8E79B6]" strokeWidth={2} />}
                       {language.icon === "rust" && <Bug className="h-5 w-5 text-[#F03A8C]" strokeWidth={2} />}
                       {language.icon === "go" && <Code2 className="h-5 w-5 text-[#3A7AE0]" strokeWidth={2} />}
+                      {language.icon === "code" && <Code2 className="h-5 w-5" strokeWidth={2} />}
                     </div>
                     <div>
                       <p className="text-[18px] font-semibold text-[#1F2430]">{language.name}</p>

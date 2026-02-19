@@ -13,6 +13,7 @@ import { SettingsPage } from "./components/SettingsPage";
 import { UniversityAdminWorkspace } from "./components/UniversityAdminWorkspace";
 import { UniversityCoursesPage } from "./components/UniversityCoursesPage";
 import { UniversityFacultyPage } from "./components/UniversityFacultyPage";
+import { UniversityLanguagesPage } from "./components/UniversityLanguagesPage";
 import { UniversitySemestersPage } from "./components/UniversitySemestersPage";
 import {
   FacultyDiscussionsPage,
@@ -164,6 +165,10 @@ export const router = createBrowserRouter([
       {
         path: "courses",
         Component: UniversityCoursesPage,
+      },
+      {
+        path: "languages",
+        Component: UniversityLanguagesPage,
       },
     ],
   },

@@ -73,8 +73,16 @@ export interface SemesterApiResponse {
 }
 
 export interface SupportedLanguage {
+  // NOTE: Stable row id used by language management list actions.
+  id: string;
   name: string;
   version: string;
   addedOn: string;
-  icon: "python" | "javascript" | "java" | "cpp" | "rust" | "go";
+  icon: "python" | "javascript" | "java" | "cpp" | "rust" | "go" | "code";
+}
+
+// NOTE: UI-driven payload for creating supported languages in the university workspace.
+export interface LanguageCreatePayload {
+  name: string;
+  version: string;
 }

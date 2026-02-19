@@ -45,10 +45,12 @@ export function AuthTopBar({
   const iconButtonBaseClass =
     // FIX: Notification/settings actions now use plain white surfaces (no gray fill) to match toolbar styling requirements.
     "h-9 w-9 rounded-xl border border-[#CFD2D9] bg-white text-[#677083] hover:bg-white transition-colors flex items-center justify-center";
+  // FIX: University mode needs a taller search/topbar block so its divider aligns with the sidebar section break.
+  const topBarVerticalPaddingClass = roleView === "university" ? "py-5" : "py-3";
 
   // NOTE: Shared top-nav background is white so student/faculty/settings surfaces stay visually consistent.
   return (
-    <div className="bg-white border-b border-[#CFD2D9] px-6 py-3">
+    <div className={`bg-white border-b border-[#CFD2D9] px-6 ${topBarVerticalPaddingClass}`}>
       <div className="flex items-center justify-between gap-4">
         {showSearch ? (
           <div className="flex-1 max-w-[480px]">
