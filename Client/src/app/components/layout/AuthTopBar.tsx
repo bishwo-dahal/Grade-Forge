@@ -43,7 +43,8 @@ export function AuthTopBar({
     roleView === "faculty" ? "from-[#5A7ACD] to-[#4a6abd]" : "from-[#FEB05D] to-[#ff9a3d]";
   // NOTE: Keep top-bar visual tokens centralized so future pages inherit the same navigation style by default.
   const iconButtonBaseClass =
-    "h-9 w-9 rounded-xl border border-[#BFC1C7] bg-[#ECECEF] text-[#677083] hover:bg-[#F7F7F8] transition-colors flex items-center justify-center";
+    // FIX: Notification/settings actions now use plain white surfaces (no gray fill) to match toolbar styling requirements.
+    "h-9 w-9 rounded-xl border border-[#CFD2D9] bg-white text-[#677083] hover:bg-white transition-colors flex items-center justify-center";
 
   // NOTE: Shared top-nav background is white so student/faculty/settings surfaces stay visually consistent.
   return (
@@ -58,8 +59,8 @@ export function AuthTopBar({
                 type="text"
                 placeholder={searchPlaceholder}
                 aria-label={searchPlaceholder}
-                // NOTE: Search field now uses the same neutral surface style requested for both student and faculty toolbars.
-                className="w-full pl-10 pr-4 py-2.5 bg-[#DCDCE0] border border-[#BFC1C7] rounded-xl text-[13px] text-[#2B2A2A] placeholder:text-[#747D90] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                // NOTE: Search field matches dashboard surface color so top-nav controls stay visually consistent.
+                className="w-full pl-10 pr-4 py-2.5 bg-[#F5F2F2] border border-[#CFD2D9] rounded-xl text-[13px] text-[#2B2A2A] placeholder:text-[#747D90] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
               />
             </div>
           </div>
@@ -92,9 +93,7 @@ export function AuthTopBar({
             <DropdownMenuTrigger asChild>
               <button
                 aria-label="Open settings menu"
-                className={`${iconButtonBaseClass} ${
-                  isSettingsActive ? "bg-[#F7F7F8]" : ""
-                }`}
+                className={`${iconButtonBaseClass} ${isSettingsActive ? "border-[#A7B4D8]" : ""}`}
               >
                 <Settings className="w-[17px] h-[17px]" strokeWidth={2} />
               </button>

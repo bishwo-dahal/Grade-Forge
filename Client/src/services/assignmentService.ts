@@ -56,6 +56,17 @@ const upcomingAssignments: UpcomingAssignment[] = [
     icon: "\u{1F310}",
     iconBg: "bg-[#5A7ACD]/10",
   },
+  {
+    // NOTE: Added third row to match current dashboard preview layout expectations.
+    id: 3,
+    title: "Database Schema Design",
+    course: "Database Systems \u2022 Assignment 4",
+    dueDate: "Nov 2, 2023",
+    daysLeft: "Due in 11 days",
+    urgent: false,
+    icon: "\u{1F5C4}\uFE0F",
+    iconBg: "bg-[#5A7ACD]/10",
+  },
 ];
 
 const courseAssignments: AssignmentSummary[] = [
