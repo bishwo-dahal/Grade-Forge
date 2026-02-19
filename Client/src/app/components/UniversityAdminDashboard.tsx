@@ -231,12 +231,12 @@ export function UniversityAdminDashboard() {
     <main className="min-h-screen bg-[#F5F2F2] px-4 py-5 sm:px-6 sm:py-6">
       <div className="mx-auto w-full max-w-[1180px]">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-3 pb-10">
             <div className="h-12 w-12 rounded-2xl bg-[#5A7ACD] text-white flex items-center justify-center">
               <Shield className="h-6 w-6" strokeWidth={2} />
             </div>
             <div>
-              <h1 className="text-3xl sm:text-4xl font-bold text-[#1F2430] leading-tight">University Administration</h1>
+              <h1 className="text-3xl sm:text-4xl font-bold text-[#1F2430] leading-tight">Unversity Administration</h1>
               <p className="text-[15px] text-[#506080]">Manage faculty accounts and system configurations</p>
             </div>
           </div>

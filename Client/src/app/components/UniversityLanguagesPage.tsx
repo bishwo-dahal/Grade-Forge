@@ -9,7 +9,9 @@ import type { LanguageCreatePayload, SupportedLanguage } from "../../types/unive
 
 const DEFAULT_LANGUAGE_FORM: LanguageCreatePayload = {
   name: "",
-  version: "",
+  dockerImage: "",
+  executionCode: "",
+  isActive: true,
 };
 
 interface UniversityLanguagesViewProps {
@@ -20,7 +22,7 @@ interface UniversityLanguagesViewProps {
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
   onOpenCreateModal: () => void;
-  onRemoveLanguage: (languageId: string) => void;
+  onRemoveLanguage: (languageId: number) => void;
 }
 
 function UniversityLanguagesView({
@@ -38,7 +40,11 @@ function UniversityLanguagesView({
       return languages;
     }
     return languages.filter((language) => {
-      return language.name.toLowerCase().includes(normalizedSearch) || language.version.toLowerCase().includes(normalizedSearch);
+      return (
+        language.name.toLowerCase().includes(normalizedSearch) ||
+        language.dockerImage.toLowerCase().includes(normalizedSearch) ||
+        language.executionCode.toLowerCase().includes(normalizedSearch)
+      );
     });
   }, [languages, searchTerm]);
 
@@ -66,7 +72,7 @@ function UniversityLanguagesView({
             type="text"
             value={searchTerm}
             onChange={(event) => onSearchTermChange(event.target.value)}
-            placeholder="Search languages by name or version..."
+            placeholder="Search languages by name, docker image, or execution command..."
             className="w-full rounded-2xl border border-[#CFD2D9] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#2B2A2A] placeholder:text-[#8791A5] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
           />
         </div>
@@ -80,15 +86,16 @@ function UniversityLanguagesView({
             <thead>
               <tr className="border-b border-gray-200 bg-[#FBFCFE]">
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Language</th>
-                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Version</th>
-                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Added On</th>
+                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Docker Image</th>
+                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Execution Command</th>
+                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Status</th>
                 <th className="px-6 py-4 text-right text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (
                 <tr>
-                  <td className="px-6 py-5 text-[14px] text-[#5D6A80]" colSpan={4}>
+                  <td className="px-6 py-5 text-[14px] text-[#5D6A80]" colSpan={5}>
                     Loading languages...
                   </td>
                 </tr>
@@ -96,7 +103,7 @@ function UniversityLanguagesView({
 
               {!isLoading && filteredLanguages.length === 0 && (
                 <tr>
-                  <td className="px-6 py-5 text-[14px] text-[#5D6A80]" colSpan={4}>
+                  <td className="px-6 py-5 text-[14px] text-[#5D6A80]" colSpan={5}>
                     No languages found.
                   </td>
                 </tr>
@@ -113,8 +120,19 @@ function UniversityLanguagesView({
                         <p className="text-[15px] font-semibold text-[#1F2430]">{language.name}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-[14px] text-[#2D3B53]">{language.version}</td>
-                    <td className="px-6 py-4 text-[14px] text-[#2D3B53]">{language.addedOn}</td>
+                    <td className="px-6 py-4 text-[14px] text-[#2D3B53]">{language.dockerImage || "-"}</td>
+                    <td className="px-6 py-4 text-[14px] text-[#2D3B53]">{language.executionCode || "-"}</td>
+                    <td className="px-6 py-4 text-[14px]">
+                      <span
+                        className={
+                          language.isActive
+                            ? "inline-flex rounded-full bg-[#E5F6EA] px-2.5 py-1 text-[12px] font-medium text-[#0D9A4B]"
+                            : "inline-flex rounded-full bg-[#EDF0F4] px-2.5 py-1 text-[12px] font-medium text-[#6F7B8D]"
+                        }
+                      >
+                        {language.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end">
                         <button
@@ -147,12 +165,23 @@ export function UniversityLanguagesPage() {
   const [languageForm, setLanguageForm] = useState<LanguageCreatePayload>(DEFAULT_LANGUAGE_FORM);
   const [languageFormError, setLanguageFormError] = useState<string | null>(null);
 
+  const getErrorMessage = (unknownError: unknown, fallback: string): string => {
+    if (typeof unknownError === "object" && unknownError !== null) {
+      const response = (unknownError as { response?: { data?: { message?: unknown } } }).response;
+      const message = response?.data?.message;
+      if (typeof message === "string" && message.trim().length > 0) {
+        return message;
+      }
+    }
+    return fallback;
+  };
+
   const loadLanguages = () => {
     setIsLoading(true);
     setError(null);
     listSupportedLanguages()
       .then(setLanguages)
-      .catch(() => setError("Could not load languages."))
+      .catch((loadError) => setError(getErrorMessage(loadError, "Could not load languages.")))
       .finally(() => setIsLoading(false));
   };
 
@@ -173,8 +202,8 @@ export function UniversityLanguagesPage() {
   };
 
   const handleCreateLanguage = async () => {
-    if (!languageForm.name.trim() || !languageForm.version.trim()) {
-      setLanguageFormError("Language name and version are required.");
+    if (!languageForm.name.trim()) {
+      setLanguageFormError("Language name is required.");
       return;
     }
 
@@ -182,23 +211,24 @@ export function UniversityLanguagesPage() {
     setLanguageFormError(null);
 
     try {
-      // TODO(backend): Replace with language create API endpoint while preserving the payload shape.
-      await createSupportedLanguage(languageForm);
+      // NOTE: Popup payload now matches backend ProgrammingLanguageRequest fields for direct API integration.
+      await createSupportedLanguage({
+        name: languageForm.name.trim(),
+        dockerImage: languageForm.dockerImage.trim(),
+        executionCode: languageForm.executionCode.trim(),
+        isActive: languageForm.isActive,
+      });
       handleCloseCreateModal();
       loadLanguages();
     } catch (creationError) {
-      if (creationError instanceof Error && creationError.message) {
-        setLanguageFormError(creationError.message);
-      } else {
-        setLanguageFormError("Could not create language.");
-      }
+      setLanguageFormError(getErrorMessage(creationError, "Could not create language."));
     } finally {
       setIsSavingLanguage(false);
     }
   };
 
-  const handleRemoveLanguage = async (languageId: string) => {
-    // TODO(backend): Replace with language delete endpoint once backend adds persistence for language management.
+  const handleRemoveLanguage = async (languageId: number) => {
+    // NOTE: Language row delete is backend-connected so university admin actions persist in the database.
     await removeSupportedLanguage(languageId);
     loadLanguages();
   };
@@ -246,18 +276,40 @@ export function UniversityLanguagesPage() {
                 />
               </div>
               <div>
-                <label htmlFor="language-version-create" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-                  Version
+                <label htmlFor="language-docker-image-create" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                  Docker Image
                 </label>
                 <input
-                  id="language-version-create"
+                  id="language-docker-image-create"
                   type="text"
-                  value={languageForm.version}
-                  onChange={(event) => setLanguageForm((prev) => ({ ...prev, version: event.target.value }))}
-                  placeholder="e.g., 2.0"
+                  value={languageForm.dockerImage}
+                  onChange={(event) => setLanguageForm((prev) => ({ ...prev, dockerImage: event.target.value }))}
+                  placeholder="e.g., python:3.11"
                   className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
                 />
               </div>
+              <div>
+                <label htmlFor="language-execution-code-create" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                  Execution Command
+                </label>
+                <input
+                  id="language-execution-code-create"
+                  type="text"
+                  value={languageForm.executionCode}
+                  onChange={(event) => setLanguageForm((prev) => ({ ...prev, executionCode: event.target.value }))}
+                  placeholder="e.g., python Main.py"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                />
+              </div>
+              <label className="inline-flex items-center gap-2 text-[13px] text-[#2D3B53]">
+                <input
+                  type="checkbox"
+                  checked={languageForm.isActive}
+                  onChange={(event) => setLanguageForm((prev) => ({ ...prev, isActive: event.target.checked }))}
+                  className="h-4 w-4 rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
+                />
+                Active language
+              </label>
             </div>
 
             <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">

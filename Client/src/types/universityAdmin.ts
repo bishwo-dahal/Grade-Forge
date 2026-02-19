@@ -77,16 +77,22 @@ export interface SemesterApiResponse {
 }
 
 export interface SupportedLanguage {
-  // NOTE: Stable row id used by language management list actions.
-  id: string;
+  // NOTE: Stable backend id used by language management list actions.
+  id: number;
   name: string;
-  version: string;
-  addedOn: string;
-  icon: "python" | "javascript" | "java" | "cpp" | "rust" | "go" | "code";
+  dockerImage: string;
+  executionCode: string;
+  isActive: boolean;
+  // NOTE: Legacy optional UI fields are kept temporarily for compatibility with older, non-routed dashboard code.
+  version?: string;
+  addedOn?: string;
+  icon?: "python" | "javascript" | "java" | "cpp" | "rust" | "go" | "code";
 }
 
-// NOTE: UI-driven payload for creating supported languages in the university workspace.
+// NOTE: UI-driven payload mirrors backend request shape for easy API handoff.
 export interface LanguageCreatePayload {
   name: string;
-  version: string;
+  dockerImage: string;
+  executionCode: string;
+  isActive: boolean;
 }

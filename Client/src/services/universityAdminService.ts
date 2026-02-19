@@ -11,18 +11,16 @@ import type {
 } from "../types/universityAdmin";
 import api from "../api/axios";
 
-let supportedLanguages: SupportedLanguage[] = [
-  { id: "language-python", name: "Python", version: "v3.11", addedOn: "Added Jan 14, 2023", icon: "python" },
-  { id: "language-javascript", name: "JavaScript", version: "vES2023", addedOn: "Added Jan 14, 2023", icon: "javascript" },
-  { id: "language-java", name: "Java", version: "v17 LTS", addedOn: "Added Jan 14, 2023", icon: "java" },
-  { id: "language-cpp", name: "C++", version: "vC++20", addedOn: "Added Feb 19, 2023", icon: "cpp" },
-  { id: "language-rust", name: "Rust", version: "v1.75", addedOn: "Added Jan 9, 2024", icon: "rust" },
-  { id: "language-go", name: "Go", version: "v1.21", addedOn: "Added Jan 9, 2024", icon: "go" },
-];
-
 const departmentOptions = ["Computer Science", "Software Engineering", "Data Science"];
 // NOTE: Courses intentionally start empty until the university courses backend endpoint is integrated.
 const universityCourses: UniversityCourseRow[] = [];
+type ProgrammingLanguageApiResponse = {
+  id: number;
+  name: string;
+  dockerImage: string | null;
+  executionCode: string | null;
+  isActive: boolean | null;
+};
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -111,41 +109,31 @@ export async function deleteAcademicSemesterById(semesterId: number): Promise<vo
   await api.delete(`/api/v1/university_admin/semester/${semesterId}`);
 }
 
-export function listSupportedLanguages(): Promise<SupportedLanguage[]> {
-  return Promise.resolve(supportedLanguages);
-}
-
-export function createSupportedLanguage(payload: LanguageCreatePayload): Promise<SupportedLanguage> {
-  const name = payload.name.trim();
-  const version = payload.version.trim();
-  const normalizedName = name.toLowerCase();
-  const normalizedVersion = version.toLowerCase();
-  const alreadyExists = supportedLanguages.some(
-    (language) => language.name.toLowerCase() === normalizedName && language.version.toLowerCase() === normalizedVersion,
-  );
-
-  if (alreadyExists) {
-    return Promise.reject(new Error("This language and version already exists."));
-  }
-
-  const createdLanguage: SupportedLanguage = {
-    id: `language-${Date.now()}`,
-    name,
-    version: version.startsWith("v") ? version : `v${version}`,
-    addedOn: `Added ${dateFormatter.format(new Date())}`,
-    // NOTE: Newly created custom languages use a neutral generic icon until icon mapping is backend-driven.
-    icon: "code",
+function mapProgrammingLanguageToUiModel(language: ProgrammingLanguageApiResponse): SupportedLanguage {
+  return {
+    id: language.id,
+    name: language.name,
+    dockerImage: language.dockerImage ?? "",
+    executionCode: language.executionCode ?? "",
+    isActive: language.isActive ?? true,
   };
-
-  // NOTE: Mutate in-memory mock store so add/remove actions behave like real management workflow before backend integration.
-  supportedLanguages = [createdLanguage, ...supportedLanguages];
-  return Promise.resolve(createdLanguage);
 }
 
-export function removeSupportedLanguage(languageId: string): Promise<void> {
-  // TODO(backend): Replace in-memory removal with DELETE endpoint once language management APIs are available.
-  supportedLanguages = supportedLanguages.filter((language) => language.id !== languageId);
-  return Promise.resolve();
+export async function listSupportedLanguages(): Promise<SupportedLanguage[]> {
+  // TODO(backend): Keep this endpoint and response shape stable because language management renders directly from it.
+  const { data } = await api.get<ProgrammingLanguageApiResponse[]>("/api/v1/university_admin/programming-languages/all");
+  return data.map(mapProgrammingLanguageToUiModel);
+}
+
+export async function createSupportedLanguage(payload: LanguageCreatePayload): Promise<SupportedLanguage> {
+  // TODO(backend): Keep payload fields aligned with ProgrammingLanguageRequest in backend when evolving language model.
+  const { data } = await api.post<ProgrammingLanguageApiResponse>("/api/v1/university_admin/programming-languages", payload);
+  return mapProgrammingLanguageToUiModel(data);
+}
+
+export async function removeSupportedLanguage(languageId: number): Promise<void> {
+  // TODO(backend): Keep id-based delete endpoint stable for row-level language actions in UI.
+  await api.delete(`/api/v1/university_admin/programming-languages/${languageId}`);
 }
 
 export function listDepartmentOptions(): Promise<string[]> {
