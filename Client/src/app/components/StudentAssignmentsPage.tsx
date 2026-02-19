@@ -152,7 +152,7 @@ function StudentAssignmentsView({ assignments, selectedFilter, onFilterChange }:
                 </div>
               </div>
 
-              <div className="flex w-full items-end justify-between gap-4 md:w-auto md:flex-col md:items-end">
+              <div className="flex w-full items-start justify-end md:w-auto">
                 <div
                   className={`inline-flex items-center gap-2 rounded-xl px-4 py-1.5 text-[14px] font-medium ${getStatusBadgeClasses(assignment.status)}`}
                 >
@@ -162,16 +162,7 @@ function StudentAssignmentsView({ assignments, selectedFilter, onFilterChange }:
                   {assignment.status === "completed" && <CalendarDays className="h-4 w-4" strokeWidth={2} />}
                   {getStatusLabel(assignment.status)}
                 </div>
-
-                {assignment.progressPercent !== null && (
-                  <div className="flex min-w-[160px] items-center gap-3">
-                    <div className="h-2 w-full rounded-full bg-[#E5E7EB]">
-                      {/* NOTE: Progress fill stays in the shared orange accent for assignment tracking consistency. */}
-                      <div className="h-2 rounded-full bg-[#FEB05D]" style={{ width: `${assignment.progressPercent}%` }} />
-                    </div>
-                    <span className="text-[14px] text-[#52607A]">{assignment.progressPercent}%</span>
-                  </div>
-                )}
+                {/* CLEANUP: Removed completion progress bar and percentage from cards per updated assignments page requirements. */}
               </div>
             </div>
           </article>
