@@ -61,6 +61,7 @@ function toSemesterStatus(startDate: string, endDate: string): AcademicSemester[
 
 function mapFacultyToUiModel(faculty: FacultyApiResponse): FacultyMember {
   return {
+    id: faculty.facultyId,
     initials: toInitials(faculty.name),
     name: faculty.name,
     email: faculty.email,
@@ -73,6 +74,7 @@ function mapFacultyToUiModel(faculty: FacultyApiResponse): FacultyMember {
 
 function mapSemesterToUiModel(semester: SemesterApiResponse): AcademicSemester {
   return {
+    id: semester.id,
     name: semester.name,
     status: toSemesterStatus(semester.startDate, semester.endDate),
     startDate: toReadableDate(semester.startDate),
@@ -90,6 +92,11 @@ export async function createFaculty(payload: FacultyCreatePayload): Promise<void
   await api.post("/api/v1/university_admin/faculty/create", payload);
 }
 
+export async function deleteFacultyById(facultyId: number): Promise<void> {
+  // TODO(backend): Keep this endpoint stable because UI destructive actions depend on id-based deletion.
+  await api.delete(`/api/v1/university_admin/faculty/${facultyId}`);
+}
+
 export async function listAcademicSemesters(): Promise<AcademicSemester[]> {
   const { data } = await api.get<SemesterApiResponse[]>("/api/v1/university_admin/semester/all");
   return data.map(mapSemesterToUiModel);
@@ -97,6 +104,11 @@ export async function listAcademicSemesters(): Promise<AcademicSemester[]> {
 
 export async function createAcademicSemester(payload: SemesterCreatePayload): Promise<void> {
   await api.post("/api/v1/university_admin/semester", payload);
+}
+
+export async function deleteAcademicSemesterById(semesterId: number): Promise<void> {
+  // TODO(backend): Keep this endpoint stable because UI destructive actions depend on id-based deletion.
+  await api.delete(`/api/v1/university_admin/semester/${semesterId}`);
 }
 
 export function listSupportedLanguages(): Promise<SupportedLanguage[]> {

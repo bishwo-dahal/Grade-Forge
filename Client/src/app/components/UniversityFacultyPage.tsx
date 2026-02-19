@@ -13,7 +13,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type { FacultyCreatePayload, FacultyMember } from "../../types/universityAdmin";
-import { createFaculty, listDepartmentOptions, listFacultyMembers } from "../../services/universityAdminService";
+import { createFaculty, deleteFacultyById, listDepartmentOptions, listFacultyMembers } from "../../services/universityAdminService";
 
 const DEFAULT_FACULTY_FORM: FacultyCreatePayload = {
   name: "",
@@ -44,6 +44,8 @@ interface UniversityFacultyViewProps {
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
   onOpenCreateModal: () => void;
+  onDeleteFaculty: (facultyId: number) => void;
+  deletingFacultyId: number | null;
 }
 
 function UniversityFacultyView({
@@ -53,6 +55,8 @@ function UniversityFacultyView({
   searchTerm,
   onSearchTermChange,
   onOpenCreateModal,
+  onDeleteFaculty,
+  deletingFacultyId,
 }: UniversityFacultyViewProps) {
   const filteredMembers = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -162,15 +166,15 @@ function UniversityFacultyView({
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {member.status === "active" ? (
-                        <button type="button" className="rounded-xl bg-[#FDEBEC] px-4 py-1.5 text-[14px] font-medium text-[#E0474C]">
-                          Disable
-                        </button>
-                      ) : (
-                        <button type="button" className="rounded-xl bg-[#EAF5EC] px-4 py-1.5 text-[14px] font-medium text-[#0D9A4B]">
-                          Enable
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => onDeleteFaculty(member.id)}
+                        className="rounded-xl bg-[#FDEBEC] px-4 py-1.5 text-[14px] font-medium text-[#E0474C] disabled:opacity-60"
+                        disabled={deletingFacultyId === member.id}
+                      >
+                        {/* CLEANUP: Replaced old enable/disable placeholder with backend-backed delete action. */}
+                        {deletingFacultyId === member.id ? "Deleting..." : "Delete"}
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -192,6 +196,7 @@ export function UniversityFacultyPage() {
   const [facultyForm, setFacultyForm] = useState<FacultyCreatePayload>(DEFAULT_FACULTY_FORM);
   const [facultyFormError, setFacultyFormError] = useState<string | null>(null);
   const [isCreatingFaculty, setIsCreatingFaculty] = useState(false);
+  const [deletingFacultyId, setDeletingFacultyId] = useState<number | null>(null);
 
   const loadMembers = () => {
     setIsLoading(true);
@@ -246,6 +251,21 @@ export function UniversityFacultyPage() {
     }
   };
 
+  const handleDeleteFaculty = async (facultyId: number) => {
+    setDeletingFacultyId(facultyId);
+    setError(null);
+
+    try {
+      // NOTE: Delete action is backend-connected and removes faculty + associated user from DB.
+      await deleteFacultyById(facultyId);
+      loadMembers();
+    } catch (deleteError) {
+      setError(getErrorMessage(deleteError, "Could not delete faculty member."));
+    } finally {
+      setDeletingFacultyId(null);
+    }
+  };
+
   return (
     <>
       <UniversityFacultyView
@@ -255,6 +275,8 @@ export function UniversityFacultyPage() {
         searchTerm={searchTerm}
         onSearchTermChange={setSearchTerm}
         onOpenCreateModal={handleOpenCreateModal}
+        onDeleteFaculty={handleDeleteFaculty}
+        deletingFacultyId={deletingFacultyId}
       />
 
       {showCreateModal && (

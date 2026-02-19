@@ -8,6 +8,8 @@ export interface UniversitySummaryStat {
 }
 
 export interface FacultyMember {
+  // NOTE: Stable backend id required for destructive actions like delete.
+  id: number;
   initials: string;
   name: string;
   email: string;
@@ -18,6 +20,8 @@ export interface FacultyMember {
 }
 
 export interface AcademicSemester {
+  // NOTE: Stable backend id required for destructive actions like delete.
+  id: number;
   name: string;
   status: "active" | "upcoming" | "past";
   startDate: string;

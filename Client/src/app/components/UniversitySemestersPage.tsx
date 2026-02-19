@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, CheckCircle2, Plus, Search, X } from "lucide-react";
 import type { AcademicSemester, SemesterCreatePayload } from "../../types/universityAdmin";
-import { createAcademicSemester, listAcademicSemesters } from "../../services/universityAdminService";
+import {
+  createAcademicSemester,
+  deleteAcademicSemesterById,
+  listAcademicSemesters,
+} from "../../services/universityAdminService";
 
 const DEFAULT_SEMESTER_FORM: SemesterCreatePayload = {
   name: "",
@@ -28,6 +32,8 @@ interface UniversitySemestersViewProps {
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
   onOpenCreateModal: () => void;
+  onDeleteSemester: (semesterId: number) => void;
+  deletingSemesterId: number | null;
 }
 
 function UniversitySemestersView({
@@ -37,6 +43,8 @@ function UniversitySemestersView({
   searchTerm,
   onSearchTermChange,
   onOpenCreateModal,
+  onDeleteSemester,
+  deletingSemesterId,
 }: UniversitySemestersViewProps) {
   const filteredSemesters = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -94,7 +102,7 @@ function UniversitySemestersView({
 
         {!isLoading &&
           filteredSemesters.map((semester) => (
-            <article key={`${semester.name}-${semester.startDate}`} className="rounded-2xl border border-gray-200 bg-white p-6">
+            <article key={semester.id} className="rounded-2xl border border-gray-200 bg-white p-6">
               <div className="mb-5 flex items-start gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E8EEFF] text-[#5A7ACD]">
                   <CalendarDays className="h-5 w-5" strokeWidth={2} />
@@ -125,6 +133,17 @@ function UniversitySemestersView({
                 <p>End: {semester.endDate}</p>
                 <p>Courses: {semester.courses}</p>
               </div>
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => onDeleteSemester(semester.id)}
+                  className="rounded-xl bg-[#FDEBEC] px-4 py-1.5 text-[14px] font-medium text-[#E0474C] disabled:opacity-60"
+                  disabled={deletingSemesterId === semester.id}
+                >
+                  {/* NOTE: Semester cards now expose the same backend-backed delete action style as faculty rows. */}
+                  {deletingSemesterId === semester.id ? "Deleting..." : "Delete"}
+                </button>
+              </div>
             </article>
           ))}
       </section>
@@ -141,6 +160,7 @@ export function UniversitySemestersPage() {
   const [semesterForm, setSemesterForm] = useState<SemesterCreatePayload>(DEFAULT_SEMESTER_FORM);
   const [semesterFormError, setSemesterFormError] = useState<string | null>(null);
   const [isCreatingSemester, setIsCreatingSemester] = useState(false);
+  const [deletingSemesterId, setDeletingSemesterId] = useState<number | null>(null);
 
   const loadSemesters = () => {
     setIsLoading(true);
@@ -193,6 +213,21 @@ export function UniversitySemestersPage() {
     }
   };
 
+  const handleDeleteSemester = async (semesterId: number) => {
+    setDeletingSemesterId(semesterId);
+    setError(null);
+
+    try {
+      // NOTE: Delete action is backend-connected and removes semester record from DB.
+      await deleteAcademicSemesterById(semesterId);
+      loadSemesters();
+    } catch (deleteError) {
+      setError(getErrorMessage(deleteError, "Could not delete semester."));
+    } finally {
+      setDeletingSemesterId(null);
+    }
+  };
+
   return (
     <>
       <UniversitySemestersView
@@ -202,6 +237,8 @@ export function UniversitySemestersPage() {
         searchTerm={searchTerm}
         onSearchTermChange={setSearchTerm}
         onOpenCreateModal={handleOpenCreateModal}
+        onDeleteSemester={handleDeleteSemester}
+        deletingSemesterId={deletingSemesterId}
       />
 
       {showCreateModal && (
