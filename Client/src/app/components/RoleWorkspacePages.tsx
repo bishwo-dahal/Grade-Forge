@@ -3,6 +3,7 @@ import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
+import { StudentMyCoursesPage as StudentMyCoursesWorkspacePage } from "./StudentMyCoursesPage";
 
 interface RoleWorkspacePageProps {
   roleView: "student" | "faculty";
@@ -64,11 +65,12 @@ function RoleWorkspacePage({ roleView, title, description }: RoleWorkspacePagePr
   );
 }
 
-// NOTE: Student workspace placeholders keep navigation functional while feature content is developed iteratively.
+// REFACTOR: Student My Courses now has a dedicated page implementation; keep this export for stable route imports.
 export function StudentMyCoursesPage() {
-  return <RoleWorkspacePage roleView="student" title="My Courses" description="Browse your enrolled courses." />;
+  return <StudentMyCoursesWorkspacePage />;
 }
 
+// NOTE: Student workspace placeholders keep navigation functional while feature content is developed iteratively.
 export function StudentAssignmentsPage() {
   return <RoleWorkspacePage roleView="student" title="Assignments" description="Track current and upcoming assignments." />;
 }
@@ -109,4 +111,3 @@ export function FacultyMaterialsPage() {
 export function FacultyDiscussionsPage() {
   return <RoleWorkspacePage roleView="faculty" title="Discussions" description="Moderate class discussion spaces." />;
 }
-

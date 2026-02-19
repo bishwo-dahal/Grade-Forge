@@ -22,8 +22,12 @@ export interface ClassOverviewItem {
 
 export interface CourseCard {
   id: string;
+  // NOTE: My Courses cards display catalog metadata; keep these fields aligned with the current UI only.
+  courseCode: string;
+  credits: number;
   title: string;
   instructor: string;
+  semester: string;
   completed: number;
   total: number;
   icon: string;
