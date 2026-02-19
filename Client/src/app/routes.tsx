@@ -1,5 +1,4 @@
-import React from "react";
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import { GradeForgeDashboard } from "./components/GradeForgeDashboard";
 import { AssignmentPage } from "./components/AssignmentPage";
 import { CoursePage } from "./components/CoursePage";
@@ -11,7 +10,10 @@ import SignInPage from "./components/SignInPage";
 import LandingPage from "./components/LandingPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { SettingsPage } from "./components/SettingsPage";
-import { UniversityAdminDashboard } from "./components/UniversityAdminDashboard";
+import { UniversityAdminWorkspace } from "./components/UniversityAdminWorkspace";
+import { UniversityCoursesPage } from "./components/UniversityCoursesPage";
+import { UniversityFacultyPage } from "./components/UniversityFacultyPage";
+import { UniversitySemestersPage } from "./components/UniversitySemestersPage";
 import {
   FacultyDiscussionsPage,
   FacultyGradingHubPage,
@@ -140,11 +142,30 @@ export const router = createBrowserRouter([
   {
     path: "/university-admin",
     element: (
-      // NOTE: University dashboard is strictly limited to UNIVERSITY_ADMIN role.
+      // REFACTOR: University admin now uses nested section routes under one shared shell.
       <ProtectedRoute allowedRoles={["UNIVERSITY_ADMIN"]}>
-        <UniversityAdminDashboard />
+        <UniversityAdminWorkspace />
       </ProtectedRoute>
     ),
+    children: [
+      {
+        // NOTE: Default university section lands on Faculty management.
+        index: true,
+        element: <Navigate to="/university-admin/faculty" replace />,
+      },
+      {
+        path: "faculty",
+        Component: UniversityFacultyPage,
+      },
+      {
+        path: "semesters",
+        Component: UniversitySemestersPage,
+      },
+      {
+        path: "courses",
+        Component: UniversityCoursesPage,
+      },
+    ],
   },
   {
     path: "/class/:classId",

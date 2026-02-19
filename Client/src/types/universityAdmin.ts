@@ -25,6 +25,17 @@ export interface AcademicSemester {
   courses: number;
 }
 
+// NOTE: UI-driven shape for the University Courses table; add fields only when the UI renders them.
+export interface UniversityCourseRow {
+  id: string;
+  code: string;
+  name: string;
+  instructor: string;
+  semester: string;
+  students: number;
+  assignments: number;
+}
+
 export interface FacultyCreatePayload {
   name: string;
   email: string;

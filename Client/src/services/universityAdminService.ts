@@ -6,6 +6,7 @@ import type {
   SemesterApiResponse,
   SemesterCreatePayload,
   SupportedLanguage,
+  UniversityCourseRow,
 } from "../types/universityAdmin";
 import api from "../api/axios";
 
@@ -19,6 +20,8 @@ const supportedLanguages: SupportedLanguage[] = [
 ];
 
 const departmentOptions = ["Computer Science", "Software Engineering", "Data Science"];
+// NOTE: Courses intentionally start empty until the university courses backend endpoint is integrated.
+const universityCourses: UniversityCourseRow[] = [];
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -101,4 +104,9 @@ export function listSupportedLanguages(): Promise<SupportedLanguage[]> {
 
 export function listDepartmentOptions(): Promise<string[]> {
   return Promise.resolve(departmentOptions);
+}
+
+export function listUniversityCourses(): Promise<UniversityCourseRow[]> {
+  // TODO(backend): Replace with university courses listing endpoint and keep return shape stable.
+  return Promise.resolve(universityCourses);
 }
