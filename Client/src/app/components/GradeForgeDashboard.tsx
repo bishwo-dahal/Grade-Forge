@@ -110,10 +110,9 @@ export function GradeForgeDashboard() {
     <AuthTopBar
       roleView={viewMode}
       profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-      searchPlaceholder={viewMode === "faculty" ? "Search students, assignments, classes..." : "Search courses, lessons, grad..."}
-      // NOTE: Faculty add-class action was moved into FacultyMain header next to View All Courses.
-      primaryActionLabel={viewMode === "student" ? "Enroll in Class" : undefined}
-      onPrimaryAction={() => undefined}
+      // NOTE: Unified search copy across student/faculty to keep top-nav behavior visually consistent on future pages.
+      searchPlaceholder="Search calendar, assignments..."
+      // CLEANUP: Removed student "Enroll in Class" top-nav action per updated toolbar requirements.
       onSettingsSectionSelect={goToSettingsSection}
       onLogout={handleLogout}
     />

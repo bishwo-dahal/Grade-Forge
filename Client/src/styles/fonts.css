@@ -1,0 +1,6 @@
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap");
+
+:root {
+  /* NOTE: Centralized app-wide font token so all current and future pages share Montserrat by default. */
+  --font-family-base: "Montserrat", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
