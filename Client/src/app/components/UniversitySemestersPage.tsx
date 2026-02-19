@@ -1,7 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, CheckCircle2, Plus, Search } from "lucide-react";
-import type { AcademicSemester } from "../../types/universityAdmin";
-import { listAcademicSemesters } from "../../services/universityAdminService";
+import { CalendarDays, CheckCircle2, Plus, Search, X } from "lucide-react";
+import type { AcademicSemester, SemesterCreatePayload } from "../../types/universityAdmin";
+import { createAcademicSemester, listAcademicSemesters } from "../../services/universityAdminService";
+
+const DEFAULT_SEMESTER_FORM: SemesterCreatePayload = {
+  name: "",
+  startDate: "",
+  endDate: "",
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (typeof error === "object" && error !== null) {
+    const response = (error as { response?: { data?: { message?: unknown } } }).response;
+    const message = response?.data?.message;
+    if (typeof message === "string" && message.trim().length > 0) {
+      return message;
+    }
+  }
+  return fallback;
+}
 
 interface UniversitySemestersViewProps {
   // NOTE: This component is presentation-only. Data is injected by the page/container.
@@ -10,6 +27,7 @@ interface UniversitySemestersViewProps {
   error: string | null;
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
+  onOpenCreateModal: () => void;
 }
 
 function UniversitySemestersView({
@@ -18,6 +36,7 @@ function UniversitySemestersView({
   error,
   searchTerm,
   onSearchTermChange,
+  onOpenCreateModal,
 }: UniversitySemestersViewProps) {
   const filteredSemesters = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -37,6 +56,7 @@ function UniversitySemestersView({
         </div>
         <button
           type="button"
+          onClick={onOpenCreateModal}
           className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#2B2A2A] px-4 text-[14px] font-semibold text-white"
         >
           <Plus className="h-4 w-4" strokeWidth={2} />
@@ -117,22 +137,154 @@ export function UniversitySemestersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [semesterForm, setSemesterForm] = useState<SemesterCreatePayload>(DEFAULT_SEMESTER_FORM);
+  const [semesterFormError, setSemesterFormError] = useState<string | null>(null);
+  const [isCreatingSemester, setIsCreatingSemester] = useState(false);
+
+  const loadSemesters = () => {
+    setIsLoading(true);
+    setError(null);
+    listAcademicSemesters()
+      .then(setSemesters)
+      .catch((loadError) => setError(getErrorMessage(loadError, "Could not load semesters.")))
+      .finally(() => setIsLoading(false));
+  };
 
   useEffect(() => {
     // NOTE: Container-level data loading keeps the cards view presentation-only for easier backend handoff.
-    listAcademicSemesters()
-      .then(setSemesters)
-      .catch(() => setError("Could not load semesters."))
-      .finally(() => setIsLoading(false));
+    loadSemesters();
   }, []);
 
+  const handleOpenCreateModal = () => {
+    setSemesterForm(DEFAULT_SEMESTER_FORM);
+    setSemesterFormError(null);
+    setShowCreateModal(true);
+  };
+
+  const handleCloseCreateModal = () => {
+    setShowCreateModal(false);
+    setSemesterFormError(null);
+  };
+
+  const handleCreateSemester = async () => {
+    if (!semesterForm.name || !semesterForm.startDate || !semesterForm.endDate) {
+      setSemesterFormError("Semester name, start date, and end date are required.");
+      return;
+    }
+
+    if (new Date(semesterForm.endDate) < new Date(semesterForm.startDate)) {
+      setSemesterFormError("End date must be the same day or after the start date.");
+      return;
+    }
+
+    setIsCreatingSemester(true);
+    setSemesterFormError(null);
+
+    try {
+      // NOTE: Uses existing backend-connected university semester create endpoint.
+      await createAcademicSemester(semesterForm);
+      handleCloseCreateModal();
+      loadSemesters();
+    } catch (creationError) {
+      setSemesterFormError(getErrorMessage(creationError, "Could not create semester."));
+    } finally {
+      setIsCreatingSemester(false);
+    }
+  };
+
   return (
-    <UniversitySemestersView
-      semesters={semesters}
-      isLoading={isLoading}
-      error={error}
-      searchTerm={searchTerm}
-      onSearchTermChange={setSearchTerm}
-    />
+    <>
+      <UniversitySemestersView
+        semesters={semesters}
+        isLoading={isLoading}
+        error={error}
+        searchTerm={searchTerm}
+        onSearchTermChange={setSearchTerm}
+        onOpenCreateModal={handleOpenCreateModal}
+      />
+
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4">
+          <div className="w-full max-w-[520px] overflow-hidden rounded-3xl border border-gray-200 bg-white">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-5">
+              <h2 className="text-[22px] font-semibold text-[#1F2430]">Create Semester</h2>
+              <button
+                type="button"
+                onClick={handleCloseCreateModal}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#8B96A8] hover:bg-gray-100"
+                aria-label="Close Create Semester dialog"
+              >
+                <X className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-6 py-5">
+              {semesterFormError && <p className="text-[13px] text-[#C23A42]">{semesterFormError}</p>}
+
+              <div>
+                <label htmlFor="university-semester-name" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                  Semester Name
+                </label>
+                <input
+                  id="university-semester-name"
+                  type="text"
+                  placeholder="Fall 2026"
+                  value={semesterForm.name}
+                  onChange={(event) => setSemesterForm((prev) => ({ ...prev, name: event.target.value }))}
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="university-semester-start" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                    Start Date
+                  </label>
+                  <input
+                    id="university-semester-start"
+                    type="date"
+                    value={semesterForm.startDate}
+                    onChange={(event) => setSemesterForm((prev) => ({ ...prev, startDate: event.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="university-semester-end" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                    End Date
+                  </label>
+                  <input
+                    id="university-semester-end"
+                    type="date"
+                    value={semesterForm.endDate}
+                    onChange={(event) => setSemesterForm((prev) => ({ ...prev, endDate: event.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                type="button"
+                onClick={handleCloseCreateModal}
+                className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-[#2B2A2A]"
+                disabled={isCreatingSemester}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateSemester}
+                className="rounded-xl bg-[#2B2A2A] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
+                disabled={isCreatingSemester}
+              >
+                {isCreatingSemester ? "Creating..." : "Create Semester"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

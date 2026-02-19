@@ -1,7 +1,40 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Plus, Search, XCircle } from "lucide-react";
-import type { FacultyMember } from "../../types/universityAdmin";
-import { listFacultyMembers } from "../../services/universityAdminService";
+import {
+  CheckCircle2,
+  ChevronDown,
+  Lock,
+  Mail,
+  MapPin,
+  Phone,
+  Plus,
+  Search,
+  User,
+  X,
+  XCircle,
+} from "lucide-react";
+import type { FacultyCreatePayload, FacultyMember } from "../../types/universityAdmin";
+import { createFaculty, listDepartmentOptions, listFacultyMembers } from "../../services/universityAdminService";
+
+const DEFAULT_FACULTY_FORM: FacultyCreatePayload = {
+  name: "",
+  email: "",
+  department: "",
+  qualifications: "",
+  phoneNumber: "",
+  officeLocation: "",
+  password: "",
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (typeof error === "object" && error !== null) {
+    const response = (error as { response?: { data?: { message?: unknown } } }).response;
+    const message = response?.data?.message;
+    if (typeof message === "string" && message.trim().length > 0) {
+      return message;
+    }
+  }
+  return fallback;
+}
 
 interface UniversityFacultyViewProps {
   // NOTE: This component is presentation-only. Data is injected by the page/container.
@@ -10,9 +43,17 @@ interface UniversityFacultyViewProps {
   error: string | null;
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
+  onOpenCreateModal: () => void;
 }
 
-function UniversityFacultyView({ members, isLoading, error, searchTerm, onSearchTermChange }: UniversityFacultyViewProps) {
+function UniversityFacultyView({
+  members,
+  isLoading,
+  error,
+  searchTerm,
+  onSearchTermChange,
+  onOpenCreateModal,
+}: UniversityFacultyViewProps) {
   const filteredMembers = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
     if (!normalizedSearch) {
@@ -37,6 +78,7 @@ function UniversityFacultyView({ members, isLoading, error, searchTerm, onSearch
         </div>
         <button
           type="button"
+          onClick={onOpenCreateModal}
           className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#2B2A2A] px-4 text-[14px] font-semibold text-white"
         >
           <Plus className="h-4 w-4" strokeWidth={2} />
@@ -145,22 +187,238 @@ export function UniversityFacultyPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
+  const [facultyForm, setFacultyForm] = useState<FacultyCreatePayload>(DEFAULT_FACULTY_FORM);
+  const [facultyFormError, setFacultyFormError] = useState<string | null>(null);
+  const [isCreatingFaculty, setIsCreatingFaculty] = useState(false);
+
+  const loadMembers = () => {
+    setIsLoading(true);
+    setError(null);
+    listFacultyMembers()
+      .then(setMembers)
+      .catch((loadError) => setError(getErrorMessage(loadError, "Could not load faculty members.")))
+      .finally(() => setIsLoading(false));
+  };
 
   useEffect(() => {
     // NOTE: Container-level data loading keeps the table view presentation-only for easier backend handoff.
-    listFacultyMembers()
-      .then(setMembers)
-      .catch(() => setError("Could not load faculty members."))
-      .finally(() => setIsLoading(false));
+    loadMembers();
+    listDepartmentOptions().then(setDepartmentOptions);
   }, []);
 
+  const handleOpenCreateModal = () => {
+    setFacultyForm(DEFAULT_FACULTY_FORM);
+    setFacultyFormError(null);
+    setShowCreateModal(true);
+  };
+
+  const handleCloseCreateModal = () => {
+    setShowCreateModal(false);
+    setFacultyFormError(null);
+  };
+
+  const handleCreateFaculty = async () => {
+    if (!facultyForm.name || !facultyForm.email || !facultyForm.department || !facultyForm.qualifications || !facultyForm.password) {
+      setFacultyFormError("Name, email, department, qualifications, and password are required.");
+      return;
+    }
+
+    const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(facultyForm.email);
+    if (!emailLooksValid) {
+      setFacultyFormError("Please enter a valid email address.");
+      return;
+    }
+
+    setIsCreatingFaculty(true);
+    setFacultyFormError(null);
+
+    try {
+      // NOTE: Uses existing backend-connected university faculty create endpoint.
+      await createFaculty(facultyForm);
+      handleCloseCreateModal();
+      loadMembers();
+    } catch (creationError) {
+      setFacultyFormError(getErrorMessage(creationError, "Could not create faculty member."));
+    } finally {
+      setIsCreatingFaculty(false);
+    }
+  };
+
   return (
-    <UniversityFacultyView
-      members={members}
-      isLoading={isLoading}
-      error={error}
-      searchTerm={searchTerm}
-      onSearchTermChange={setSearchTerm}
-    />
+    <>
+      <UniversityFacultyView
+        members={members}
+        isLoading={isLoading}
+        error={error}
+        searchTerm={searchTerm}
+        onSearchTermChange={setSearchTerm}
+        onOpenCreateModal={handleOpenCreateModal}
+      />
+
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4">
+          <div className="w-full max-w-[560px] overflow-hidden rounded-3xl border border-gray-200 bg-white">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-5">
+              <h2 className="text-[24px] font-semibold text-[#1F2430]">Add New Faculty</h2>
+              <button
+                type="button"
+                onClick={handleCloseCreateModal}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#8B96A8] hover:bg-gray-100"
+                aria-label="Close Add Faculty dialog"
+              >
+                <X className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-6 py-5">
+              {facultyFormError && <p className="text-[13px] text-[#C23A42]">{facultyFormError}</p>}
+
+              <div>
+                <label htmlFor="university-faculty-name" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B96A8]" strokeWidth={2} />
+                  <input
+                    id="university-faculty-name"
+                    type="text"
+                    placeholder="Dr. John Smith"
+                    value={facultyForm.name}
+                    onChange={(event) => setFacultyForm((prev) => ({ ...prev, name: event.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="university-faculty-email" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B96A8]" strokeWidth={2} />
+                  <input
+                    id="university-faculty-email"
+                    type="email"
+                    placeholder="john.smith@university.edu"
+                    value={facultyForm.email}
+                    onChange={(event) => setFacultyForm((prev) => ({ ...prev, email: event.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="university-faculty-department" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                  Department
+                </label>
+                <div className="relative">
+                  <select
+                    id="university-faculty-department"
+                    value={facultyForm.department}
+                    onChange={(event) => setFacultyForm((prev) => ({ ...prev, department: event.target.value }))}
+                    className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  >
+                    <option value="">Select Department</option>
+                    {departmentOptions.map((department) => (
+                      <option key={department} value={department}>
+                        {department}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5D6A80]" strokeWidth={2} />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="university-faculty-qualifications" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                  Qualifications
+                </label>
+                <input
+                  id="university-faculty-qualifications"
+                  type="text"
+                  placeholder="e.g., PhD in Computer Science"
+                  value={facultyForm.qualifications}
+                  onChange={(event) => setFacultyForm((prev) => ({ ...prev, qualifications: event.target.value }))}
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="university-faculty-phone" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B96A8]" strokeWidth={2} />
+                    <input
+                      id="university-faculty-phone"
+                      type="text"
+                      placeholder="e.g., +1 555 123 4567"
+                      value={facultyForm.phoneNumber}
+                      onChange={(event) => setFacultyForm((prev) => ({ ...prev, phoneNumber: event.target.value }))}
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="university-faculty-office" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                    Office Location
+                  </label>
+                  <div className="relative">
+                    <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B96A8]" strokeWidth={2} />
+                    <input
+                      id="university-faculty-office"
+                      type="text"
+                      placeholder="e.g., ENG-214"
+                      value={facultyForm.officeLocation}
+                      onChange={(event) => setFacultyForm((prev) => ({ ...prev, officeLocation: event.target.value }))}
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="university-faculty-password" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                  Temporary Password
+                </label>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B96A8]" strokeWidth={2} />
+                  <input
+                    id="university-faculty-password"
+                    type="password"
+                    placeholder="Enter temporary password"
+                    value={facultyForm.password}
+                    onChange={(event) => setFacultyForm((prev) => ({ ...prev, password: event.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                type="button"
+                onClick={handleCloseCreateModal}
+                className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-[#2B2A2A]"
+                disabled={isCreatingFaculty}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateFaculty}
+                className="rounded-xl bg-[#2B2A2A] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
+                disabled={isCreatingFaculty}
+              >
+                {isCreatingFaculty ? "Adding..." : "Add Faculty"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
