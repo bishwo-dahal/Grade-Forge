@@ -5,6 +5,7 @@ import type {
   EditorCodeExamples,
   GradingAssignmentContext,
   RecentAssignmentItem,
+  StudentAssignmentListItem,
   UpcomingAssignment,
 } from "../types/assignment";
 import type { RubricCategory } from "../types/grade";
@@ -142,6 +143,130 @@ const recentAssignments: RecentAssignmentItem[] = [
     statusColor: "text-green-600",
     statusBg: "bg-green-100",
     iconKey: "check",
+  },
+];
+
+// NOTE: Mock list for the student assignments workspace page; centralized for backend-ready replacement.
+const studentAssignments: StudentAssignmentListItem[] = [
+  {
+    id: "assignment-hash-table",
+    title: "Hash Table Implementation",
+    courseCode: "CS 2400",
+    courseName: "Data Structures & Algorithms",
+    points: 100,
+    dueAt: "Feb 8, 2026 at 11:59 PM",
+    status: "overdue",
+    progressPercent: 0,
+    icon: "\u{1F4BB}",
+    iconBg: "bg-[#5A7ACD]/10",
+  },
+  {
+    id: "assignment-bst-operations",
+    title: "Binary Search Tree Operations",
+    courseCode: "CS 2400",
+    courseName: "Data Structures & Algorithms",
+    points: 100,
+    dueAt: "Feb 10, 2026 at 11:59 PM",
+    status: "active",
+    progressPercent: 45,
+    icon: "\u{1F4BB}",
+    iconBg: "bg-[#5A7ACD]/10",
+  },
+  {
+    id: "assignment-react-state",
+    title: "React State Management",
+    courseCode: "CS 301",
+    courseName: "Web Development",
+    points: 100,
+    dueAt: "Feb 12, 2026 at 11:59 PM",
+    status: "upcoming",
+    progressPercent: null,
+    icon: "\u{1F310}",
+    iconBg: "bg-[#FEB05D]/10",
+  },
+  {
+    id: "assignment-graph-algorithms",
+    title: "Graph Algorithms: Dijkstra & A*",
+    courseCode: "CS 2400",
+    courseName: "Data Structures & Algorithms",
+    points: 150,
+    dueAt: "Feb 15, 2026 at 11:59 PM",
+    status: "upcoming",
+    progressPercent: null,
+    icon: "\u{1F4BB}",
+    iconBg: "bg-[#5A7ACD]/10",
+  },
+  {
+    id: "assignment-api-security",
+    title: "REST API Authentication Flow",
+    courseCode: "CS 301",
+    courseName: "Web Development",
+    points: 120,
+    dueAt: "Feb 16, 2026 at 11:59 PM",
+    status: "active",
+    progressPercent: 70,
+    icon: "\u{1F310}",
+    iconBg: "bg-[#FEB05D]/10",
+  },
+  {
+    id: "assignment-query-plan",
+    title: "SQL Query Plan Analysis",
+    courseCode: "CS 350",
+    courseName: "Database Systems",
+    points: 100,
+    dueAt: "Feb 18, 2026 at 11:59 PM",
+    status: "upcoming",
+    progressPercent: null,
+    icon: "\u{1F5C4}\uFE0F",
+    iconBg: "bg-[#FEB05D]/10",
+  },
+  {
+    id: "assignment-tree-balancing",
+    title: "AVL Tree Balancing",
+    courseCode: "CS 2400",
+    courseName: "Data Structures & Algorithms",
+    points: 100,
+    dueAt: "Feb 20, 2026 at 11:59 PM",
+    status: "active",
+    progressPercent: 20,
+    icon: "\u{1F4BB}",
+    iconBg: "bg-[#5A7ACD]/10",
+  },
+  {
+    id: "assignment-uml-diagrams",
+    title: "System UML Diagrams",
+    courseCode: "CS 410",
+    courseName: "Software Engineering",
+    points: 90,
+    dueAt: "Feb 1, 2026 at 11:59 PM",
+    status: "completed",
+    progressPercent: 100,
+    icon: "\u{1F4C4}",
+    iconBg: "bg-[#5A7ACD]/10",
+  },
+  {
+    id: "assignment-schema-design",
+    title: "Database Schema Design",
+    courseCode: "CS 350",
+    courseName: "Database Systems",
+    points: 110,
+    dueAt: "Jan 30, 2026 at 11:59 PM",
+    status: "completed",
+    progressPercent: 100,
+    icon: "\u{1F5C4}\uFE0F",
+    iconBg: "bg-[#FEB05D]/10",
+  },
+  {
+    id: "assignment-ui-testing",
+    title: "Frontend UI Testing",
+    courseCode: "CS 301",
+    courseName: "Web Development",
+    points: 100,
+    dueAt: "Feb 22, 2026 at 11:59 PM",
+    status: "upcoming",
+    progressPercent: null,
+    icon: "\u{1F310}",
+    iconBg: "bg-[#FEB05D]/10",
   },
 ];
 
@@ -400,6 +525,11 @@ export function listCourseAssignments(courseId: string): Promise<AssignmentSumma
 
 export function listRecentAssignments(): Promise<RecentAssignmentItem[]> {
   return Promise.resolve(recentAssignments);
+}
+
+export function listStudentAssignments(): Promise<StudentAssignmentListItem[]> {
+  // TODO(backend): Replace this mock data source with the student assignments listing endpoint.
+  return Promise.resolve(studentAssignments);
 }
 
 export function getAssignmentDescription(assignmentId: string): Promise<AssignmentDescription> {

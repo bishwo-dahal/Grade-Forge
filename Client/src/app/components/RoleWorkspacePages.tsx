@@ -4,6 +4,7 @@ import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { StudentMyCoursesPage as StudentMyCoursesWorkspacePage } from "./StudentMyCoursesPage";
+import { StudentAssignmentsPage as StudentAssignmentsWorkspacePage } from "./StudentAssignmentsPage";
 
 interface RoleWorkspacePageProps {
   roleView: "student" | "faculty";
@@ -72,7 +73,8 @@ export function StudentMyCoursesPage() {
 
 // NOTE: Student workspace placeholders keep navigation functional while feature content is developed iteratively.
 export function StudentAssignmentsPage() {
-  return <RoleWorkspacePage roleView="student" title="Assignments" description="Track current and upcoming assignments." />;
+  // REFACTOR: Student Assignments now has a dedicated page implementation; keep this export for stable route imports.
+  return <StudentAssignmentsWorkspacePage />;
 }
 
 export function StudentCalendarPage() {

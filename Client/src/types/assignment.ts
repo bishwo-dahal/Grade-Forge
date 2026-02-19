@@ -48,6 +48,22 @@ export interface UpcomingAssignment {
   iconBg: string;
 }
 
+// NOTE: Student assignments workspace type includes only fields rendered in the current list UI.
+export type StudentAssignmentStatus = "upcoming" | "active" | "completed" | "overdue";
+
+export interface StudentAssignmentListItem {
+  id: string;
+  title: string;
+  courseCode: string;
+  courseName: string;
+  points: number;
+  dueAt: string;
+  status: StudentAssignmentStatus;
+  progressPercent: number | null;
+  icon: string;
+  iconBg: string;
+}
+
 // NOTE: Added list item type used by the recent assignments table UI.
 export interface RecentAssignmentItem {
   name: string;
