@@ -72,13 +72,12 @@ def run_similarity_check(assignment: Assignment):
         if len(item) < 4:
             continue
         test_sim, ref_sim, test_path, ref_path = item[0], item[1], item[2], item[3]
-        score = max(test_sim, ref_sim)
 
-        # Only the suspect (test) gets the similarity score — "how much did YOUR code match someone else".
-        # The source (ref) still sees the comparison in their report but won't get a high % in the summary.
+        # Only the suspect (test) gets the similarity score. Use test_sim only so the overall %
+        # matches "how much did YOUR code match the other?" (same as the file-level percentages we show).
         test_student = _student_for_path(assignment, test_path)
-        if test_student is not None and score > best_match[test_student][0]:
-            best_match[test_student] = (score, ref_path)
+        if test_student is not None and test_sim > best_match[test_student][0]:
+            best_match[test_student] = (test_sim, ref_path)
 
         # Build comparison entry for frontend. We want left=person we're checking (suspect),
         # right=potential source. Copydetect: test_path=file being checked, ref_path=reference.
