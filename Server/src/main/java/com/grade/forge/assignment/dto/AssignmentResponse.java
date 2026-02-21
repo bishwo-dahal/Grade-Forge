@@ -28,5 +28,6 @@ public class AssignmentResponse {
     private LocalDateTime availableFrom;
     private LocalDateTime dueDate;
     private LocalDateTime lateDueDate;
+    private Long rubricId;
+    private String rubricName;
 }
-

@@ -46,12 +46,6 @@ public class RubricController {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    @GetMapping("/all")
-    public ResponseEntity<List<RubricResponse>> getAllRubrics() {
-        List<RubricResponse> responses = rubricService.getAllRubrics();
-        return new ResponseEntity<>(responses, HttpStatus.OK);
-    }
-
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteRubric(@PathVariable Long id) {
         rubricService.deleteRubric(id);
@@ -59,8 +53,8 @@ public class RubricController {
     }
 
     @GetMapping("/faculty/me")
-    public ResponseEntity<RubricResponse> getRubricByFaculty(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
-        RubricResponse response = rubricService.getRubricByFacultyEmail(customUserDetails.getUsername());
+    public ResponseEntity<List<RubricResponse>> getRubricsForFaculty(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+        List<RubricResponse> response = rubricService.getRubricByFacultyEmail(customUserDetails.getUsername());
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 }

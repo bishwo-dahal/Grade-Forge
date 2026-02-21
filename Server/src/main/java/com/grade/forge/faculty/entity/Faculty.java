@@ -11,6 +11,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -49,13 +50,11 @@ public class Faculty {
     @OneToMany(mappedBy = "faculty", cascade = CascadeType.ALL)
     private List<Course> courses;
 
-    @OneToOne(mappedBy = "faculty", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Rubric rubric;
+    @OneToMany(mappedBy = "faculty", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Rubric> rubrics = new ArrayList<>();
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "user_id", nullable = false)
     private Users user;
 
 }
-
-

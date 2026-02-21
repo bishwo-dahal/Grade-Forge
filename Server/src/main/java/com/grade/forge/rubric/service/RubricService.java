@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +30,6 @@ public class RubricService {
     public RubricResponse createRubric(RubricRequest request, String userEmail) {
         validateCreateRequest(request);
         Faculty faculty = resolveFacultyByEmail(userEmail);
-        ensureFacultyFree(faculty.getId(), null);
         Rubric rubric = new Rubric();
         rubric.setName(request.getName());
         rubric.setDescription(request.getDescription());
@@ -51,7 +51,6 @@ public class RubricService {
             rubric.setDescription(request.getDescription());
         }
         if (request.getFacultyId() != null) {
-            ensureFacultyFree(request.getFacultyId(), rubric.getId());
             rubric.setFaculty(resolveFaculty(request.getFacultyId()));
         }
         if (request.getCriteria() != null) {
@@ -70,13 +69,6 @@ public class RubricService {
         return mapToResponse(rubric);
     }
 
-    @Transactional(readOnly = true)
-    public List<RubricResponse> getAllRubrics() {
-        return rubricRepository.findAll().stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
-
     public void deleteRubric(Long id) {
         Rubric rubric = rubricRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Rubric not found with id: " + id));
@@ -84,19 +76,23 @@ public class RubricService {
     }
 
     @Transactional(readOnly = true)
-    public RubricResponse getRubricByFacultyId(Long facultyId) {
-        Rubric rubric = rubricRepository.findByFaculty_Id(facultyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Rubric not found for faculty id: " + facultyId));
-        return mapToResponse(rubric);
+    public List<RubricResponse> getRubricByFacultyId(Long facultyId) {
+        List<Rubric> rubrics = rubricRepository.findByFaculty_Id(facultyId);
+        if (rubrics.isEmpty()) {
+            throw new ResourceNotFoundException("Rubric not found for faculty id: " + facultyId);
+        }
+        return rubrics.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public RubricResponse getRubricByFacultyEmail(String email) {
+    public List<RubricResponse> getRubricByFacultyEmail(String email) {
         Faculty faculty = facultyRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with email: " + email));
-        Rubric rubric = rubricRepository.findByFaculty_Id(faculty.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Rubric not found for faculty id: " + faculty.getId()));
-        return mapToResponse(rubric);
+        List<Rubric> rubrics = rubricRepository.findByFaculty_Id(faculty.getId());
+        if (rubrics.isEmpty()) {
+            throw new ResourceNotFoundException("Rubric not found for faculty id: " + faculty.getId());
+        }
+        return rubrics.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
     private void validateCreateRequest(RubricRequest request) {
@@ -168,14 +164,6 @@ public class RubricService {
     private Faculty resolveFacultyByEmail(String email) {
         return facultyRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with email: " + email));
-    }
-
-    private void ensureFacultyFree(Long facultyId, Long ignoreRubricId) {
-        rubricRepository.findByFaculty_Id(facultyId)
-                .filter(r -> ignoreRubricId == null || !r.getId().equals(ignoreRubricId))
-                .ifPresent(r -> {
-                    throw new IllegalArgumentException("Faculty already has a rubric assigned");
-                });
     }
 
     private RubricResponse mapToResponse(Rubric rubric) {

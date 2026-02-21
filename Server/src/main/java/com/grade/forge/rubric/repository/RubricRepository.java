@@ -4,9 +4,9 @@ import com.grade.forge.rubric.entity.Rubric;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.Optional;
+import java.util.List;
 
 @Repository
 public interface RubricRepository extends JpaRepository<Rubric, Long> {
-    Optional<Rubric> findByFaculty_Id(Long facultyId);
+    List<Rubric> findByFaculty_Id(Long facultyId);
 }

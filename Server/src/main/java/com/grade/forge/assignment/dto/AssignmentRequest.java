@@ -25,5 +25,5 @@ public class AssignmentRequest {
     private LocalDateTime availableFrom;
     private LocalDateTime dueDate;
     private LocalDateTime lateDueDate;
+    private Long rubricId;
 }
-
