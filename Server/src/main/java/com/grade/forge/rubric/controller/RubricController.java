@@ -29,8 +29,8 @@ public class RubricController {
     private final RubricService rubricService;
 
     @PostMapping
-    public ResponseEntity<RubricResponse> createRubric(@RequestBody RubricRequest request) {
-        RubricResponse response = rubricService.createRubric(request);
+    public ResponseEntity<RubricResponse> createRubric(@AuthenticationPrincipal CustomUserDetails customUserDetails, @RequestBody RubricRequest request) {
+        RubricResponse response = rubricService.createRubric(request, customUserDetails.getUsername());
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 

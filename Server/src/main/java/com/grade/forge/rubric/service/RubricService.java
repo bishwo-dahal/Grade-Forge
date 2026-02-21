@@ -26,12 +26,14 @@ public class RubricService {
     private final RubricRepository rubricRepository;
     private final FacultyRepository facultyRepository;
 
-    public RubricResponse createRubric(RubricRequest request) {
+    public RubricResponse createRubric(RubricRequest request, String userEmail) {
         validateCreateRequest(request);
+        Faculty faculty = resolveFacultyByEmail(userEmail);
+        ensureFacultyFree(faculty.getId(), null);
         Rubric rubric = new Rubric();
         rubric.setName(request.getName());
         rubric.setDescription(request.getDescription());
-        rubric.setFaculty(resolveFaculty(request.getFacultyId()));
+        rubric.setFaculty(faculty);
         setCriteriaFromRequest(rubric, request.getCriteria());
         Rubric saved = rubricRepository.save(rubric);
         return mapToResponse(saved);
@@ -104,10 +106,6 @@ public class RubricService {
         if (request.getName() == null || request.getName().isBlank()) {
             throw new IllegalArgumentException("Rubric name is required");
         }
-        if (request.getFacultyId() == null) {
-            throw new IllegalArgumentException("facultyId is required");
-        }
-        ensureFacultyFree(request.getFacultyId(), null);
         if (request.getCriteria() == null || request.getCriteria().isEmpty()) {
             throw new IllegalArgumentException("At least one rubric criteria is required");
         }
@@ -165,6 +163,11 @@ public class RubricService {
     private Faculty resolveFaculty(Long facultyId) {
         return facultyRepository.findById(facultyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with id: " + facultyId));
+    }
+
+    private Faculty resolveFacultyByEmail(String email) {
+        return facultyRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with email: " + email));
     }
 
     private void ensureFacultyFree(Long facultyId, Long ignoreRubricId) {
