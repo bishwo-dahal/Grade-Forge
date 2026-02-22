@@ -19,7 +19,7 @@ public class StudentSearchResponseDto {
     private String cwid;
     private String major;
     private String canvasUserId;
-    private String username;
+    private String name;
     private String email;
-    private Map<String, Object> preferences;
+
 }

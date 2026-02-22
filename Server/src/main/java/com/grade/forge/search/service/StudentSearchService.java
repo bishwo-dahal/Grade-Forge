@@ -31,16 +31,14 @@ public class StudentSearchService {
     }
 
     private StudentSearchResponseDto mapToResponse(Student student) {
-        Map<String, Object> preferences = student.getPreferences();
         return StudentSearchResponseDto.builder()
                 .id(student.getId())
                 .userId(student.getUser() != null ? student.getUser().getId() : null)
                 .cwid(student.getCwid())
                 .major(student.getMajor())
                 .canvasUserId(student.getCanvasUserId())
-                .username(student.getUser() != null ? student.getUser().getName() : null)
+                .name(student.getUser() != null ? student.getUser().getName() : null)
                 .email(student.getUser() != null ? student.getUser().getEmail() : null)
-                .preferences(preferences)
                 .build();
     }
 }

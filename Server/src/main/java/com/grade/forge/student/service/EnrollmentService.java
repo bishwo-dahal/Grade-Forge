@@ -148,4 +148,27 @@ public class EnrollmentService {
                 .grade(enrollment.getGrade())
                 .build();
     }
+
+    public EnrollmentResponse enrollStudentInCourse(Long studentId, Long courseId) {
+        if (studentId == null || courseId == null) {
+            throw new IllegalArgumentException("studentId and courseId are required");
+        }
+        Student student = getStudentById(studentId);
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
+
+        Enrollment enrollment = enrollmentRepository.findByStudent_IdAndCourse_Id(student.getId(), course.getId())
+                .orElseGet(() -> {
+                    Enrollment e = new Enrollment();
+                    e.setStudent(student);
+                    e.setCourse(course);
+                    return e;
+                });
+
+        enrollment.setEnrolledStatus(EnrolledStatus.ENROLLED);
+        enrollment.setEnrolledAt(LocalDateTime.now());
+
+        Enrollment saved = enrollmentRepository.save(enrollment);
+        return mapToResponse(saved);
+    }
 }
