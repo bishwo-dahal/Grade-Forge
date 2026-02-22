@@ -2,6 +2,7 @@ package com.grade.forge.exceptionhandler;
 
 
 import com.grade.forge.exceptionhandler.dto.ErrorResponseDto;
+import org.springframework.dao.InvalidDataAccessResourceUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -18,6 +19,12 @@ public class GlobalExceptionHandling {
 
     @ExceptionHandler(IncorrectFileException.class)
     public ResponseEntity<ErrorResponseDto> handleIncorrectFileException(IncorrectFileException exception){
+        ErrorResponseDto errorResponse= new ErrorResponseDto(exception.getMessage(),401,false);
+        return  new ResponseEntity<>(errorResponse,HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(InvalidDataAccessResourceUsageException.class)
+    public ResponseEntity<ErrorResponseDto> handleInvalidDataAccessResourceUsageException(InvalidDataAccessResourceUsageException exception){
         ErrorResponseDto errorResponse= new ErrorResponseDto(exception.getMessage(),401,false);
         return  new ResponseEntity<>(errorResponse,HttpStatus.BAD_REQUEST);
     }

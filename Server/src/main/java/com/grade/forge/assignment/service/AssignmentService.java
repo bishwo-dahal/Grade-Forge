@@ -10,12 +10,15 @@ import com.grade.forge.coursemgmt.repository.CourseRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.programminglanguage.entity.ProgrammingLanguage;
 import com.grade.forge.programminglanguage.repository.ProgrammingLanguageRepository;
+import com.grade.forge.rubric.entity.Rubric;
+import com.grade.forge.rubric.repository.RubricRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,17 +29,32 @@ public class AssignmentService {
     private final AssignmentRepository assignmentRepository;
     private final CourseRepository courseRepository;
     private final ProgrammingLanguageRepository programmingLanguageRepository;
+    private final RubricRepository rubricRepository;
 
-    public AssignmentResponse createAssignment(AssignmentRequest request) {
+    public AssignmentResponse createAssignment(AssignmentRequest request, String userEmail) {
         validateCreate(request);
         Course course = courseRepository.findById(request.getCourseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + request.getCourseId()));
         ProgrammingLanguage language = programmingLanguageRepository.findById(request.getLanguageId())
                 .orElseThrow(() -> new ResourceNotFoundException("Programming language not found with id: " + request.getLanguageId()));
 
+        if (!Objects.equals(course.getFaculty().getEmail(), userEmail)) {
+            throw new IllegalArgumentException("You are not authorized to create assignments for this course");
+        }
+
+        Rubric rubric = null;
+        if (request.getRubricId() != null) {
+            rubric = rubricRepository.findById(request.getRubricId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Rubric not found with id: " + request.getRubricId()));
+            if (!Objects.equals(rubric.getFaculty().getId(), course.getFaculty().getId())) {
+                throw new IllegalArgumentException("Rubric does not belong to the course faculty");
+            }
+        }
+
         Assignment assignment = mapToEntity(request, new Assignment());
         assignment.setCourse(course);
         assignment.setProgrammingLanguage(language);
+        assignment.setRubric(rubric);
 
         Assignment saved = assignmentRepository.save(assignment);
         return mapToResponse(saved);
@@ -51,6 +69,9 @@ public class AssignmentService {
                     .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + request.getCourseId()));
             assignment.setCourse(course);
         }
+        // ensure we have the latest course reference for rubric validation
+        Course currentCourse = assignment.getCourse();
+
         if (request.getLanguageId() != null) {
             ProgrammingLanguage language = programmingLanguageRepository.findById(request.getLanguageId())
                     .orElseThrow(() -> new ResourceNotFoundException("Programming language not found with id: " + request.getLanguageId()));
@@ -79,6 +100,14 @@ public class AssignmentService {
         }
         if (request.getLateDueDate() != null) {
             assignment.setLateDueDate(request.getLateDueDate());
+        }
+        if (request.getRubricId() != null) {
+            Rubric rubric = rubricRepository.findById(request.getRubricId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Rubric not found with id: " + request.getRubricId()));
+            if (!Objects.equals(rubric.getFaculty().getId(), currentCourse.getFaculty().getId())) {
+                throw new IllegalArgumentException("Rubric does not belong to the course faculty");
+            }
+            assignment.setRubric(rubric);
         }
 
         validateTimeline(assignment.getAvailableFrom(), assignment.getDueDate(), assignment.getLateDueDate());
@@ -169,6 +198,8 @@ public class AssignmentService {
                 .availableFrom(assignment.getAvailableFrom())
                 .dueDate(assignment.getDueDate())
                 .lateDueDate(assignment.getLateDueDate())
+                .rubricId(assignment.getRubric() != null ? assignment.getRubric().getId() : null)
+                .rubricName(assignment.getRubric() != null ? assignment.getRubric().getName() : null)
                 .build();
     }
 }

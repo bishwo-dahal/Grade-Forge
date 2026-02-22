@@ -1,6 +1,7 @@
 package com.grade.forge.faculty.entity;
 
 import com.grade.forge.coursemgmt.entity.Course;
+import com.grade.forge.rubric.entity.Rubric;
 import com.grade.forge.user.entity.Users;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -10,6 +11,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -48,10 +50,11 @@ public class Faculty {
     @OneToMany(mappedBy = "faculty", cascade = CascadeType.ALL)
     private List<Course> courses;
 
+    @OneToMany(mappedBy = "faculty", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Rubric> rubrics = new ArrayList<>();
+
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "user_id", nullable = false)
     private Users user;
 
 }
-
-
