@@ -3,6 +3,7 @@ package com.grade.forge.submission.entity;
 import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.grading.entity.SubmissionGrade;
 import com.grade.forge.student.entity.Student;
+import com.grade.forge.submission.enums.SubmissionStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -30,6 +31,9 @@ public class Submission {
 
     @Column(columnDefinition = "TEXT")
     private String feedback;
+
+    @Enumerated(EnumType.STRING)
+    private SubmissionStatus status;
 
     @Column(name = "submitted_at", nullable = false)
     private LocalDateTime submittedAt;
