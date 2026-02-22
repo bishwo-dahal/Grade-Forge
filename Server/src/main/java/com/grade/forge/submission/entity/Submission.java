@@ -1,6 +1,7 @@
 package com.grade.forge.submission.entity;
 
 import com.grade.forge.assignment.entity.Assignment;
+import com.grade.forge.grading.entity.SubmissionGrade;
 import com.grade.forge.student.entity.Student;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -9,6 +10,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -39,6 +41,10 @@ public class Submission {
     @ManyToOne(optional = false)
     @JoinColumn(name = "assignment_id", nullable = false)
     private Assignment assignment;
+
+    // All grades for this submission (per criteria)
+    @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SubmissionGrade> grades = new ArrayList<>();
 
     @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SubmissionFile> files;

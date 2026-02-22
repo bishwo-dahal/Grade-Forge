@@ -4,6 +4,7 @@ import com.grade.forge.exceptionhandler.IncorrectFileException;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.entity.SubmissionFile;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FileStorageService {
@@ -36,6 +38,7 @@ public class FileStorageService {
     private String secretKey;
 
     private S3Client s3Client;
+    private final S3PresignedUrl s3PresignedUrl;
 
     private S3Client getClient() {
         if (s3Client == null) {
@@ -102,5 +105,12 @@ public class FileStorageService {
 
     public String buildFileUrl(String key) {
         return String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, key);
+    }
+
+    public String generatePresignedDownloadUrl(String key) {
+        String url = s3PresignedUrl.generateDownloadUrl(bucketName, key);
+        log.info("Presign key: [{}]", key);
+        log.info("Generated presigned URL: {}", url);
+        return url;
     }
 }
