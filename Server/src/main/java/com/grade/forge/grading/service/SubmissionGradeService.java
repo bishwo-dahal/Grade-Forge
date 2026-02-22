@@ -9,6 +9,7 @@ import com.grade.forge.rubric.entity.Rubric;
 import com.grade.forge.rubric.entity.RubricCriteria;
 import com.grade.forge.rubric.repository.RubricCriteriaRepository;
 import com.grade.forge.submission.entity.Submission;
+import com.grade.forge.submission.enums.SubmissionStatus;
 import com.grade.forge.submission.repository.SubmissionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,9 @@ public class SubmissionGradeService {
         grade.setFeedback(request.getFeedback());
 
         SubmissionGrade saved = submissionGradeRepository.save(grade);
+        submission.setStatus(SubmissionStatus.GRADED);
+        submissionRepository.save(submission);
+
         return mapToResponse(saved);
     }
 
@@ -80,6 +84,32 @@ public class SubmissionGradeService {
     public List<SubmissionGradeResponse> getGradesBySubmission(Long submissionId) {
         submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
+        return submissionGradeRepository.findBySubmission_Id(submissionId).stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public SubmissionGradeResponse getGradeForCurrentStudent(String userEmail, Long id) {
+        SubmissionGrade grade = submissionGradeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission grade not found with id: " + id));
+
+        if (!grade.getSubmission().getStudent().getUser().getEmail().equalsIgnoreCase(userEmail)) {
+            throw new IllegalArgumentException("You are not allowed to access this grade");
+        }
+
+        return mapToResponse(grade);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SubmissionGradeResponse> getGradesForCurrentStudent(String userEmail, Long submissionId) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
+
+        if (!submission.getStudent().getUser().getEmail().equalsIgnoreCase(userEmail)) {
+            throw new IllegalArgumentException("You are not allowed to view grades for this submission");
+        }
+
         return submissionGradeRepository.findBySubmission_Id(submissionId).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());

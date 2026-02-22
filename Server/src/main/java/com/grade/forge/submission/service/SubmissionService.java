@@ -10,6 +10,7 @@ import com.grade.forge.submission.dto.SubmissionResponse;
 import com.grade.forge.submission.dto.SubmissionGradeRequest;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.entity.SubmissionFile;
+import com.grade.forge.submission.enums.SubmissionStatus;
 import com.grade.forge.submission.repository.SubmissionRepository;
 import com.grade.forge.submission.repository.SubmissionFileRepository;
 import com.grade.forge.user.entity.Users;
@@ -55,6 +56,7 @@ public class SubmissionService {
         submission.setAssignment(assignment);
         submission.setStudent(student);
         submission.setSubmittedAt(LocalDateTime.now());
+        submission.setStatus(SubmissionStatus.SUBMITTED);
 
         List<SubmissionFile> submissionFiles = fileStorageService.uploadSubmissionFiles(
                 submission,
@@ -136,6 +138,7 @@ public class SubmissionService {
         if (request.getFeedback() != null) {
             submission.setFeedback(request.getFeedback());
         }
+        submission.setStatus(SubmissionStatus.GRADED);
 
         Submission saved = submissionRepository.save(submission);
         return mapToResponse(saved);
@@ -174,6 +177,7 @@ public class SubmissionService {
                 .marks(submission.getMarks())
                 .feedback(submission.getFeedback())
                 .submittedAt(submission.getSubmittedAt())
+                .status(submission.getStatus())
                 .build();
     }
 
