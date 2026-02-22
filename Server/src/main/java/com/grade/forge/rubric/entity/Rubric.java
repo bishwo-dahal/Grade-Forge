@@ -2,7 +2,6 @@ package com.grade.forge.rubric.entity;
 
 
 import com.grade.forge.faculty.entity.Faculty;
-import com.grade.forge.rubric.entity.RubricCriteria;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
