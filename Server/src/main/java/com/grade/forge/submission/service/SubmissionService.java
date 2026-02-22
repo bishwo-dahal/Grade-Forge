@@ -184,7 +184,7 @@ public class SubmissionService {
                 .fileKey(file.getFileKey())
                 .fileType(file.getFileType())
                 .fileSize(file.getFileSize())
-                .downloadUrl(fileStorageService.generatePresignedDownloadUrl(file.getFileKey()))
+                .downloadUrl(fileStorageService.generatePresignedDownloadUrl(file.getFileKey(),file.getFileName()))
                 .build();
     }
 }

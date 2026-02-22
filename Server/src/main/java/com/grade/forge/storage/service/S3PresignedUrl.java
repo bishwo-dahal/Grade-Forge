@@ -16,11 +16,12 @@ import java.time.Duration;
 public class S3PresignedUrl {
     private final S3Presigner presigner;
 
-    public String generateDownloadUrl(String bucketName, String key) {
+    public String generateDownloadUrl(String bucketName, String key, String originalFilename) {
 
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                 .bucket(bucketName)
                 .key(key)
+                .responseContentDisposition("attachment; filename=\"" + originalFilename + "\"")
                 .build();
 
         GetObjectPresignRequest presignRequest =
