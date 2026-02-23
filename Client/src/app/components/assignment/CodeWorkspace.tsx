@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Play, Send, RotateCcw, Save } from "lucide-react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { EditorMock } from "./EditorMock";
+import { MonacoEditor } from "../editors";
 import { ConsoleDrawer } from "./ConsoleDrawer";
 import { SubmitConfirmModal } from "./SubmitConfirmModal";
 import type { EditorCodeExamples } from "../../../types/assignment";
@@ -26,6 +26,13 @@ export function CodeWorkspace({ assignment, codeExamples, onRunTests, onSubmit, 
   const [lastRunTime, setLastRunTime] = useState<string | null>(null);
   const [autoSaved, setAutoSaved] = useState(true);
   const [cursorPosition, setCursorPosition] = useState({ line: 14, col: 8 });
+  const initialCode = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
+  const [code, setCode] = useState(initialCode);
+
+  useEffect(() => {
+    const next = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
+    setCode(next);
+  }, [assignment.language, codeExamples]);
 
   const handleRunTests = () => {
     setLastRunTime(new Date().toLocaleTimeString());
@@ -99,7 +106,13 @@ export function CodeWorkspace({ assignment, codeExamples, onRunTests, onSubmit, 
           {/* Editor Panel */}
           <Panel defaultSize={70} minSize={30}>
             <div className="h-full overflow-hidden bg-[#1e1e1e]">
-              <EditorMock codeExamples={codeExamples} language={assignment.language} />
+              <MonacoEditor
+                value={code}
+                language={assignment.language}
+                onChange={setCode}
+                height="100%"
+                className="h-full"
+              />
             </div>
           </Panel>
 
