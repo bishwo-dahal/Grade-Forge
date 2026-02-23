@@ -4,6 +4,8 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { MonacoEditor } from "../editors";
 import { ConsoleDrawer } from "./ConsoleDrawer";
 import { SubmitConfirmModal } from "./SubmitConfirmModal";
+import { EditorTabBar } from "./EditorTabBar";
+import { UnsavedCloseModal } from "./UnsavedCloseModal";
 import { FileTree, buildInitialFileTree, nextNodeId, getDefaultExtension } from "./filetree";
 import type { FileTreeNode } from "./filetree";
 import type { EditorCodeExamples } from "../../../types/assignment";
@@ -37,12 +39,23 @@ export function CodeWorkspace({ assignment, codeExamples, onRunTests, onSubmit, 
   );
   const { nodes, fileContents } = treeState;
   const [selectedId, setSelectedId] = useState<string | null>("main");
+  const [openTabIds, setOpenTabIds] = useState<string[]>(["main"]);
+  const [savedContents, setSavedContents] = useState<Record<string, string>>(() => ({ main: initialCode }));
+  const [pendingCloseTabId, setPendingCloseTabId] = useState<string | null>(null);
   const selectionLockRef = useRef<string | null>(null);
+
+  const getNodeName = (id: string) => nodes.find((n) => String(n.id) === id)?.name ?? id;
+  const isDirty = (id: string) => (fileContents[id] ?? "") !== (savedContents[id] ?? "");
+  const hasAnyDirty = useMemo(
+    () => openTabIds.some(isDirty),
+    [openTabIds, fileContents, savedContents]
+  );
 
   const handleSelectFile = (id: string) => {
     if (selectionLockRef.current !== null && id !== selectionLockRef.current) return;
     selectionLockRef.current = null;
     setSelectedId(id);
+    setOpenTabIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
   };
 
   const setNodes = (updater: (prev: FileTreeNode[]) => FileTreeNode[]) =>
@@ -62,7 +75,59 @@ export function CodeWorkspace({ assignment, codeExamples, onRunTests, onSubmit, 
       ...prev,
       fileContents: { ...prev.fileContents, main: next },
     }));
+    setSavedContents((prev) => ({ ...prev, main: next }));
   }, [assignment.language, codeExamples]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasAnyDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasAnyDirty]);
+
+  const closeTab = (id: string, dirty?: boolean) => {
+    const needConfirm = dirty === undefined ? isDirty(id) : dirty;
+    if (needConfirm) {
+      setPendingCloseTabId(id);
+      return;
+    }
+    doCloseTab(id);
+  };
+
+  const doCloseTab = (id: string) => {
+    setOpenTabIds((prev) => {
+      const next = prev.filter((tid) => tid !== id);
+      if (selectedId === id) {
+        const nextActive = next.length > 0 ? next[next.length - 1] : null;
+        setSelectedId(nextActive);
+      }
+      return next;
+    });
+    setPendingCloseTabId(null);
+  };
+
+  const handleSaveAll = () => {
+    setSavedContents((prev) => ({ ...prev, ...fileContents }));
+  };
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        setSavedContents((prev) => {
+          const next = { ...prev, ...fileContents };
+          const changed = openTabIds.some((id) => (fileContents[id] ?? "") !== (prev[id] ?? ""));
+          return changed ? next : prev;
+        });
+      }
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [fileContents, openTabIds]);
 
   const allIds = useMemo(() => nodes.map((n) => String(n.id)), [nodes]);
   const getDescendantIds = (id: string): string[] => {
@@ -93,7 +158,9 @@ export function CodeWorkspace({ assignment, codeExamples, onRunTests, onSubmit, 
       ];
     });
     setFileContents((prev) => ({ ...prev, [newId]: "" }));
+    setSavedContents((prev) => ({ ...prev, [newId]: "" }));
     setSelectedId(newId);
+    setOpenTabIds((prev) => (prev.includes(newId) ? prev : [...prev, newId]));
     selectionLockRef.current = newId;
     setTimeout(() => {
       selectionLockRef.current = null;
@@ -144,10 +211,19 @@ export function CodeWorkspace({ assignment, codeExamples, onRunTests, onSubmit, 
       toRemove.forEach((id) => delete next[id]);
       return next;
     });
-    if (selectedId && toRemove.has(selectedId)) {
-      const remaining = nodes.find((n) => !toRemove.has(String(n.id)) && !n.metadata?.isFolder);
-      setSelectedId(remaining ? String(remaining.id) : null);
-    }
+    setSavedContents((prev) => {
+      const next = { ...prev };
+      toRemove.forEach((id) => delete next[id]);
+      return next;
+    });
+    setOpenTabIds((prev) => {
+      const next = prev.filter((tid) => !toRemove.has(tid));
+      if (selectedId && toRemove.has(selectedId)) {
+        const nextActive = next.length > 0 ? next[next.length - 1] : null;
+        setSelectedId(nextActive);
+      }
+      return next;
+    });
   };
 
   const onDuplicate = (id: string) => {
@@ -167,7 +243,9 @@ export function CodeWorkspace({ assignment, codeExamples, onRunTests, onSubmit, 
       ];
     });
     setFileContents((prev) => ({ ...prev, [newId]: prev[id] ?? "" }));
+    setSavedContents((prev) => ({ ...prev, [newId]: prev[id] ?? "" }));
     setSelectedId(newId);
+    setOpenTabIds((prev) => (prev.includes(newId) ? prev : [...prev, newId]));
     selectionLockRef.current = newId;
     setTimeout(() => {
       selectionLockRef.current = null;
@@ -205,10 +283,20 @@ export function CodeWorkspace({ assignment, codeExamples, onRunTests, onSubmit, 
               </div>
             </div>
 
-            {/* Auto-save Indicator */}
-            <div className="flex items-center gap-1.5 text-[12px] text-gray-500">
-              <Save className="w-3.5 h-3.5" strokeWidth={2} />
-              <span>{autoSaved ? "Saved" : "Saving..."}</span>
+            {/* Auto-save Indicator / Save all */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSaveAll}
+                disabled={!hasAnyDirty}
+                className="flex items-center gap-1.5 text-[12px] text-gray-500 hover:text-[#2B2A2A] disabled:opacity-50 disabled:pointer-events-none"
+              >
+                <Save className="w-3.5 h-3.5" strokeWidth={2} />
+                <span>Save all</span>
+              </button>
+              <span className="text-[11px] text-gray-400">
+                {hasAnyDirty ? "Unsaved changes" : "Saved"}
+              </span>
             </div>
           </div>
 
@@ -261,14 +349,26 @@ export function CodeWorkspace({ assignment, codeExamples, onRunTests, onSubmit, 
             <PanelGroup direction="vertical">
               {/* Editor Panel */}
               <Panel defaultSize={70} minSize={30}>
-                <div className="h-full overflow-hidden bg-[#1e1e1e]">
-                  <MonacoEditor
-                    value={currentContent}
-                    language={assignment.language}
-                    onChange={setCurrentContent}
-                    height="100%"
-                    className="h-full"
+                <div className="h-full flex flex-col overflow-hidden bg-[#1e1e1e]">
+                  <EditorTabBar
+                    tabs={openTabIds.map((id) => ({
+                      id,
+                      name: getNodeName(id),
+                      dirty: isDirty(id),
+                    }))}
+                    activeId={selectedId}
+                    onSelect={handleSelectFile}
+                    onClose={closeTab}
                   />
+                  <div className="flex-1 min-h-0">
+                    <MonacoEditor
+                      value={currentContent}
+                      language={assignment.language}
+                      onChange={setCurrentContent}
+                      height="100%"
+                      className="h-full"
+                    />
+                  </div>
                 </div>
               </Panel>
 
@@ -302,6 +402,15 @@ export function CodeWorkspace({ assignment, codeExamples, onRunTests, onSubmit, 
           submissionsAllowed={assignment.submissionsAllowed}
           onConfirm={confirmSubmit}
           onCancel={() => setShowSubmitModal(false)}
+        />
+      )}
+
+      {/* Unsaved close tab modal */}
+      {pendingCloseTabId && (
+        <UnsavedCloseModal
+          fileName={getNodeName(pendingCloseTabId)}
+          onDiscard={() => doCloseTab(pendingCloseTabId)}
+          onCancel={() => setPendingCloseTabId(null)}
         />
       )}
     </div>
