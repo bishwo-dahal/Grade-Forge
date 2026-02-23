@@ -4,6 +4,8 @@ import { useNavigate } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { listStudentAssignments } from "../../services/assignmentService";
 import type { StudentAssignmentListItem, StudentAssignmentStatus } from "../../types/assignment";
+import { SegmentedFilter } from "./ui/SegmentedFilter";
+import type { SegmentedFilterItem } from "./ui/SegmentedFilter";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
@@ -17,13 +19,7 @@ interface StudentAssignmentsViewProps {
   onFilterChange: (filter: AssignmentTabFilter) => void;
 }
 
-interface AssignmentTabConfig {
-  key: AssignmentTabFilter;
-  label: string;
-  count: number;
-}
-
-function buildTabConfigs(assignments: StudentAssignmentListItem[]): AssignmentTabConfig[] {
+function buildTabConfigs(assignments: StudentAssignmentListItem[]): SegmentedFilterItem<AssignmentTabFilter>[] {
   const countByStatus = assignments.reduce<Record<StudentAssignmentStatus, number>>(
     (accumulator, assignment) => {
       accumulator[assignment.status] += 1;
@@ -33,11 +29,12 @@ function buildTabConfigs(assignments: StudentAssignmentListItem[]): AssignmentTa
   );
 
   return [
-    { key: "all", label: "All", count: assignments.length },
-    { key: "upcoming", label: "Upcoming", count: countByStatus.upcoming },
-    { key: "active", label: "Active", count: countByStatus.active },
-    { key: "completed", label: "Completed", count: countByStatus.completed },
-    { key: "overdue", label: "Overdue", count: countByStatus.overdue },
+    { id: "all", label: "All", count: assignments.length },
+    { id: "upcoming", label: "Upcoming", count: countByStatus.upcoming },
+    { id: "active", label: "Active", count: countByStatus.active },
+    { id: "completed", label: "Completed", count: countByStatus.completed },
+    // NOTE: Keep warning tone for overdue to match the shared tab design language across pages.
+    { id: "overdue", label: "Overdue", count: countByStatus.overdue, tone: "warning" },
   ];
 }
 
@@ -100,27 +97,8 @@ function StudentAssignmentsView({ assignments, selectedFilter, onFilterChange }:
           <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5D667A]" />
         </div>
 
-        <div className="inline-flex flex-wrap gap-1.5 rounded-2xl border border-[#D5D8E0] bg-white p-1.5">
-          {tabConfigs.map((tab) => {
-            const isActive = selectedFilter === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => onFilterChange(tab.key)}
-                className={`rounded-xl px-3.5 py-1.5 text-[12px] font-medium transition-colors ${
-                  isActive
-                    ? "bg-[#2B2A2A] text-white"
-                    : tab.key === "overdue"
-                      ? "text-[#F0A561] hover:bg-[#FFF7EE]"
-                      : "text-[#344155] hover:bg-[#F3F4F8]"
-                }`}
-              >
-                {tab.label} ({tab.count})
-              </button>
-            );
-          })}
-        </div>
+        {/* REFACTOR: Reuse shared segmented filter so assignment tabs stay consistent with faculty and future pages. */}
+        <SegmentedFilter items={tabConfigs} value={selectedFilter} onValueChange={onFilterChange} />
       </section>
 
       <section className="mt-6 space-y-4">
