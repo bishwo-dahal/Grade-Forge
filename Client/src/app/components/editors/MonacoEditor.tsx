@@ -63,7 +63,7 @@ export function MonacoEditor({
         theme="vs-dark"
         loading={null}
         options={{
-          minimap: { enabled: false },
+          minimap: { enabled: true },
           fontSize: 13,
           lineNumbers: "on",
           scrollBeyondLastLine: false,
