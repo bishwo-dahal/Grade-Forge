@@ -9,10 +9,6 @@ import {
   BarChart3, 
   Users, 
   UsersRound,
-  ClipboardList,
-  FlaskConical,
-  ShieldAlert,
-  Megaphone,
   Plus,
   Upload,
   CheckCircle2,
@@ -48,7 +44,7 @@ import {
 } from "../../services/classService";
 import { listClassSubmissions } from "../../services/submissionService";
 
-type SectionType = 'dashboard' | 'assignments' | 'submissions' | 'grades' | 'students' | 'groups' | 'rubrics' | 'tests' | 'integrity' | 'announcements' | 'settings';
+type SectionType = 'dashboard' | 'assignments' | 'submissions' | 'grades' | 'students' | 'groups' | 'settings';
 
 export function FacultyClassPage() {
   const { classId } = useParams();
@@ -130,30 +126,7 @@ export function FacultyClassPage() {
                 active={activeSection === 'groups'}
                 onClick={() => setActiveSection('groups')}
               />
-              <NavItem
-                icon={<ClipboardList className="w-4 h-4" strokeWidth={2} />}
-                label="Rubrics"
-                active={activeSection === 'rubrics'}
-                onClick={() => setActiveSection('rubrics')}
-              />
-              <NavItem
-                icon={<FlaskConical className="w-4 h-4" strokeWidth={2} />}
-                label="Tests"
-                active={activeSection === 'tests'}
-                onClick={() => setActiveSection('tests')}
-              />
-              <NavItem
-                icon={<ShieldAlert className="w-4 h-4" strokeWidth={2} />}
-                label="Integrity"
-                active={activeSection === 'integrity'}
-                onClick={() => setActiveSection('integrity')}
-              />
-              <NavItem
-                icon={<Megaphone className="w-4 h-4" strokeWidth={2} />}
-                label="Announcements"
-                active={activeSection === 'announcements'}
-                onClick={() => setActiveSection('announcements')}
-              />
+              {/* CLEANUP: Removed Rubrics/Tests/Integrity/Announcements tabs from faculty class navigation per scope update. */}
               <NavItem
                 icon={<Settings className="w-4 h-4" strokeWidth={2} />}
                 label="Settings"
@@ -209,10 +182,7 @@ export function FacultyClassPage() {
             {activeSection === 'grades' && <GradesSection />}
             {activeSection === 'students' && <StudentsSection />}
             {activeSection === 'groups' && <GroupsSection />}
-            {activeSection === 'rubrics' && <RubricsSection />}
-            {activeSection === 'tests' && <TestsSection />}
-            {activeSection === 'integrity' && <IntegritySection />}
-            {activeSection === 'announcements' && <AnnouncementsSection />}
+            {/* CLEANUP: Removed Rubrics/Tests/Integrity/Announcements section rendering per updated faculty class management scope. */}
             {activeSection === 'settings' && <SettingsSection />}
           </div>
         </main>
@@ -761,76 +731,6 @@ function GroupsSection() {
       {/* NOTE: This placeholder section was re-added to prevent runtime crashes from missing component references. */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <p className="text-[14px] text-gray-600">Group management UI will be displayed here.</p>
-      </div>
-    </div>
-  );
-}
-
-function RubricsSection() {
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Rubrics</h2>
-        <p className="text-[13px] text-gray-600">Define grading rubrics and criteria for assignments</p>
-      </div>
-
-      {/* NOTE: Missing RubricsSection caused the runtime ReferenceError; keeping this explicit placeholder prevents regressions. */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <p className="text-[14px] text-gray-600">Rubric builder and rubric list will be displayed here.</p>
-      </div>
-    </div>
-  );
-}
-
-function TestsSection() {
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Tests</h2>
-        <p className="text-[13px] text-gray-600">Configure test cases and execution settings for submissions</p>
-      </div>
-
-      {/* NOTE: Placeholder keeps navigation stable until tests workflow is implemented. */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <p className="text-[14px] text-gray-600">Test case configuration UI will be displayed here.</p>
-      </div>
-    </div>
-  );
-}
-
-function IntegritySection() {
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Integrity</h2>
-        <p className="text-[13px] text-gray-600">Review plagiarism and integrity checks</p>
-      </div>
-
-      {/* NOTE: Placeholder keeps this route functional while backend integrity signals are integrated later. */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <p className="text-[14px] text-gray-600">Integrity reports and alerts will be displayed here.</p>
-      </div>
-    </div>
-  );
-}
-
-function AnnouncementsSection() {
-  return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Announcements</h2>
-          <p className="text-[13px] text-gray-600">Post updates and reminders to your class</p>
-        </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors">
-          <Plus className="w-4 h-4" strokeWidth={2} />
-          <span>New Announcement</span>
-        </button>
-      </div>
-
-      {/* NOTE: Placeholder keeps section render-safe while announcement CRUD is implemented. */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <p className="text-[14px] text-gray-600">Announcements timeline will be displayed here.</p>
       </div>
     </div>
   );

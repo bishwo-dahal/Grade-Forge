@@ -4,7 +4,6 @@ import type { FacultyCourseCard } from "../../types/class";
 import type { UserProfile } from "../../types/user";
 import { listFacultyCourses } from "../../services/classService";
 import { getFacultyProfile } from "../../services/authService";
-import { getAuthenticatedUser } from "../auth";
 
 interface FacultyMainViewProps {
   // NOTE: View props keep this workflow component presentation-only and API-source agnostic.
@@ -32,24 +31,13 @@ export function FacultyMain({ onOpenCreateClass, refreshSignal = 0 }: FacultyMai
   return <FacultyMainView profile={profile} courses={courses} onOpenCreateClass={onOpenCreateClass} />;
 }
 
-function FacultyMainView({ profile, courses, onOpenCreateClass }: FacultyMainViewProps) {
-  const loggedInUser = getAuthenticatedUser();
-  const displayName = loggedInUser?.name ?? profile?.name ?? "Dr. Sarah Miller";
-  const firstName = displayName.split(" ")[0] || displayName;
-
+function FacultyMainView({ profile: _profile, courses, onOpenCreateClass }: FacultyMainViewProps) {
+  // CLEANUP: Greeting copy was removed, so profile display-name derivation is no longer needed here.
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
       {/* NOTE: Top navigation was removed here to avoid duplicated faculty shell code. */}
       <div className="p-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-[#2B2A2A] mb-2 flex items-center gap-2">
-            Welcome back, {firstName}! <span>{"\u{1F469}\u200D\u{1F3EB}"}</span>
-          </h1>
-          <p className="text-[14px] text-gray-600">
-            You have <span className="font-semibold text-[#2B2A2A]">23 submissions</span> pending review across your classes.
-          </p>
-        </div>
-
+        {/* CLEANUP: Removed faculty greeting summary block per dashboard copy update request. */}
         <TeachingCourses courses={courses} onOpenCreateClass={onOpenCreateClass} />
       </div>
     </main>
@@ -69,14 +57,7 @@ function TeachingCourses({
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-lg font-semibold text-[#2B2A2A]">Teaching This Semester</h2>
         <div className="flex items-center gap-3">
-          {/* NOTE: Add Class action moved next to View All per UX request; modal state remains in dashboard container. */}
-          <button
-            type="button"
-            onClick={onOpenCreateClass}
-            className="px-3 py-2 rounded-lg bg-[#2B2A2A] hover:bg-[#3a3939] text-white text-[13px] font-medium transition-colors"
-          >
-            Add Class
-          </button>
+          {/* CLEANUP: Removed Add Class button from faculty dashboard header per latest UX update. */}
           <button className="text-[13px] text-[#5A7ACD] hover:text-[#4a6abd] font-medium">View All Courses &rarr;</button>
         </div>
       </div>
