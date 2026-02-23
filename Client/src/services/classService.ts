@@ -142,38 +142,6 @@ const classesOverview: ClassOverviewItem[] = [
   },
 ];
 
-const facultyCourses: FacultyCourseCard[] = [
-  {
-    id: "cs-301",
-    title: "Data Structures & Algorithms",
-    code: "CS 301",
-    students: 45,
-    pendingSubmissions: 8,
-    activeAssignments: 2,
-    icon: "\u{1F4BB}",
-    iconBg: "bg-[#5A7ACD]/10",
-  },
-  {
-    id: "cs-402",
-    title: "Advanced Web Development",
-    code: "CS 402",
-    students: 38,
-    pendingSubmissions: 12,
-    activeAssignments: 3,
-    icon: "\u{1F310}",
-    iconBg: "bg-[#FEB05D]/10",
-  },
-  {
-    id: "cs-101",
-    title: "Introduction to Programming",
-    code: "CS 101",
-    students: 73,
-    pendingSubmissions: 3,
-    activeAssignments: 1,
-    icon: "\u{1F4DD}",
-    iconBg: "bg-[#5A7ACD]/10",
-  },
-];
 
 const courseDetails: Record<string, CourseDetail> = {
   "1": {
@@ -657,17 +625,12 @@ export function listClassesOverview(): Promise<ClassOverviewItem[]> {
 }
 
 export async function listFacultyCourses(): Promise<FacultyCourseCard[]> {
-  try {
-    // IMPORTANT: Backend resolves faculty context from authenticated email.
-    // IMPORTANT: This call returns 400 when the logged-in user exists in Users but is not mapped in Faculty.
-    // NOTE: University admin must create/assign the faculty profile first.
-    // TODO(backend): Keep the return shape stable when backend expands this endpoint with metrics.
-    const { data } = await api.get<FacultyCourseApiResponse[]>("/api/v1/faculty/courses");
-    return data.map(mapFacultyCourseToCard);
-  } catch {
-    // FIX: Fallback to existing mock list so faculty UI still works if backend is temporarily unavailable.
-    return Promise.resolve(facultyCourses);
-  }
+  // IMPORTANT: Backend resolves faculty context from authenticated email.
+  // IMPORTANT: This call returns 400 when the logged-in user exists in Users but is not mapped in Faculty.
+  // NOTE: University admin must create/assign the faculty profile first.
+  // TODO(backend): Keep the return shape stable when backend expands this endpoint with metrics.
+  const { data } = await api.get<FacultyCourseApiResponse[]>("/api/v1/faculty/courses");
+  return data.map(mapFacultyCourseToCard);
 }
 
 export async function listFacultyMyClasses(): Promise<FacultyMyClassItem[]> {

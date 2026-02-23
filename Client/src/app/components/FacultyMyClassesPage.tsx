@@ -246,8 +246,8 @@ export function FacultyMyClassesPage() {
   };
 
   const handleCreateNewClass = () => {
-    // NOTE: Reuse existing add-class workflow entry point on faculty dashboard.
-    navigate("/dashboard");
+    // REFACTOR: Faculty class creation now uses a dedicated page instead of dashboard modal flow.
+    navigate("/faculty/my-classes/create");
   };
 
   return (

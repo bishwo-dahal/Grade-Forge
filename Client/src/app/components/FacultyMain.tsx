@@ -9,36 +9,32 @@ interface FacultyMainViewProps {
   // NOTE: View props keep this workflow component presentation-only and API-source agnostic.
   profile: UserProfile | null;
   courses: FacultyCourseCard[];
-  onOpenCreateClass?: () => void;
 }
 
-interface FacultyMainProps {
-  onOpenCreateClass?: () => void;
-  refreshSignal?: number;
-}
+interface FacultyMainProps {}
 
-export function FacultyMain({ onOpenCreateClass, refreshSignal = 0 }: FacultyMainProps) {
+export function FacultyMain({}: FacultyMainProps) {
   // NOTE: Faculty dashboard keeps independent workflow data while shell/topbar is centralized.
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [courses, setCourses] = useState<FacultyCourseCard[]>([]);
 
   useEffect(() => {
     getFacultyProfile().then(setProfile);
-    listFacultyCourses().then(setCourses);
-    // NOTE: Refresh signal lets the Add Class modal trigger a new list pull after create succeeds.
-  }, [refreshSignal]);
+    // NOTE: Dashboard course list is backend-driven; errors resolve to empty state instead of stale mock data.
+    listFacultyCourses().then(setCourses).catch(() => setCourses([]));
+  }, []);
 
-  return <FacultyMainView profile={profile} courses={courses} onOpenCreateClass={onOpenCreateClass} />;
+  return <FacultyMainView profile={profile} courses={courses} />;
 }
 
-function FacultyMainView({ profile: _profile, courses, onOpenCreateClass }: FacultyMainViewProps) {
+function FacultyMainView({ profile: _profile, courses }: FacultyMainViewProps) {
   // CLEANUP: Greeting copy was removed, so profile display-name derivation is no longer needed here.
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
       {/* NOTE: Top navigation was removed here to avoid duplicated faculty shell code. */}
       <div className="p-8">
         {/* CLEANUP: Removed faculty greeting summary block per dashboard copy update request. */}
-        <TeachingCourses courses={courses} onOpenCreateClass={onOpenCreateClass} />
+        <TeachingCourses courses={courses} />
       </div>
     </main>
   );
@@ -46,10 +42,8 @@ function FacultyMainView({ profile: _profile, courses, onOpenCreateClass }: Facu
 
 function TeachingCourses({
   courses,
-  onOpenCreateClass,
 }: {
   courses: FacultyCourseCard[];
-  onOpenCreateClass?: () => void;
 }) {
   // NOTE: Keeps faculty-specific course management flow separate from student dashboard workflow.
   return (
@@ -58,7 +52,9 @@ function TeachingCourses({
         <h2 className="text-lg font-semibold text-[#2B2A2A]">Teaching This Semester</h2>
         <div className="flex items-center gap-3">
           {/* CLEANUP: Removed Add Class button from faculty dashboard header per latest UX update. */}
-          <button className="text-[13px] text-[#5A7ACD] hover:text-[#4a6abd] font-medium">View All Courses &rarr;</button>
+          <Link to="/faculty/my-classes" className="text-[13px] text-[#5A7ACD] hover:text-[#4a6abd] font-medium">
+            View All Courses &rarr;
+          </Link>
         </div>
       </div>
 
