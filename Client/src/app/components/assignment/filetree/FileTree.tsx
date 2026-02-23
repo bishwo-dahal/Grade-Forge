@@ -15,9 +15,19 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "../../ui/dropdown-menu";
+import { cn } from "../../ui/utils";
 import type { FileTreeNode, FileTreeMetadata } from "./fileTreeUtils";
 
 const ROOT_ID = "root";
+
+/** Dark theme for file-tree context/dropdown menus to match the coding editor. */
+const editorMenuContentClass =
+  "bg-[#252526] text-gray-200 border-[#3c3c3c] shadow-xl";
+const editorMenuItemClass =
+  "focus:bg-[#3c3c3c] focus:text-gray-100 text-gray-200 [&_svg]:text-gray-400";
+const editorMenuDestructiveClass =
+  "data-[variant=destructive]:text-red-400 data-[variant=destructive]:focus:bg-red-500/20 data-[variant=destructive]:focus:text-red-400";
+const editorMenuSeparatorClass = "bg-[#3c3c3c]";
 
 function getProjectId(nodes: FileTreeNode[]): string | null {
   const root = nodes.find((n) => n.parent === null);
@@ -153,21 +163,32 @@ export function FileTree({
                 <MoreHorizontal className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuContent
+              align="end"
+              className={cn("w-48", editorMenuContentClass)}
+              onClick={(e) => e.stopPropagation()}
+            >
               {isFolder && (
                 <>
-                  <DropdownMenuItem onClick={() => onCreateFile(id)}>
+                  <DropdownMenuItem
+                    className={editorMenuItemClass}
+                    onClick={() => onCreateFile(id)}
+                  >
                     <FilePlus className="w-4 h-4" />
                     New File
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => handleRenameStart(id, element.name)}>
+                  <DropdownMenuSeparator className={editorMenuSeparatorClass} />
+                  <DropdownMenuItem
+                    className={editorMenuItemClass}
+                    onClick={() => handleRenameStart(id, element.name)}
+                  >
                     <Pencil className="w-4 h-4" />
                     Rename
                   </DropdownMenuItem>
                   {!protectedFileIds.includes(id) && (
                     <DropdownMenuItem
                       variant="destructive"
+                      className={editorMenuDestructiveClass}
                       onClick={() => onDelete(id)}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -178,19 +199,26 @@ export function FileTree({
               )}
               {!isFolder && (
                 <>
-                  <DropdownMenuItem onClick={() => handleRenameStart(id, element.name)}>
+                  <DropdownMenuItem
+                    className={editorMenuItemClass}
+                    onClick={() => handleRenameStart(id, element.name)}
+                  >
                     <Pencil className="w-4 h-4" />
                     Rename
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onDuplicate(id)}>
+                  <DropdownMenuItem
+                    className={editorMenuItemClass}
+                    onClick={() => onDuplicate(id)}
+                  >
                     <Copy className="w-4 h-4" />
                     Duplicate
                   </DropdownMenuItem>
                   {!protectedFileIds.includes(id) && (
                     <>
-                      <DropdownMenuSeparator />
+                      <DropdownMenuSeparator className={editorMenuSeparatorClass} />
                       <DropdownMenuItem
                         variant="destructive"
+                        className={editorMenuDestructiveClass}
                         onClick={() => onDelete(id)}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -208,20 +236,30 @@ export function FileTree({
       return (
         <ContextMenu key={id}>
           <ContextMenuTrigger asChild>{content}</ContextMenuTrigger>
-          <ContextMenuContent>
+          <ContextMenuContent className={editorMenuContentClass}>
             {isFolder && (
               <>
-                <ContextMenuItem onSelect={() => onCreateFile(id)}>
+                <ContextMenuItem
+                  className={editorMenuItemClass}
+                  onSelect={() => onCreateFile(id)}
+                >
                   <FilePlus className="w-4 h-4" />
                   New File
                 </ContextMenuItem>
-                <ContextMenuSeparator />
-                <ContextMenuItem onSelect={() => handleRenameStart(id, element.name)}>
+                <ContextMenuSeparator className={editorMenuSeparatorClass} />
+                <ContextMenuItem
+                  className={editorMenuItemClass}
+                  onSelect={() => handleRenameStart(id, element.name)}
+                >
                   <Pencil className="w-4 h-4" />
                   Rename
                 </ContextMenuItem>
                 {!protectedFileIds.includes(id) && (
-                  <ContextMenuItem variant="destructive" onSelect={() => onDelete(id)}>
+                  <ContextMenuItem
+                    variant="destructive"
+                    className={editorMenuDestructiveClass}
+                    onSelect={() => onDelete(id)}
+                  >
                     <Trash2 className="w-4 h-4" />
                     Delete
                   </ContextMenuItem>
@@ -230,18 +268,28 @@ export function FileTree({
             )}
             {!isFolder && (
               <>
-                <ContextMenuItem onSelect={() => handleRenameStart(id, element.name)}>
+                <ContextMenuItem
+                  className={editorMenuItemClass}
+                  onSelect={() => handleRenameStart(id, element.name)}
+                >
                   <Pencil className="w-4 h-4" />
                   Rename
                 </ContextMenuItem>
-                <ContextMenuItem onSelect={() => onDuplicate(id)}>
+                <ContextMenuItem
+                  className={editorMenuItemClass}
+                  onSelect={() => onDuplicate(id)}
+                >
                   <Copy className="w-4 h-4" />
                   Duplicate
                 </ContextMenuItem>
                 {!protectedFileIds.includes(id) && (
                   <>
-                    <ContextMenuSeparator />
-                    <ContextMenuItem variant="destructive" onSelect={() => onDelete(id)}>
+                    <ContextMenuSeparator className={editorMenuSeparatorClass} />
+                    <ContextMenuItem
+                      variant="destructive"
+                      className={editorMenuDestructiveClass}
+                      onSelect={() => onDelete(id)}
+                    >
                       <Trash2 className="w-4 h-4" />
                       Delete
                     </ContextMenuItem>

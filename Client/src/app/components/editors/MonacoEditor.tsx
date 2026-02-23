@@ -69,6 +69,7 @@ export function MonacoEditor({
           scrollBeyondLastLine: false,
           wordWrap: "on",
           padding: { top: 16 },
+          useShadowDOM: false,
         }}
       />
     </div>
