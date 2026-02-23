@@ -7,24 +7,30 @@ import { SubmitConfirmModal } from "./SubmitConfirmModal";
 import { EditorTabBar } from "./EditorTabBar";
 import { UnsavedCloseModal } from "./UnsavedCloseModal";
 import { FileTree, buildInitialFileTree, nextNodeId, getDefaultExtension } from "./filetree";
+import {
+  getWorkspaceState,
+  setWorkspaceState,
+  sanitizeLoadedState,
+  type PersistedWorkspaceState,
+} from "./assignmentWorkspaceStorage";
 import type { FileTreeNode } from "./filetree";
 import type { EditorCodeExamples } from "../../../types/assignment";
 
 interface CodeWorkspaceProps {
+  assignmentId: string;
   assignment: {
     language: string;
     hasStarterCode: boolean;
     submissionsUsed: number;
     submissionsAllowed: number | null;
   };
-  // NOTE: Code examples are passed in to keep the editor pane stateless.
   codeExamples: EditorCodeExamples;
   onRunTests: () => void;
   onSubmit: () => void;
   isMobile?: boolean;
 }
 
-export function CodeWorkspace({ assignment, codeExamples, onRunTests, onSubmit, isMobile = false }: CodeWorkspaceProps) {
+export function CodeWorkspace({ assignmentId, assignment, codeExamples, onRunTests, onSubmit, isMobile = false }: CodeWorkspaceProps) {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [consoleOutput, setConsoleOutput] = useState<string>("");
   const [lastRunTime, setLastRunTime] = useState<string | null>(null);
@@ -42,7 +48,51 @@ export function CodeWorkspace({ assignment, codeExamples, onRunTests, onSubmit, 
   const [openTabIds, setOpenTabIds] = useState<string[]>(["main"]);
   const [savedContents, setSavedContents] = useState<Record<string, string>>(() => ({ main: initialCode }));
   const [pendingCloseTabId, setPendingCloseTabId] = useState<string | null>(null);
+  const [hasLoadedPersisted, setHasLoadedPersisted] = useState(false);
+  const restoredFromPersistedRef = useRef(false);
   const selectionLockRef = useRef<string | null>(null);
+
+  // Load persisted state for this assignment when assignmentId (or assignment/codeExamples) changes
+  useEffect(() => {
+    let cancelled = false;
+    const starterFileName = `main${getDefaultExtension(assignment.language)}`;
+    const initialCode = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
+
+    getWorkspaceState(assignmentId).then((persisted) => {
+      if (cancelled) return;
+      if (persisted) {
+        const sanitized = sanitizeLoadedState(persisted);
+        setTreeState({ nodes: sanitized.nodes as FileTreeNode[], fileContents: sanitized.fileContents });
+        setOpenTabIds(sanitized.openTabIds);
+        setSavedContents(sanitized.savedContents);
+        setSelectedId(sanitized.selectedId);
+        restoredFromPersistedRef.current = true;
+      } else {
+        const initial = buildInitialFileTree(starterFileName, initialCode);
+        setTreeState(initial);
+        setOpenTabIds(["main"]);
+        setSavedContents({ main: initialCode });
+        setSelectedId("main");
+        restoredFromPersistedRef.current = false;
+      }
+      setHasLoadedPersisted(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [assignmentId, assignment.language, codeExamples]);
+
+  // Sync server starter code into main only when we did not restore from persistence
+  useEffect(() => {
+    if (!hasLoadedPersisted || restoredFromPersistedRef.current) return;
+    const next = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
+    setCode(next);
+    setTreeState((prev) => ({
+      ...prev,
+      fileContents: { ...prev.fileContents, main: next },
+    }));
+    setSavedContents((prev) => ({ ...prev, main: next }));
+  }, [assignment.language, codeExamples, hasLoadedPersisted]);
 
   const getNodeName = (id: string) => nodes.find((n) => String(n.id) === id)?.name ?? id;
   const isDirty = (id: string) => (fileContents[id] ?? "") !== (savedContents[id] ?? "");
@@ -76,7 +126,32 @@ export function CodeWorkspace({ assignment, codeExamples, onRunTests, onSubmit, 
       fileContents: { ...prev.fileContents, main: next },
     }));
     setSavedContents((prev) => ({ ...prev, main: next }));
-  }, [assignment.language, codeExamples]);
+  }, [assignment.language, codeExamples, hasLoadedPersisted]);
+
+  // Persist workspace state (debounced)
+  const savePayloadRef = useRef<PersistedWorkspaceState | null>(null);
+  useEffect(() => {
+    if (!hasLoadedPersisted) return;
+    const payload: PersistedWorkspaceState = {
+      nodes: nodes.map((n) => ({
+        id: String(n.id),
+        name: n.name,
+        parent: n.parent != null ? String(n.parent) : null,
+        children: (n.children ?? []).map(String),
+        isBranch: n.isBranch,
+        metadata: n.metadata,
+      })),
+      fileContents: { ...fileContents },
+      openTabIds: [...openTabIds],
+      savedContents: { ...savedContents },
+      selectedId,
+    };
+    savePayloadRef.current = payload;
+    const t = setTimeout(() => {
+      setWorkspaceState(assignmentId, payload).catch(() => {});
+    }, 600);
+    return () => clearTimeout(t);
+  }, [assignmentId, hasLoadedPersisted, nodes, fileContents, openTabIds, savedContents, selectedId]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -84,10 +159,12 @@ export function CodeWorkspace({ assignment, codeExamples, onRunTests, onSubmit, 
         e.preventDefault();
         e.returnValue = "";
       }
+      const payload = savePayloadRef.current;
+      if (payload) setWorkspaceState(assignmentId, payload).catch(() => {});
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasAnyDirty]);
+  }, [hasAnyDirty, assignmentId]);
 
   const closeTab = (id: string, dirty?: boolean) => {
     const needConfirm = dirty === undefined ? isDirty(id) : dirty;
