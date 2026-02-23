@@ -137,7 +137,7 @@ export function StudentMyCoursesPage() {
 
   useEffect(() => {
     // NOTE: Container owns data loading and passes course data into the presentation component.
-    // TODO(backend): Keep this call shape stable when listEnrolledCourses is backed by a real student courses endpoint.
+    // NOTE: listEnrolledCourses now pulls real enrolled courses and progress metrics from backend APIs.
     listEnrolledCourses().then(setCourses);
   }, []);
 

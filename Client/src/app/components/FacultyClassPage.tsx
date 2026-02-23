@@ -49,18 +49,27 @@ type SectionType = 'dashboard' | 'assignments' | 'submissions' | 'grades' | 'stu
 export function FacultyClassPage() {
   const { classId } = useParams();
   const [activeSection, setActiveSection] = useState<SectionType>('dashboard');
+  const [submissionBadgeCount, setSubmissionBadgeCount] = useState(0);
 
-  // NOTE: Class header data now comes from the mock service.
+  // NOTE: Class header data now comes from backend-driven service mapping.
   const [classHeader, setClassHeader] = useState<ClassHeader | null>(null);
 
   useEffect(() => {
-    const resolvedId = classId || "cs-2400";
+    const resolvedId = classId || "1";
     getFacultyClassHeaderById(resolvedId).then(setClassHeader);
+  }, [classId]);
+
+  useEffect(() => {
+    const resolvedId = classId || "1";
+    // NOTE: Sidebar submissions badge now reflects live ungraded submission count for this class.
+    listClassSubmissions(resolvedId).then((submissions) => {
+      setSubmissionBadgeCount(submissions.filter((submission) => submission.status === "ungraded").length);
+    });
   }, [classId]);
 
   // NOTE: Lightweight placeholder keeps layout stable during async load.
   const classData: ClassHeader = classHeader ?? {
-    id: classId || "cs-2400",
+    id: classId || "1",
     code: "",
     name: "",
     section: "",
@@ -106,7 +115,7 @@ export function FacultyClassPage() {
                 label="Submissions"
                 active={activeSection === 'submissions'}
                 onClick={() => setActiveSection('submissions')}
-                badge={12}
+                badge={submissionBadgeCount > 0 ? submissionBadgeCount : undefined}
               />
               <NavItem
                 icon={<BarChart3 className="w-4 h-4" strokeWidth={2} />}
@@ -237,12 +246,12 @@ function NavItem({
 // Placeholder sections - will be implemented
 function DashboardSection() {
   const { classId } = useParams();
-  // NOTE: Dashboard stats and activity now load from mock services.
+  // NOTE: Dashboard stats and activity now load from backend-driven service calls.
   const [recentActivity, setRecentActivity] = useState<ClassRecentActivity[]>([]);
   const [stats, setStats] = useState<FacultyDashboardStat[]>([]);
 
   useEffect(() => {
-    const resolvedId = classId || "cs-2400";
+    const resolvedId = classId || "1";
     listClassRecentActivity(resolvedId).then(setRecentActivity);
     listFacultyDashboardStats(resolvedId).then(setStats);
   }, [classId]);
@@ -294,23 +303,27 @@ function DashboardSection() {
           <button className="text-[12px] text-gray-500 hover:text-[#2B2A2A]">View All</button>
         </div>
         <div className="space-y-4">
-          {recentActivity.map((activity) => {
-            const ActivityIcon = activityIconMap[activity.iconKey];
-            return (
-              <div
-                key={activity.id}
-                className="flex items-start gap-3 pb-4 border-b border-gray-100 last:border-b-0 last:pb-0"
-              >
-                <div className={`mt-0.5 w-8 h-8 ${activity.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                  <ActivityIcon className={`w-4 h-4 ${activity.iconColor}`} strokeWidth={2} />
+          {recentActivity.length > 0 ? (
+            recentActivity.map((activity) => {
+              const ActivityIcon = activityIconMap[activity.iconKey];
+              return (
+                <div
+                  key={activity.id}
+                  className="flex items-start gap-3 pb-4 border-b border-gray-100 last:border-b-0 last:pb-0"
+                >
+                  <div className={`mt-0.5 w-8 h-8 ${activity.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                    <ActivityIcon className={`w-4 h-4 ${activity.iconColor}`} strokeWidth={2} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] text-[#2B2A2A]">{activity.message}</p>
+                    <p className="text-[12px] text-gray-500 mt-0.5">{activity.time}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[14px] text-[#2B2A2A]">{activity.message}</p>
-                  <p className="text-[12px] text-gray-500 mt-0.5">{activity.time}</p>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          ) : (
+            <p className="text-[13px] text-gray-600">No recent class activity yet.</p>
+          )}
         </div>
       </div>
     </div>
@@ -353,11 +366,11 @@ function StatCard({
 function AssignmentsSection() {
   const { classId } = useParams();
   const [selectedAssignments, setSelectedAssignments] = useState<string[]>([]);
-  // NOTE: Assignments now load from the mock class service.
+  // NOTE: Assignments now load from backend-driven class service mapping.
   const [assignments, setAssignments] = useState<FacultyAssignment[]>([]);
 
   useEffect(() => {
-    const resolvedId = classId || "cs-2400";
+    const resolvedId = classId || "1";
     listFacultyAssignments(resolvedId).then(setAssignments);
   }, [classId]);
 
@@ -407,70 +420,78 @@ function AssignmentsSection() {
             </tr>
           </thead>
           <tbody>
-            {assignments.map((assignment, index) => (
-              <tr
-                key={assignment.id}
-                className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === assignments.length - 1 ? 'border-b-0' : ''}`}
-              >
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedAssignments.includes(assignment.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedAssignments([...selectedAssignments, assignment.id]);
-                        } else {
-                          setSelectedAssignments(selectedAssignments.filter(id => id !== assignment.id));
-                        }
-                      }}
-                      className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
-                    />
-                    <span className="text-[14px] font-medium text-[#2B2A2A]">
-                      {assignment.name}
+            {assignments.length > 0 ? (
+              assignments.map((assignment, index) => (
+                <tr
+                  key={assignment.id}
+                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === assignments.length - 1 ? 'border-b-0' : ''}`}
+                >
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedAssignments.includes(assignment.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedAssignments([...selectedAssignments, assignment.id]);
+                          } else {
+                            setSelectedAssignments(selectedAssignments.filter(id => id !== assignment.id));
+                          }
+                        }}
+                        className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
+                      />
+                      <span className="text-[14px] font-medium text-[#2B2A2A]">
+                        {assignment.name}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-[12px] font-medium text-gray-700">
+                      {assignment.language}
                     </span>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-[12px] font-medium text-gray-700">
-                    {assignment.language}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="text-[13px] text-gray-600">{assignment.dueDate}</span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="text-[13px] text-gray-600">
-                    {assignment.submissions}/{assignment.totalStudents}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium ${
-                    assignment.status === 'published'
-                      ? 'bg-green-50 text-green-600'
-                      : assignment.status === 'closed'
-                      ? 'bg-gray-100 text-gray-600'
-                      : 'bg-orange-50 text-orange-600'
-                  }`}>
-                    {assignment.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    {/* Accessibility: icon-only action buttons need labels for screen readers. */}
-                    <button aria-label="Edit assignment" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                    <button aria-label="Duplicate assignment" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <Copy className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                    <button aria-label="More assignment actions" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                  </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-[13px] text-gray-600">{assignment.dueDate}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-[13px] text-gray-600">
+                      {assignment.submissions}/{assignment.totalStudents}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium ${
+                      assignment.status === 'published'
+                        ? 'bg-green-50 text-green-600'
+                        : assignment.status === 'closed'
+                        ? 'bg-gray-100 text-gray-600'
+                        : 'bg-orange-50 text-orange-600'
+                    }`}>
+                      {assignment.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {/* Accessibility: icon-only action buttons need labels for screen readers. */}
+                      <button aria-label="Edit assignment" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                      <button aria-label="Duplicate assignment" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <Copy className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                      <button aria-label="More assignment actions" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={6} className="px-6 py-6 text-center text-[13px] text-gray-600">
+                  No assignments found for this class.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
@@ -480,11 +501,11 @@ function AssignmentsSection() {
 
 function SubmissionsSection() {
   const { classId } = useParams();
-  // NOTE: Submissions now load from the mock submission service.
+  // NOTE: Submissions now load from backend-driven submission service mapping.
   const [submissions, setSubmissions] = useState<ClassSubmissionItem[]>([]);
 
   useEffect(() => {
-    const resolvedId = classId || "cs-2400";
+    const resolvedId = classId || "1";
     listClassSubmissions(resolvedId).then(setSubmissions);
   }, [classId]);
 
@@ -530,60 +551,68 @@ function SubmissionsSection() {
             </tr>
           </thead>
           <tbody>
-            {submissions.map((submission, index) => (
-              <tr
-                key={submission.id}
-                className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === submissions.length - 1 ? 'border-b-0' : ''}`}
-              >
-                <td className="px-6 py-4">
-                  <span className="text-[14px] font-medium text-[#2B2A2A]">
-                    {submission.student}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="text-[13px] text-gray-600">
-                    {submission.assignment}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="text-[13px] text-gray-600">
-                    {submission.submittedAt}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  {submission.status === 'ungraded' ? (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-orange-50">
-                      <span className="text-[12px] font-medium text-orange-600">Ungraded</span>
+            {submissions.length > 0 ? (
+              submissions.map((submission, index) => (
+                <tr
+                  key={submission.id}
+                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === submissions.length - 1 ? 'border-b-0' : ''}`}
+                >
+                  <td className="px-6 py-4">
+                    <span className="text-[14px] font-medium text-[#2B2A2A]">
+                      {submission.student}
                     </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-green-50">
-                      <span className="text-[12px] font-medium text-green-600">Graded</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-[13px] text-gray-600">
+                      {submission.assignment}
                     </span>
-                  )}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  {submission.score !== undefined ? (
-                    <span className="text-[13px] font-semibold text-[#2B2A2A]">{submission.score}</span>
-                  ) : (
-                    <span className="text-[13px] text-gray-400">&mdash;</span>
-                  )}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    {/* Accessibility: icon-only action buttons need labels for screen readers. */}
-                    <button aria-label="View submission" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <Eye className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                    <button aria-label="Edit submission" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                    <button aria-label="More submission actions" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                  </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-[13px] text-gray-600">
+                      {submission.submittedAt}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    {submission.status === 'ungraded' ? (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-orange-50">
+                        <span className="text-[12px] font-medium text-orange-600">Ungraded</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-green-50">
+                        <span className="text-[12px] font-medium text-green-600">Graded</span>
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    {submission.score !== undefined ? (
+                      <span className="text-[13px] font-semibold text-[#2B2A2A]">{submission.score}</span>
+                    ) : (
+                      <span className="text-[13px] text-gray-400">&mdash;</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {/* Accessibility: icon-only action buttons need labels for screen readers. */}
+                      <button aria-label="View submission" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <Eye className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                      <button aria-label="Edit submission" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                      <button aria-label="More submission actions" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={6} className="px-6 py-6 text-center text-[13px] text-gray-600">
+                  No submissions found for this class.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
@@ -616,11 +645,11 @@ function GradesSection() {
 
 function StudentsSection() {
   const { classId } = useParams();
-  // NOTE: Students now load from the mock class service.
+  // NOTE: Students now load from backend-driven class service mapping.
   const [students, setStudents] = useState<ClassStudent[]>([]);
 
   useEffect(() => {
-    const resolvedId = classId || "cs-2400";
+    const resolvedId = classId || "1";
     listFacultyClassStudents(resolvedId).then(setStudents);
   }, [classId]);
 
@@ -667,52 +696,60 @@ function StudentsSection() {
             </tr>
           </thead>
           <tbody>
-            {students.map((student, index) => (
-              <tr
-                key={student.id}
-                className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === students.length - 1 ? 'border-b-0' : ''}`}
-              >
-                <td className="px-6 py-4">
-                  <span className="text-[14px] font-medium text-[#2B2A2A]">
-                    {student.name}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <a
-                    href={`mailto:${student.email}`}
-                    className="text-[13px] text-gray-600 hover:text-[#5A7ACD] transition-colors"
-                  >
-                    {student.email}
-                  </a>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`text-[12px] font-medium px-2 py-1 rounded-md ${
-                    student.status === 'Active'
-                      ? 'bg-green-50 text-green-600'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}>
-                    {student.status || 'Inactive'}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="text-[13px] text-gray-600">{student.group || 'Unassigned'}</span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    {/* Accessibility: icon-only action buttons need labels for screen readers. */}
-                    <button aria-label="Email student" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <Mail className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                    <button aria-label="Remove student" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <UserMinus className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                    <button aria-label="More student actions" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                  </div>
+            {students.length > 0 ? (
+              students.map((student, index) => (
+                <tr
+                  key={student.id}
+                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === students.length - 1 ? 'border-b-0' : ''}`}
+                >
+                  <td className="px-6 py-4">
+                    <span className="text-[14px] font-medium text-[#2B2A2A]">
+                      {student.name}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <a
+                      href={`mailto:${student.email}`}
+                      className="text-[13px] text-gray-600 hover:text-[#5A7ACD] transition-colors"
+                    >
+                      {student.email}
+                    </a>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`text-[12px] font-medium px-2 py-1 rounded-md ${
+                      student.status === 'Active'
+                        ? 'bg-green-50 text-green-600'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {student.status || 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-[13px] text-gray-600">{student.group || 'Unassigned'}</span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {/* Accessibility: icon-only action buttons need labels for screen readers. */}
+                      <button aria-label="Email student" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <Mail className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                      <button aria-label="Remove student" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <UserMinus className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                      <button aria-label="More student actions" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5} className="px-6 py-6 text-center text-[13px] text-gray-600">
+                  No students are enrolled in this class yet.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>

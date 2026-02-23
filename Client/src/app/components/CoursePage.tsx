@@ -9,7 +9,7 @@ import React from "react";
 
 export function CoursePage() {
   const { courseId } = useParams();
-  // NOTE: Course data now comes from mock services to keep backend integration seams centralized.
+  // NOTE: Course data now comes from backend-driven service mapping.
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [assignments, setAssignments] = useState<AssignmentSummary[]>([]);
 

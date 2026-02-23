@@ -138,10 +138,13 @@ public class EnrollmentService {
     private EnrollmentResponse mapToResponse(Enrollment enrollment) {
         Student student = enrollment.getStudent();
         String studentName = student != null && student.getUser() != null ? student.getUser().getName() : null;
+        // NOTE: Include email so faculty student roster UI can use backend data without placeholders.
+        String studentEmail = student != null && student.getUser() != null ? student.getUser().getEmail() : null;
         return EnrollmentResponse.builder()
                 .id(enrollment.getId())
                 .studentId(student != null ? student.getId() : null)
                 .studentName(studentName)
+                .studentEmail(studentEmail)
                 .courseId(enrollment.getCourse() != null ? enrollment.getCourse().getId() : null)
                 .enrolledAt(enrollment.getEnrolledAt())
                 .enrolledStatus(enrollment.getEnrolledStatus())

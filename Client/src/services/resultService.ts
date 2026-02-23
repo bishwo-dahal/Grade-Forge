@@ -4,6 +4,7 @@ import {
   Clock,
   FileText,
 } from "lucide-react";
+import api from "../api/axios";
 import type {
   ActivitySummary,
   AssignmentResult,
@@ -147,6 +148,50 @@ const recentlyGraded: RecentlyGradedItem[] = [
   },
 ];
 
+interface AssignmentApiResponse {
+  id: number;
+  name: string;
+  totalPoints: number;
+  submissionType: string;
+}
+
+interface SubmissionApiResponse {
+  id: number;
+  assignmentId: number;
+  marks: number | null;
+  submittedAt: string;
+}
+
+function toLetterGrade(percentage: number): string {
+  if (percentage >= 93) return "A";
+  if (percentage >= 90) return "A-";
+  if (percentage >= 87) return "B+";
+  if (percentage >= 83) return "B";
+  if (percentage >= 80) return "B-";
+  if (percentage >= 77) return "C+";
+  if (percentage >= 73) return "C";
+  if (percentage >= 70) return "C-";
+  if (percentage >= 67) return "D+";
+  if (percentage >= 63) return "D";
+  if (percentage >= 60) return "D-";
+  return "F";
+}
+
+async function listStudentAssignmentsWithSubmissions(courseId: number): Promise<
+  Array<{ assignment: AssignmentApiResponse; submissions: SubmissionApiResponse[] }>
+> {
+  const { data: assignments } = await api.get<AssignmentApiResponse[]>(`/api/v1/student/assignments/course/${courseId}`);
+  const withSubmissions = await Promise.all(
+    assignments.map(async (assignment) => {
+      const { data: submissions } = await api.get<SubmissionApiResponse[]>(
+        `/api/v1/student/submissions/assignment?assignmentId=${assignment.id}`,
+      );
+      return { assignment, submissions };
+    }),
+  );
+  return withSubmissions;
+}
+
 export function listSummaryMetrics(): Promise<SummaryMetric[]> {
   return Promise.resolve(summaryMetrics);
 }
@@ -155,19 +200,140 @@ export function getActivitySummary(): Promise<ActivitySummary> {
   return Promise.resolve(activitySummary);
 }
 
-export function listGradeRows(classId?: string): Promise<GradeRow[]> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(gradeRows);
+export async function listGradeRows(classId?: string): Promise<GradeRow[]> {
+  const parsedClassId = Number(classId);
+  if (!Number.isFinite(parsedClassId) || parsedClassId <= 0) {
+    return gradeRows;
+  }
+
+  // NOTE: Class grades table now uses student assignment + submission data from backend instead of fixed mock rows.
+  const withSubmissions = await listStudentAssignmentsWithSubmissions(parsedClassId);
+  const totalPointsAcrossAssignments = withSubmissions.reduce(
+    (sum, item) => sum + item.assignment.totalPoints,
+    0,
+  );
+
+  return withSubmissions.map(({ assignment, submissions }) => {
+    const latestSubmission = [...submissions].sort((left, right) => {
+      return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+    })[0];
+    const score = Number(latestSubmission?.marks ?? 0);
+    const weightPercentage =
+      totalPointsAcrossAssignments > 0
+        ? ((assignment.totalPoints / totalPointsAcrossAssignments) * 100).toFixed(0)
+        : "0";
+
+    return {
+      id: String(assignment.id),
+      name: assignment.name,
+      category: assignment.submissionType || "Assignment",
+      score,
+      total: assignment.totalPoints,
+      weight: `${weightPercentage}%`,
+    };
+  });
 }
 
-export function listCategoryStats(classId?: string): Promise<CategoryStat[]> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(categoryStats);
+export async function listCategoryStats(classId?: string): Promise<CategoryStat[]> {
+  const parsedClassId = Number(classId);
+  if (!Number.isFinite(parsedClassId) || parsedClassId <= 0) {
+    return categoryStats;
+  }
+
+  const withSubmissions = await listStudentAssignmentsWithSubmissions(parsedClassId);
+  const totalPointsAcrossAssignments = withSubmissions.reduce(
+    (sum, item) => sum + item.assignment.totalPoints,
+    0,
+  );
+
+  const grouped = new Map<
+    string,
+    {
+      totalAssignments: number;
+      completedAssignments: number;
+      totalPoints: number;
+      earnedPoints: number;
+      gradedCount: number;
+    }
+  >();
+
+  withSubmissions.forEach(({ assignment, submissions }) => {
+    const category = assignment.submissionType || "Assignment";
+    const current = grouped.get(category) ?? {
+      totalAssignments: 0,
+      completedAssignments: 0,
+      totalPoints: 0,
+      earnedPoints: 0,
+      gradedCount: 0,
+    };
+
+    const latestSubmission = [...submissions].sort((left, right) => {
+      return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+    })[0];
+
+    current.totalAssignments += 1;
+    current.totalPoints += assignment.totalPoints;
+    if (latestSubmission) {
+      current.completedAssignments += 1;
+    }
+    if (latestSubmission?.marks !== null && latestSubmission?.marks !== undefined) {
+      current.earnedPoints += Number(latestSubmission.marks);
+      current.gradedCount += 1;
+    }
+    grouped.set(category, current);
+  });
+
+  return Array.from(grouped.entries()).map(([category, values]) => {
+    const average =
+      values.totalPoints > 0 && values.gradedCount > 0
+        ? `${((values.earnedPoints / values.totalPoints) * 100).toFixed(1)}%`
+        : "\u2014";
+    const weight =
+      totalPointsAcrossAssignments > 0
+        ? `${((values.totalPoints / totalPointsAcrossAssignments) * 100).toFixed(0)}%`
+        : "0%";
+
+    return {
+      category,
+      weight,
+      average,
+      completed: `${values.completedAssignments}/${values.totalAssignments}`,
+    };
+  });
 }
 
-export function getOverallGradeSummary(classId?: string): Promise<OverallGradeSummary> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(overallGradeSummary);
+export async function getOverallGradeSummary(classId?: string): Promise<OverallGradeSummary> {
+  const parsedClassId = Number(classId);
+  if (!Number.isFinite(parsedClassId) || parsedClassId <= 0) {
+    return overallGradeSummary;
+  }
+
+  const withSubmissions = await listStudentAssignmentsWithSubmissions(parsedClassId);
+  const graded = withSubmissions
+    .map(({ assignment, submissions }) => {
+      const latestSubmission = [...submissions].sort((left, right) => {
+        return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+      })[0];
+      if (latestSubmission?.marks === null || latestSubmission?.marks === undefined) {
+        return null;
+      }
+      return {
+        earned: Number(latestSubmission.marks),
+        total: assignment.totalPoints,
+      };
+    })
+    .filter((value): value is { earned: number; total: number } => value !== null);
+
+  const earnedPoints = graded.reduce((sum, item) => sum + item.earned, 0);
+  const totalPoints = graded.reduce((sum, item) => sum + item.total, 0);
+  const percentage = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 0;
+
+  return {
+    current: `${percentage.toFixed(1)}%`,
+    letter: toLetterGrade(percentage),
+    // TODO(backend): Replace this placeholder when class-wide average endpoint is available.
+    classAverage: "N/A",
+  };
 }
 
 export function getAssignmentResult(assignmentId: string): Promise<AssignmentResult> {

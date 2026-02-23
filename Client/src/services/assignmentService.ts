@@ -10,6 +10,7 @@ import type {
 } from "../types/assignment";
 import type { RubricCategory } from "../types/grade";
 import type { PublicTestCase } from "../types/submission";
+import api from "../api/axios";
 
 // NOTE: Centralized mock assignment data to create a single integration seam.
 // TODO(backend): Replace mock service with real API calls. Keep return shapes stable for the UI.
@@ -504,6 +505,46 @@ public class BinarySearchTree {
 }`,
 };
 
+interface AssignmentApiResponse {
+  id: number;
+  courseId: number;
+  courseName: string;
+  languageId: number;
+  languageName: string;
+  name: string;
+  description: string | null;
+  totalPoints: number;
+  submissionType: string;
+  starterCodeUrl: string | null;
+  availableFrom: string | null;
+  dueDate: string | null;
+  lateDueDate: string | null;
+}
+
+interface SubmissionApiResponse {
+  id: number;
+  assignmentId: number;
+  marks: number | null;
+  submittedAt: string;
+}
+
+function formatDate(value: string | null): string {
+  if (!value) {
+    return "No due date";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "No due date";
+  }
+
+  return parsed.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export function getAssignmentDetailById(id: string): Promise<AssignmentDetail> {
   // NOTE: id is unused in the mock implementation but preserved for backend parity.
   return Promise.resolve({ ...assignmentDetail, id });
@@ -518,9 +559,43 @@ export function listUpcomingAssignments(): Promise<UpcomingAssignment[]> {
   return Promise.resolve(upcomingAssignments);
 }
 
-export function listCourseAssignments(courseId: string): Promise<AssignmentSummary[]> {
-  // NOTE: courseId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(courseAssignments);
+export async function listCourseAssignments(courseId: string): Promise<AssignmentSummary[]> {
+  const parsedCourseId = Number(courseId);
+  if (!Number.isFinite(parsedCourseId) || parsedCourseId <= 0) {
+    throw new Error("Invalid course id.");
+  }
+
+  // NOTE: Course page assignments now load from backend, with student submission state mapped into UI statuses.
+  const { data: assignments } = await api.get<AssignmentApiResponse[]>(
+    `/api/v1/student/assignments/course/${parsedCourseId}`,
+  );
+
+  const assignmentSummaries = await Promise.all(
+    assignments.map(async (assignment, index) => {
+      const { data: submissions } = await api.get<SubmissionApiResponse[]>(
+        `/api/v1/student/submissions/assignment?assignmentId=${assignment.id}`,
+      );
+      const latestSubmission = [...submissions].sort((left, right) => {
+        return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+      })[0];
+      const gradedScore = latestSubmission?.marks ?? null;
+      const hasSubmission = submissions.length > 0;
+      const dueAt = assignment.dueDate ? new Date(assignment.dueDate).getTime() : null;
+      const isLate = typeof dueAt === "number" && Number.isFinite(dueAt) && dueAt < Date.now() && !hasSubmission;
+
+      return {
+        id: assignment.id,
+        title: assignment.name,
+        number: index + 1,
+        dueDate: formatDate(assignment.dueDate),
+        status: gradedScore !== null ? "graded" : isLate ? "late" : hasSubmission ? "submitted" : "not_submitted",
+        points: gradedScore !== null ? gradedScore : assignment.totalPoints,
+        totalPoints: assignment.totalPoints,
+      } satisfies AssignmentSummary;
+    }),
+  );
+
+  return assignmentSummaries;
 }
 
 export function listRecentAssignments(): Promise<RecentAssignmentItem[]> {
