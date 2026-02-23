@@ -18,7 +18,7 @@ public class StudentSearchController {
     private final StudentSearchService studentSearchService;
 
     @GetMapping
-    public List<StudentSearchResponseDto> search(@RequestParam("keyword") String keyword) {
-        return studentSearchService.search(keyword);
+    public List<StudentSearchResponseDto> search(@RequestParam("keyword") String keyword,@RequestParam("courseId") Long courseId) {
+        return studentSearchService.search(keyword,courseId);
     }
 }

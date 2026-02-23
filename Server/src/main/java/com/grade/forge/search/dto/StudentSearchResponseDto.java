@@ -1,5 +1,6 @@
 package com.grade.forge.search.dto;
 
+import com.grade.forge.student.enums.EnrolledStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -21,5 +22,6 @@ public class StudentSearchResponseDto {
     private String canvasUserId;
     private String name;
     private String email;
+    private EnrolledStatus enrolledStatus;
 
 }
