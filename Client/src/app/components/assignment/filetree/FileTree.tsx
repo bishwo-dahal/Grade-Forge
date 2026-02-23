@@ -110,6 +110,7 @@ export function FileTree({
               onChange={(e) => setEditName(e.target.value)}
               onBlur={handleRenameSubmit}
               onKeyDown={(e) => {
+                e.stopPropagation();
                 if (e.key === "Enter") handleRenameSubmit();
                 if (e.key === "Escape") {
                   setRenamingId(null);
