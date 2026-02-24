@@ -4,12 +4,16 @@ import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.student.dto.EnrollmentResponse;
+import com.grade.forge.student.dto.FacultyStudentLookupResponse;
 import com.grade.forge.student.entity.Enrollment;
 import com.grade.forge.student.entity.Student;
 import com.grade.forge.student.enums.EnrolledStatus;
 import com.grade.forge.student.repository.EnrollmentRepository;
 import com.grade.forge.student.repository.StudentRepository;
+import com.grade.forge.faculty.entity.Faculty;
+import com.grade.forge.faculty.repository.FacultyRepository;
 import com.grade.forge.user.entity.Users;
+import com.grade.forge.user.enums.Role;
 import com.grade.forge.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,6 +34,11 @@ public class EnrollmentService {
     private final StudentRepository studentRepository;
     private final CourseRepository courseRepository;
     private final UserRepository userRepository;
+    private final FacultyRepository facultyRepository;
+
+    // NOTE: Shared email format check keeps faculty lookup/enroll validation consistent.
+    private static final Pattern EMAIL_PATTERN =
+            Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
     public EnrollmentResponse waitListCurrentStudentInCourse(String userEmail, Long courseId) {
         Student student = getStudentByUserEmail(userEmail);
@@ -49,6 +60,14 @@ public class EnrollmentService {
     public List<EnrollmentResponse> getCourseEnrollments(Long courseId) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
+        return enrollmentRepository.findByCourse_Id(course.getId()).stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<EnrollmentResponse> getCourseEnrollmentsForFaculty(String facultyEmail, Long courseId) {
+        Course course = getCourseOwnedByFaculty(facultyEmail, courseId);
         return enrollmentRepository.findByCourse_Id(course.getId()).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -100,9 +119,120 @@ public class EnrollmentService {
         return mapToResponse(saved);
     }
 
+    public EnrollmentResponse enrollCurrentStudentFromCourse(String facultyEmail, Long studentId, Long courseId) {
+        // IMPORTANT: Faculty can only enroll students in courses they own.
+        getCourseOwnedByFaculty(facultyEmail, courseId);
+        return enrollCurrentStudentFromCourse(studentId, courseId);
+    }
+
     public EnrollmentResponse dropStudentFromCourse(Long studentId, Long courseId) {
         Student student = getStudentById(studentId);
         return dropStudentFromCourse(student, courseId);
+    }
+
+    public EnrollmentResponse dropStudentFromCourse(String facultyEmail, Long studentId, Long courseId) {
+        // IMPORTANT: Faculty can only drop students from courses they own.
+        getCourseOwnedByFaculty(facultyEmail, courseId);
+        return dropStudentFromCourse(studentId, courseId);
+    }
+
+    @Transactional(readOnly = true)
+    public FacultyStudentLookupResponse searchStudentForFacultyCourse(String facultyEmail, Long courseId, String lookupEmail) {
+        // IMPORTANT: Ownership is validated first so faculty cannot probe students in another faculty's course.
+        Course course = getCourseOwnedByFaculty(facultyEmail, courseId);
+        String normalizedEmail = normalizeAndValidateEmail(lookupEmail);
+
+        Optional<Users> userOptional = userRepository.findByEmailIgnoreCase(normalizedEmail);
+        if (userOptional.isEmpty()) {
+            return FacultyStudentLookupResponse.builder()
+                    .studentEmail(normalizedEmail)
+                    .alreadyInCourse(false)
+                    .currentStatus("NOT_FOUND")
+                    .canEnroll(false)
+                    .reason("No user exists with this email.")
+                    .build();
+        }
+
+        Users user = userOptional.get();
+        if (user.getRole() != Role.STUDENT) {
+            return FacultyStudentLookupResponse.builder()
+                    .studentEmail(user.getEmail())
+                    .alreadyInCourse(false)
+                    .currentStatus("NOT_STUDENT")
+                    .canEnroll(false)
+                    .reason("This email belongs to a non-student account.")
+                    .build();
+        }
+
+        Student student = studentRepository.findByUser_EmailIgnoreCase(user.getEmail()).orElse(null);
+        if (student == null) {
+            return FacultyStudentLookupResponse.builder()
+                    .studentName(user.getName())
+                    .studentEmail(user.getEmail())
+                    .alreadyInCourse(false)
+                    .currentStatus("MISSING_PROFILE")
+                    .canEnroll(false)
+                    .reason("Student profile is missing. Ask admin to complete student setup.")
+                    .build();
+        }
+
+        Enrollment existingEnrollment = enrollmentRepository.findByStudent_IdAndCourse_Id(student.getId(), course.getId())
+                .orElse(null);
+
+        if (existingEnrollment == null) {
+            return FacultyStudentLookupResponse.builder()
+                    .studentId(student.getId())
+                    .studentName(user.getName())
+                    .studentEmail(user.getEmail())
+                    .alreadyInCourse(false)
+                    .currentStatus("NOT_ENROLLED")
+                    .canEnroll(true)
+                    .reason("Student can be enrolled in this course.")
+                    .build();
+        }
+
+        boolean alreadyEnrolled = EnrolledStatus.ENROLLED.equals(existingEnrollment.getEnrolledStatus());
+        return FacultyStudentLookupResponse.builder()
+                .studentId(student.getId())
+                .studentName(user.getName())
+                .studentEmail(user.getEmail())
+                .alreadyInCourse(alreadyEnrolled)
+                .currentStatus(existingEnrollment.getEnrolledStatus().name())
+                .canEnroll(!alreadyEnrolled)
+                .reason(alreadyEnrolled
+                        ? "Student is already enrolled in this course."
+                        : "Student can be re-enrolled in this course.")
+                .build();
+    }
+
+    public EnrollmentResponse enrollStudentByEmailForFaculty(String facultyEmail, Long courseId, String studentEmail) {
+        // IMPORTANT: Faculty can only enroll students in their own course.
+        Course course = getCourseOwnedByFaculty(facultyEmail, courseId);
+        String normalizedEmail = normalizeAndValidateEmail(studentEmail);
+
+        Users user = userRepository.findByEmailIgnoreCase(normalizedEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + normalizedEmail));
+        if (user.getRole() != Role.STUDENT) {
+            throw new IllegalArgumentException("Only student accounts can be enrolled in a class");
+        }
+
+        Student student = studentRepository.findByUser_EmailIgnoreCase(user.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Student profile not found for email: " + user.getEmail()));
+
+        Enrollment enrollment = enrollmentRepository.findByStudent_IdAndCourse_Id(student.getId(), course.getId())
+                .orElseGet(() -> {
+                    Enrollment newEnrollment = new Enrollment();
+                    newEnrollment.setStudent(student);
+                    newEnrollment.setCourse(course);
+                    newEnrollment.setGrade(null);
+                    return newEnrollment;
+                });
+
+        // FIX: Enroll-by-email is idempotent; existing ENROLLED rows stay ENROLLED, WAITLIST/DROPPED are promoted.
+        enrollment.setEnrolledStatus(EnrolledStatus.ENROLLED);
+        enrollment.setEnrolledAt(LocalDateTime.now());
+        Enrollment saved = enrollmentRepository.save(enrollment);
+        return mapToResponse(saved);
     }
 
 
@@ -124,10 +254,28 @@ public class EnrollmentService {
     }
 
     private Student getStudentByUserEmail(String email) {
-        Users user = userRepository.findByEmail(email)
+        Users user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
-        return studentRepository.findByUserId(user.getId())
+        return studentRepository.findByUser_EmailIgnoreCase(user.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found for user email: " + email));
+    }
+
+    private Course getCourseOwnedByFaculty(String facultyEmail, Long courseId) {
+        Faculty faculty = facultyRepository.findByEmailIgnoreCase(facultyEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with email: " + facultyEmail));
+        return courseRepository.findByIdAndFaculty_Id(courseId, faculty.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found for this faculty: " + courseId));
+    }
+
+    private String normalizeAndValidateEmail(String email) {
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("Email is required");
+        }
+        String normalizedEmail = email.trim().toLowerCase();
+        if (!EMAIL_PATTERN.matcher(normalizedEmail).matches()) {
+            throw new IllegalArgumentException("Please provide a valid email address");
+        }
+        return normalizedEmail;
     }
 
     private Student getStudentById(Long studentId) {

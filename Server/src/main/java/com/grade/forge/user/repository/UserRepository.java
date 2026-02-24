@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<Users, Long> {
 
     Optional<Users> findByEmail(String email);
+    // NOTE: Faculty roster email lookup must be case-insensitive to match real-world email entry behavior.
+    Optional<Users> findByEmailIgnoreCase(String email);
 }
