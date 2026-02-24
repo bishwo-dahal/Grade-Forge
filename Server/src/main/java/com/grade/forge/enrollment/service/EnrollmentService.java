@@ -1,13 +1,13 @@
-package com.grade.forge.student.service;
+package com.grade.forge.enrollment.service;
 
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
-import com.grade.forge.student.dto.EnrollmentResponse;
-import com.grade.forge.student.entity.Enrollment;
+import com.grade.forge.enrollment.dto.EnrollmentResponse;
+import com.grade.forge.enrollment.entity.Enrollment;
 import com.grade.forge.student.entity.Student;
-import com.grade.forge.student.enums.EnrolledStatus;
-import com.grade.forge.student.repository.EnrollmentRepository;
+import com.grade.forge.enrollment.enums.EnrolledStatus;
+import com.grade.forge.enrollment.repository.EnrollmentRepository;
 import com.grade.forge.student.repository.StudentRepository;
 import com.grade.forge.user.entity.Users;
 import com.grade.forge.user.repository.UserRepository;
@@ -147,5 +147,28 @@ public class EnrollmentService {
                 .enrolledStatus(enrollment.getEnrolledStatus())
                 .grade(enrollment.getGrade())
                 .build();
+    }
+
+    public EnrollmentResponse enrollStudentInCourse(Long studentId, Long courseId) {
+        if (studentId == null || courseId == null) {
+            throw new IllegalArgumentException("studentId and courseId are required");
+        }
+        Student student = getStudentById(studentId);
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
+
+        Enrollment enrollment = enrollmentRepository.findByStudent_IdAndCourse_Id(student.getId(), course.getId())
+                .orElseGet(() -> {
+                    Enrollment e = new Enrollment();
+                    e.setStudent(student);
+                    e.setCourse(course);
+                    return e;
+                });
+
+        enrollment.setEnrolledStatus(EnrolledStatus.ENROLLED);
+        enrollment.setEnrolledAt(LocalDateTime.now());
+
+        Enrollment saved = enrollmentRepository.save(enrollment);
+        return mapToResponse(saved);
     }
 }

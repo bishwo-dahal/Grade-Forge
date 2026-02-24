@@ -1,16 +1,13 @@
-package com.grade.forge.student.controller;
+package com.grade.forge.enrollment.controller;
 
 
-import com.grade.forge.student.dto.EnrollmentResponse;
-import com.grade.forge.student.service.EnrollmentService;
+import com.grade.forge.enrollment.dto.EnrollmentRequest;
+import com.grade.forge.enrollment.dto.EnrollmentResponse;
+import com.grade.forge.enrollment.service.EnrollmentService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -21,6 +18,11 @@ public class EnrollmentFacultyController {
 
     private EnrollmentService enrollmentService;
 
+    @PostMapping
+    public ResponseEntity<EnrollmentResponse> enrollStudent(@RequestBody EnrollmentRequest request) {
+        EnrollmentResponse response = enrollmentService.enrollStudentInCourse(request.getStudentId(), request.getCourseId());
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
 
     @GetMapping("/course/{courseId}")
     public ResponseEntity<List<EnrollmentResponse>> getCourseEnrollments(@PathVariable Long courseId) {
