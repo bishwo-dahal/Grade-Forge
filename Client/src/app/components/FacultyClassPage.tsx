@@ -172,7 +172,7 @@ export function FacultyClassPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Header */}
         <header className="bg-white border-b border-gray-200 px-8 py-6">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
@@ -188,18 +188,23 @@ export function FacultyClassPage() {
                 <span>{classData.section}</span>
               </div>
             </div>
-            
-            {/* Primary Action Buttons */}
-            <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
-                <Upload className="w-4 h-4" strokeWidth={2} />
-                <span>Import Students</span>
-              </button>
-              <button className="flex items-center gap-2 px-4 py-2.5 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors">
-                <Plus className="w-4 h-4" strokeWidth={2} />
-                <span>Create Assignment</span>
-              </button>
-            </div>
+            {/* NOTE: Student-roster actions live in the top header so they align with the page-level action position. */}
+            {activeSection === "students" ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
+                  <Upload className="w-4 h-4" strokeWidth={2} />
+                  <span>Export Roster</span>
+                </button>
+                <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
+                  <Download className="w-4 h-4" strokeWidth={2} />
+                  <span>Import from Canvas</span>
+                </button>
+                <button className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors">
+                  <Plus className="w-4 h-4" strokeWidth={2} />
+                  <span>Add Student</span>
+                </button>
+              </div>
+            ) : null}
           </div>
         </header>
 
@@ -769,25 +774,9 @@ function StudentsSection() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-1">Student Roster</h2>
-          <p className="text-[13px] text-gray-600">Search by student email, enroll, and manage this class roster.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
-            <Upload className="w-4 h-4" strokeWidth={2} />
-            <span>Export Roster</span>
-          </button>
-          <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
-            <Download className="w-4 h-4" strokeWidth={2} />
-            <span>Import from Canvas</span>
-          </button>
-          <button className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors">
-            <Plus className="w-4 h-4" strokeWidth={2} />
-            <span>Add Student</span>
-          </button>
-        </div>
+      <div className="mb-6">
+        <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Student Roster</h2>
+        {/* CLEANUP: Removed extra helper sentence under Student Roster heading per current UI copy direction. */}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
