@@ -1,0 +1,33 @@
+/* Monaco editor context menu (Cut, Copy, Paste, etc.) – dark theme to match vs-dark editor.
+   Requires useShadowDOM: false in editor options so these selectors apply. */
+.monaco-menu {
+  background-color: #252526 !important;
+  color: #e0e0e0 !important;
+  border: 1px solid #3c3c3c !important;
+  padding: 4px 0 !important;
+}
+
+.monaco-menu .monaco-action-bar.vertical .monaco-menu-item-container .monaco-action-menu-item {
+  color: #e0e0e0 !important;
+}
+
+.monaco-menu .monaco-action-bar.vertical .monaco-menu-item-container .monaco-action-menu-item:hover,
+.monaco-menu .monaco-action-bar.vertical .monaco-menu-item-container .monaco-action-menu-item:focus,
+.monaco-menu .monaco-action-bar.vertical .monaco-menu-item-container .monaco-action-menu-item.focused {
+  background-color: #094771 !important;
+  color: #ffffff !important;
+}
+
+.monaco-menu .monaco-action-bar.vertical .monaco-menu-item-container .monaco-action-menu-item .monaco-menu-item-label {
+  color: inherit !important;
+}
+
+.monaco-menu .monaco-action-bar.vertical .monaco-menu-item-container .monaco-action-menu-item .monaco-keybinding-key {
+  background-color: #3c3c3c !important;
+  color: #cccccc !important;
+  border-color: #3c3c3c !important;
+}
+
+.monaco-menu .monaco-menu-item-container-divider {
+  border-color: #3c3c3c !important;
+}

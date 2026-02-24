@@ -103,7 +103,8 @@ export function AssignmentPage() {
 
           {/* Right Panel - Code Workspace */}
           <Panel defaultSize={65} minSize={40}>
-            <CodeWorkspace 
+            <CodeWorkspace
+              assignmentId={assignmentId ?? assignment.id}
               assignment={assignment}
               codeExamples={editorCodeExamples}
               onRunTests={() => console.log("Run tests")}

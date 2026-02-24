@@ -4,6 +4,7 @@ import com.grade.forge.assignment.enums.SubmissionType;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.programminglanguage.entity.ProgrammingLanguage;
 import com.grade.forge.submission.entity.Submission;
+import com.grade.forge.rubric.entity.Rubric;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -61,6 +62,8 @@ public class Assignment {
     @Column(name = "late_due_date")
     private LocalDateTime lateDueDate;
 
+    @ManyToOne
+    @JoinColumn(name = "rubric_id")
+    private Rubric rubric;
 
 }
-
