@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 import { 
   Settings, 
@@ -25,26 +25,47 @@ import {
   Download,
   Mail,
   UserMinus,
-  Calendar
+  Calendar,
+  Search
 } from "lucide-react";
 import type {
   ClassHeader,
   ClassRecentActivity,
-  ClassStudent,
   FacultyAssignment,
   FacultyDashboardStat,
+  FacultyRosterStats,
+  FacultyRosterStudentRow,
+  FacultyStudentSearchResult,
 } from "../../types/class";
 import type { ClassSubmissionItem } from "../../types/submission";
 import {
+  enrollStudentByEmail,
   getFacultyClassHeaderById,
   listClassRecentActivity,
   listFacultyAssignments,
-  listFacultyClassStudents,
+  listFacultyRosterRows,
   listFacultyDashboardStats,
+  searchFacultyStudentByEmail,
+  summarizeFacultyRosterStats,
 } from "../../services/classService";
 import { listClassSubmissions } from "../../services/submissionService";
+import { SegmentedFilter } from "./ui/SegmentedFilter";
 
 type SectionType = 'dashboard' | 'assignments' | 'submissions' | 'grades' | 'students' | 'groups' | 'settings';
+type RosterFilter = "all" | "active" | "inactive" | "unassigned";
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  const apiMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+  if (typeof apiMessage === "string" && apiMessage.trim()) {
+    return apiMessage;
+  }
+
+  return "Something went wrong. Please try again.";
+}
 
 export function FacultyClassPage() {
   const { classId } = useParams();
@@ -645,99 +666,313 @@ function GradesSection() {
 
 function StudentsSection() {
   const { classId } = useParams();
-  // NOTE: Students now load from backend-driven class service mapping.
-  const [students, setStudents] = useState<ClassStudent[]>([]);
+  const resolvedId = classId || "1";
+
+  // NOTE: This section acts as a container; all backend data is loaded here and passed directly to rendered UI rows.
+  const [rosterRows, setRosterRows] = useState<FacultyRosterStudentRow[]>([]);
+  const [activeFilter, setActiveFilter] = useState<RosterFilter>("all");
+  const [searchValue, setSearchValue] = useState("");
+  const [lookupResult, setLookupResult] = useState<FacultyStudentSearchResult | null>(null);
+  const [isRosterLoading, setIsRosterLoading] = useState(false);
+  const [isLookupLoading, setIsLookupLoading] = useState(false);
+  const [isEnrollLoading, setIsEnrollLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [feedbackMessage, setFeedbackMessage] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
+
+  const loadRoster = async () => {
+    setIsRosterLoading(true);
+    setErrorMessage(null);
+    try {
+      const rows = await listFacultyRosterRows(resolvedId);
+      setRosterRows(rows);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsRosterLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const resolvedId = classId || "1";
-    listFacultyClassStudents(resolvedId).then(setStudents);
-  }, [classId]);
+    void loadRoster();
+  }, [resolvedId]);
+
+  const rosterStats: FacultyRosterStats = useMemo(() => summarizeFacultyRosterStats(rosterRows), [rosterRows]);
+
+  const filterItems = useMemo(() => {
+    const activeCount = rosterRows.filter((row) => row.status === "active").length;
+    const inactiveCount = rosterRows.filter((row) => row.status === "inactive").length;
+    const unassignedCount = rosterRows.filter((row) => row.status === "unassigned").length;
+    return [
+      { id: "all", label: "All", count: rosterRows.length },
+      { id: "active", label: "Active", count: activeCount },
+      { id: "inactive", label: "Inactive", count: inactiveCount },
+      { id: "unassigned", label: "Unassigned", count: unassignedCount },
+    ] as const;
+  }, [rosterRows]);
+
+  const filteredRows = useMemo(() => {
+    const normalizedQuery = searchValue.trim().toLowerCase();
+    return rosterRows.filter((row) => {
+      const filterMatches = activeFilter === "all" ? true : row.status === activeFilter;
+      if (!filterMatches) {
+        return false;
+      }
+      if (!normalizedQuery) {
+        return true;
+      }
+      return row.name.toLowerCase().includes(normalizedQuery) || row.email.toLowerCase().includes(normalizedQuery);
+    });
+  }, [activeFilter, rosterRows, searchValue]);
+
+  const handleLookup = async () => {
+    if (!searchValue.trim()) {
+      setLookupResult(null);
+      setFeedbackMessage({ tone: "error", text: "Enter a student email to search." });
+      return;
+    }
+
+    setIsLookupLoading(true);
+    setFeedbackMessage(null);
+    try {
+      const result = await searchFacultyStudentByEmail(resolvedId, searchValue);
+      setLookupResult(result);
+      if (!result.canEnroll) {
+        setFeedbackMessage({ tone: "info", text: result.reason });
+      }
+    } catch (error) {
+      setLookupResult(null);
+      setFeedbackMessage({ tone: "error", text: getErrorMessage(error) });
+    } finally {
+      setIsLookupLoading(false);
+    }
+  };
+
+  const handleEnroll = async () => {
+    if (!lookupResult?.studentEmail) {
+      return;
+    }
+
+    setIsEnrollLoading(true);
+    setFeedbackMessage(null);
+    try {
+      await enrollStudentByEmail(resolvedId, lookupResult.studentEmail);
+      setFeedbackMessage({ tone: "success", text: `${lookupResult.studentName} was enrolled successfully.` });
+      setLookupResult(null);
+      setSearchValue("");
+      await loadRoster();
+    } catch (error) {
+      setFeedbackMessage({ tone: "error", text: getErrorMessage(error) });
+    } finally {
+      setIsEnrollLoading(false);
+    }
+  };
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Students</h2>
-          <p className="text-[13px] text-gray-600">
-            Manage enrolled students ({students.length} total)
-          </p>
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-1">Student Roster</h2>
+          <p className="text-[13px] text-gray-600">Search by student email, enroll, and manage this class roster.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors">
+        <div className="flex flex-wrap items-center gap-2">
+          <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
             <Upload className="w-4 h-4" strokeWidth={2} />
-            <span>Import Students</span>
+            <span>Export Roster</span>
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors">
+          <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
+            <Download className="w-4 h-4" strokeWidth={2} />
+            <span>Import from Canvas</span>
+          </button>
+          <button className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors">
             <Plus className="w-4 h-4" strokeWidth={2} />
             <span>Add Student</span>
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <table className="w-full">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+        <RosterStatCard
+          icon={<Users className="w-4 h-4 text-[#5A7ACD]" strokeWidth={2} />}
+          iconBg="bg-[#5A7ACD]/10"
+          value={String(rosterStats.totalStudents)}
+          label="Total Students"
+        />
+        <RosterStatCard
+          icon={<UserPlus className="w-4 h-4 text-green-600" strokeWidth={2} />}
+          iconBg="bg-green-50"
+          value={String(rosterStats.activeStudents)}
+          label="Active"
+        />
+        <RosterStatCard
+          icon={<UserMinus className="w-4 h-4 text-red-500" strokeWidth={2} />}
+          iconBg="bg-red-50"
+          value={String(rosterStats.inactiveStudents)}
+          label="Inactive"
+        />
+        <RosterStatCard
+          icon={<BarChart3 className="w-4 h-4 text-[#F0A561]" strokeWidth={2} />}
+          iconBg="bg-[#F0A561]/10"
+          value={`${rosterStats.avgScore}%`}
+          label="Avg Score"
+        />
+        <RosterStatCard
+          icon={<CheckCircle2 className="w-4 h-4 text-[#5A7ACD]" strokeWidth={2} />}
+          iconBg="bg-[#5A7ACD]/10"
+          value={`${rosterStats.completion}%`}
+          label="Completion"
+        />
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-full md:max-w-xl">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={2} />
+            <input
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void handleLookup();
+                }
+              }}
+              type="text"
+              placeholder="Search students by email to enroll, or by name/email to filter..."
+              className="w-full h-11 rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/25"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleLookup()}
+            disabled={isLookupLoading}
+            className="h-11 px-4 rounded-xl bg-[#2B2A2A] text-white text-[13px] font-medium hover:bg-[#3a3939] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isLookupLoading ? "Searching..." : "Search Email"}
+          </button>
+          <SegmentedFilter
+            className="ml-auto"
+            items={filterItems}
+            value={activeFilter}
+            onValueChange={(value) => setActiveFilter(value)}
+          />
+        </div>
+
+        {lookupResult ? (
+          <div className="mt-4 rounded-xl border border-gray-200 bg-[#F9FAFC] px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[14px] font-semibold text-[#2B2A2A]">{lookupResult.studentName}</p>
+              <p className="text-[13px] text-gray-600">{lookupResult.studentEmail}</p>
+              <p className="text-[12px] text-gray-500 mt-1">{lookupResult.reason}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleEnroll()}
+              disabled={!lookupResult.canEnroll || isEnrollLoading}
+              className="h-10 px-4 rounded-lg bg-[#5A7ACD] text-white text-[13px] font-medium hover:bg-[#4e6fbd] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isEnrollLoading ? "Enrolling..." : "Enroll"}
+            </button>
+          </div>
+        ) : null}
+
+        {feedbackMessage ? (
+          <p
+            className={`mt-3 text-[13px] ${
+              feedbackMessage.tone === "success"
+                ? "text-green-700"
+                : feedbackMessage.tone === "error"
+                  ? "text-red-600"
+                  : "text-[#5D6A80]"
+            }`}
+          >
+            {feedbackMessage.text}
+          </p>
+        ) : null}
+      </div>
+
+      {errorMessage ? (
+        <div className="mb-4 rounded-xl border border-[#F2C9CC] bg-[#FFF5F5] p-3 text-[13px] text-[#C23A42]">
+          {errorMessage}
+        </div>
+      ) : null}
+
+      <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+        <table className="w-full min-w-[980px]">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Name
+              <th className="text-left px-4 py-3 w-10">
+                <input type="checkbox" className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]" />
               </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Email
-              </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Status
-              </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Group
-              </th>
-              <th className="text-right px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Actions
-              </th>
+              <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Student</th>
+              <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Email</th>
+              <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Status</th>
+              <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Group</th>
+              <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Progress</th>
+              <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Avg Score</th>
+              <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Last Activity</th>
+              <th className="text-right px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {students.length > 0 ? (
-              students.map((student, index) => (
-                <tr
-                  key={student.id}
-                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === students.length - 1 ? 'border-b-0' : ''}`}
-                >
-                  <td className="px-6 py-4">
-                    <span className="text-[14px] font-medium text-[#2B2A2A]">
-                      {student.name}
-                    </span>
+            {isRosterLoading ? (
+              <tr>
+                <td colSpan={9} className="px-6 py-6 text-center text-[13px] text-gray-600">
+                  Loading roster...
+                </td>
+              </tr>
+            ) : filteredRows.length > 0 ? (
+              filteredRows.map((student) => (
+                <tr key={student.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-4">
+                    <input type="checkbox" className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]" />
                   </td>
-                  <td className="px-6 py-4">
-                    <a
-                      href={`mailto:${student.email}`}
-                      className="text-[13px] text-gray-600 hover:text-[#5A7ACD] transition-colors"
-                    >
+                  <td className="px-4 py-4">
+                    <p className="text-[14px] font-medium text-[#2B2A2A]">{student.name}</p>
+                    <p className="text-[12px] text-gray-500 mt-1">{student.enrolledLabel}</p>
+                  </td>
+                  <td className="px-4 py-4">
+                    <a href={`mailto:${student.email}`} className="text-[13px] text-[#5D6A80] hover:text-[#5A7ACD] transition-colors">
                       {student.email}
                     </a>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className={`text-[12px] font-medium px-2 py-1 rounded-md ${
-                      student.status === 'Active'
-                        ? 'bg-green-50 text-green-600'
-                        : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {student.status || 'Inactive'}
+                  <td className="px-4 py-4">
+                    <span
+                      className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium ${
+                        student.status === "active"
+                          ? "bg-green-50 text-green-600"
+                          : student.status === "inactive"
+                            ? "bg-gray-100 text-gray-600"
+                            : "bg-[#F4F5F9] text-[#5D6A80]"
+                      }`}
+                    >
+                      {student.status === "active" ? "Active" : student.status === "inactive" ? "Inactive" : "Unassigned"}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className="text-[13px] text-gray-600">{student.group || 'Unassigned'}</span>
+                  <td className="px-4 py-4">
+                    <span className="text-[13px] text-gray-700">{student.group}</span>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {/* Accessibility: icon-only action buttons need labels for screen readers. */}
+                  <td className="px-4 py-4">
+                    <div className="w-28 h-2 bg-gray-100 rounded-full overflow-hidden mb-1">
+                      <div className="h-full bg-[#5A7ACD]" style={{ width: `${Math.min(100, student.completionPercent)}%` }} />
+                    </div>
+                    <p className="text-[12px] text-[#5D6A80]">
+                      {student.progressSubmitted}/{student.progressTotal} submitted
+                    </p>
+                  </td>
+                  <td className="px-4 py-4 text-[13px] font-semibold text-[#2B2A2A]">
+                    {student.avgScore}%
+                  </td>
+                  <td className="px-4 py-4 text-[13px] text-gray-600">{student.lastActivity}</td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center justify-end gap-1">
+                      <button aria-label="Schedule student meeting" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <Calendar className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
                       <button aria-label="Email student" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
                         <Mail className="w-4 h-4 text-gray-500" strokeWidth={2} />
                       </button>
                       <button aria-label="Remove student" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
                         <UserMinus className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                      </button>
-                      <button aria-label="More student actions" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                        <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
                       </button>
                     </div>
                   </td>
@@ -745,14 +980,34 @@ function StudentsSection() {
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="px-6 py-6 text-center text-[13px] text-gray-600">
-                  No students are enrolled in this class yet.
+                <td colSpan={9} className="px-6 py-6 text-center text-[13px] text-gray-600">
+                  No students found for this filter.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function RosterStatCard({
+  icon,
+  iconBg,
+  value,
+  label,
+}: {
+  icon: React.ReactNode;
+  iconBg: string;
+  value: string;
+  label: string;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 px-4 py-3">
+      <div className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center mb-2`}>{icon}</div>
+      <p className="text-[30px] leading-none font-semibold text-[#2B2A2A]">{value}</p>
+      <p className="text-[13px] text-[#5D6A80] mt-1">{label}</p>
     </div>
   );
 }

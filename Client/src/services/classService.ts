@@ -11,6 +11,9 @@ import type {
   ClassStudent,
   CourseCard,
   CourseDetail,
+  FacultyRosterStudentRow,
+  FacultyRosterStats,
+  FacultyStudentSearchResult,
   FacultyCourseCreatePayload,
   FacultySemesterOption,
   FacultyDashboardStat,
@@ -593,6 +596,16 @@ interface EnrollmentApiResponse {
   grade: string | null;
 }
 
+interface FacultyStudentLookupApiResponse {
+  studentId: number | null;
+  studentName: string | null;
+  studentEmail: string | null;
+  alreadyInCourse: boolean | null;
+  currentStatus: string | null;
+  canEnroll: boolean | null;
+  reason: string | null;
+}
+
 function buildCourseIcon(courseCode: string): { icon: string; iconBg: string } {
   // NOTE: Icon mapping is lightweight and deterministic so backend integration can keep UI consistent.
   const code = courseCode.toUpperCase();
@@ -652,6 +665,31 @@ function formatRelativeTime(value: string | null | undefined): string {
     return `${deltaHours} hour${deltaHours === 1 ? "" : "s"} ago`;
   }
   return `${deltaDays} day${deltaDays === 1 ? "" : "s"} ago`;
+}
+
+function formatEnrollmentLabel(value: string | null | undefined): string {
+  if (!value) {
+    return "Enrolled date unavailable";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Enrolled date unavailable";
+  }
+  return `Enrolled ${parsed.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })}`;
+}
+
+function mapEnrollmentStatusToRosterStatus(status: string | null | undefined): FacultyRosterStudentRow["status"] {
+  if (status === "ENROLLED") {
+    return "active";
+  }
+  if (status === "DROPPED") {
+    return "inactive";
+  }
+  return "unassigned";
 }
 
 function toLetterGrade(percentage: number): string {
@@ -1155,6 +1193,111 @@ export async function listFacultyClassStudents(classId: string): Promise<ClassSt
     status: enrollment.enrolledStatus === "ENROLLED" ? "Active" : "Inactive",
     group: "Unassigned",
   }));
+}
+
+export async function listFacultyRosterRows(classId: string): Promise<FacultyRosterStudentRow[]> {
+  const courseId = toCourseId(classId);
+  // NOTE: Roster rows are centralized here so FacultyClassPage remains a data container, not a data-mapping layer.
+  const [enrollments, assignmentsWithSubmissions] = await Promise.all([
+    listFacultyEnrollmentsByCourse(courseId),
+    fetchFacultyAssignmentsWithSubmissions(courseId).catch(() => []),
+  ]);
+
+  const totalAssignments = assignmentsWithSubmissions.length;
+  const submissions = assignmentsWithSubmissions.flatMap(({ submissions }) => submissions);
+
+  return enrollments.map((enrollment, index) => {
+    const studentSubmissions = submissions.filter((submission) => submission.studentId === enrollment.studentId);
+    const submittedAssignmentCount = new Set(studentSubmissions.map((submission) => submission.assignmentId)).size;
+    const gradedSubmissions = studentSubmissions.filter((submission) => submission.marks !== null);
+    const latestSubmission = [...studentSubmissions].sort((left, right) => {
+      return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+    })[0];
+
+    const avgScore =
+      gradedSubmissions.length > 0
+        ? Math.round(
+            gradedSubmissions.reduce((sum, submission) => sum + Number(submission.marks ?? 0), 0) / gradedSubmissions.length,
+          )
+        : 0;
+    const completionPercent =
+      totalAssignments > 0 ? Math.round((submittedAssignmentCount / totalAssignments) * 100) : 0;
+
+    return {
+      id: String(enrollment.id ?? `${enrollment.studentId ?? "row"}-${index}`),
+      studentId: enrollment.studentId ?? null,
+      name: enrollment.studentName || "Student",
+      email: enrollment.studentEmail || "No email",
+      enrolledLabel: formatEnrollmentLabel(enrollment.enrolledAt),
+      status: mapEnrollmentStatusToRosterStatus(enrollment.enrolledStatus),
+      group: "Unassigned",
+      progressSubmitted: submittedAssignmentCount,
+      progressTotal: totalAssignments,
+      completionPercent,
+      avgScore,
+      lastActivity: latestSubmission ? formatRelativeTime(latestSubmission.submittedAt) : "No activity",
+    } satisfies FacultyRosterStudentRow;
+  });
+}
+
+export async function searchFacultyStudentByEmail(
+  classId: string,
+  email: string,
+): Promise<FacultyStudentSearchResult> {
+  const courseId = toCourseId(classId);
+  const trimmedEmail = email.trim();
+  if (!trimmedEmail) {
+    throw new Error("Email is required.");
+  }
+
+  const { data } = await api.get<FacultyStudentLookupApiResponse>(
+    `/api/v1/faculty/enrollments/course/${courseId}/search-student`,
+    { params: { email: trimmedEmail } },
+  );
+
+  // NOTE: Keep the return shape stable so roster UI logic stays independent from backend naming changes.
+  return {
+    studentId: data.studentId ?? null,
+    studentName: data.studentName ?? "Unknown student",
+    studentEmail: data.studentEmail ?? trimmedEmail,
+    alreadyInCourse: Boolean(data.alreadyInCourse),
+    currentStatus: data.currentStatus ?? "UNKNOWN",
+    canEnroll: Boolean(data.canEnroll),
+    reason: data.reason ?? "No additional details were provided.",
+  };
+}
+
+export async function enrollStudentByEmail(classId: string, email: string): Promise<void> {
+  const courseId = toCourseId(classId);
+  const trimmedEmail = email.trim();
+  if (!trimmedEmail) {
+    throw new Error("Email is required.");
+  }
+
+  // TODO(backend): Keep this endpoint contract stable because faculty roster enrollment depends on this body shape.
+  await api.post(`/api/v1/faculty/enrollments/course/${courseId}/enroll-by-email`, { email: trimmedEmail });
+}
+
+export function summarizeFacultyRosterStats(rows: FacultyRosterStudentRow[]): FacultyRosterStats {
+  const totalStudents = rows.length;
+  const activeStudents = rows.filter((row) => row.status === "active").length;
+  const inactiveStudents = rows.filter((row) => row.status === "inactive").length;
+  const avgScore =
+    totalStudents > 0
+      ? Math.round(rows.reduce((sum, row) => sum + row.avgScore, 0) / totalStudents)
+      : 0;
+  const completion =
+    totalStudents > 0
+      ? Math.round(rows.reduce((sum, row) => sum + row.completionPercent, 0) / totalStudents)
+      : 0;
+
+  return {
+    totalStudents,
+    activeStudents,
+    inactiveStudents,
+    avgScore,
+    completion,
+  };
 }
 
 export async function listClassRecentActivity(classId: string): Promise<ClassRecentActivity[]> {

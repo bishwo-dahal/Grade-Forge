@@ -194,6 +194,42 @@ export interface ClassStudent {
   group?: string;
 }
 
+// NOTE: UI-driven search result shape for faculty email lookup in the class roster page.
+export interface FacultyStudentSearchResult {
+  studentId: number | null;
+  studentName: string;
+  studentEmail: string;
+  alreadyInCourse: boolean;
+  currentStatus: string;
+  canEnroll: boolean;
+  reason: string;
+}
+
+// NOTE: UI-driven roster row shape for faculty student table; keep aligned to rendered columns only.
+export interface FacultyRosterStudentRow {
+  id: string;
+  studentId: number | null;
+  name: string;
+  email: string;
+  enrolledLabel: string;
+  status: "active" | "inactive" | "unassigned";
+  group: string;
+  progressSubmitted: number;
+  progressTotal: number;
+  completionPercent: number;
+  avgScore: number;
+  lastActivity: string;
+}
+
+// NOTE: UI-driven roster stats used by the top summary cards on the faculty student roster section.
+export interface FacultyRosterStats {
+  totalStudents: number;
+  activeStudents: number;
+  inactiveStudents: number;
+  avgScore: number;
+  completion: number;
+}
+
 export interface ClassSubmissionRow {
   id: string;
   student: string;
