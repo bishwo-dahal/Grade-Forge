@@ -51,7 +51,8 @@ public class StudentController {
             @AuthenticationPrincipal CustomUserDetails customUserDetails,
             @RequestBody StudentRequest request
     ) {
-        // NOTE: Dedicated endpoint keeps signup-lite flow explicit: user account exists first, student profile is completed here.
+        // NOTE: This endpoint finishes student registration after account creation.
+        // IMPORTANT: It is separate from PUT /me so it also works when a student row does not exist yet.
         StudentResponse updated = studentService.completeCurrentStudentRegistration(customUserDetails.getUsername(), request);
         return new ResponseEntity<>(updated, HttpStatus.OK);
     }

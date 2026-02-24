@@ -47,6 +47,7 @@ public class AuthService {
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String token = jwtHelper.generateToken(userDetails);
+        // NOTE: Always compute this from DB state so student gating is consistent across logins and devices.
         boolean profileCompleted = resolveProfileCompletion(user);
 
         return AuthResponse.builder()
@@ -80,7 +81,9 @@ public class AuthService {
         log.info("Creating user with email={} role={}", newUser.getEmail(), newUser.getRole());
         Users savedUser = userRepository.save(newUser);
 
-        // NOTE: Student signup now allows account creation without profile details; completion can happen later.
+        // NOTE: Student signup supports:
+        // NOTE: 1) base account only (creates user, profile not complete)
+        // NOTE: 2) base account + CWID/major/canvas (creates user + student profile)
         if (resolvedRole == Role.STUDENT) {
             boolean hasCwid = hasText(signupRequest.getCwid());
             boolean hasMajor = hasText(signupRequest.getMajor());
@@ -89,8 +92,8 @@ public class AuthService {
             boolean hasAllProfileFields = hasCwid && hasMajor && hasCanvasUserId;
 
             if (hasAnyProfileField && !hasAllProfileFields) {
-                // FIX: Reject partial student profile payloads during signup to keep profile state deterministic.
-                throw new IllegalArgumentException("Provide CWID, major, and Canvas ID together, or finish profile after signup.");
+                // FIX: Do not accept partial profile data at signup; either send all fields or none.
+                throw new IllegalArgumentException("Provide CWID, major, and Canvas ID together.");
             }
 
             if (hasAllProfileFields) {
@@ -99,6 +102,7 @@ public class AuthService {
                 String normalizedCanvasUserId = signupRequest.getCanvasUserId().trim();
 
                 if (studentRepository.existsByCwid(normalizedCwid)) {
+                    // IMPORTANT: CWID must stay unique in both immediate and deferred registration flows.
                     throw new IllegalArgumentException("Student already exists with CWID: " + normalizedCwid);
                 }
 
@@ -111,6 +115,7 @@ public class AuthService {
                 studentRepository.save(student);
                 log.info("Created student profile for userId={} cwid={}", savedUser.getId(), normalizedCwid);
             } else {
+                // NOTE: Account is created now; student must complete profile before entering dashboard.
                 log.info("Student userId={} created without profile details; completion required before dashboard access.", savedUser.getId());
             }
         }
@@ -181,10 +186,12 @@ public class AuthService {
     }
 
     private boolean resolveProfileCompletion(Users user) {
+        // NOTE: Only student accounts are gated by profile completion.
         if (user.getRole() != Role.STUDENT) {
             return true;
         }
 
+        // IMPORTANT: Profile is complete only when student row exists and all required fields are present.
         return studentRepository.findByUserId(user.getId())
                 .map(student -> hasText(student.getCwid()) && hasText(student.getMajor()) && hasText(student.getCanvasUserId()))
                 .orElse(false);

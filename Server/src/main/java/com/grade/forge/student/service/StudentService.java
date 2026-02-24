@@ -53,11 +53,12 @@ public class StudentService {
     }
 
     public StudentResponse completeCurrentStudentRegistration(String email, StudentRequest request) {
+        // NOTE: Student must provide all required profile fields here before dashboard access is allowed.
         validateCompletionRequest(request);
         Users user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
 
-        // NOTE: Registration completion must work for both first-time student profile creation and subsequent edits.
+        // NOTE: Use upsert logic: update existing student row, or create one if signup skipped profile fields.
         Student student = studentRepository.findByUserId(user.getId()).orElseGet(() -> {
             Student created = new Student();
             created.setUser(user);
@@ -68,6 +69,7 @@ public class StudentService {
         String normalizedCwid = request.getCwid().trim();
         Optional<Student> existingByCwid = studentRepository.findByCwid(normalizedCwid);
         if (existingByCwid.isPresent() && !existingByCwid.get().getId().equals(student.getId())) {
+            // IMPORTANT: Keep CWID unique, even in the deferred completion flow.
             throw new IllegalArgumentException("Student already exists with CWID: " + normalizedCwid);
         }
 
@@ -117,7 +119,7 @@ public class StudentService {
     }
 
     private void validateCompletionRequest(StudentRequest request) {
-        // IMPORTANT: Completion endpoint intentionally requires all fields so dashboard access is gated on a complete profile.
+        // IMPORTANT: Require all fields on server-side too, so direct API calls cannot bypass completion rules.
         if (request.getCwid() == null || request.getCwid().isBlank()) {
             throw new IllegalArgumentException("CWID is required");
         }
