@@ -4,6 +4,7 @@ import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.student.dto.EnrollmentResponse;
+import com.grade.forge.student.dto.FacultyStudentEmailSuggestionResponse;
 import com.grade.forge.student.dto.FacultyStudentLookupResponse;
 import com.grade.forge.student.entity.Enrollment;
 import com.grade.forge.student.entity.Student;
@@ -20,8 +21,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -140,7 +144,8 @@ public class EnrollmentService {
     public FacultyStudentLookupResponse searchStudentForFacultyCourse(String facultyEmail, Long courseId, String lookupEmail) {
         // IMPORTANT: Ownership is validated first so faculty cannot probe students in another faculty's course.
         Course course = getCourseOwnedByFaculty(facultyEmail, courseId);
-        String normalizedEmail = normalizeAndValidateEmail(lookupEmail);
+        // NOTE: Search is intentionally lenient (no strict email-format rejection) so UI can return "not found" instead of HTTP 400.
+        String normalizedEmail = normalizeLookupEmail(lookupEmail);
 
         Optional<Users> userOptional = userRepository.findByEmailIgnoreCase(normalizedEmail);
         if (userOptional.isEmpty()) {
@@ -203,6 +208,49 @@ public class EnrollmentService {
                         ? "Student is already enrolled in this course."
                         : "Student can be re-enrolled in this course.")
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<FacultyStudentEmailSuggestionResponse> suggestStudentEmailsForFacultyCourse(String facultyEmail, Long courseId, String query) {
+        // IMPORTANT: Even for suggestions we enforce faculty ownership to prevent cross-course data probing.
+        Course course = getCourseOwnedByFaculty(facultyEmail, courseId);
+        if (query == null) {
+            return List.of();
+        }
+        String normalizedQuery = query.trim().toLowerCase();
+        // NOTE: Suggestions update for every typed symbol to match expected web search behavior.
+        if (normalizedQuery.isEmpty()) {
+            return List.of();
+        }
+
+        // NOTE: Suggestions include both already-enrolled and not-yet-enrolled students so faculty can add new students quickly.
+        Set<String> enrolledEmails = enrollmentRepository.findByCourse_Id(course.getId()).stream()
+                .filter(enrollment -> EnrolledStatus.ENROLLED.equals(enrollment.getEnrolledStatus()))
+                .map(Enrollment::getStudent)
+                .filter(student -> student != null && student.getUser() != null && student.getUser().getEmail() != null)
+                .map(student -> student.getUser().getEmail().toLowerCase())
+                .collect(Collectors.toSet());
+
+        Map<String, String> emailByLowerCase = new LinkedHashMap<>();
+        // NOTE: Prefer prefix matches first to keep suggestions predictable.
+        userRepository.findTop8ByRoleAndEmailStartingWithIgnoreCase(Role.STUDENT, normalizedQuery).forEach(user ->
+                putSuggestionEmail(emailByLowerCase, user == null ? null : user.getEmail()));
+        studentRepository.findTop8ByUser_EmailStartingWithIgnoreCase(normalizedQuery).forEach(student ->
+                putSuggestionEmail(emailByLowerCase, student != null && student.getUser() != null ? student.getUser().getEmail() : null));
+
+        // NOTE: Fallback to contains search so suggestions still appear even when typing from the middle.
+        userRepository.findTop8ByRoleAndEmailContainingIgnoreCase(Role.STUDENT, normalizedQuery).forEach(user ->
+                putSuggestionEmail(emailByLowerCase, user == null ? null : user.getEmail()));
+        studentRepository.findTop8ByUser_EmailContainingIgnoreCase(normalizedQuery).forEach(student ->
+                putSuggestionEmail(emailByLowerCase, student != null && student.getUser() != null ? student.getUser().getEmail() : null));
+
+        return emailByLowerCase.values().stream()
+                .limit(8)
+                .map(email -> FacultyStudentEmailSuggestionResponse.builder()
+                        .email(email)
+                        .alreadyInCourse(enrolledEmails.contains(email.toLowerCase()))
+                        .build())
+                .collect(Collectors.toList());
     }
 
     public EnrollmentResponse enrollStudentByEmailForFaculty(String facultyEmail, Long courseId, String studentEmail) {
@@ -276,6 +324,21 @@ public class EnrollmentService {
             throw new IllegalArgumentException("Please provide a valid email address");
         }
         return normalizedEmail;
+    }
+
+    private String normalizeLookupEmail(String email) {
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("Email is required");
+        }
+        return email.trim().toLowerCase();
+    }
+
+    private void putSuggestionEmail(Map<String, String> emailByLowerCase, String email) {
+        if (email == null || email.isBlank()) {
+            return;
+        }
+        String normalized = email.toLowerCase();
+        emailByLowerCase.putIfAbsent(normalized, email);
     }
 
     private Student getStudentById(Long studentId) {

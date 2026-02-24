@@ -26,13 +26,15 @@ import {
   Mail,
   UserMinus,
   Calendar,
-  Search
+  Search,
+  X
 } from "lucide-react";
 import type {
   ClassHeader,
   ClassRecentActivity,
   FacultyAssignment,
   FacultyDashboardStat,
+  FacultyStudentEmailSuggestion,
   FacultyRosterStats,
   FacultyRosterStudentRow,
   FacultyStudentSearchResult,
@@ -43,6 +45,7 @@ import {
   getFacultyClassHeaderById,
   listClassRecentActivity,
   listFacultyAssignments,
+  listFacultyStudentEmailSuggestions,
   listFacultyRosterRows,
   listFacultyDashboardStats,
   searchFacultyStudentByEmail,
@@ -71,6 +74,7 @@ export function FacultyClassPage() {
   const { classId } = useParams();
   const [activeSection, setActiveSection] = useState<SectionType>('dashboard');
   const [submissionBadgeCount, setSubmissionBadgeCount] = useState(0);
+  const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
 
   // NOTE: Class header data now comes from backend-driven service mapping.
   const [classHeader, setClassHeader] = useState<ClassHeader | null>(null);
@@ -87,6 +91,13 @@ export function FacultyClassPage() {
       setSubmissionBadgeCount(submissions.filter((submission) => submission.status === "ungraded").length);
     });
   }, [classId]);
+
+  useEffect(() => {
+    // NOTE: Close add-student modal when user navigates away from Students section to avoid stale overlay state.
+    if (activeSection !== "students") {
+      setIsAddStudentModalOpen(false);
+    }
+  }, [activeSection]);
 
   // NOTE: Lightweight placeholder keeps layout stable during async load.
   const classData: ClassHeader = classHeader ?? {
@@ -199,7 +210,10 @@ export function FacultyClassPage() {
                   <Download className="w-4 h-4" strokeWidth={2} />
                   <span>Import from Canvas</span>
                 </button>
-                <button className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors">
+                <button
+                  onClick={() => setIsAddStudentModalOpen(true)}
+                  className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
+                >
                   <Plus className="w-4 h-4" strokeWidth={2} />
                   <span>Add Student</span>
                 </button>
@@ -215,7 +229,12 @@ export function FacultyClassPage() {
             {activeSection === 'assignments' && <AssignmentsSection />}
             {activeSection === 'submissions' && <SubmissionsSection />}
             {activeSection === 'grades' && <GradesSection />}
-            {activeSection === 'students' && <StudentsSection />}
+            {activeSection === 'students' && (
+              <StudentsSection
+                isAddStudentModalOpen={isAddStudentModalOpen}
+                onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
+              />
+            )}
             {activeSection === 'groups' && <GroupsSection />}
             {/* CLEANUP: Removed Rubrics/Tests/Integrity/Announcements section rendering per updated faculty class management scope. */}
             {activeSection === 'settings' && <SettingsSection />}
@@ -669,19 +688,31 @@ function GradesSection() {
   );
 }
 
-function StudentsSection() {
+function StudentsSection({
+  isAddStudentModalOpen,
+  onCloseAddStudentModal,
+}: {
+  isAddStudentModalOpen: boolean;
+  onCloseAddStudentModal: () => void;
+}) {
   const { classId } = useParams();
   const resolvedId = classId || "1";
 
-  // NOTE: This section acts as a container; all backend data is loaded here and passed directly to rendered UI rows.
+  // NOTE: Main page search only filters existing roster rows.
   const [rosterRows, setRosterRows] = useState<FacultyRosterStudentRow[]>([]);
   const [activeFilter, setActiveFilter] = useState<RosterFilter>("all");
-  const [searchValue, setSearchValue] = useState("");
-  const [lookupResult, setLookupResult] = useState<FacultyStudentSearchResult | null>(null);
+  const [rosterSearchValue, setRosterSearchValue] = useState("");
   const [isRosterLoading, setIsRosterLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // NOTE: Add-student flow is isolated in modal state so it does not interfere with roster filtering.
+  const [lookupEmail, setLookupEmail] = useState("");
+  const [lookupResult, setLookupResult] = useState<FacultyStudentSearchResult | null>(null);
   const [isLookupLoading, setIsLookupLoading] = useState(false);
   const [isEnrollLoading, setIsEnrollLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
+  const [emailSuggestions, setEmailSuggestions] = useState<FacultyStudentEmailSuggestion[]>([]);
+  const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
 
   const loadRoster = async () => {
@@ -697,9 +728,68 @@ function StudentsSection() {
     }
   };
 
+  const resetAddStudentState = () => {
+    // CLEANUP: Reset modal state each time it closes to avoid stale results/messages.
+    setLookupEmail("");
+    setLookupResult(null);
+    setEmailSuggestions([]);
+    setSuggestionError(null);
+    setFeedbackMessage(null);
+    setIsSuggestionLoading(false);
+    setIsLookupLoading(false);
+    setIsEnrollLoading(false);
+  };
+
+  const closeAddStudentModal = () => {
+    resetAddStudentState();
+    onCloseAddStudentModal();
+  };
+
   useEffect(() => {
     void loadRoster();
   }, [resolvedId]);
+
+  useEffect(() => {
+    if (!isAddStudentModalOpen) {
+      return;
+    }
+
+    const trimmedQuery = lookupEmail.trim();
+    if (trimmedQuery.length < 1) {
+      setEmailSuggestions([]);
+      setIsSuggestionLoading(false);
+      setSuggestionError(null);
+      return;
+    }
+
+    let isCancelled = false;
+    // NOTE: Debounced typeahead avoids firing a backend request on every single keystroke.
+    const timer = window.setTimeout(async () => {
+      setIsSuggestionLoading(true);
+      setSuggestionError(null);
+      try {
+        const suggestions = await listFacultyStudentEmailSuggestions(resolvedId, trimmedQuery);
+        if (!isCancelled) {
+          setEmailSuggestions(suggestions);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          setEmailSuggestions([]);
+          // FIX: Show suggestion fetch errors instead of silently hiding them to make debugging easier.
+          setSuggestionError(getErrorMessage(error));
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsSuggestionLoading(false);
+        }
+      }
+    }, 200);
+
+    return () => {
+      isCancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [isAddStudentModalOpen, lookupEmail, resolvedId]);
 
   const rosterStats: FacultyRosterStats = useMemo(() => summarizeFacultyRosterStats(rosterRows), [rosterRows]);
 
@@ -716,7 +806,7 @@ function StudentsSection() {
   }, [rosterRows]);
 
   const filteredRows = useMemo(() => {
-    const normalizedQuery = searchValue.trim().toLowerCase();
+    const normalizedQuery = rosterSearchValue.trim().toLowerCase();
     return rosterRows.filter((row) => {
       const filterMatches = activeFilter === "all" ? true : row.status === activeFilter;
       if (!filterMatches) {
@@ -727,26 +817,35 @@ function StudentsSection() {
       }
       return row.name.toLowerCase().includes(normalizedQuery) || row.email.toLowerCase().includes(normalizedQuery);
     });
-  }, [activeFilter, rosterRows, searchValue]);
+  }, [activeFilter, rosterRows, rosterSearchValue]);
 
-  const handleLookup = async () => {
-    if (!searchValue.trim()) {
+  const handleLookup = async (suggestedEmail?: string) => {
+    const resolvedEmail = (suggestedEmail ?? lookupEmail).trim();
+    if (!resolvedEmail) {
       setLookupResult(null);
       setFeedbackMessage({ tone: "error", text: "Enter a student email to search." });
       return;
     }
 
+    setLookupEmail(resolvedEmail);
+    setSuggestionError(null);
     setIsLookupLoading(true);
     setFeedbackMessage(null);
     try {
-      const result = await searchFacultyStudentByEmail(resolvedId, searchValue);
+      const result = await searchFacultyStudentByEmail(resolvedId, resolvedEmail);
       setLookupResult(result);
       if (!result.canEnroll) {
         setFeedbackMessage({ tone: "info", text: result.reason });
       }
     } catch (error) {
       setLookupResult(null);
-      setFeedbackMessage({ tone: "error", text: getErrorMessage(error) });
+      const statusCode = (error as { response?: { status?: number } })?.response?.status;
+      // FIX: Convert lookup 400 responses into user-friendly not-found feedback instead of raw transport-style error text.
+      if (statusCode === 400) {
+        setFeedbackMessage({ tone: "info", text: "User not found." });
+      } else {
+        setFeedbackMessage({ tone: "error", text: getErrorMessage(error) });
+      }
     } finally {
       setIsLookupLoading(false);
     }
@@ -762,9 +861,8 @@ function StudentsSection() {
     try {
       await enrollStudentByEmail(resolvedId, lookupResult.studentEmail);
       setFeedbackMessage({ tone: "success", text: `${lookupResult.studentName} was enrolled successfully.` });
-      setLookupResult(null);
-      setSearchValue("");
       await loadRoster();
+      closeAddStudentModal();
     } catch (error) {
       setFeedbackMessage({ tone: "error", text: getErrorMessage(error) });
     } finally {
@@ -817,27 +915,13 @@ function StudentsSection() {
           <div className="relative w-full md:max-w-xl">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={2} />
             <input
-              value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  void handleLookup();
-                }
-              }}
+              value={rosterSearchValue}
+              onChange={(event) => setRosterSearchValue(event.target.value)}
               type="text"
-              placeholder="Search students by email to enroll, or by name/email to filter..."
+              placeholder="Search students in this class by name or email..."
               className="w-full h-11 rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/25"
             />
           </div>
-          <button
-            type="button"
-            onClick={() => void handleLookup()}
-            disabled={isLookupLoading}
-            className="h-11 px-4 rounded-xl bg-[#2B2A2A] text-white text-[13px] font-medium hover:bg-[#3a3939] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {isLookupLoading ? "Searching..." : "Search Email"}
-          </button>
           <SegmentedFilter
             className="ml-auto"
             items={filterItems}
@@ -845,38 +929,6 @@ function StudentsSection() {
             onValueChange={(value) => setActiveFilter(value)}
           />
         </div>
-
-        {lookupResult ? (
-          <div className="mt-4 rounded-xl border border-gray-200 bg-[#F9FAFC] px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-[14px] font-semibold text-[#2B2A2A]">{lookupResult.studentName}</p>
-              <p className="text-[13px] text-gray-600">{lookupResult.studentEmail}</p>
-              <p className="text-[12px] text-gray-500 mt-1">{lookupResult.reason}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => void handleEnroll()}
-              disabled={!lookupResult.canEnroll || isEnrollLoading}
-              className="h-10 px-4 rounded-lg bg-[#5A7ACD] text-white text-[13px] font-medium hover:bg-[#4e6fbd] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isEnrollLoading ? "Enrolling..." : "Enroll"}
-            </button>
-          </div>
-        ) : null}
-
-        {feedbackMessage ? (
-          <p
-            className={`mt-3 text-[13px] ${
-              feedbackMessage.tone === "success"
-                ? "text-green-700"
-                : feedbackMessage.tone === "error"
-                  ? "text-red-600"
-                  : "text-[#5D6A80]"
-            }`}
-          >
-            {feedbackMessage.text}
-          </p>
-        ) : null}
       </div>
 
       {errorMessage ? (
@@ -977,6 +1029,134 @@ function StudentsSection() {
           </tbody>
         </table>
       </div>
+
+      {isAddStudentModalOpen ? (
+        <div className="fixed inset-0 z-40 bg-black/35 flex items-center justify-center p-4" onClick={closeAddStudentModal}>
+          <div
+            // REFACTOR: Wider modal keeps search and suggestion content readable without cramped wrapping.
+            className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <h3 className="text-[18px] font-semibold text-[#2B2A2A]">Add Student</h3>
+              <button
+                type="button"
+                onClick={closeAddStudentModal}
+                className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="Close add student dialog"
+              >
+                <X className="w-4 h-4 text-gray-500" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="p-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative flex-1 min-w-[260px]">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={2} />
+                  <input
+                    value={lookupEmail}
+                    onChange={(event) => {
+                      setLookupEmail(event.target.value);
+                      setLookupResult(null);
+                      setSuggestionError(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void handleLookup();
+                      }
+                    }}
+                    type="text"
+                    placeholder="Search by student email..."
+                    className="w-full h-11 rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/25"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleLookup()}
+                  disabled={isLookupLoading}
+                  className="h-11 px-4 rounded-xl bg-[#2B2A2A] text-white text-[13px] font-medium hover:bg-[#3a3939] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isLookupLoading ? "Searching..." : "Search Email"}
+                </button>
+              </div>
+
+              {lookupEmail.trim().length >= 1 ? (
+                // NOTE: Suggestions now render in normal flow under the search row so modal grows naturally.
+                <div className="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white">
+                  {isSuggestionLoading ? (
+                    <p className="px-3 py-2 text-[12px] text-gray-500">Loading suggestions...</p>
+                  ) : emailSuggestions.length > 0 ? (
+                    emailSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion.email}
+                        type="button"
+                        onClick={() => {
+                          setLookupEmail(suggestion.email);
+                          void handleLookup(suggestion.email);
+                        }}
+                        className="w-full px-3 py-2.5 text-left hover:bg-[#F4F6FB] transition-colors border-b border-gray-100 last:border-b-0"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" strokeWidth={2} />
+                            <span className="text-[13px] text-[#2B2A2A] truncate">{suggestion.email}</span>
+                          </div>
+                          <span
+                            className={`text-[11px] px-2 py-0.5 rounded-full ${
+                              suggestion.alreadyInCourse
+                                ? "bg-[#EEF2FA] text-[#5D6A80]"
+                                : "bg-[#EAF8EE] text-[#219653]"
+                            }`}
+                          >
+                            {suggestion.alreadyInCourse ? "Already in class" : "Can add"}
+                          </span>
+                        </div>
+                      </button>
+                    ))
+                  ) : suggestionError ? (
+                    <p className="px-3 py-2 text-[12px] text-[#C23A42]">{suggestionError}</p>
+                  ) : (
+                    <p className="px-3 py-2 text-[12px] text-gray-500">No matching student emails.</p>
+                  )}
+                </div>
+              ) : null}
+
+              {lookupResult ? (
+                <div className="mt-4 rounded-xl border border-gray-200 bg-[#F9FAFC] px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[14px] font-semibold text-[#2B2A2A]">{lookupResult.studentName}</p>
+                    <p className="text-[13px] text-gray-600">{lookupResult.studentEmail}</p>
+                    <p className="text-[12px] text-gray-500 mt-1">{lookupResult.reason}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleEnroll()}
+                    disabled={!lookupResult.canEnroll || isEnrollLoading}
+                    className="h-10 px-4 rounded-lg bg-[#5A7ACD] text-white text-[13px] font-medium hover:bg-[#4e6fbd] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {isEnrollLoading ? "Enrolling..." : "Enroll"}
+                  </button>
+                </div>
+              ) : null}
+
+              {feedbackMessage ? (
+                <p
+                  className={`mt-3 text-[13px] ${
+                    feedbackMessage.tone === "success"
+                      ? "text-green-700"
+                      : feedbackMessage.tone === "error"
+                        ? "text-red-600"
+                        : "text-[#5D6A80]"
+                  }`}
+                >
+                  {feedbackMessage.text}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

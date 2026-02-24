@@ -205,6 +205,12 @@ export interface FacultyStudentSearchResult {
   reason: string;
 }
 
+// NOTE: UI-driven suggestion item for faculty roster typeahead results.
+export interface FacultyStudentEmailSuggestion {
+  email: string;
+  alreadyInCourse: boolean;
+}
+
 // NOTE: UI-driven roster row shape for faculty student table; keep aligned to rendered columns only.
 export interface FacultyRosterStudentRow {
   id: string;

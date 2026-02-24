@@ -4,6 +4,7 @@ package com.grade.forge.student.controller;
 import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.student.dto.EnrollmentResponse;
 import com.grade.forge.student.dto.FacultyEnrollByEmailRequest;
+import com.grade.forge.student.dto.FacultyStudentEmailSuggestionResponse;
 import com.grade.forge.student.dto.FacultyStudentLookupResponse;
 import com.grade.forge.student.service.EnrollmentService;
 import lombok.AllArgsConstructor;
@@ -43,6 +44,14 @@ public class EnrollmentFacultyController {
                                                                              @RequestParam("email") String email) {
         FacultyStudentLookupResponse response = enrollmentService.searchStudentForFacultyCourse(customUserDetails.getUsername(), courseId, email);
         return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @GetMapping("/course/{courseId}/student-email-suggestions")
+    public ResponseEntity<List<FacultyStudentEmailSuggestionResponse>> suggestStudentEmails(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                                                             @PathVariable Long courseId,
+                                                                                             @RequestParam("query") String query) {
+        List<FacultyStudentEmailSuggestionResponse> suggestions = enrollmentService.suggestStudentEmailsForFacultyCourse(customUserDetails.getUsername(), courseId, query);
+        return new ResponseEntity<>(suggestions, HttpStatus.OK);
     }
 
     @PostMapping("/course/{courseId}/enroll-by-email")

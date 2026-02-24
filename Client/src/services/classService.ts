@@ -13,6 +13,7 @@ import type {
   CourseDetail,
   FacultyRosterStudentRow,
   FacultyRosterStats,
+  FacultyStudentEmailSuggestion,
   FacultyStudentSearchResult,
   FacultyCourseCreatePayload,
   FacultySemesterOption,
@@ -604,6 +605,11 @@ interface FacultyStudentLookupApiResponse {
   currentStatus: string | null;
   canEnroll: boolean | null;
   reason: string | null;
+}
+
+interface FacultyStudentEmailSuggestionApiResponse {
+  email: string;
+  alreadyInCourse: boolean;
 }
 
 function buildCourseIcon(courseCode: string): { icon: string; iconBg: string } {
@@ -1265,6 +1271,27 @@ export async function searchFacultyStudentByEmail(
     canEnroll: Boolean(data.canEnroll),
     reason: data.reason ?? "No additional details were provided.",
   };
+}
+
+export async function listFacultyStudentEmailSuggestions(
+  classId: string,
+  query: string,
+): Promise<FacultyStudentEmailSuggestion[]> {
+  const courseId = toCourseId(classId);
+  const trimmedQuery = query.trim();
+  if (trimmedQuery.length < 1) {
+    return [];
+  }
+
+  // NOTE: Typeahead suggestions are backend-scoped to faculty-owned course context for security consistency.
+  const { data } = await api.get<FacultyStudentEmailSuggestionApiResponse[]>(
+    `/api/v1/faculty/enrollments/course/${courseId}/student-email-suggestions`,
+    { params: { query: trimmedQuery } },
+  );
+  return data.map((suggestion) => ({
+    email: suggestion.email,
+    alreadyInCourse: Boolean(suggestion.alreadyInCourse),
+  }));
 }
 
 export async function enrollStudentByEmail(classId: string, email: string): Promise<void> {
