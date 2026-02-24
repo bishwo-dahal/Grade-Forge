@@ -26,7 +26,6 @@ public class S3Config {
                 AWS_SECRET_KEY
         );
 
-
         return S3Presigner.builder()
                 .region(Region.US_EAST_2)
                 .credentialsProvider(StaticCredentialsProvider.create(credentials))
