@@ -16,6 +16,7 @@ import { UniversityFacultyPage } from "./components/UniversityFacultyPage";
 import { UniversityLanguagesPage } from "./components/UniversityLanguagesPage";
 import { UniversitySemestersPage } from "./components/UniversitySemestersPage";
 import { FacultyCreateClassPage } from "./components/FacultyCreateClassPage";
+import { FacultyCreateAssignmentPage } from "./components/FacultyCreateAssignmentPage";
 import CompleteStudentRegistrationPage from "./components/CompleteStudentRegistrationPage";
 import {
   FacultyDiscussionsPage,
@@ -115,6 +116,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={["FACULTY"]}>
         <FacultyCreateClassPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/class/:classId/assignments/create",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyCreateAssignmentPage />
       </ProtectedRoute>
     ),
   },

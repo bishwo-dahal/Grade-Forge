@@ -1,8 +1,12 @@
 import type {
+  AssignmentCreateFormData,
+  AssignmentCreateOption,
   AssignmentDescription,
   AssignmentDetail,
   AssignmentSummary,
   EditorCodeExamples,
+  FacultyAssignmentCreatePageData,
+  FacultyAssignmentCreatePageHeader,
   GradingAssignmentContext,
   RecentAssignmentItem,
   StudentAssignmentListItem,
@@ -505,6 +509,51 @@ public class BinarySearchTree {
 }`,
 };
 
+const defaultCreateAssignmentHeader: FacultyAssignmentCreatePageHeader = {
+  classId: "1",
+  courseCode: "CS 2400",
+  courseName: "Data Structures & Algorithms",
+};
+
+const createAssignmentLanguageOptions: AssignmentCreateOption[] = [
+  { id: "python", label: "Python" },
+  { id: "java", label: "Java" },
+  { id: "cpp", label: "C++" },
+];
+
+const createAssignmentRubricOptions: AssignmentCreateOption[] = [
+  { id: "default-coding", label: "Default Coding Rubric" },
+  { id: "algorithms", label: "Algorithms Rubric" },
+  { id: "web-dev", label: "Web Development Rubric" },
+];
+
+const defaultCreateAssignmentForm: AssignmentCreateFormData = {
+  title: "",
+  description: "",
+  dueDate: "",
+  dueTime: "23:59",
+  languageId: "",
+  totalPoints: 100,
+  rubricId: "",
+  starterFileName: null,
+  publicTestCases: [
+    {
+      id: "public-1",
+      input: "",
+      expectedOutput: "",
+      isHidden: false,
+    },
+  ],
+  privateTestCases: [
+    {
+      id: "private-1",
+      input: "",
+      expectedOutput: "",
+      isHidden: true,
+    },
+  ],
+};
+
 interface AssignmentApiResponse {
   id: number;
   courseId: number;
@@ -625,4 +674,34 @@ export function listPublicTestCases(assignmentId: string): Promise<PublicTestCas
 export function getEditorCodeExamples(assignmentId: string): Promise<EditorCodeExamples> {
   // NOTE: assignmentId is unused in the mock implementation but preserved for backend parity.
   return Promise.resolve(editorCodeExamples);
+}
+
+export function getFacultyAssignmentCreatePageData(classId: string): Promise<FacultyAssignmentCreatePageData> {
+  // NOTE: Create-assignment page data is centralized in service layer so page components stay presentation-focused.
+  // TODO(backend): Replace with faculty class metadata + rubric/language endpoints while preserving this return shape.
+  const normalizedClassId = classId.trim() || defaultCreateAssignmentHeader.classId;
+  const pageData: FacultyAssignmentCreatePageData = {
+    header: {
+      ...defaultCreateAssignmentHeader,
+      classId: normalizedClassId,
+    },
+    languageOptions: createAssignmentLanguageOptions,
+    rubricOptions: createAssignmentRubricOptions,
+    initialForm: {
+      ...defaultCreateAssignmentForm,
+      publicTestCases: defaultCreateAssignmentForm.publicTestCases.map((testCase) => ({ ...testCase })),
+      privateTestCases: defaultCreateAssignmentForm.privateTestCases.map((testCase) => ({ ...testCase })),
+    },
+  };
+  return Promise.resolve(pageData);
+}
+
+export function createFacultyAssignmentDraft(
+  classId: string,
+  form: AssignmentCreateFormData,
+): Promise<{ assignmentId: string }> {
+  // IMPORTANT: Keep this signature stable because the page is already wired as the backend handoff seam.
+  // TODO(backend): Replace this mock with faculty assignment-create API call and return created assignment id.
+  const generatedId = `${classId || "class"}-${Date.now()}`;
+  return Promise.resolve({ assignmentId: generatedId });
 }

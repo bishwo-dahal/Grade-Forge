@@ -410,13 +410,13 @@ function StatCard({
 
 function AssignmentsSection() {
   const { classId } = useParams();
+  const resolvedClassId = classId || "1";
   const [selectedAssignments, setSelectedAssignments] = useState<string[]>([]);
   // NOTE: Assignments now load from backend-driven class service mapping.
   const [assignments, setAssignments] = useState<FacultyAssignment[]>([]);
 
   useEffect(() => {
-    const resolvedId = classId || "1";
-    listFacultyAssignments(resolvedId).then(setAssignments);
+    listFacultyAssignments(resolvedClassId).then(setAssignments);
   }, [classId]);
 
   return (
@@ -433,10 +433,14 @@ function AssignmentsSection() {
             <Upload className="w-4 h-4" strokeWidth={2} />
             <span>Import</span>
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors">
+          <Link
+            to={`/faculty/class/${resolvedClassId}/assignments/create`}
+            // NOTE: Assignment creation now uses a standalone page route so faculty can manage the full form flow.
+            className="flex items-center gap-2 px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
+          >
             <Plus className="w-4 h-4" strokeWidth={2} />
             <span>Create Assignment</span>
-          </button>
+          </Link>
         </div>
       </div>
 

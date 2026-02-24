@@ -99,3 +99,42 @@ export interface AssignmentDescription {
 export interface EditorCodeExamples {
   [language: string]: string;
 }
+
+// NOTE: UI-driven models for faculty assignment creation; grow only when the create page renders new fields.
+export interface FacultyAssignmentCreatePageHeader {
+  classId: string;
+  courseCode: string;
+  courseName: string;
+}
+
+export interface AssignmentCreateOption {
+  id: string;
+  label: string;
+}
+
+export interface AssignmentCreateTestCase {
+  id: string;
+  input: string;
+  expectedOutput: string;
+  isHidden: boolean;
+}
+
+export interface AssignmentCreateFormData {
+  title: string;
+  description: string;
+  dueDate: string;
+  dueTime: string;
+  languageId: string;
+  totalPoints: number;
+  rubricId: string;
+  starterFileName: string | null;
+  publicTestCases: AssignmentCreateTestCase[];
+  privateTestCases: AssignmentCreateTestCase[];
+}
+
+export interface FacultyAssignmentCreatePageData {
+  header: FacultyAssignmentCreatePageHeader;
+  languageOptions: AssignmentCreateOption[];
+  rubricOptions: AssignmentCreateOption[];
+  initialForm: AssignmentCreateFormData;
+}
