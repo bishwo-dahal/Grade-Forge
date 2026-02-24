@@ -1,6 +1,6 @@
-package com.grade.forge.student.repository;
+package com.grade.forge.enrollment.repository;
 
-import com.grade.forge.student.entity.Enrollment;
+import com.grade.forge.enrollment.entity.Enrollment;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

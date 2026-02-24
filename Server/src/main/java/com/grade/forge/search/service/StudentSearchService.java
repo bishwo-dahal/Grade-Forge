@@ -1,9 +1,9 @@
 package com.grade.forge.search.service;
 
 import com.grade.forge.search.dto.StudentSearchResponseDto;
-import com.grade.forge.student.entity.Enrollment;
+import com.grade.forge.enrollment.entity.Enrollment;
 import com.grade.forge.student.entity.Student;
-import com.grade.forge.student.enums.EnrolledStatus;
+import com.grade.forge.enrollment.enums.EnrolledStatus;
 import com.grade.forge.student.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service

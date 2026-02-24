@@ -1,13 +1,13 @@
-package com.grade.forge.student.service;
+package com.grade.forge.enrollment.service;
 
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
-import com.grade.forge.student.dto.EnrollmentResponse;
-import com.grade.forge.student.entity.Enrollment;
+import com.grade.forge.enrollment.dto.EnrollmentResponse;
+import com.grade.forge.enrollment.entity.Enrollment;
 import com.grade.forge.student.entity.Student;
-import com.grade.forge.student.enums.EnrolledStatus;
-import com.grade.forge.student.repository.EnrollmentRepository;
+import com.grade.forge.enrollment.enums.EnrolledStatus;
+import com.grade.forge.enrollment.repository.EnrollmentRepository;
 import com.grade.forge.student.repository.StudentRepository;
 import com.grade.forge.user.entity.Users;
 import com.grade.forge.user.repository.UserRepository;

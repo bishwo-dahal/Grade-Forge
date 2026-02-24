@@ -1,8 +1,8 @@
-package com.grade.forge.student.controller;
+package com.grade.forge.enrollment.controller;
 
 import com.grade.forge.configuration.security.CustomUserDetails;
-import com.grade.forge.student.dto.EnrollmentResponse;
-import com.grade.forge.student.service.EnrollmentService;
+import com.grade.forge.enrollment.dto.EnrollmentResponse;
+import com.grade.forge.enrollment.service.EnrollmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

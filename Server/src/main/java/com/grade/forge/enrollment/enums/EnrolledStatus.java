@@ -1,4 +1,4 @@
-package com.grade.forge.student.enums;
+package com.grade.forge.enrollment.enums;
 
 
 public enum EnrolledStatus {

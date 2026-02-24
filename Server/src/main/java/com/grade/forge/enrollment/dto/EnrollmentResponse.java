@@ -1,6 +1,6 @@
-package com.grade.forge.student.dto;
+package com.grade.forge.enrollment.dto;
 
-import com.grade.forge.student.enums.EnrolledStatus;
+import com.grade.forge.enrollment.enums.EnrolledStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;

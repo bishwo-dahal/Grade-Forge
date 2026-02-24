@@ -1,8 +1,8 @@
-package com.grade.forge.student.entity;
+package com.grade.forge.enrollment.entity;
 
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.student.entity.Student;
-import com.grade.forge.student.enums.EnrolledStatus;
+import com.grade.forge.enrollment.enums.EnrolledStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

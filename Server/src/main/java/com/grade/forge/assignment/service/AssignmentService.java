@@ -1,9 +1,9 @@
 package com.grade.forge.assignment.service;
 
+import com.grade.forge.assignment.dto.AssignmentBasicResponse;
 import com.grade.forge.assignment.dto.AssignmentRequest;
 import com.grade.forge.assignment.dto.AssignmentResponse;
 import com.grade.forge.assignment.entity.Assignment;
-import com.grade.forge.assignment.enums.SubmissionType;
 import com.grade.forge.assignment.repository.AssignmentRepository;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
@@ -128,10 +128,17 @@ public class AssignmentService {
                 .collect(Collectors.toList());
     }
 
-    public List<AssignmentResponse> getAssignmentsByCourse(Long courseId) {
+    public List<AssignmentBasicResponse> getAssignmentsByCourse(Long courseId) {
         return assignmentRepository.findByCourse_Id(courseId).stream()
-                .map(this::mapToResponse)
+                .map(this::mapToBasicResponse)
                 .collect(Collectors.toList());
+    }
+
+    public AssignmentResponse getAssignmentByCourse(Long courseId, Long assignmentId) {
+        Assignment assignment = assignmentRepository.findByIdAndCourse_Id(assignmentId, courseId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Assignment not found with id: " + assignmentId + " for course: " + courseId));
+        return mapToResponse(assignment);
     }
 
     public void deleteAssignment(Long id) {
@@ -202,5 +209,17 @@ public class AssignmentService {
                 .rubricName(assignment.getRubric() != null ? assignment.getRubric().getName() : null)
                 .build();
     }
-}
 
+    private AssignmentBasicResponse mapToBasicResponse(Assignment assignment) {
+        AssignmentBasicResponse response = new AssignmentBasicResponse();
+        response.setId(assignment.getId());
+        response.setCourseId(assignment.getCourse().getId());
+        response.setName(assignment.getName());
+        response.setDescription(assignment.getDescription());
+        response.setTotalPoints(assignment.getTotalPoints());
+        response.setAvailableFrom(assignment.getAvailableFrom());
+        response.setDueDate(assignment.getDueDate());
+        response.setLateDueDate(assignment.getLateDueDate());
+        return response;
+    }
+}

@@ -1,4 +1,4 @@
-package com.grade.forge.student.dto;
+package com.grade.forge.enrollment.dto;
 
 import lombok.*;
 

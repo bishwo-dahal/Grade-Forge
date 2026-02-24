@@ -1,13 +1,11 @@
 package com.grade.forge.search.dto;
 
-import com.grade.forge.student.enums.EnrolledStatus;
+import com.grade.forge.enrollment.enums.EnrolledStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.util.Map;
 
 @Getter
 @Setter
