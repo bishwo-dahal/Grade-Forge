@@ -52,6 +52,38 @@ public class StudentService {
         return mapToResponse(saved);
     }
 
+    public StudentResponse completeCurrentStudentRegistration(String email, StudentRequest request) {
+        validateCompletionRequest(request);
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+
+        // NOTE: Registration completion must work for both first-time student profile creation and subsequent edits.
+        Student student = studentRepository.findByUserId(user.getId()).orElseGet(() -> {
+            Student created = new Student();
+            created.setUser(user);
+            created.setPreferences(new HashMap<>());
+            return created;
+        });
+
+        String normalizedCwid = request.getCwid().trim();
+        Optional<Student> existingByCwid = studentRepository.findByCwid(normalizedCwid);
+        if (existingByCwid.isPresent() && !existingByCwid.get().getId().equals(student.getId())) {
+            throw new IllegalArgumentException("Student already exists with CWID: " + normalizedCwid);
+        }
+
+        student.setCwid(normalizedCwid);
+        student.setMajor(request.getMajor().trim());
+        student.setCanvasUserId(request.getCanvasUserId().trim());
+        if (request.getPreferences() != null) {
+            student.setPreferences(request.getPreferences());
+        } else if (student.getPreferences() == null) {
+            student.setPreferences(new HashMap<>());
+        }
+
+        Student saved = studentRepository.save(student);
+        return mapToResponse(saved);
+    }
+
 
     @Transactional(readOnly = true)
     public List<StudentResponse> getAllStudents() {
@@ -81,6 +113,19 @@ public class StudentService {
         }
         if (request.getMajor() == null || request.getMajor().isBlank()) {
             throw new IllegalArgumentException("Major is required");
+        }
+    }
+
+    private void validateCompletionRequest(StudentRequest request) {
+        // IMPORTANT: Completion endpoint intentionally requires all fields so dashboard access is gated on a complete profile.
+        if (request.getCwid() == null || request.getCwid().isBlank()) {
+            throw new IllegalArgumentException("CWID is required");
+        }
+        if (request.getMajor() == null || request.getMajor().isBlank()) {
+            throw new IllegalArgumentException("Major is required");
+        }
+        if (request.getCanvasUserId() == null || request.getCanvasUserId().isBlank()) {
+            throw new IllegalArgumentException("Canvas ID is required");
         }
     }
 

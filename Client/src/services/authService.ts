@@ -1,5 +1,9 @@
 import api from "../api/axios";
 import type { UserProfile } from "../types/user";
+import type {
+  StudentRegistrationCompletionRequest,
+  StudentRegistrationCompletionResponse,
+} from "../types/student";
 
 export interface AuthResponse {
   token: string;
@@ -7,6 +11,8 @@ export interface AuthResponse {
   email: string;
   name: string;
   role: string;
+  // NOTE: Student auth responses include this gate flag so incomplete profiles can be redirected before dashboard access.
+  profileCompleted: boolean;
   message: string;
 }
 
@@ -20,10 +26,10 @@ export interface SignupRequest {
   email: string;
   password: string;
   role: "STUDENT" | "FACULTY" | "UNIVERSITY_ADMIN" | "SYSTEM_ADMIN";
-  // NOTE: Student signup collects profile fields that backend stores in linked student record.
-  cwid: string;
-  major: string;
-  canvasUserId: string;
+  // NOTE: Student profile details are optional at signup; when omitted, completion is enforced on first sign-in.
+  cwid?: string;
+  major?: string;
+  canvasUserId?: string;
 }
 
 export interface PasswordUpdateRequest {
@@ -39,6 +45,17 @@ export async function login(credentials: LoginRequest): Promise<AuthResponse> {
 
 export async function signup(payload: SignupRequest): Promise<AuthResponse> {
   const { data } = await api.post<AuthResponse>("/api/v1/auth/signup", payload);
+  return data;
+}
+
+export async function completeStudentRegistration(
+  payload: StudentRegistrationCompletionRequest,
+): Promise<StudentRegistrationCompletionResponse> {
+  // TODO(backend): Keep this endpoint stable as the required profile-completion handoff used by auth gate logic.
+  const { data } = await api.put<StudentRegistrationCompletionResponse>(
+    "/api/v1/students/me/complete-registration",
+    payload,
+  );
   return data;
 }
 

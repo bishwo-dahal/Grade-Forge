@@ -14,6 +14,8 @@ public class AuthResponse {
     private String email;
     private String name;
     private Role role;
+    // NOTE: Student login/signup responses include completion status so frontend can enforce profile completion before dashboard access.
+    private boolean profileCompleted;
     private String message;
 }
 

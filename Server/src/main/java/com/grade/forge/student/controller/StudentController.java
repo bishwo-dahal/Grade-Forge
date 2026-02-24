@@ -7,6 +7,7 @@ import com.grade.forge.student.service.StudentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -41,6 +42,17 @@ public class StudentController {
     @PutMapping("/me")
     public ResponseEntity<StudentResponse> updateStudent(@AuthenticationPrincipal CustomUserDetails customUserDetails, @RequestBody StudentRequest request) {
         StudentResponse updated = studentService.updateCurrentStudent(customUserDetails.getUsername(), request);
+        return new ResponseEntity<>(updated, HttpStatus.OK);
+    }
+
+    @PutMapping("/me/complete-registration")
+    @PreAuthorize("hasAuthority('STUDENT')")
+    public ResponseEntity<StudentResponse> completeStudentRegistration(
+            @AuthenticationPrincipal CustomUserDetails customUserDetails,
+            @RequestBody StudentRequest request
+    ) {
+        // NOTE: Dedicated endpoint keeps signup-lite flow explicit: user account exists first, student profile is completed here.
+        StudentResponse updated = studentService.completeCurrentStudentRegistration(customUserDetails.getUsername(), request);
         return new ResponseEntity<>(updated, HttpStatus.OK);
     }
 

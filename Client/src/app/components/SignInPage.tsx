@@ -2,7 +2,13 @@ import { useState } from "react";
 import { Link, useNavigate, useLocation, Navigate } from "react-router";
 import { Eye, EyeOff } from "lucide-react";
 import { AuthSplitLayout } from "./auth/AuthSplitLayout";
-import { getAuthenticatedRole, getDefaultRouteForRole, isAuthenticated, setAuthenticated } from "../auth";
+import {
+  getAuthenticatedRole,
+  getDefaultRouteForRole,
+  isAuthenticated,
+  isStudentRegistrationComplete,
+  setAuthenticated,
+} from "../auth";
 import { login } from "../../services/authService";
 
 export default function SignInPage() {
@@ -18,8 +24,12 @@ export default function SignInPage() {
   const from = (location.state as { from?: string } | null)?.from;
 
   if (isAuthenticated()) {
-    // NOTE: Prevent landing on wrong dashboard when already signed in.
-    return <Navigate to={getDefaultRouteForRole(getAuthenticatedRole())} replace />;
+    const role = getAuthenticatedRole();
+    // NOTE: Keep already-signed-in students on the completion gate until required profile fields are saved.
+    const target = role === "STUDENT" && !isStudentRegistrationComplete()
+      ? "/complete-registration"
+      : getDefaultRouteForRole(role);
+    return <Navigate to={target} replace />;
   }
 
   const handleSignIn = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -32,7 +42,13 @@ export default function SignInPage() {
         name: response.name,
         email: response.email,
         role: response.role,
+        profileCompleted: response.profileCompleted,
       });
+      if (response.role?.toUpperCase() === "STUDENT" && !response.profileCompleted) {
+        // IMPORTANT: Incomplete student profiles are always redirected to completion before any dashboard route.
+        navigate("/complete-registration", { replace: true });
+        return;
+      }
       const fallbackRoute = getDefaultRouteForRole(response.role);
       const targetRoute = from && from !== "/signin" && from !== "/signup" ? from : fallbackRoute;
       navigate(targetRoute, { replace: true });

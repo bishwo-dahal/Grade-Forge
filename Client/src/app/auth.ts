@@ -6,6 +6,7 @@ export interface AuthenticatedUser {
   name: string;
   email: string;
   role: string;
+  profileCompleted?: boolean;
 }
 
 // NOTE: Centralized app role union used by route-guard logic.
@@ -34,6 +35,20 @@ export function getAuthenticatedUser(): AuthenticatedUser | null {
   } catch {
     return null;
   }
+}
+
+export function isStudentRegistrationComplete(): boolean {
+  const user = getAuthenticatedUser();
+  if (!user) {
+    return false;
+  }
+
+  if (user.role.toUpperCase() !== "STUDENT") {
+    return true;
+  }
+
+  // NOTE: Legacy sessions may not have this field; treat undefined as complete until the next login refresh.
+  return user.profileCompleted !== false;
 }
 
 // NOTE: Normalizes role from session so route checks use one reliable source.

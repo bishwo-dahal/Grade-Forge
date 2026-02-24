@@ -16,6 +16,7 @@ import { UniversityFacultyPage } from "./components/UniversityFacultyPage";
 import { UniversityLanguagesPage } from "./components/UniversityLanguagesPage";
 import { UniversitySemestersPage } from "./components/UniversitySemestersPage";
 import { FacultyCreateClassPage } from "./components/FacultyCreateClassPage";
+import CompleteStudentRegistrationPage from "./components/CompleteStudentRegistrationPage";
 import {
   FacultyDiscussionsPage,
   FacultyGradingHubPage,
@@ -50,6 +51,14 @@ export const router = createBrowserRouter([
       // NOTE: Settings shell is student/faculty-only; university admin uses dedicated university pages.
       <ProtectedRoute allowedRoles={["STUDENT", "FACULTY"]}>
         <SettingsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/complete-registration",
+    element: (
+      <ProtectedRoute allowedRoles={["STUDENT"]}>
+        <CompleteStudentRegistrationPage />
       </ProtectedRoute>
     ),
   },

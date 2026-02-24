@@ -2,7 +2,13 @@ import { useState } from "react";
 import { Link, Navigate } from "react-router";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { AuthSplitLayout } from "./auth/AuthSplitLayout";
-import { getAuthenticatedRole, getDefaultRouteForRole, isAuthenticated, setAuthenticated } from "../auth";
+import {
+  getAuthenticatedRole,
+  getDefaultRouteForRole,
+  isAuthenticated,
+  isStudentRegistrationComplete,
+  setAuthenticated,
+} from "../auth";
 import { signup } from "../../services/authService";
 
 const MAJOR_OPTIONS = ["Computer Science", "Software Engineering", "Data Science"] as const;
@@ -24,8 +30,12 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
 
   if (isAuthenticated()) {
-    // NOTE: Signed-in users are routed to their own dashboard by role.
-    return <Navigate to={getDefaultRouteForRole(getAuthenticatedRole())} replace />;
+    const role = getAuthenticatedRole();
+    // NOTE: Incomplete student profiles are routed to completion instead of dashboard even from auth pages.
+    const target = role === "STUDENT" && !isStudentRegistrationComplete()
+      ? "/complete-registration"
+      : getDefaultRouteForRole(role);
+    return <Navigate to={target} replace />;
   }
 
   const moveToDetailsStep = () => {
@@ -38,21 +48,20 @@ export default function SignUpPage() {
     setStep("details");
   };
 
-  const handleSignUp = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (step === "account") {
-      moveToDetailsStep();
-      return;
-    }
-
-    if (!major.trim() || !cwid.trim() || !canvasUserId.trim()) {
-      setError("Major, CWID, and Canvas ID are required.");
-      return;
-    }
-
+  const submitSignup = async (mode: "with-details" | "without-details") => {
     if (!agreedToTerms) {
       setError("Please agree to the Terms & Conditions.");
+      return;
+    }
+
+    const normalizedMajor = major.trim();
+    const normalizedCwid = cwid.trim();
+    const normalizedCanvasUserId = canvasUserId.trim();
+
+    // NOTE: Keep signup payload deterministic by accepting either all profile fields or none.
+    const hasAllProfileFields = !!normalizedMajor && !!normalizedCwid && !!normalizedCanvasUserId;
+    if (mode === "with-details" && !hasAllProfileFields) {
+      setError("Enter major, CWID, and Canvas ID, or choose 'Skip for now'.");
       return;
     }
 
@@ -61,24 +70,35 @@ export default function SignUpPage() {
 
     try {
       const name = `${firstName.trim()} ${lastName.trim()}`.trim();
-      const response = await signup({
+      const signupPayload = {
         name: name || email,
         email: email.trim(),
         password,
         // NOTE: Public signup is student-only; other roles are provisioned/admin-managed.
-        role: "STUDENT",
-        cwid: cwid.trim(),
-        major: major.trim(),
-        canvasUserId: canvasUserId.trim(),
+        role: "STUDENT" as const,
+      };
+      const response = await signup({
+        ...signupPayload,
+        ...(mode === "with-details"
+          ? {
+              cwid: normalizedCwid,
+              major: normalizedMajor,
+              canvasUserId: normalizedCanvasUserId,
+            }
+          : {}),
       });
 
       setAuthenticated(response.token, {
         name: response.name,
         email: response.email,
         role: response.role,
+        profileCompleted: response.profileCompleted,
       });
-      // NOTE: Hard redirect keeps the post-signup flow consistent with current auth bootstrap.
-      window.location.href = getDefaultRouteForRole(response.role);
+      // NOTE: Student accounts can now exist before profile completion; redirect to completion gate when needed.
+      window.location.href =
+        response.role.toUpperCase() === "STUDENT" && !response.profileCompleted
+          ? "/complete-registration"
+          : getDefaultRouteForRole(response.role);
     } catch (err: unknown) {
       const msg =
         err && typeof err === "object" && "response" in err
@@ -88,6 +108,17 @@ export default function SignUpPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSignUp = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (step === "account") {
+      moveToDetailsStep();
+      return;
+    }
+
+    await submitSignup("with-details");
   };
 
   return (
@@ -231,10 +262,10 @@ export default function SignUpPage() {
 
         {step === "details" && (
           <>
-            {/* NOTE: Second registration module captures student-only profile fields required by backend. */}
+            {/* NOTE: Second registration module captures student profile fields; users can also skip and complete later. */}
             <div className="mb-1">
               <h2 className="text-[20px] font-semibold text-[#2B2A2A]">Complete your registration</h2>
-              <p className="mt-1 text-[13px] text-gray-600">Add your academic details to finish creating the account.</p>
+              <p className="mt-1 text-[13px] text-gray-600">Add your academic details now, or complete them after sign-in.</p>
             </div>
 
             <div>
@@ -300,13 +331,21 @@ export default function SignUpPage() {
               </label>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
               <button
                 type="button"
                 onClick={() => setStep("account")}
                 className="rounded-lg border border-gray-300 bg-white py-3 text-[14px] font-semibold text-[#2B2A2A] transition-colors hover:bg-gray-50"
               >
                 Back
+              </button>
+              <button
+                type="button"
+                onClick={() => submitSignup("without-details")}
+                disabled={loading}
+                className="rounded-lg border border-gray-300 bg-white py-3 text-[14px] font-semibold text-[#2B2A2A] transition-colors hover:bg-gray-50 disabled:opacity-60"
+              >
+                Skip for now
               </button>
               <button
                 type="submit"

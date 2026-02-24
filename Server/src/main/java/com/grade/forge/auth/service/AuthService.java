@@ -47,6 +47,7 @@ public class AuthService {
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String token = jwtHelper.generateToken(userDetails);
+        boolean profileCompleted = resolveProfileCompletion(user);
 
         return AuthResponse.builder()
                 .token(token)
@@ -54,6 +55,7 @@ public class AuthService {
                 .email(user.getEmail())
                 .name(user.getName())
                 .role(user.getRole())
+                .profileCompleted(profileCompleted)
                 .message("Login successful")
                 .build();
     }
@@ -78,30 +80,44 @@ public class AuthService {
         log.info("Creating user with email={} role={}", newUser.getEmail(), newUser.getRole());
         Users savedUser = userRepository.save(newUser);
 
-        // NOTE: Student signup now creates a linked student profile so CWID/major/canvas data is persisted at registration time.
+        // NOTE: Student signup now allows account creation without profile details; completion can happen later.
         if (resolvedRole == Role.STUDENT) {
-            if (signupRequest.getCwid() == null || signupRequest.getCwid().isBlank()) {
-                throw new IllegalArgumentException("CWID is required for student signup");
-            }
-            if (signupRequest.getMajor() == null || signupRequest.getMajor().isBlank()) {
-                throw new IllegalArgumentException("Major is required for student signup");
-            }
-            if (studentRepository.existsByCwid(signupRequest.getCwid())) {
-                throw new IllegalArgumentException("Student already exists with CWID: " + signupRequest.getCwid());
+            boolean hasCwid = hasText(signupRequest.getCwid());
+            boolean hasMajor = hasText(signupRequest.getMajor());
+            boolean hasCanvasUserId = hasText(signupRequest.getCanvasUserId());
+            boolean hasAnyProfileField = hasCwid || hasMajor || hasCanvasUserId;
+            boolean hasAllProfileFields = hasCwid && hasMajor && hasCanvasUserId;
+
+            if (hasAnyProfileField && !hasAllProfileFields) {
+                // FIX: Reject partial student profile payloads during signup to keep profile state deterministic.
+                throw new IllegalArgumentException("Provide CWID, major, and Canvas ID together, or finish profile after signup.");
             }
 
-            Student student = new Student();
-            student.setUser(savedUser);
-            student.setCwid(signupRequest.getCwid());
-            student.setMajor(signupRequest.getMajor());
-            student.setCanvasUserId(signupRequest.getCanvasUserId());
-            student.setPreferences(new HashMap<>());
-            studentRepository.save(student);
-            log.info("Created student profile for userId={} cwid={}", savedUser.getId(), signupRequest.getCwid());
+            if (hasAllProfileFields) {
+                String normalizedCwid = signupRequest.getCwid().trim();
+                String normalizedMajor = signupRequest.getMajor().trim();
+                String normalizedCanvasUserId = signupRequest.getCanvasUserId().trim();
+
+                if (studentRepository.existsByCwid(normalizedCwid)) {
+                    throw new IllegalArgumentException("Student already exists with CWID: " + normalizedCwid);
+                }
+
+                Student student = new Student();
+                student.setUser(savedUser);
+                student.setCwid(normalizedCwid);
+                student.setMajor(normalizedMajor);
+                student.setCanvasUserId(normalizedCanvasUserId);
+                student.setPreferences(new HashMap<>());
+                studentRepository.save(student);
+                log.info("Created student profile for userId={} cwid={}", savedUser.getId(), normalizedCwid);
+            } else {
+                log.info("Student userId={} created without profile details; completion required before dashboard access.", savedUser.getId());
+            }
         }
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(savedUser.getEmail());
         String token = jwtHelper.generateToken(userDetails);
+        boolean profileCompleted = resolveProfileCompletion(savedUser);
         log.debug("Generated signup token for userId={}", savedUser.getId());
         return AuthResponse.builder()
                 .token(token)
@@ -109,6 +125,7 @@ public class AuthService {
                 .email(savedUser.getEmail())
                 .name(savedUser.getName())
                 .role(savedUser.getRole())
+                .profileCompleted(profileCompleted)
                 .message("User registered successfully")
                 .build();
     }
@@ -133,6 +150,7 @@ public class AuthService {
                 .email(updatedUser.getEmail())
                 .name(updatedUser.getName())
                 .role(updatedUser.getRole())
+                .profileCompleted(resolveProfileCompletion(updatedUser))
                 .message("Password updated successfully")
                 .build();
     }
@@ -157,8 +175,23 @@ public class AuthService {
                 .email(updatedUser.getEmail())
                 .name(updatedUser.getName())
                 .role(updatedUser.getRole())
+                .profileCompleted(resolveProfileCompletion(updatedUser))
                 .message("Password reset successfully")
                 .build();
+    }
+
+    private boolean resolveProfileCompletion(Users user) {
+        if (user.getRole() != Role.STUDENT) {
+            return true;
+        }
+
+        return studentRepository.findByUserId(user.getId())
+                .map(student -> hasText(student.getCwid()) && hasText(student.getMajor()) && hasText(student.getCanvasUserId()))
+                .orElse(false);
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     public Users getUserById(Long userId) {
