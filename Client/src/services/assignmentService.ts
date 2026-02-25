@@ -19,20 +19,6 @@ import api from "../api/axios";
 // NOTE: This service keeps assignment data access centralized for both live API endpoints and remaining mock-only views.
 // TODO(backend): Migrate remaining mock-only helper sections to backend endpoints while keeping return shapes stable.
 
-const assignmentDetail: AssignmentDetail = {
-  id: "assignment-8",
-  title: "Binary Search Tree Implementation",
-  course: "Data Structures & Algorithms",
-  courseCode: "CS 301",
-  dueDate: "October 24, 2023 at 11:59 PM",
-  status: "not_submitted",
-  points: { earned: null, total: 100 },
-  submissionsUsed: 2,
-  submissionsAllowed: null,
-  language: "Python",
-  hasStarterCode: true,
-};
-
 // NOTE: Added grading header context for faculty workflows.
 const gradingAssignmentContext: GradingAssignmentContext = {
   id: "assignment-8",
@@ -40,68 +26,6 @@ const gradingAssignmentContext: GradingAssignmentContext = {
   courseName: "CS 341: Data Structures",
   section: "Section 02",
 };
-
-const upcomingAssignments: UpcomingAssignment[] = [
-  {
-    id: 1,
-    title: "Binary Search Tree Implementation",
-    course: "Data Structures & Algorithms \u2022 Assignment 8",
-    dueDate: "Oct 24, 2023",
-    daysLeft: "Due in 2 days",
-    urgent: true,
-    icon: "\u{1F4BB}",
-    iconBg: "bg-[#FEB05D]/10",
-  },
-  {
-    id: 2,
-    title: "REST API with Authentication",
-    course: "Web Development \u2022 Assignment 5",
-    dueDate: "Oct 28, 2023",
-    daysLeft: "Due in 6 days",
-    urgent: false,
-    icon: "\u{1F310}",
-    iconBg: "bg-[#5A7ACD]/10",
-  },
-  {
-    // NOTE: Added third row to match current dashboard preview layout expectations.
-    id: 3,
-    title: "Database Schema Design",
-    course: "Database Systems \u2022 Assignment 4",
-    dueDate: "Nov 2, 2023",
-    daysLeft: "Due in 11 days",
-    urgent: false,
-    icon: "\u{1F5C4}\uFE0F",
-    iconBg: "bg-[#5A7ACD]/10",
-  },
-];
-
-const courseAssignments: AssignmentSummary[] = [
-  {
-    id: 1,
-    title: "Binary Search Tree Implementation",
-    number: 8,
-    dueDate: "Oct 24, 2023",
-    status: "not_submitted",
-    points: 100,
-  },
-  {
-    id: 2,
-    title: "Graph Traversal Algorithms",
-    number: 9,
-    dueDate: "Oct 31, 2023",
-    status: "not_submitted",
-    points: 100,
-  },
-  {
-    id: 3,
-    title: "Dynamic Programming - Knapsack",
-    number: 7,
-    dueDate: "Oct 17, 2023",
-    status: "graded",
-    points: 95,
-    totalPoints: 100,
-  },
-];
 
 const recentAssignments: RecentAssignmentItem[] = [
   {
@@ -150,240 +74,6 @@ const recentAssignments: RecentAssignmentItem[] = [
     iconKey: "check",
   },
 ];
-
-const assignmentDescription: AssignmentDescription = {
-  problemDescription: [
-    "In this assignment, you will implement a Binary Search Tree (BST) data structure with all fundamental operations. Your implementation should support insertion, deletion, searching, and tree traversal methods.",
-    "A Binary Search Tree is a node-based binary tree data structure with the following properties:",
-  ],
-  requiredMethods: [
-    { name: "insert(value)", description: "Insert a new node with the given value" },
-    { name: "delete(value)", description: "Remove a node with the given value" },
-    { name: "search(value)", description: "Find and return a node with the given value" },
-    { name: "inorder()", description: "Return in-order traversal as an array" },
-    { name: "preorder()", description: "Return pre-order traversal as an array" },
-    { name: "postorder()", description: "Return post-order traversal as an array" },
-  ],
-  exampleCode: `bst = BinarySearchTree()
-bst.insert(50)
-bst.insert(30)
-bst.insert(70)
-bst.insert(20)
-bst.insert(40)
-
-print(bst.inorder())   # Output: [20, 30, 40, 50, 70]
-print(bst.search(30))  # Output: TreeNode(30)
-bst.delete(30)
-print(bst.inorder())   # Output: [20, 40, 50, 70]`,
-  inputOutput: {
-    input: "Integer values ranging from -10,000 to 10,000",
-    output:
-      "Traversal methods should return arrays of integers in the correct order. Search should return the node or null if not found.",
-  },
-  rubric: [
-    { category: "Correctness", description: "All test cases pass", points: "60 pts" },
-    { category: "Code Quality", description: "Clean, readable, well-structured", points: "20 pts" },
-    { category: "Efficiency", description: "Optimal time complexity", points: "15 pts" },
-    { category: "Documentation", description: "Comments and docstrings", points: "5 pts" },
-  ],
-  constraints: [
-    "You must implement the BST from scratch (no built-in tree libraries)",
-    "Your solution should handle edge cases (empty tree, single node, etc.)",
-    "Time limit: 2 seconds per test case",
-    "Memory limit: 256 MB",
-  ],
-};
-
-const rubricCategories: RubricCategory[] = [
-  {
-    name: "Correctness",
-    points: 50,
-    criteria: [
-      { description: "All test cases pass", points: 20 },
-      { description: "Edge cases handled correctly", points: 15 },
-      { description: "Correct algorithm implementation", points: 15 },
-    ],
-  },
-  {
-    name: "Code Quality",
-    points: 25,
-    criteria: [
-      { description: "Clean, readable code with proper naming conventions", points: 10 },
-      { description: "Appropriate use of data structures", points: 10 },
-      { description: "No unnecessary code or redundancy", points: 5 },
-    ],
-  },
-  {
-    name: "Efficiency",
-    points: 15,
-    criteria: [
-      { description: "Time complexity meets requirements (O(log n) for search)", points: 10 },
-      { description: "Space complexity is optimal", points: 5 },
-    ],
-  },
-  {
-    name: "Documentation",
-    points: 10,
-    criteria: [
-      { description: "Functions have clear docstrings/comments", points: 5 },
-      { description: "Complex logic is explained", points: 3 },
-      { description: "Proper file header with name and date", points: 2 },
-    ],
-  },
-];
-
-const publicTestCases: PublicTestCase[] = [
-  {
-    id: 1,
-    name: "Basic Insert and In-order Traversal",
-    passed: true,
-    input: "insert(50), insert(30), insert(70), inorder()",
-    expectedOutput: "[30, 50, 70]",
-    actualOutput: "[30, 50, 70]",
-    executionTime: "0.002s",
-  },
-  {
-    id: 2,
-    name: "Search Existing Node",
-    passed: true,
-    input: "insert(50), insert(30), search(30)",
-    expectedOutput: "TreeNode(30)",
-    actualOutput: "TreeNode(30)",
-    executionTime: "0.001s",
-  },
-  {
-    id: 3,
-    name: "Delete Node with Two Children",
-    passed: false,
-    input: "insert(50), insert(30), insert(70), insert(20), insert(40), delete(30)",
-    expectedOutput: "[20, 40, 50, 70]",
-    actualOutput: "[20, 30, 50, 70]",
-    executionTime: "0.003s",
-  },
-  {
-    id: 4,
-    name: "Pre-order Traversal",
-    passed: true,
-    input: "insert(50), insert(30), insert(70), preorder()",
-    expectedOutput: "[50, 30, 70]",
-    actualOutput: "[50, 30, 70]",
-    executionTime: "0.002s",
-  },
-  {
-    id: 5,
-    name: "Search Non-existing Node",
-    passed: true,
-    input: "insert(50), search(99)",
-    expectedOutput: "null",
-    actualOutput: "null",
-    executionTime: "0.001s",
-  },
-];
-
-const editorCodeExamples: EditorCodeExamples = {
-  Python: `class TreeNode:
-    def __init__(self, value):
-        self.value = value
-        self.left = None
-        self.right = None
-
-class BinarySearchTree:
-    def __init__(self):
-        self.root = None
-    
-    def insert(self, value):
-        """Insert a new node with the given value"""
-        if self.root is None:
-            self.root = TreeNode(value)
-        else:
-            self._insert_recursive(self.root, value)
-    
-    def _insert_recursive(self, node, value):
-        if value < node.value:
-            if node.left is None:
-                node.left = TreeNode(value)
-            else:
-                self._insert_recursive(node.left, value)
-        else:
-            if node.right is None:
-                node.right = TreeNode(value)
-            else:
-                self._insert_recursive(node.right, value)
-    
-    def search(self, value):
-        """Find and return a node with the given value"""
-        return self._search_recursive(self.root, value)
-    
-    def _search_recursive(self, node, value):
-        if node is None or node.value == value:
-            return node
-        if value < node.value:
-            return self._search_recursive(node.left, value)
-        return self._search_recursive(node.right, value)
-    
-    def delete(self, value):
-        """Remove a node with the given value"""
-        # TODO: Implement delete operation
-        pass
-    
-    def inorder(self):
-        """Return in-order traversal as an array"""
-        result = []
-        self._inorder_recursive(self.root, result)
-        return result
-    
-    def _inorder_recursive(self, node, result):
-        if node:
-            self._inorder_recursive(node.left, result)
-            result.append(node.value)
-            self._inorder_recursive(node.right, result)`,
-  Java: `public class TreeNode {
-    int value;
-    TreeNode left;
-    TreeNode right;
-    
-    public TreeNode(int value) {
-        this.value = value;
-        this.left = null;
-        this.right = null;
-    }
-}
-
-public class BinarySearchTree {
-    private TreeNode root;
-    
-    public BinarySearchTree() {
-        this.root = null;
-    }
-    
-    public void insert(int value) {
-        // Insert implementation
-        if (root == null) {
-            root = new TreeNode(value);
-        } else {
-            insertRecursive(root, value);
-        }
-    }
-    
-    private void insertRecursive(TreeNode node, int value) {
-        if (value < node.value) {
-            if (node.left == null) {
-                node.left = new TreeNode(value);
-            } else {
-                insertRecursive(node.left, value);
-            }
-        } else {
-            if (node.right == null) {
-                node.right = new TreeNode(value);
-            } else {
-                insertRecursive(node.right, value);
-            }
-        }
-    }
-    
-    // TODO: Implement other methods
-}`,
-};
 
 const defaultCreateAssignmentHeader: FacultyAssignmentCreatePageHeader = {
   classId: "1",
@@ -464,6 +154,45 @@ function formatDate(value: string | null): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function buildUpcomingDueMeta(dueDate: string | null): { label: string; urgent: boolean; sortTimestamp: number } {
+  if (!dueDate) {
+    return {
+      label: "Due date unavailable",
+      urgent: false,
+      sortTimestamp: Number.POSITIVE_INFINITY,
+    };
+  }
+
+  const parsedDueDate = new Date(dueDate);
+  if (Number.isNaN(parsedDueDate.getTime())) {
+    return {
+      label: "Due date unavailable",
+      urgent: false,
+      sortTimestamp: Number.POSITIVE_INFINITY,
+    };
+  }
+
+  const now = Date.now();
+  const millisUntilDue = parsedDueDate.getTime() - now;
+  const daysUntilDue = Math.ceil(millisUntilDue / (1000 * 60 * 60 * 24));
+
+  if (daysUntilDue < 0) {
+    return { label: "Past due", urgent: true, sortTimestamp: parsedDueDate.getTime() };
+  }
+  if (daysUntilDue === 0) {
+    return { label: "Due today", urgent: true, sortTimestamp: parsedDueDate.getTime() };
+  }
+  if (daysUntilDue === 1) {
+    return { label: "Due in 1 day", urgent: true, sortTimestamp: parsedDueDate.getTime() };
+  }
+
+  return {
+    label: `Due in ${daysUntilDue} days`,
+    urgent: daysUntilDue <= 2,
+    sortTimestamp: parsedDueDate.getTime(),
+  };
 }
 
 function formatDueDateTime(value: string | null): string {
@@ -639,8 +368,51 @@ export function getGradingAssignmentContext(assignmentId: string): Promise<Gradi
   return Promise.resolve({ ...gradingAssignmentContext, id: assignmentId || gradingAssignmentContext.id });
 }
 
-export function listUpcomingAssignments(): Promise<UpcomingAssignment[]> {
-  return Promise.resolve(upcomingAssignments);
+export async function listUpcomingAssignments(): Promise<UpcomingAssignment[]> {
+  // NOTE: Dashboard upcoming assignments now come from live enrolled-course assignments instead of mock rows.
+  const { data: enrolledCourses } = await api.get<StudentEnrolledCourseApiResponse[]>("/api/v1/student/classes/enrolled");
+
+  const upcomingByCourse = await Promise.all(
+    enrolledCourses.map(async (course) => {
+      const { data: assignments } = await api.get<AssignmentApiResponse[]>(`/api/v1/student/assignments/course/${course.id}`);
+      const pendingAssignments = await Promise.all(
+        assignments.map(async (assignment) => {
+          const { data: submissions } = await api.get<SubmissionApiResponse[]>(
+            `/api/v1/student/submissions/assignment?assignmentId=${assignment.id}`,
+          );
+          const latestSubmission = getLatestSubmission(submissions);
+          // CLEANUP: Only unresolved work is shown in "Upcoming Assignments"; graded/submitted items are omitted.
+          if (latestSubmission) {
+            return null;
+          }
+
+          const dueMeta = buildUpcomingDueMeta(assignment.dueDate);
+          const iconData = resolveAssignmentIcon(course.courseCode || assignment.courseName);
+          return {
+            row: {
+              id: assignment.id,
+              title: assignment.name,
+              course: course.name || assignment.courseName || "placeholder text",
+              dueDate: formatDate(assignment.dueDate),
+              daysLeft: dueMeta.label,
+              urgent: dueMeta.urgent,
+              icon: iconData.icon,
+              iconBg: iconData.iconBg,
+            } satisfies UpcomingAssignment,
+            sortTimestamp: dueMeta.sortTimestamp,
+          };
+        }),
+      );
+
+      return pendingAssignments.filter((item): item is { row: UpcomingAssignment; sortTimestamp: number } => item !== null);
+    }),
+  );
+
+  return upcomingByCourse
+    .flat()
+    .sort((left, right) => left.sortTimestamp - right.sortTimestamp)
+    .slice(0, 3)
+    .map((item) => item.row);
 }
 
 export async function listCourseAssignments(courseId: string): Promise<AssignmentSummary[]> {
