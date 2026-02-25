@@ -9,6 +9,7 @@ interface FacultyMainViewProps {
   // NOTE: View props keep this workflow component presentation-only and API-source agnostic.
   profile: UserProfile | null;
   courses: FacultyCourseCard[];
+  isCoursesLoading: boolean;
 }
 
 interface FacultyMainProps {}
@@ -17,24 +18,28 @@ export function FacultyMain({}: FacultyMainProps) {
   // NOTE: Faculty dashboard keeps independent workflow data while shell/topbar is centralized.
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [courses, setCourses] = useState<FacultyCourseCard[]>([]);
+  const [isCoursesLoading, setIsCoursesLoading] = useState(true);
 
   useEffect(() => {
     getFacultyProfile().then(setProfile);
     // NOTE: Dashboard course list is backend-driven; errors resolve to empty state instead of stale mock data.
-    listFacultyCourses().then(setCourses).catch(() => setCourses([]));
+    listFacultyCourses()
+      .then(setCourses)
+      .catch(() => setCourses([]))
+      .finally(() => setIsCoursesLoading(false));
   }, []);
 
-  return <FacultyMainView profile={profile} courses={courses} />;
+  return <FacultyMainView profile={profile} courses={courses} isCoursesLoading={isCoursesLoading} />;
 }
 
-function FacultyMainView({ profile: _profile, courses }: FacultyMainViewProps) {
+function FacultyMainView({ profile: _profile, courses, isCoursesLoading }: FacultyMainViewProps) {
   // CLEANUP: Greeting copy was removed, so profile display-name derivation is no longer needed here.
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
       {/* NOTE: Top navigation was removed here to avoid duplicated faculty shell code. */}
       <div className="p-8">
         {/* CLEANUP: Removed faculty greeting summary block per dashboard copy update request. */}
-        <TeachingCourses courses={courses} />
+        <TeachingCourses courses={courses} isLoading={isCoursesLoading} />
       </div>
     </main>
   );
@@ -42,8 +47,10 @@ function FacultyMainView({ profile: _profile, courses }: FacultyMainViewProps) {
 
 function TeachingCourses({
   courses,
+  isLoading = false,
 }: {
   courses: FacultyCourseCard[];
+  isLoading?: boolean;
 }) {
   // NOTE: Keeps faculty-specific course management flow separate from student dashboard workflow.
   return (
@@ -59,6 +66,38 @@ function TeachingCourses({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+        {isLoading
+          ? Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={`faculty-course-skeleton-${index}`}
+                // NOTE: Skeleton cards mirror teaching-course visuals so class blocks stay visible while fetching.
+                className="block bg-white rounded-2xl p-6 border border-gray-200 animate-pulse"
+              >
+                <div className="flex items-start gap-4 mb-4">
+                  <div className={`w-12 h-12 ${index % 2 === 0 ? "bg-[#EEF3FF]" : "bg-[#FFF3E6]"} rounded-xl flex-shrink-0`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="h-3 w-16 rounded bg-gray-200 mb-2" />
+                    <div className="h-4 w-44 max-w-full rounded bg-gray-200" />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="h-3 w-28 rounded bg-gray-200" />
+                    <div className="h-3 w-8 rounded bg-gray-200" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="h-3 w-32 rounded bg-gray-200" />
+                    <div className="h-3 w-8 rounded bg-gray-200" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="h-3 w-28 rounded bg-gray-200" />
+                    <div className="h-3 w-8 rounded bg-gray-200" />
+                  </div>
+                </div>
+                <div className="mt-5 w-full h-10 bg-gray-100 rounded-lg" />
+              </div>
+            ))
+          : null}
         {courses.map((course) => (
           <Link
             key={course.id}

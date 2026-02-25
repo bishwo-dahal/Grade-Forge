@@ -4,9 +4,17 @@ import type { CourseCard } from "../../types/class";
 interface EnrolledCoursesProps {
   // NOTE: Data is passed via props so this component stays presentation-only.
   courses: CourseCard[];
+  isLoading?: boolean;
 }
 
-export function EnrolledCourses({ courses }: EnrolledCoursesProps) {
+const courseSkeletonStyles = [
+  { iconBg: "bg-[#EEF3FF]" },
+  { iconBg: "bg-[#FFF3E6]" },
+  { iconBg: "bg-[#EEF3FF]" },
+  { iconBg: "bg-[#FFF3E6]" },
+];
+
+export function EnrolledCourses({ courses, isLoading = false }: EnrolledCoursesProps) {
 
   return (
     <div className="mb-10">
@@ -19,6 +27,29 @@ export function EnrolledCourses({ courses }: EnrolledCoursesProps) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
+        {isLoading
+          ? courseSkeletonStyles.map((skeletonStyle, index) => (
+              <div
+                key={`course-skeleton-${index}`}
+                // NOTE: Skeleton cards preserve course-card layout so blocks stay visible while backend data loads.
+                className="block bg-white rounded-2xl p-5 border border-gray-200 animate-pulse"
+              >
+                <div className={`w-12 h-12 ${skeletonStyle.iconBg} rounded-xl mb-4`} />
+                <div className="h-4 w-3/4 rounded bg-gray-200 mb-2" />
+                <div className="h-3 w-1/2 rounded bg-gray-200 mb-4" />
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="h-3 w-20 rounded bg-gray-200" />
+                    <div className="h-3 w-12 rounded bg-gray-200" />
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div className="w-1/2 h-2 rounded-full bg-gray-200" />
+                  </div>
+                  <div className="h-3 w-24 rounded bg-gray-200 mt-1.5" />
+                </div>
+              </div>
+            ))
+          : null}
         {courses.map((course) => {
           const assignmentsLeft = course.total - course.completed;
           const progress = (course.completed / course.total) * 100;

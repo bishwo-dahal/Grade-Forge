@@ -4,9 +4,10 @@ import type { UpcomingAssignment } from "../../types/assignment";
 interface UpcomingAssignmentsProps {
   // NOTE: Data is passed via props so this component stays presentation-only.
   assignments: UpcomingAssignment[];
+  isLoading?: boolean;
 }
 
-export function UpcomingAssignments({ assignments }: UpcomingAssignmentsProps) {
+export function UpcomingAssignments({ assignments, isLoading = false }: UpcomingAssignmentsProps) {
 
   return (
     <div>
@@ -18,6 +19,26 @@ export function UpcomingAssignments({ assignments }: UpcomingAssignmentsProps) {
       </div>
 
       <div className="space-y-3">
+        {isLoading
+          ? Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={`upcoming-skeleton-${index}`}
+                // NOTE: Skeleton rows keep assignment-card visuals visible during async load.
+                className="block bg-white rounded-2xl px-4 py-3 border border-gray-200 animate-pulse"
+              >
+                <div className="flex items-start justify-between gap-6">
+                  <div className="min-w-0">
+                    <div className="h-5 w-72 max-w-full rounded bg-gray-200" />
+                    <div className="mt-2 h-4 w-44 rounded bg-gray-200" />
+                  </div>
+                  <div className="flex items-center gap-7 pt-1 shrink-0">
+                    <div className="h-4 w-20 rounded bg-gray-200" />
+                    <div className="h-4 w-24 rounded bg-gray-200" />
+                  </div>
+                </div>
+              </div>
+            ))
+          : null}
         {assignments.map((assignment) => (
           <Link
             key={assignment.id}
