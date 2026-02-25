@@ -78,11 +78,47 @@ function FacultyMyClassesView({
 
       {/* FIX: Cap grid at three columns so faculty class cards never expand to four on larger screens. */}
       <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {isLoading && (
-          <article className="rounded-2xl border border-gray-200 bg-white p-4">
-            <p className="text-[14px] text-[#5D6A80]">Loading classes...</p>
-          </article>
-        )}
+        {isLoading
+          ? Array.from({ length: 6 }).map((_, index) => (
+              <article
+                key={`faculty-my-classes-skeleton-${index}`}
+                // NOTE: Skeleton class cards preserve faculty My Classes layout while backend data loads.
+                className="rounded-2xl border border-gray-200 bg-white p-4 animate-pulse"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-[#EEF2FA]" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-40 rounded bg-gray-200" />
+                    <div className="h-3 w-28 rounded bg-gray-200" />
+                    <div className="h-3 w-20 rounded bg-gray-200" />
+                  </div>
+                </div>
+                <div className="mt-4 rounded-2xl bg-[#F6F7F9] px-3.5 py-3">
+                  <div className="h-3 w-36 rounded bg-gray-200" />
+                  <div className="mt-2 h-3 w-28 rounded bg-gray-200" />
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <div className="h-3 w-14 rounded bg-gray-200" />
+                    <div className="h-4 w-8 rounded bg-gray-200" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-20 rounded bg-gray-200" />
+                    <div className="h-4 w-8 rounded bg-gray-200" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-16 rounded bg-gray-200" />
+                    <div className="h-4 w-10 rounded bg-gray-200" />
+                  </div>
+                </div>
+                <div className="mt-4 h-12 rounded-2xl bg-[#FFF8EE]" />
+                <div className="mt-4 grid grid-cols-[1fr_auto] gap-2.5">
+                  <div className="h-10 rounded-2xl bg-[#EEF2FA]" />
+                  <div className="h-10 w-28 rounded-2xl bg-[#FFE8CA]" />
+                </div>
+              </article>
+            ))
+          : null}
 
         {!isLoading && filteredClasses.length === 0 && (
           <article className="rounded-2xl border border-gray-200 bg-white p-4">

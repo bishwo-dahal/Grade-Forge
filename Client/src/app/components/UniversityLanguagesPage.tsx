@@ -93,13 +93,33 @@ function UniversityLanguagesView({
               </tr>
             </thead>
             <tbody>
-              {isLoading && (
-                <tr>
-                  <td className="px-6 py-5 text-[14px] text-[#5D6A80]" colSpan={5}>
-                    Loading languages...
-                  </td>
-                </tr>
-              )}
+              {isLoading
+                ? Array.from({ length: 5 }).map((_, index) => (
+                    <tr key={`university-language-skeleton-${index}`} className="border-b border-gray-100 last:border-b-0">
+                      {/* NOTE: Skeleton rows keep language-management table layout visible while loading. */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3 animate-pulse">
+                          <div className="h-10 w-10 rounded-xl bg-[#EEF2FA]" />
+                          <div className="h-4 w-28 rounded bg-gray-200" />
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-36 rounded bg-gray-200 animate-pulse" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-40 rounded bg-gray-200 animate-pulse" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-7 w-16 rounded-full bg-gray-100 animate-pulse" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end">
+                          <div className="h-8 w-8 rounded-lg bg-gray-100 animate-pulse" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                : null}
 
               {!isLoading && filteredLanguages.length === 0 && (
                 <tr>

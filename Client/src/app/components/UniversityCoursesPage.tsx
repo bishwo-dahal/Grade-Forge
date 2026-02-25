@@ -73,13 +73,37 @@ function UniversityCoursesView({ courses, isLoading, error, searchTerm, onSearch
               </tr>
             </thead>
             <tbody>
-              {isLoading && (
-                <tr>
-                  <td className="px-6 py-5 text-[14px] text-[#5D6A80]" colSpan={6}>
-                    Loading courses...
-                  </td>
-                </tr>
-              )}
+              {isLoading
+                ? Array.from({ length: 5 }).map((_, index) => (
+                    <tr key={`university-course-skeleton-${index}`} className="border-b border-gray-100 last:border-b-0">
+                      {/* NOTE: Skeleton rows keep courses table chrome visible while course data loads. */}
+                      <td className="px-6 py-4">
+                        <div className="space-y-2 animate-pulse">
+                          <div className="h-4 w-20 rounded bg-gray-200" />
+                          <div className="h-3 w-36 rounded bg-gray-200" />
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-10 rounded bg-gray-200 animate-pulse" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-10 rounded bg-gray-200 animate-pulse" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end gap-3">
+                          <div className="h-4 w-4 rounded bg-gray-100 animate-pulse" />
+                          <div className="h-4 w-4 rounded bg-gray-100 animate-pulse" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                : null}
 
               {!isLoading && filteredCourses.length === 0 && (
                 <tr>

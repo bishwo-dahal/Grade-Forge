@@ -15,6 +15,7 @@ type AssignmentTabFilter = "all" | StudentAssignmentStatus;
 interface StudentAssignmentsViewProps {
   // NOTE: This component is presentation-only. Data is injected by the page/container.
   assignments: StudentAssignmentListItem[];
+  isLoading: boolean;
   selectedFilter: AssignmentTabFilter;
   onFilterChange: (filter: AssignmentTabFilter) => void;
 }
@@ -75,7 +76,7 @@ function getStatusLabel(status: StudentAssignmentStatus): string {
   }
 }
 
-function StudentAssignmentsView({ assignments, selectedFilter, onFilterChange }: StudentAssignmentsViewProps) {
+function StudentAssignmentsView({ assignments, isLoading, selectedFilter, onFilterChange }: StudentAssignmentsViewProps) {
   const tabConfigs = useMemo(() => buildTabConfigs(assignments), [assignments]);
   const visibleAssignments = useMemo(
     () => filterAssignments(assignments, selectedFilter),
@@ -102,7 +103,29 @@ function StudentAssignmentsView({ assignments, selectedFilter, onFilterChange }:
       </section>
 
       <section className="mt-6 space-y-4">
-        {visibleAssignments.map((assignment) => (
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, index) => (
+              <article
+                key={`student-assignment-skeleton-${index}`}
+                // NOTE: Skeleton assignment rows prevent the page from collapsing while assignment data is loading.
+                className="rounded-2xl border border-gray-200 bg-white px-6 py-5 animate-pulse"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-start gap-5">
+                    <div className="mt-1 h-12 w-12 shrink-0 rounded-xl bg-[#EEF2FA]" />
+                    <div className="space-y-2">
+                      <div className="h-5 w-52 max-w-full rounded bg-gray-200" />
+                      <div className="h-4 w-72 max-w-full rounded bg-gray-200" />
+                      <div className="h-4 w-44 rounded bg-gray-200" />
+                    </div>
+                  </div>
+                  <div className="h-8 w-28 rounded-xl bg-gray-100" />
+                </div>
+              </article>
+            ))
+          : null}
+        {!isLoading &&
+          visibleAssignments.map((assignment) => (
           <article key={assignment.id} className="rounded-2xl border border-gray-200 bg-white px-6 py-5">
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
               <div className="flex min-w-0 items-start gap-5">
@@ -144,7 +167,12 @@ function StudentAssignmentsView({ assignments, selectedFilter, onFilterChange }:
               </div>
             </div>
           </article>
-        ))}
+          ))}
+        {!isLoading && visibleAssignments.length === 0 ? (
+          <article className="rounded-2xl border border-gray-200 bg-white px-6 py-5">
+            <p className="text-[14px] text-[#5D667A]">No assignments found for this filter.</p>
+          </article>
+        ) : null}
       </section>
     </main>
   );
@@ -153,6 +181,7 @@ function StudentAssignmentsView({ assignments, selectedFilter, onFilterChange }:
 export function StudentAssignmentsPage() {
   const navigate = useNavigate();
   const [assignments, setAssignments] = useState<StudentAssignmentListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState<AssignmentTabFilter>("all");
   const loggedInUser = getAuthenticatedUser();
   const displayName = loggedInUser?.name ?? "Alex Johnson";
@@ -173,7 +202,11 @@ export function StudentAssignmentsPage() {
   useEffect(() => {
     // NOTE: Container owns data loading and passes assignment data into the presentation component.
     // NOTE: Service now reads live assignments from enrolled classes so this page reflects faculty-created assignments.
-    listStudentAssignments().then(setAssignments);
+    setIsLoading(true);
+    listStudentAssignments()
+      .then(setAssignments)
+      .catch(() => setAssignments([]))
+      .finally(() => setIsLoading(false));
   }, []);
 
   const goToSettingsSection = (section: SettingsSection) => {
@@ -200,6 +233,7 @@ export function StudentAssignmentsPage() {
       mainContent={
         <StudentAssignmentsView
           assignments={assignments}
+          isLoading={isLoading}
           selectedFilter={selectedFilter}
           onFilterChange={setSelectedFilter}
         />

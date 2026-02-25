@@ -120,13 +120,37 @@ function UniversityFacultyView({
               </tr>
             </thead>
             <tbody>
-              {isLoading && (
-                <tr>
-                  <td className="px-6 py-5 text-[14px] text-[#5D6A80]" colSpan={6}>
-                    Loading faculty members...
-                  </td>
-                </tr>
-              )}
+              {isLoading
+                ? Array.from({ length: 5 }).map((_, index) => (
+                    <tr key={`university-faculty-skeleton-${index}`} className="border-b border-gray-100 last:border-b-0">
+                      {/* NOTE: Skeleton rows keep faculty management table structure visible during fetch. */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3 animate-pulse">
+                          <div className="h-10 w-10 rounded-full bg-[#F1F3F7]" />
+                          <div className="space-y-2">
+                            <div className="h-4 w-36 rounded bg-gray-200" />
+                            <div className="h-3 w-44 rounded bg-gray-200" />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-32 rounded bg-gray-200 animate-pulse" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-8 rounded bg-gray-200 animate-pulse" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-10 rounded bg-gray-200 animate-pulse" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-7 w-20 rounded-full bg-gray-100 animate-pulse" />
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="ml-auto h-8 w-8 rounded-lg bg-gray-100 animate-pulse" />
+                      </td>
+                    </tr>
+                  ))
+                : null}
 
               {!isLoading && filteredMembers.length === 0 && (
                 <tr>
