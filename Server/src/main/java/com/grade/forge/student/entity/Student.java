@@ -1,5 +1,6 @@
 package com.grade.forge.student.entity;
 
+import com.grade.forge.enrollment.entity.Enrollment;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.user.entity.Users;
 import jakarta.persistence.*;

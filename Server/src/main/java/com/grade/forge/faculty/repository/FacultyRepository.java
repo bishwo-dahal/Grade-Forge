@@ -13,4 +13,5 @@ public interface FacultyRepository extends JpaRepository<Faculty, Long> {
     List<Faculty> findByDepartment(String department);
     List<Faculty> findByActive(boolean active);
     Optional<Faculty> findByUser_Id(Long userId);
+    List<Faculty> findByNameContainingIgnoreCaseOrEmailContainingIgnoreCaseOrDepartmentContainingIgnoreCase(String nameKeyword, String emailKeyword, String departmentKeyword);
 }

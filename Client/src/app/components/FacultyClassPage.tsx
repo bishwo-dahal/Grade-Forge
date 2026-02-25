@@ -1071,7 +1071,8 @@ function StudentsSection({
                       }
                     }}
                     type="text"
-                    placeholder="Search by student email..."
+                    // NOTE: Teammate search supports email, name, and CWID keywords.
+                    placeholder="Search by email, name, or CWID..."
                     className="w-full h-11 rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/25"
                   />
                 </div>
@@ -1104,7 +1105,13 @@ function StudentsSection({
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2 min-w-0">
                             <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" strokeWidth={2} />
-                            <span className="text-[13px] text-[#2B2A2A] truncate">{suggestion.email}</span>
+                            <div className="min-w-0">
+                              <p className="truncate text-[13px] font-medium text-[#2B2A2A]">{suggestion.name}</p>
+                              <p className="truncate text-[12px] text-[#5D6A80]">{suggestion.email}</p>
+                              <p className="truncate text-[11px] text-[#7A8599]">
+                                CWID: {suggestion.cwid} • Major: {suggestion.major} • Canvas: {suggestion.canvasUserId}
+                              </p>
+                            </div>
                           </div>
                           <span
                             className={`text-[11px] px-2 py-0.5 rounded-full ${
@@ -1131,6 +1138,11 @@ function StudentsSection({
                   <div>
                     <p className="text-[14px] font-semibold text-[#2B2A2A]">{lookupResult.studentName}</p>
                     <p className="text-[13px] text-gray-600">{lookupResult.studentEmail}</p>
+                    {/* NOTE: Detailed profile fields are shown here so faculty can confirm the correct student before enrolling. */}
+                    <p className="mt-1 text-[12px] text-[#5D6A80]">
+                      CWID: {lookupResult.cwid} • Major: {lookupResult.major} • Canvas: {lookupResult.canvasUserId}
+                    </p>
+                    <p className="text-[12px] text-[#5D6A80]">Status: {lookupResult.currentStatus}</p>
                     <p className="text-[12px] text-gray-500 mt-1">{lookupResult.reason}</p>
                   </div>
                   <button

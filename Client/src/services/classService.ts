@@ -597,19 +597,15 @@ interface EnrollmentApiResponse {
   grade: string | null;
 }
 
-interface FacultyStudentLookupApiResponse {
-  studentId: number | null;
-  studentName: string | null;
-  studentEmail: string | null;
-  alreadyInCourse: boolean | null;
-  currentStatus: string | null;
-  canEnroll: boolean | null;
-  reason: string | null;
-}
-
-interface FacultyStudentEmailSuggestionApiResponse {
-  email: string;
-  alreadyInCourse: boolean;
+interface FacultyStudentSearchApiResponse {
+  id: number | null;
+  userId: number | null;
+  cwid: string | null;
+  major: string | null;
+  canvasUserId: string | null;
+  name: string | null;
+  email: string | null;
+  enrolledStatus: string | null;
 }
 
 function buildCourseIcon(courseCode: string): { icon: string; iconBg: string } {
@@ -750,6 +746,31 @@ async function listFacultySubmissionsByAssignment(assignmentId: number): Promise
 async function listFacultyEnrollmentsByCourse(courseId: number): Promise<EnrollmentApiResponse[]> {
   const { data } = await api.get<EnrollmentApiResponse[]>(`/api/v1/faculty/enrollments/course/${courseId}`);
   return data;
+}
+
+async function searchStudentsForFacultyCourse(
+  courseId: number,
+  keyword: string,
+): Promise<FacultyStudentSearchApiResponse[]> {
+  const trimmedKeyword = keyword.trim();
+  if (trimmedKeyword.length < 1) {
+    return [];
+  }
+  // NOTE: Teammate backend now exposes roster candidate search via shared student search endpoint.
+  const { data } = await api.get<FacultyStudentSearchApiResponse[]>("/api/search/students", {
+    params: { keyword: trimmedKeyword, courseId },
+  });
+  return data;
+}
+
+function mapEnrolledStatusToReason(status: string, canEnroll: boolean): string {
+  if (status === "ENROLLED") {
+    return "Student is already enrolled in this course.";
+  }
+  if (canEnroll) {
+    return "Student can be enrolled in this course.";
+  }
+  return "Student cannot be enrolled right now.";
 }
 
 async function getStudentCourseById(courseId: number): Promise<CourseApiResponse> {
@@ -1256,20 +1277,41 @@ export async function searchFacultyStudentByEmail(
     throw new Error("Email is required.");
   }
 
-  const { data } = await api.get<FacultyStudentLookupApiResponse>(
-    `/api/v1/faculty/enrollments/course/${courseId}/search-student`,
-    { params: { email: trimmedEmail } },
+  const students = await searchStudentsForFacultyCourse(courseId, trimmedEmail);
+  const exactEmailMatch = students.find(
+    (student) => (student.email ?? "").trim().toLowerCase() === trimmedEmail.toLowerCase(),
   );
+  // REFACTOR: Search supports teammate keyword lookup (name/email/CWID), while enroll still resolves one student record.
+  const matchedStudent =
+    exactEmailMatch ??
+    (students.length === 1 ? students[0] : null);
 
-  // NOTE: Keep the return shape stable so roster UI logic stays independent from backend naming changes.
+  if (!matchedStudent) {
+    if (students.length > 1) {
+      throw new Error("Multiple students matched. Select one from the suggestions.");
+    }
+    // FIX: Normalize "not found" into a consistent frontend error even though backend returns an empty list.
+    throw new Error("User not found.");
+  }
+
+  const normalizedStatus = (matchedStudent.enrolledStatus ?? "NOT_ENROLLED").toUpperCase();
+  const alreadyInCourse = normalizedStatus === "ENROLLED";
+  const canEnroll = !alreadyInCourse && typeof matchedStudent.id === "number";
+  const reason = mapEnrolledStatusToReason(normalizedStatus, canEnroll);
+
+  // NOTE: Keep the existing frontend return shape stable so roster UI logic does not need structural changes.
   return {
-    studentId: data.studentId ?? null,
-    studentName: data.studentName ?? "Unknown student",
-    studentEmail: data.studentEmail ?? trimmedEmail,
-    alreadyInCourse: Boolean(data.alreadyInCourse),
-    currentStatus: data.currentStatus ?? "UNKNOWN",
-    canEnroll: Boolean(data.canEnroll),
-    reason: data.reason ?? "No additional details were provided.",
+    studentId: matchedStudent.id ?? null,
+    userId: matchedStudent.userId ?? null,
+    studentName: matchedStudent.name ?? "Unknown student",
+    studentEmail: matchedStudent.email ?? trimmedEmail,
+    major: matchedStudent.major ?? "N/A",
+    cwid: matchedStudent.cwid ?? "N/A",
+    canvasUserId: matchedStudent.canvasUserId ?? "N/A",
+    alreadyInCourse,
+    currentStatus: normalizedStatus,
+    canEnroll,
+    reason,
   };
 }
 
@@ -1283,15 +1325,45 @@ export async function listFacultyStudentEmailSuggestions(
     return [];
   }
 
-  // NOTE: Typeahead suggestions are backend-scoped to faculty-owned course context for security consistency.
-  const { data } = await api.get<FacultyStudentEmailSuggestionApiResponse[]>(
-    `/api/v1/faculty/enrollments/course/${courseId}/student-email-suggestions`,
-    { params: { query: trimmedQuery } },
-  );
-  return data.map((suggestion) => ({
-    email: suggestion.email,
-    alreadyInCourse: Boolean(suggestion.alreadyInCourse),
-  }));
+  const students = await searchStudentsForFacultyCourse(courseId, trimmedQuery);
+
+  const dedupedByEmail = new Map<string, FacultyStudentEmailSuggestion>();
+  students
+    // NOTE: Prefix-first ordering keeps suggestions predictable in the UI dropdown.
+    .sort((left, right) => {
+      const leftEmail = (left.email ?? "").toLowerCase();
+      const rightEmail = (right.email ?? "").toLowerCase();
+      const normalizedQuery = trimmedQuery.toLowerCase();
+      const leftStartsWith = leftEmail.startsWith(normalizedQuery);
+      const rightStartsWith = rightEmail.startsWith(normalizedQuery);
+      if (leftStartsWith !== rightStartsWith) {
+        return leftStartsWith ? -1 : 1;
+      }
+      return leftEmail.localeCompare(rightEmail);
+    })
+    .forEach((student) => {
+      const email = student.email?.trim();
+      if (!email) {
+        return;
+      }
+      const emailKey = email.toLowerCase();
+      if (dedupedByEmail.has(emailKey)) {
+        return;
+      }
+      dedupedByEmail.set(emailKey, {
+        studentId: student.id ?? null,
+        userId: student.userId ?? null,
+        name: student.name ?? "Unknown student",
+        email,
+        major: student.major ?? "N/A",
+        cwid: student.cwid ?? "N/A",
+        canvasUserId: student.canvasUserId ?? "N/A",
+        currentStatus: (student.enrolledStatus ?? "NOT_ENROLLED").toUpperCase(),
+        alreadyInCourse: (student.enrolledStatus ?? "").toUpperCase() === "ENROLLED",
+      });
+    });
+
+  return Array.from(dedupedByEmail.values()).slice(0, 8);
 }
 
 export async function enrollStudentByEmail(classId: string, email: string): Promise<void> {
@@ -1301,8 +1373,19 @@ export async function enrollStudentByEmail(classId: string, email: string): Prom
     throw new Error("Email is required.");
   }
 
-  // TODO(backend): Keep this endpoint contract stable because faculty roster enrollment depends on this body shape.
-  await api.post(`/api/v1/faculty/enrollments/course/${courseId}/enroll-by-email`, { email: trimmedEmail });
+  const matchedStudent = await searchFacultyStudentByEmail(classId, trimmedEmail);
+  if (matchedStudent.alreadyInCourse) {
+    throw new Error("Student is already enrolled in this course.");
+  }
+  if (!matchedStudent.studentId) {
+    throw new Error("User not found.");
+  }
+
+  // REFACTOR: Switch to teammate enrollment contract (studentId + courseId) while keeping same frontend function signature.
+  await api.post("/api/v1/faculty/enrollments", {
+    studentId: matchedStudent.studentId,
+    courseId,
+  });
 }
 
 export function summarizeFacultyRosterStats(rows: FacultyRosterStudentRow[]): FacultyRosterStats {

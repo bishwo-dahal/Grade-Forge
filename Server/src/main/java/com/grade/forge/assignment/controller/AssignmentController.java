@@ -1,5 +1,6 @@
 package com.grade.forge.assignment.controller;
 
+import com.grade.forge.assignment.dto.AssignmentBasicResponse;
 import com.grade.forge.assignment.dto.AssignmentRequest;
 import com.grade.forge.assignment.dto.AssignmentResponse;
 import com.grade.forge.assignment.service.AssignmentService;
@@ -34,8 +35,8 @@ public class AssignmentController {
     }
 
     @GetMapping("/course/{courseId}")
-    public ResponseEntity<List<AssignmentResponse>> getAssignmentsByCourse(@PathVariable Long courseId) {
-        List<AssignmentResponse> assignments = assignmentService.getAssignmentsByCourse(courseId);
+    public ResponseEntity<List<AssignmentBasicResponse>> getAssignmentsByCourse(@PathVariable Long courseId) {
+        List<AssignmentBasicResponse> assignments = assignmentService.getAssignmentsByCourse(courseId);
         return new ResponseEntity<>(assignments, HttpStatus.OK);
     }
 

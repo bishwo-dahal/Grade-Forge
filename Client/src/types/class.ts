@@ -197,17 +197,28 @@ export interface ClassStudent {
 // NOTE: UI-driven search result shape for faculty email lookup in the class roster page.
 export interface FacultyStudentSearchResult {
   studentId: number | null;
+  userId: number | null;
   studentName: string;
   studentEmail: string;
+  major: string;
+  cwid: string;
+  canvasUserId: string;
   alreadyInCourse: boolean;
   currentStatus: string;
   canEnroll: boolean;
   reason: string;
 }
 
-// NOTE: UI-driven suggestion item for faculty roster typeahead results.
+// NOTE: UI-driven suggestion item now includes full student profile fields from teammate search endpoint.
 export interface FacultyStudentEmailSuggestion {
+  studentId: number | null;
+  userId: number | null;
+  name: string;
   email: string;
+  major: string;
+  cwid: string;
+  canvasUserId: string;
+  currentStatus: string;
   alreadyInCourse: boolean;
 }
 

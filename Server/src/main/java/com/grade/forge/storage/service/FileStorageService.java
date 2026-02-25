@@ -103,9 +103,6 @@ public class FileStorageService {
         return file;
     }
 
-    public String buildFileUrl(String key) {
-        return String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, key);
-    }
 
     public String generatePresignedDownloadUrl(String key, String originalFilename) {
         String url = s3PresignedUrl.generateDownloadUrl(bucketName, key,originalFilename);
