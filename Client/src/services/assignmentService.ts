@@ -16,8 +16,8 @@ import type { RubricCategory } from "../types/grade";
 import type { PublicTestCase } from "../types/submission";
 import api from "../api/axios";
 
-// NOTE: Centralized mock assignment data to create a single integration seam.
-// TODO(backend): Replace mock service with real API calls. Keep return shapes stable for the UI.
+// NOTE: This service keeps assignment data access centralized for both live API endpoints and remaining mock-only views.
+// TODO(backend): Migrate remaining mock-only helper sections to backend endpoints while keeping return shapes stable.
 
 const assignmentDetail: AssignmentDetail = {
   id: "assignment-8",
@@ -148,130 +148,6 @@ const recentAssignments: RecentAssignmentItem[] = [
     statusColor: "text-green-600",
     statusBg: "bg-green-100",
     iconKey: "check",
-  },
-];
-
-// NOTE: Mock list for the student assignments workspace page; centralized for backend-ready replacement.
-const studentAssignments: StudentAssignmentListItem[] = [
-  {
-    id: "assignment-hash-table",
-    title: "Hash Table Implementation",
-    courseCode: "CS 2400",
-    courseName: "Data Structures & Algorithms",
-    points: 100,
-    dueAt: "Feb 8, 2026 at 11:59 PM",
-    status: "overdue",
-    progressPercent: 0,
-    icon: "\u{1F4BB}",
-    iconBg: "bg-[#5A7ACD]/10",
-  },
-  {
-    id: "assignment-bst-operations",
-    title: "Binary Search Tree Operations",
-    courseCode: "CS 2400",
-    courseName: "Data Structures & Algorithms",
-    points: 100,
-    dueAt: "Feb 10, 2026 at 11:59 PM",
-    status: "active",
-    progressPercent: 45,
-    icon: "\u{1F4BB}",
-    iconBg: "bg-[#5A7ACD]/10",
-  },
-  {
-    id: "assignment-react-state",
-    title: "React State Management",
-    courseCode: "CS 301",
-    courseName: "Web Development",
-    points: 100,
-    dueAt: "Feb 12, 2026 at 11:59 PM",
-    status: "upcoming",
-    progressPercent: null,
-    icon: "\u{1F310}",
-    iconBg: "bg-[#FEB05D]/10",
-  },
-  {
-    id: "assignment-graph-algorithms",
-    title: "Graph Algorithms: Dijkstra & A*",
-    courseCode: "CS 2400",
-    courseName: "Data Structures & Algorithms",
-    points: 150,
-    dueAt: "Feb 15, 2026 at 11:59 PM",
-    status: "upcoming",
-    progressPercent: null,
-    icon: "\u{1F4BB}",
-    iconBg: "bg-[#5A7ACD]/10",
-  },
-  {
-    id: "assignment-api-security",
-    title: "REST API Authentication Flow",
-    courseCode: "CS 301",
-    courseName: "Web Development",
-    points: 120,
-    dueAt: "Feb 16, 2026 at 11:59 PM",
-    status: "active",
-    progressPercent: 70,
-    icon: "\u{1F310}",
-    iconBg: "bg-[#FEB05D]/10",
-  },
-  {
-    id: "assignment-query-plan",
-    title: "SQL Query Plan Analysis",
-    courseCode: "CS 350",
-    courseName: "Database Systems",
-    points: 100,
-    dueAt: "Feb 18, 2026 at 11:59 PM",
-    status: "upcoming",
-    progressPercent: null,
-    icon: "\u{1F5C4}\uFE0F",
-    iconBg: "bg-[#FEB05D]/10",
-  },
-  {
-    id: "assignment-tree-balancing",
-    title: "AVL Tree Balancing",
-    courseCode: "CS 2400",
-    courseName: "Data Structures & Algorithms",
-    points: 100,
-    dueAt: "Feb 20, 2026 at 11:59 PM",
-    status: "active",
-    progressPercent: 20,
-    icon: "\u{1F4BB}",
-    iconBg: "bg-[#5A7ACD]/10",
-  },
-  {
-    id: "assignment-uml-diagrams",
-    title: "System UML Diagrams",
-    courseCode: "CS 410",
-    courseName: "Software Engineering",
-    points: 90,
-    dueAt: "Feb 1, 2026 at 11:59 PM",
-    status: "completed",
-    progressPercent: 100,
-    icon: "\u{1F4C4}",
-    iconBg: "bg-[#5A7ACD]/10",
-  },
-  {
-    id: "assignment-schema-design",
-    title: "Database Schema Design",
-    courseCode: "CS 350",
-    courseName: "Database Systems",
-    points: 110,
-    dueAt: "Jan 30, 2026 at 11:59 PM",
-    status: "completed",
-    progressPercent: 100,
-    icon: "\u{1F5C4}\uFE0F",
-    iconBg: "bg-[#FEB05D]/10",
-  },
-  {
-    id: "assignment-ui-testing",
-    title: "Frontend UI Testing",
-    courseCode: "CS 301",
-    courseName: "Web Development",
-    points: 100,
-    dueAt: "Feb 22, 2026 at 11:59 PM",
-    status: "upcoming",
-    progressPercent: null,
-    icon: "\u{1F310}",
-    iconBg: "bg-[#FEB05D]/10",
   },
 ];
 
@@ -515,18 +391,6 @@ const defaultCreateAssignmentHeader: FacultyAssignmentCreatePageHeader = {
   courseName: "Data Structures & Algorithms",
 };
 
-const createAssignmentLanguageOptions: AssignmentCreateOption[] = [
-  { id: "python", label: "Python" },
-  { id: "java", label: "Java" },
-  { id: "cpp", label: "C++" },
-];
-
-const createAssignmentRubricOptions: AssignmentCreateOption[] = [
-  { id: "default-coding", label: "Default Coding Rubric" },
-  { id: "algorithms", label: "Algorithms Rubric" },
-  { id: "web-dev", label: "Web Development Rubric" },
-];
-
 const defaultCreateAssignmentForm: AssignmentCreateFormData = {
   title: "",
   description: "",
@@ -534,24 +398,6 @@ const defaultCreateAssignmentForm: AssignmentCreateFormData = {
   dueTime: "23:59",
   languageId: "",
   totalPoints: 100,
-  rubricId: "",
-  starterFileName: null,
-  publicTestCases: [
-    {
-      id: "public-1",
-      input: "",
-      expectedOutput: "",
-      isHidden: false,
-    },
-  ],
-  privateTestCases: [
-    {
-      id: "private-1",
-      input: "",
-      expectedOutput: "",
-      isHidden: true,
-    },
-  ],
 };
 
 interface AssignmentApiResponse {
@@ -577,6 +423,24 @@ interface SubmissionApiResponse {
   submittedAt: string;
 }
 
+interface StudentEnrolledCourseApiResponse {
+  id: number;
+  name: string;
+  courseCode: string;
+}
+
+interface FacultyCourseHeaderApiResponse {
+  id: number;
+  name: string;
+  courseCode: string;
+}
+
+interface ProgrammingLanguageApiResponse {
+  id: number;
+  name: string;
+  isActive: boolean;
+}
+
 function formatDate(value: string | null): string {
   if (!value) {
     return "No due date";
@@ -592,6 +456,73 @@ function formatDate(value: string | null): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function formatDueDateTime(value: string | null): string {
+  if (!value) {
+    return "No due date";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "No due date";
+  }
+
+  return parsed.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function resolveAssignmentIcon(courseCode: string): { icon: string; iconBg: string } {
+  const normalizedCode = courseCode.toUpperCase();
+  if (normalizedCode.includes("WEB")) {
+    return { icon: "\u{1F310}", iconBg: "bg-[#FEB05D]/10" };
+  }
+  if (normalizedCode.includes("DB")) {
+    return { icon: "\u{1F5C4}\uFE0F", iconBg: "bg-[#FEB05D]/10" };
+  }
+  return { icon: "\u{1F4BB}", iconBg: "bg-[#5A7ACD]/10" };
+}
+
+function resolveStudentAssignmentStatus(
+  dueDate: string | null,
+  hasSubmission: boolean,
+  isGraded: boolean,
+): StudentAssignmentListItem["status"] {
+  if (isGraded) {
+    return "completed";
+  }
+  if (hasSubmission) {
+    return "active";
+  }
+
+  const dueTimestamp = dueDate ? new Date(dueDate).getTime() : Number.NaN;
+  if (Number.isFinite(dueTimestamp) && dueTimestamp < Date.now()) {
+    return "overdue";
+  }
+  return "upcoming";
+}
+
+function parseClassId(rawClassId: string): number {
+  const parsedClassId = Number(rawClassId.trim());
+  if (!Number.isFinite(parsedClassId) || parsedClassId <= 0) {
+    throw new Error("Invalid class id.");
+  }
+  return parsedClassId;
+}
+
+function buildDueDateTimePayload(dateValue: string, timeValue: string): string {
+  // NOTE: Backend expects LocalDateTime for dueDate; keep `YYYY-MM-DDTHH:mm:ss` shape stable.
+  const dueDateTime = `${dateValue}T${timeValue}:00`;
+  const parsedDueDateTime = new Date(dueDateTime);
+  if (Number.isNaN(parsedDueDateTime.getTime())) {
+    throw new Error("Invalid due date or time.");
+  }
+  return dueDateTime;
 }
 
 export function getAssignmentDetailById(id: string): Promise<AssignmentDetail> {
@@ -651,9 +582,65 @@ export function listRecentAssignments(): Promise<RecentAssignmentItem[]> {
   return Promise.resolve(recentAssignments);
 }
 
-export function listStudentAssignments(): Promise<StudentAssignmentListItem[]> {
-  // TODO(backend): Replace this mock data source with the student assignments listing endpoint.
-  return Promise.resolve(studentAssignments);
+export async function listStudentAssignments(): Promise<StudentAssignmentListItem[]> {
+  // NOTE: Student assignments page now loads real assignments from enrolled classes so new faculty-created work is visible.
+  const { data: enrolledCourses } = await api.get<StudentEnrolledCourseApiResponse[]>("/api/v1/student/classes/enrolled");
+
+  const assignmentGroups = await Promise.all(
+    enrolledCourses.map(async (course) => {
+      const { data: assignments } = await api.get<AssignmentApiResponse[]>(
+        `/api/v1/student/assignments/course/${course.id}`,
+      );
+
+      const mappedRows = await Promise.all(
+        assignments.map(async (assignment) => {
+          const { data: submissions } = await api.get<SubmissionApiResponse[]>(
+            `/api/v1/student/submissions/assignment?assignmentId=${assignment.id}`,
+          );
+          const latestSubmission = [...submissions].sort((left, right) => {
+            return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+          })[0];
+          const hasSubmission = submissions.length > 0;
+          const isGraded = latestSubmission?.marks !== null && latestSubmission?.marks !== undefined;
+          const status = resolveStudentAssignmentStatus(assignment.dueDate, hasSubmission, isGraded);
+          const iconData = resolveAssignmentIcon(course.courseCode || assignment.courseName);
+
+          return {
+            id: String(assignment.id),
+            title: assignment.name,
+            courseCode: course.courseCode || "N/A",
+            courseName: assignment.courseName || course.name || "Course",
+            points: assignment.totalPoints,
+            dueAt: formatDueDateTime(assignment.dueDate),
+            status,
+            // NOTE: Completion bar is hidden in UI; keep stable placeholder for components that still read this field.
+            progressPercent: status === "completed" ? 100 : status === "active" ? 50 : null,
+            icon: iconData.icon,
+            iconBg: iconData.iconBg,
+          } satisfies StudentAssignmentListItem;
+        }),
+      );
+
+      return mappedRows;
+    }),
+  );
+
+  return assignmentGroups
+    .flat()
+    .sort((left, right) => {
+      const leftDue = new Date(left.dueAt).getTime();
+      const rightDue = new Date(right.dueAt).getTime();
+      if (!Number.isFinite(leftDue) && !Number.isFinite(rightDue)) {
+        return 0;
+      }
+      if (!Number.isFinite(leftDue)) {
+        return 1;
+      }
+      if (!Number.isFinite(rightDue)) {
+        return -1;
+      }
+      return leftDue - rightDue;
+    });
 }
 
 export function getAssignmentDescription(assignmentId: string): Promise<AssignmentDescription> {
@@ -676,32 +663,55 @@ export function getEditorCodeExamples(assignmentId: string): Promise<EditorCodeE
   return Promise.resolve(editorCodeExamples);
 }
 
-export function getFacultyAssignmentCreatePageData(classId: string): Promise<FacultyAssignmentCreatePageData> {
-  // NOTE: Create-assignment page data is centralized in service layer so page components stay presentation-focused.
-  // TODO(backend): Replace with faculty class metadata + rubric/language endpoints while preserving this return shape.
-  const normalizedClassId = classId.trim() || defaultCreateAssignmentHeader.classId;
-  const pageData: FacultyAssignmentCreatePageData = {
+export async function getFacultyAssignmentCreatePageData(classId: string): Promise<FacultyAssignmentCreatePageData> {
+  // NOTE: Create-assignment page data stays centralized here so the page remains presentation-focused.
+  const parsedClassId = parseClassId(classId || defaultCreateAssignmentHeader.classId);
+  const [courseResponse, languagesResponse] = await Promise.all([
+    api.get<FacultyCourseHeaderApiResponse>(`/api/v1/faculty/courses/${parsedClassId}`),
+    api.get<ProgrammingLanguageApiResponse[]>("/api/v1/faculty/programming-languages/all"),
+  ]);
+
+  const languageOptions: AssignmentCreateOption[] = languagesResponse.data
+    // NOTE: Inactive languages should not appear for new assignment creation.
+    .filter((language) => language.isActive !== false)
+    .map((language) => ({
+      id: String(language.id),
+      label: language.name,
+    }));
+
+  return {
     header: {
-      ...defaultCreateAssignmentHeader,
-      classId: normalizedClassId,
+      classId: String(courseResponse.data.id),
+      courseCode: courseResponse.data.courseCode,
+      courseName: courseResponse.data.name,
     },
-    languageOptions: createAssignmentLanguageOptions,
-    rubricOptions: createAssignmentRubricOptions,
-    initialForm: {
-      ...defaultCreateAssignmentForm,
-      publicTestCases: defaultCreateAssignmentForm.publicTestCases.map((testCase) => ({ ...testCase })),
-      privateTestCases: defaultCreateAssignmentForm.privateTestCases.map((testCase) => ({ ...testCase })),
-    },
+    languageOptions,
+    initialForm: { ...defaultCreateAssignmentForm },
   };
-  return Promise.resolve(pageData);
 }
 
-export function createFacultyAssignmentDraft(
+export async function createFacultyAssignmentDraft(
   classId: string,
   form: AssignmentCreateFormData,
 ): Promise<{ assignmentId: string }> {
-  // IMPORTANT: Keep this signature stable because the page is already wired as the backend handoff seam.
-  // TODO(backend): Replace this mock with faculty assignment-create API call and return created assignment id.
-  const generatedId = `${classId || "class"}-${Date.now()}`;
-  return Promise.resolve({ assignmentId: generatedId });
+  const parsedClassId = parseClassId(classId || defaultCreateAssignmentHeader.classId);
+  const parsedLanguageId = Number(form.languageId);
+  if (!Number.isFinite(parsedLanguageId) || parsedLanguageId <= 0) {
+    throw new Error("Select a programming language.");
+  }
+
+  const payload = {
+    // IMPORTANT: Keep this payload aligned with backend AssignmentRequest to avoid create failures.
+    courseId: parsedClassId,
+    languageId: parsedLanguageId,
+    name: form.title.trim(),
+    description: form.description.trim(),
+    totalPoints: form.totalPoints,
+    submissionType: "INDIVIDUAL" as const,
+    dueDate: buildDueDateTimePayload(form.dueDate, form.dueTime),
+  };
+
+  // NOTE: Creation now calls backend directly so the assignment is persisted and visible to enrolled students.
+  const { data } = await api.post<AssignmentApiResponse>("/api/v1/faculty/assignments", payload);
+  return { assignmentId: String(data.id) };
 }

@@ -172,7 +172,7 @@ export function StudentAssignmentsPage() {
 
   useEffect(() => {
     // NOTE: Container owns data loading and passes assignment data into the presentation component.
-    // TODO(backend): Replace this service call with the student assignment listing API while preserving return shape.
+    // NOTE: Service now reads live assignments from enrolled classes so this page reflects faculty-created assignments.
     listStudentAssignments().then(setAssignments);
   }, []);
 

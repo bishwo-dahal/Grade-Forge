@@ -112,13 +112,6 @@ export interface AssignmentCreateOption {
   label: string;
 }
 
-export interface AssignmentCreateTestCase {
-  id: string;
-  input: string;
-  expectedOutput: string;
-  isHidden: boolean;
-}
-
 export interface AssignmentCreateFormData {
   title: string;
   description: string;
@@ -126,15 +119,11 @@ export interface AssignmentCreateFormData {
   dueTime: string;
   languageId: string;
   totalPoints: number;
-  rubricId: string;
-  starterFileName: string | null;
-  publicTestCases: AssignmentCreateTestCase[];
-  privateTestCases: AssignmentCreateTestCase[];
+  // NOTE: Advanced settings (rubric, starter files, and test cases) are intentionally deferred to a later phase.
 }
 
 export interface FacultyAssignmentCreatePageData {
   header: FacultyAssignmentCreatePageHeader;
   languageOptions: AssignmentCreateOption[];
-  rubricOptions: AssignmentCreateOption[];
   initialForm: AssignmentCreateFormData;
 }
