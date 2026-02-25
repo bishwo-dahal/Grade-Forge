@@ -28,6 +28,7 @@ export function AssignmentPage() {
   const { assignmentId } = useParams();
   const [activeTab, setActiveTab] = useState<TabType>('description');
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // NOTE: Load all assignment-related data here so child panels remain presentation-only.
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [description, setDescription] = useState<AssignmentDescription | null>(null);
@@ -37,16 +38,40 @@ export function AssignmentPage() {
   const [editorCodeExamples, setEditorCodeExamples] = useState<EditorCodeExamples>({});
 
   useEffect(() => {
-    const resolvedId = assignmentId || "assignment-8";
-    getAssignmentDetailById(resolvedId).then(setAssignment);
-    getAssignmentDescription(resolvedId).then(setDescription);
-    listPublicTestCases(resolvedId).then(setPublicTests);
-    listRubricCategories(resolvedId).then(setRubricCategories);
-    getAssignmentResult(resolvedId).then(setResults);
-    getEditorCodeExamples(resolvedId).then(setEditorCodeExamples);
+    const resolvedId = assignmentId || "1";
+    setErrorMessage(null);
+    // NOTE: Keep data loading centralized in page container so assignment panels remain presentation-only.
+    Promise.all([
+      getAssignmentDetailById(resolvedId),
+      getAssignmentDescription(resolvedId),
+      listPublicTestCases(resolvedId),
+      listRubricCategories(resolvedId),
+      getAssignmentResult(resolvedId),
+      getEditorCodeExamples(resolvedId),
+    ])
+      .then(([assignmentData, descriptionData, publicTestsData, rubricData, resultsData, codeExamplesData]) => {
+        setAssignment(assignmentData);
+        setDescription(descriptionData);
+        setPublicTests(publicTestsData);
+        setRubricCategories(rubricData);
+        setResults(resultsData);
+        setEditorCodeExamples(codeExamplesData);
+        // FIX: Results tab now reflects whether at least one real submission exists for this assignment.
+        setHasSubmitted(assignmentData.submissionsUsed > 0);
+      })
+      .catch(() => {
+        setErrorMessage("Unable to load assignment data.");
+      });
   }, [assignmentId]);
 
   if (!assignment) {
+    if (errorMessage) {
+      return (
+        <div className="flex h-screen items-center justify-center bg-[#F5F2F2] text-[14px] text-[#C23A42]">
+          {errorMessage}
+        </div>
+      );
+    }
     return null;
   }
 

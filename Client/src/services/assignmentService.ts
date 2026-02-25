@@ -441,6 +441,14 @@ interface ProgrammingLanguageApiResponse {
   isActive: boolean;
 }
 
+interface StudentAssignmentWorkspaceSource {
+  course: StudentEnrolledCourseApiResponse;
+  assignment: AssignmentApiResponse;
+  submissions: SubmissionApiResponse[];
+}
+
+const studentAssignmentWorkspaceCache = new Map<string, Promise<StudentAssignmentWorkspaceSource>>();
+
 function formatDate(value: string | null): string {
   if (!value) {
     return "No due date";
@@ -515,6 +523,82 @@ function parseClassId(rawClassId: string): number {
   return parsedClassId;
 }
 
+function parseAssignmentId(rawAssignmentId: string): number {
+  const parsedAssignmentId = Number(rawAssignmentId.trim());
+  if (!Number.isFinite(parsedAssignmentId) || parsedAssignmentId <= 0) {
+    throw new Error("Invalid assignment id.");
+  }
+  return parsedAssignmentId;
+}
+
+function getLatestSubmission(submissions: SubmissionApiResponse[]): SubmissionApiResponse | undefined {
+  return [...submissions].sort((left, right) => {
+    return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+  })[0];
+}
+
+function mapAssignmentDetailStatus(
+  dueDate: string | null,
+  submissions: SubmissionApiResponse[],
+): AssignmentDetail["status"] {
+  const latestSubmission = getLatestSubmission(submissions);
+  if (latestSubmission?.marks !== null && latestSubmission?.marks !== undefined) {
+    return "graded";
+  }
+  if (submissions.length > 0) {
+    return "submitted";
+  }
+
+  const dueTimestamp = dueDate ? new Date(dueDate).getTime() : Number.NaN;
+  if (Number.isFinite(dueTimestamp) && dueTimestamp < Date.now()) {
+    return "late";
+  }
+  return "not_submitted";
+}
+
+async function loadStudentAssignmentWorkspaceSource(assignmentId: string): Promise<StudentAssignmentWorkspaceSource> {
+  const parsedAssignmentId = parseAssignmentId(assignmentId);
+  const cacheKey = String(parsedAssignmentId);
+  const cachedPromise = studentAssignmentWorkspaceCache.get(cacheKey);
+  if (cachedPromise) {
+    return cachedPromise;
+  }
+
+  const loaderPromise = (async () => {
+    // NOTE: Student assignment route only provides assignmentId, so we resolve course ownership from enrolled classes.
+    const { data: enrolledCourses } = await api.get<StudentEnrolledCourseApiResponse[]>("/api/v1/student/classes/enrolled");
+
+    const assignmentsByCourse = await Promise.all(
+      enrolledCourses.map(async (course) => {
+        const { data: assignments } = await api.get<AssignmentApiResponse[]>(`/api/v1/student/assignments/course/${course.id}`);
+        return { course, assignments };
+      }),
+    );
+
+    for (const group of assignmentsByCourse) {
+      const matchedAssignment = group.assignments.find((assignment) => assignment.id === parsedAssignmentId);
+      if (!matchedAssignment) {
+        continue;
+      }
+
+      const { data: submissions } = await api.get<SubmissionApiResponse[]>(
+        `/api/v1/student/submissions/assignment?assignmentId=${parsedAssignmentId}`,
+      );
+
+      return {
+        course: group.course,
+        assignment: matchedAssignment,
+        submissions,
+      } satisfies StudentAssignmentWorkspaceSource;
+    }
+
+    throw new Error("Assignment not found.");
+  })();
+
+  studentAssignmentWorkspaceCache.set(cacheKey, loaderPromise);
+  return loaderPromise;
+}
+
 function buildDueDateTimePayload(dateValue: string, timeValue: string): string {
   // NOTE: Backend expects LocalDateTime for dueDate; keep `YYYY-MM-DDTHH:mm:ss` shape stable.
   const dueDateTime = `${dateValue}T${timeValue}:00`;
@@ -525,9 +609,29 @@ function buildDueDateTimePayload(dateValue: string, timeValue: string): string {
   return dueDateTime;
 }
 
-export function getAssignmentDetailById(id: string): Promise<AssignmentDetail> {
-  // NOTE: id is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve({ ...assignmentDetail, id });
+export async function getAssignmentDetailById(id: string): Promise<AssignmentDetail> {
+  const workspaceSource = await loadStudentAssignmentWorkspaceSource(id);
+  const latestSubmission = getLatestSubmission(workspaceSource.submissions);
+  const status = mapAssignmentDetailStatus(workspaceSource.assignment.dueDate, workspaceSource.submissions);
+  const earnedPoints = latestSubmission?.marks ?? null;
+
+  return {
+    id: String(workspaceSource.assignment.id),
+    title: workspaceSource.assignment.name,
+    course: workspaceSource.course.name || workspaceSource.assignment.courseName || "placeholder text",
+    courseCode: workspaceSource.course.courseCode || "placeholder text",
+    dueDate: formatDueDateTime(workspaceSource.assignment.dueDate),
+    status,
+    points: {
+      earned: earnedPoints,
+      total: workspaceSource.assignment.totalPoints,
+    },
+    submissionsUsed: workspaceSource.submissions.length,
+    // TODO(backend): Replace placeholder with real attempt limit once backend exposes this field.
+    submissionsAllowed: null,
+    language: workspaceSource.assignment.languageName || "placeholder text",
+    hasStarterCode: Boolean(workspaceSource.assignment.starterCodeUrl),
+  };
 }
 
 export function getGradingAssignmentContext(assignmentId: string): Promise<GradingAssignmentContext> {
@@ -643,24 +747,76 @@ export async function listStudentAssignments(): Promise<StudentAssignmentListIte
     });
 }
 
-export function getAssignmentDescription(assignmentId: string): Promise<AssignmentDescription> {
-  // NOTE: assignmentId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(assignmentDescription);
+export async function getAssignmentDescription(assignmentId: string): Promise<AssignmentDescription> {
+  const workspaceSource = await loadStudentAssignmentWorkspaceSource(assignmentId);
+
+  // NOTE: Backend currently returns only one description string; all detailed sections are explicit placeholders for future APIs.
+  return {
+    problemDescription: [
+      workspaceSource.assignment.description?.trim() || "placeholder text",
+    ],
+    requiredMethods: [
+      {
+        name: "placeholder text",
+        description: "placeholder text",
+      },
+    ],
+    exampleCode: "placeholder text",
+    inputOutput: {
+      input: "placeholder text",
+      output: "placeholder text",
+    },
+    rubric: [
+      {
+        category: "placeholder text",
+        description: "placeholder text",
+        points: "placeholder text",
+      },
+    ],
+    constraints: ["placeholder text"],
+  };
 }
 
-export function listRubricCategories(assignmentId: string): Promise<RubricCategory[]> {
-  // NOTE: assignmentId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(rubricCategories);
+export async function listRubricCategories(assignmentId: string): Promise<RubricCategory[]> {
+  await loadStudentAssignmentWorkspaceSource(assignmentId);
+  // TODO(backend): Replace this placeholder rubric structure when rubric-by-assignment endpoint is available.
+  return [
+    {
+      name: "placeholder text",
+      points: 0,
+      criteria: [
+        {
+          description: "placeholder text",
+          points: 0,
+        },
+      ],
+    },
+  ];
 }
 
-export function listPublicTestCases(assignmentId: string): Promise<PublicTestCase[]> {
-  // NOTE: assignmentId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(publicTestCases);
+export async function listPublicTestCases(assignmentId: string): Promise<PublicTestCase[]> {
+  await loadStudentAssignmentWorkspaceSource(assignmentId);
+  // TODO(backend): Replace this placeholder test-case row when test-case endpoint is integrated.
+  return [
+    {
+      id: 1,
+      name: "placeholder text",
+      passed: false,
+      input: "placeholder text",
+      expectedOutput: "placeholder text",
+      actualOutput: "placeholder text",
+      executionTime: "placeholder text",
+    },
+  ];
 }
 
-export function getEditorCodeExamples(assignmentId: string): Promise<EditorCodeExamples> {
-  // NOTE: assignmentId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(editorCodeExamples);
+export async function getEditorCodeExamples(assignmentId: string): Promise<EditorCodeExamples> {
+  const workspaceSource = await loadStudentAssignmentWorkspaceSource(assignmentId);
+  const languageKey = workspaceSource.assignment.languageName || "placeholder text";
+  // TODO(backend): Replace placeholder code when starter/template endpoint is available.
+  return {
+    [languageKey]: "placeholder text",
+  };
 }
 
 export async function getFacultyAssignmentCreatePageData(classId: string): Promise<FacultyAssignmentCreatePageData> {

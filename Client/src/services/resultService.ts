@@ -162,6 +162,18 @@ interface SubmissionApiResponse {
   submittedAt: string;
 }
 
+interface StudentEnrolledCourseApiResponse {
+  id: number;
+  name: string;
+}
+
+interface AssignmentResultWorkspaceSource {
+  assignment: AssignmentApiResponse;
+  submissions: SubmissionApiResponse[];
+}
+
+const assignmentResultCache = new Map<string, Promise<AssignmentResultWorkspaceSource>>();
+
 function toLetterGrade(percentage: number): string {
   if (percentage >= 93) return "A";
   if (percentage >= 90) return "A-";
@@ -175,6 +187,72 @@ function toLetterGrade(percentage: number): string {
   if (percentage >= 63) return "D";
   if (percentage >= 60) return "D-";
   return "F";
+}
+
+function parseAssignmentId(rawAssignmentId: string): number {
+  const parsedAssignmentId = Number(rawAssignmentId.trim());
+  if (!Number.isFinite(parsedAssignmentId) || parsedAssignmentId <= 0) {
+    throw new Error("Invalid assignment id.");
+  }
+  return parsedAssignmentId;
+}
+
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) {
+    return "placeholder text";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "placeholder text";
+  }
+  return parsed.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function latestSubmission(submissions: SubmissionApiResponse[]): SubmissionApiResponse | undefined {
+  return [...submissions].sort((left, right) => {
+    return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+  })[0];
+}
+
+async function loadAssignmentResultWorkspaceSource(assignmentId: string): Promise<AssignmentResultWorkspaceSource> {
+  const parsedAssignmentId = parseAssignmentId(assignmentId);
+  const cacheKey = String(parsedAssignmentId);
+  const cachedPromise = assignmentResultCache.get(cacheKey);
+  if (cachedPromise) {
+    return cachedPromise;
+  }
+
+  const loaderPromise = (async () => {
+    // NOTE: Student route includes only assignmentId, so we discover the owning course by scanning enrolled classes.
+    const { data: enrolledCourses } = await api.get<StudentEnrolledCourseApiResponse[]>("/api/v1/student/classes/enrolled");
+    for (const course of enrolledCourses) {
+      const { data: assignments } = await api.get<AssignmentApiResponse[]>(`/api/v1/student/assignments/course/${course.id}`);
+      const matchedAssignment = assignments.find((assignment) => assignment.id === parsedAssignmentId);
+      if (!matchedAssignment) {
+        continue;
+      }
+
+      const { data: submissions } = await api.get<SubmissionApiResponse[]>(
+        `/api/v1/student/submissions/assignment?assignmentId=${parsedAssignmentId}`,
+      );
+
+      return {
+        assignment: matchedAssignment,
+        submissions,
+      } satisfies AssignmentResultWorkspaceSource;
+    }
+
+    throw new Error("Assignment result not found.");
+  })();
+
+  assignmentResultCache.set(cacheKey, loaderPromise);
+  return loaderPromise;
 }
 
 async function listStudentAssignmentsWithSubmissions(courseId: number): Promise<
@@ -336,9 +414,37 @@ export async function getOverallGradeSummary(classId?: string): Promise<OverallG
   };
 }
 
-export function getAssignmentResult(assignmentId: string): Promise<AssignmentResult> {
-  // NOTE: assignmentId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(assignmentResult);
+export async function getAssignmentResult(assignmentId: string): Promise<AssignmentResult> {
+  const workspaceSource = await loadAssignmentResultWorkspaceSource(assignmentId);
+  const latest = latestSubmission(workspaceSource.submissions);
+  const score = Number(latest?.marks ?? 0);
+
+  return {
+    score,
+    totalPoints: workspaceSource.assignment.totalPoints,
+    earnedPoints: score,
+    submittedAt: formatDateTime(latest?.submittedAt),
+    // TODO(backend): Replace with real grading timestamp once backend exposes grader metadata.
+    gradedAt: formatDateTime(latest?.submittedAt),
+    status: "placeholder text",
+    // TODO(backend): Replace test-run placeholders once backend exposes per-test grading outcomes.
+    publicTestsPassed: 0,
+    publicTestsTotal: 0,
+    privateTestsPassed: 0,
+    privateTestsTotal: 0,
+    privateTestResults: [],
+    failedTests: ["placeholder text"],
+    compileErrors: ["placeholder text"],
+    runtimeErrors: ["placeholder text"],
+    rubricBreakdown: [
+      {
+        category: "placeholder text",
+        earned: 0,
+        total: 0,
+        feedback: "placeholder text",
+      },
+    ],
+  };
 }
 
 export function listRecentlyGraded(): Promise<RecentlyGradedItem[]> {
