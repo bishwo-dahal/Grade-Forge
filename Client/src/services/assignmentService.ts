@@ -15,6 +15,7 @@ import type {
 import type { RubricCategory } from "../types/grade";
 import type { PublicTestCase } from "../types/submission";
 import api from "../api/axios";
+import { getAuthenticatedRole } from "../app/auth";
 
 // NOTE: This service keeps assignment data access centralized for both live API endpoints and remaining mock-only views.
 // TODO(backend): Migrate remaining mock-only helper sections to backend endpoints while keeping return shapes stable.
@@ -138,6 +139,7 @@ interface StudentAssignmentWorkspaceSource {
 }
 
 const studentAssignmentWorkspaceCache = new Map<string, Promise<StudentAssignmentWorkspaceSource>>();
+const facultyAssignmentWorkspaceCache = new Map<string, Promise<StudentAssignmentWorkspaceSource>>();
 
 function formatDate(value: string | null): string {
   if (!value) {
@@ -287,6 +289,12 @@ function mapAssignmentDetailStatus(
 
 async function loadStudentAssignmentWorkspaceSource(assignmentId: string): Promise<StudentAssignmentWorkspaceSource> {
   const parsedAssignmentId = parseAssignmentId(assignmentId);
+  const authenticatedRole = getAuthenticatedRole();
+  if (authenticatedRole === "FACULTY") {
+    // FIX: Faculty assignment page must resolve data from faculty endpoints (student-only endpoints return authorization errors).
+    return loadFacultyAssignmentWorkspaceSource(parsedAssignmentId);
+  }
+
   const cacheKey = String(parsedAssignmentId);
   const cachedPromise = studentAssignmentWorkspaceCache.get(cacheKey);
   if (cachedPromise) {
@@ -325,6 +333,53 @@ async function loadStudentAssignmentWorkspaceSource(assignmentId: string): Promi
   })();
 
   studentAssignmentWorkspaceCache.set(cacheKey, loaderPromise);
+  return loaderPromise;
+}
+
+async function loadFacultyAssignmentWorkspaceSource(parsedAssignmentId: number): Promise<StudentAssignmentWorkspaceSource> {
+  const cacheKey = String(parsedAssignmentId);
+  const cachedPromise = facultyAssignmentWorkspaceCache.get(cacheKey);
+  if (cachedPromise) {
+    return cachedPromise;
+  }
+
+  const loaderPromise = (async () => {
+    const { data: assignment } = await api.get<AssignmentApiResponse>(`/api/v1/faculty/assignments/${parsedAssignmentId}`);
+
+    let submissions: SubmissionApiResponse[] = [];
+    try {
+      // NOTE: Faculty assignment detail uses class-wide submissions endpoint for this assignment id.
+      const response = await api.get<SubmissionApiResponse[]>(`/api/v1/faculty/submissions?assignmentId=${parsedAssignmentId}`);
+      submissions = response.data;
+    } catch {
+      // NOTE: Keep assignment page usable even when there are no submissions or submission fetch is temporarily unavailable.
+      submissions = [];
+    }
+
+    let courseCode = "placeholder text";
+    if (typeof assignment.courseId === "number" && Number.isFinite(assignment.courseId)) {
+      try {
+        // NOTE: Faculty assignment response does not include course code, so we resolve it from faculty course endpoint.
+        const { data: facultyCourse } = await api.get<FacultyCourseHeaderApiResponse>(`/api/v1/faculty/courses/${assignment.courseId}`);
+        courseCode = facultyCourse.courseCode || "placeholder text";
+      } catch {
+        // NOTE: Preserve placeholder fallback when course header lookup fails.
+        courseCode = "placeholder text";
+      }
+    }
+
+    return {
+      course: {
+        id: assignment.courseId ?? -1,
+        name: assignment.courseName || "placeholder text",
+        courseCode,
+      },
+      assignment,
+      submissions,
+    } satisfies StudentAssignmentWorkspaceSource;
+  })();
+
+  facultyAssignmentWorkspaceCache.set(cacheKey, loaderPromise);
   return loaderPromise;
 }
 

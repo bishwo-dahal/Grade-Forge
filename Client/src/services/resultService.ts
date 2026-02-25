@@ -5,6 +5,7 @@ import {
   FileText,
 } from "lucide-react";
 import api from "../api/axios";
+import { getAuthenticatedRole } from "../app/auth";
 import type {
   ActivitySummary,
   AssignmentResult,
@@ -173,6 +174,7 @@ interface AssignmentResultWorkspaceSource {
 }
 
 const assignmentResultCache = new Map<string, Promise<AssignmentResultWorkspaceSource>>();
+const facultyAssignmentResultCache = new Map<string, Promise<AssignmentResultWorkspaceSource>>();
 
 function toLetterGrade(percentage: number): string {
   if (percentage >= 93) return "A";
@@ -222,6 +224,12 @@ function latestSubmission(submissions: SubmissionApiResponse[]): SubmissionApiRe
 
 async function loadAssignmentResultWorkspaceSource(assignmentId: string): Promise<AssignmentResultWorkspaceSource> {
   const parsedAssignmentId = parseAssignmentId(assignmentId);
+  const authenticatedRole = getAuthenticatedRole();
+  if (authenticatedRole === "FACULTY") {
+    // FIX: Faculty assignment pages cannot load results through student-only endpoints.
+    return loadFacultyAssignmentResultWorkspaceSource(parsedAssignmentId);
+  }
+
   const cacheKey = String(parsedAssignmentId);
   const cachedPromise = assignmentResultCache.get(cacheKey);
   if (cachedPromise) {
@@ -252,6 +260,41 @@ async function loadAssignmentResultWorkspaceSource(assignmentId: string): Promis
   })();
 
   assignmentResultCache.set(cacheKey, loaderPromise);
+  return loaderPromise;
+}
+
+async function loadFacultyAssignmentResultWorkspaceSource(parsedAssignmentId: number): Promise<AssignmentResultWorkspaceSource> {
+  const cacheKey = String(parsedAssignmentId);
+  const cachedPromise = facultyAssignmentResultCache.get(cacheKey);
+  if (cachedPromise) {
+    return cachedPromise;
+  }
+
+  const loaderPromise = (async () => {
+    const { data: assignment } = await api.get<AssignmentApiResponse>(`/api/v1/faculty/assignments/${parsedAssignmentId}`);
+
+    let submissions: SubmissionApiResponse[] = [];
+    try {
+      // NOTE: Faculty grading view resolves assignment submissions from faculty scope.
+      const response = await api.get<SubmissionApiResponse[]>(`/api/v1/faculty/submissions?assignmentId=${parsedAssignmentId}`);
+      submissions = response.data;
+    } catch {
+      // NOTE: Missing submissions should not block assignment page load.
+      submissions = [];
+    }
+
+    return {
+      assignment: {
+        id: assignment.id,
+        name: assignment.name,
+        totalPoints: assignment.totalPoints,
+        submissionType: assignment.submissionType,
+      },
+      submissions,
+    } satisfies AssignmentResultWorkspaceSource;
+  })();
+
+  facultyAssignmentResultCache.set(cacheKey, loaderPromise);
   return loaderPromise;
 }
 
