@@ -84,7 +84,16 @@ function FacultyCreateAssignmentView({
           <h2 className="text-[24px] font-semibold text-[#1F2430]">Basic Information</h2>
 
           {isLoading || !form || !pageData ? (
-            <p className="mt-5 text-[14px] text-[#6D7B91]">Loading assignment form...</p>
+            <div className="mt-5 space-y-4 animate-pulse">
+              {/* NOTE: Skeleton form blocks keep assignment-create layout visible while page data loads. */}
+              <div className="h-12 w-full rounded-xl bg-gray-100" />
+              <div className="h-36 w-full rounded-xl bg-gray-100" />
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div className="h-12 w-full rounded-xl bg-gray-100" />
+                <div className="h-12 w-full rounded-xl bg-gray-100" />
+              </div>
+              <div className="h-12 w-full max-w-[460px] rounded-xl bg-gray-100" />
+            </div>
           ) : (
             <>
               <div className="mt-6">

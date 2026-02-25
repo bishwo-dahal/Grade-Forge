@@ -960,11 +960,48 @@ function StudentsSection({
           </thead>
           <tbody>
             {isRosterLoading ? (
-              <tr>
-                <td colSpan={9} className="px-6 py-6 text-center text-[13px] text-gray-600">
-                  Loading roster...
-                </td>
-              </tr>
+              Array.from({ length: 5 }).map((_, index) => (
+                <tr key={`faculty-roster-skeleton-${index}`} className="border-b border-gray-100 last:border-b-0">
+                  {/* NOTE: Skeleton roster rows keep full table structure visible while roster data is fetching. */}
+                  <td className="px-4 py-4">
+                    <div className="h-4 w-4 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="space-y-2 animate-pulse">
+                      <div className="h-4 w-28 rounded bg-gray-200" />
+                      <div className="h-3 w-24 rounded bg-gray-200" />
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="h-4 w-40 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="h-6 w-16 rounded-md bg-gray-100 animate-pulse" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="h-4 w-20 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="space-y-2 animate-pulse">
+                      <div className="h-2 w-28 rounded-full bg-gray-100" />
+                      <div className="h-3 w-20 rounded bg-gray-200" />
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="h-4 w-10 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="h-4 w-20 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center justify-end gap-1">
+                      <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse" />
+                      <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse" />
+                      <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse" />
+                    </div>
+                  </td>
+                </tr>
+              ))
             ) : filteredRows.length > 0 ? (
               filteredRows.map((student) => (
                 <tr key={student.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
@@ -1090,7 +1127,11 @@ function StudentsSection({
                 // NOTE: Suggestions now render in normal flow under the search row so modal grows naturally.
                 <div className="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white">
                   {isSuggestionLoading ? (
-                    <p className="px-3 py-2 text-[12px] text-gray-500">Loading suggestions...</p>
+                    <div className="px-3 py-2.5 space-y-2 animate-pulse">
+                      {/* NOTE: Suggestion skeleton avoids a blank modal body during live-search fetches. */}
+                      <div className="h-4 w-full rounded bg-gray-200" />
+                      <div className="h-4 w-[88%] rounded bg-gray-200" />
+                    </div>
                   ) : emailSuggestions.length > 0 ? (
                     emailSuggestions.map((suggestion) => (
                       <button

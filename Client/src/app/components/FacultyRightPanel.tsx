@@ -13,6 +13,7 @@ interface FacultyRightPanelViewProps {
   deadlineDays: CalendarDay[];
   pendingSubmissions: PendingSubmissionItem[];
   upcomingDeadlines: DeadlineItem[];
+  isLoading: boolean;
 }
 
 export function FacultyRightPanel() {
@@ -23,13 +24,26 @@ export function FacultyRightPanel() {
   const [deadlineDays, setDeadlineDays] = useState<CalendarDay[]>([]);
   const [pendingSubmissions, setPendingSubmissions] = useState<PendingSubmissionItem[]>([]);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<DeadlineItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    listGradingTasks().then(setGradingTasks);
-    listFacultyAlerts().then(setAlerts);
-    getFacultyDeadlineDays().then(setDeadlineDays);
-    listPendingSubmissions().then(setPendingSubmissions);
-    listUpcomingDeadlines().then(setUpcomingDeadlines);
+    // NOTE: One loading state keeps all right-panel cards visible while async sections are fetched together.
+    setIsLoading(true);
+    Promise.all([
+      listGradingTasks(),
+      listFacultyAlerts(),
+      getFacultyDeadlineDays(),
+      listPendingSubmissions(),
+      listUpcomingDeadlines(),
+    ])
+      .then(([gradingTasksData, alertsData, deadlineDaysData, pendingSubmissionsData, upcomingDeadlinesData]) => {
+        setGradingTasks(gradingTasksData);
+        setAlerts(alertsData);
+        setDeadlineDays(deadlineDaysData);
+        setPendingSubmissions(pendingSubmissionsData);
+        setUpcomingDeadlines(upcomingDeadlinesData);
+      })
+      .finally(() => setIsLoading(false));
   }, []);
 
   return (
@@ -39,6 +53,7 @@ export function FacultyRightPanel() {
       deadlineDays={deadlineDays}
       pendingSubmissions={pendingSubmissions}
       upcomingDeadlines={upcomingDeadlines}
+      isLoading={isLoading}
     />
   );
 }
@@ -49,6 +64,7 @@ function FacultyRightPanelView({
   deadlineDays,
   pendingSubmissions,
   upcomingDeadlines,
+  isLoading,
 }: FacultyRightPanelViewProps) {
   // NOTE: View-only component; data loading lives in the container above.
   // Generate calendar days
@@ -143,28 +159,44 @@ function FacultyRightPanelView({
 
           {/* NOTE: Pending submissions now render from service data; removed static placeholders. */}
           <div className="space-y-3">
-            {pendingSubmissions.map((submission, index) => {
-              const isEven = index % 2 === 0;
-              return (
-                <Link
-                  key={submission.id}
-                  to={`/assignment/${submission.assignmentId}/grade/${submission.id}`}
-                  className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
-                >
-                  <div className={`w-8 h-8 ${isEven ? "bg-[#5A7ACD]/10" : "bg-[#FEB05D]/10"} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                    <FileText className={`w-4 h-4 ${isEven ? "text-[#5A7ACD]" : "text-[#FEB05D]"}`} strokeWidth={2} />
+            {isLoading
+              ? Array.from({ length: 3 }).map((_, index) => (
+                  <div
+                    key={`faculty-pending-skeleton-${index}`}
+                    // NOTE: Skeleton pending-submission rows keep this section visible during backend fetch.
+                    className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 animate-pulse"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-[#EEF2FA] flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 w-24 rounded bg-gray-200" />
+                      <div className="h-3 w-36 rounded bg-gray-200" />
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[12px] font-medium text-[#2B2A2A] mb-0.5">
-                      {submission.studentName}
-                    </p>
-                    <p className="text-[11px] text-gray-500">
-                      {submission.assignmentTitle} &bull; {submission.courseCode}
-                    </p>
-                  </div>
-                </Link>
-              );
-            })}
+                ))
+              : null}
+            {!isLoading &&
+              pendingSubmissions.map((submission, index) => {
+                const isEven = index % 2 === 0;
+                return (
+                  <Link
+                    key={submission.id}
+                    to={`/assignment/${submission.assignmentId}/grade/${submission.id}`}
+                    className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <div className={`w-8 h-8 ${isEven ? "bg-[#5A7ACD]/10" : "bg-[#FEB05D]/10"} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                      <FileText className={`w-4 h-4 ${isEven ? "text-[#5A7ACD]" : "text-[#FEB05D]"}`} strokeWidth={2} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-medium text-[#2B2A2A] mb-0.5">
+                        {submission.studentName}
+                      </p>
+                      <p className="text-[11px] text-gray-500">
+                        {submission.assignmentTitle} &bull; {submission.courseCode}
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
           </div>
 
           <button className="mt-3 w-full py-2 text-[12px] text-gray-500 hover:text-gray-700">
@@ -180,21 +212,33 @@ function FacultyRightPanelView({
 
           {/* NOTE: Upcoming deadlines now map directly from service data. */}
           <div className="space-y-3">
-            {upcomingDeadlines.map((deadline) => (
-              <div key={`${deadline.title}-${deadline.dueDate}`} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
-                <div className={`w-8 h-8 ${deadline.color.split(" ")[0]}/10 rounded-lg flex items-center justify-center flex-shrink-0`}>
-                  <Clock className="w-4 h-4 text-[#FEB05D]" strokeWidth={2} />
+            {isLoading
+              ? Array.from({ length: 3 }).map((_, index) => (
+                  <div key={`faculty-deadline-skeleton-${index}`} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 animate-pulse">
+                    <div className="w-8 h-8 rounded-lg bg-[#FFF1DF] flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 w-28 rounded bg-gray-200" />
+                      <div className="h-3 w-36 rounded bg-gray-200" />
+                    </div>
+                  </div>
+                ))
+              : null}
+            {!isLoading &&
+              upcomingDeadlines.map((deadline) => (
+                <div key={`${deadline.title}-${deadline.dueDate}`} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
+                  <div className={`w-8 h-8 ${deadline.color.split(" ")[0]}/10 rounded-lg flex items-center justify-center flex-shrink-0`}>
+                    <Clock className="w-4 h-4 text-[#FEB05D]" strokeWidth={2} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-medium text-[#2B2A2A] mb-0.5">
+                      {deadline.title}
+                    </p>
+                    <p className="text-[11px] text-gray-500">
+                      {deadline.className} &bull; {deadline.dueDate}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-medium text-[#2B2A2A] mb-0.5">
-                    {deadline.title}
-                  </p>
-                  <p className="text-[11px] text-gray-500">
-                    {deadline.className} &bull; {deadline.dueDate}
-                  </p>
-                </div>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
 
@@ -205,27 +249,43 @@ function FacultyRightPanelView({
           </h3>
 
           <div className="space-y-3">
-            {alerts.map((alert) => (
-              <div
-                key={alert.id}
-                className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer"
-              >
-                <div className="w-8 h-8 bg-[#5A7ACD]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <alert.icon className={`w-4 h-4 ${alert.color}`} strokeWidth={2} />
+            {isLoading
+              ? Array.from({ length: 3 }).map((_, index) => (
+                  <div
+                    key={`faculty-alert-skeleton-${index}`}
+                    className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 animate-pulse"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-[#EEF2FA] flex-shrink-0" />
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="h-3 w-28 rounded bg-gray-200" />
+                      <div className="h-3 w-full rounded bg-gray-200" />
+                      <div className="h-3 w-14 rounded bg-gray-200" />
+                    </div>
+                  </div>
+                ))
+              : null}
+            {!isLoading &&
+              alerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer"
+                >
+                  <div className="w-8 h-8 bg-[#5A7ACD]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <alert.icon className={`w-4 h-4 ${alert.color}`} strokeWidth={2} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-medium text-[#2B2A2A] mb-0.5">
+                      {alert.title}
+                    </p>
+                    <p className="text-[11px] text-gray-500 truncate">
+                      {alert.description}
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      {alert.time}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-medium text-[#2B2A2A] mb-0.5">
-                    {alert.title}
-                  </p>
-                  <p className="text-[11px] text-gray-500 truncate">
-                    {alert.description}
-                  </p>
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    {alert.time}
-                  </p>
-                </div>
-              </div>
-            ))}
+              ))}
           </div>
 
           <button className="mt-3 w-full py-2 text-[12px] text-gray-500 hover:text-gray-700">
