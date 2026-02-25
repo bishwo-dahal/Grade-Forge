@@ -414,9 +414,15 @@ function AssignmentsSection() {
   const [selectedAssignments, setSelectedAssignments] = useState<string[]>([]);
   // NOTE: Assignments now load from backend-driven class service mapping.
   const [assignments, setAssignments] = useState<FacultyAssignment[]>([]);
+  const [isAssignmentsLoading, setIsAssignmentsLoading] = useState(true);
 
   useEffect(() => {
-    listFacultyAssignments(resolvedClassId).then(setAssignments);
+    // FIX: Keep a loading flag so "No assignments" does not flash before backend data finishes loading.
+    setIsAssignmentsLoading(true);
+    listFacultyAssignments(resolvedClassId)
+      .then(setAssignments)
+      .catch(() => setAssignments([]))
+      .finally(() => setIsAssignmentsLoading(false));
   }, [classId]);
 
   return (
@@ -469,7 +475,35 @@ function AssignmentsSection() {
             </tr>
           </thead>
           <tbody>
-            {assignments.length > 0 ? (
+            {isAssignmentsLoading ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <tr key={`faculty-assignments-skeleton-${index}`} className="border-b border-gray-100 last:border-b-0">
+                  {/* NOTE: Skeleton rows keep assignment table structure visible while assignments are fetching. */}
+                  <td className="px-6 py-4">
+                    <div className="h-4 w-44 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-6 w-20 rounded-md bg-gray-100 animate-pulse" />
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 w-16 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-6 w-20 rounded-md bg-gray-100 animate-pulse" />
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center justify-end gap-2">
+                      <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse" />
+                      <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse" />
+                      <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse" />
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : assignments.length > 0 ? (
               assignments.map((assignment, index) => (
                 <tr
                   key={assignment.id}
@@ -489,9 +523,13 @@ function AssignmentsSection() {
                         }}
                         className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
                       />
-                      <span className="text-[14px] font-medium text-[#2B2A2A]">
+                      <Link
+                        // FIX: Faculty assignment names now navigate to a faculty-accessible assignment page.
+                        to={`/faculty/assignment/${assignment.id}`}
+                        className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
+                      >
                         {assignment.name}
-                      </span>
+                      </Link>
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -521,9 +559,13 @@ function AssignmentsSection() {
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       {/* Accessibility: icon-only action buttons need labels for screen readers. */}
-                      <button aria-label="Edit assignment" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                      <Link
+                        aria-label="Edit assignment"
+                        to={`/faculty/assignment/${assignment.id}`}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
                         <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                      </button>
+                      </Link>
                       <button aria-label="Duplicate assignment" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
                         <Copy className="w-4 h-4 text-gray-500" strokeWidth={2} />
                       </button>

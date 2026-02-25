@@ -232,6 +232,15 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: "/faculty/assignment/:assignmentId",
+    element: (
+      // NOTE: Faculty uses this route to open assignment details from class-management Assignments tab.
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <AssignmentPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: "/assignment/:assignmentId/grade/:submissionId",
     element: (
       <ProtectedRoute allowedRoles={["FACULTY"]}>
