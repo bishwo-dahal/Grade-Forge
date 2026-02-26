@@ -31,6 +31,7 @@ import {
   StudentMaterialsPage,
   StudentMyCoursesPage,
 } from "./components/RoleWorkspacePages";
+import { FacultyRubricsPage } from "./components/faculty/rubrics/FacultyRubricsPage";
 
 export const router = createBrowserRouter([
   {
@@ -132,6 +133,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={["FACULTY"]}>
         <FacultyGradingHubPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/rubrics",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyRubricsPage />
       </ProtectedRoute>
     ),
   },
