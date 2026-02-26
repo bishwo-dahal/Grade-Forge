@@ -34,7 +34,6 @@ import type {
   FacultyAssignmentSubmissionRow,
   FacultyEditorPreviewPayload,
   FacultySubmissionGradePayload,
-  FacultySubmissionFileOption,
 } from "../../types/submission";
 
 type TabType = 'description' | 'tests' | 'rubric' | 'results';
@@ -63,13 +62,16 @@ export function AssignmentPage() {
   const [rubricCategories, setRubricCategories] = useState<RubricCategory[]>([]);
   const [results, setResults] = useState<AssignmentResult | null>(null);
   const [facultySubmissionRows, setFacultySubmissionRows] = useState<FacultyAssignmentSubmissionRow[]>([]);
+  const [facultyEditorPreviewPayload, setFacultyEditorPreviewPayload] = useState<FacultyEditorPreviewPayload | null>(null);
+  const [facultyPreviewLoadingOptionId, setFacultyPreviewLoadingOptionId] = useState<string | null>(null);
+  const [facultyPreviewErrorMessage, setFacultyPreviewErrorMessage] = useState<string | null>(null);
   const [editorCodeExamples, setEditorCodeExamples] = useState<EditorCodeExamples>({});
   const [isLoading, setIsLoading] = useState(true);
   const authenticatedRole = getAuthenticatedRole();
   const isStudentRole = authenticatedRole === "STUDENT";
   const isFacultyRole = authenticatedRole === "FACULTY";
 
-  const facultySubmissionFileOptions = useMemo<FacultySubmissionFileOption[]>(() => {
+  const facultySubmissionFileOptions = useMemo(() => {
     if (!isFacultyRole) {
       return [];
     }
@@ -117,6 +119,10 @@ export function AssignmentPage() {
     const resolvedId = assignmentId || "1";
     setErrorMessage(null);
     setIsLoading(true);
+    // CLEANUP: Reset submission-preview transient state when assignment changes.
+    setFacultyEditorPreviewPayload(null);
+    setFacultyPreviewLoadingOptionId(null);
+    setFacultyPreviewErrorMessage(null);
     // NOTE: Keep data loading centralized in page container so assignment panels remain presentation-only.
     loadAssignmentWorkspace(resolvedId)
       .catch(() => {
@@ -186,6 +192,20 @@ export function AssignmentPage() {
     } catch (error) {
       setSubmissionFeedback({ tone: "error", text: getErrorMessage(error) });
       throw error;
+    }
+  };
+
+  const handleFacultyPreviewFromSubmissions = async (optionId: string) => {
+    // NOTE: Preview fetching is coordinated by the page container so left/right panes stay loosely coupled.
+    setFacultyPreviewErrorMessage(null);
+    setFacultyPreviewLoadingOptionId(optionId);
+    try {
+      const previewPayload = await requestFacultyEditorPreview(optionId);
+      setFacultyEditorPreviewPayload(previewPayload);
+    } catch (error) {
+      setFacultyPreviewErrorMessage(getErrorMessage(error));
+    } finally {
+      setFacultyPreviewLoadingOptionId(null);
     }
   };
 
@@ -270,6 +290,7 @@ export function AssignmentPage() {
                 activeTab={activeTab} 
                 onTabChange={setActiveTab}
                 hasResults={hasSubmitted}
+                isFacultyView={isFacultyRole}
               />
 
               {/* Tab Content */}
@@ -281,6 +302,9 @@ export function AssignmentPage() {
                   <ResultsPanel
                     results={results}
                     facultySubmissionRows={isFacultyRole ? facultySubmissionRows : undefined}
+                    onPreviewFacultyFile={isFacultyRole ? handleFacultyPreviewFromSubmissions : undefined}
+                    facultyPreviewLoadingOptionId={isFacultyRole ? facultyPreviewLoadingOptionId : null}
+                    facultyPreviewErrorMessage={isFacultyRole ? facultyPreviewErrorMessage : null}
                   />
                 )}
               </div>
@@ -306,13 +330,11 @@ export function AssignmentPage() {
               onSubmit={handleStudentSubmit}
               // NOTE: Faculty assignment pages stay read-only for local file upload controls.
               showUploadControls={isStudentRole}
-              showFacultyViewerControls={isFacultyRole}
               showFacultyGradeControls={isFacultyRole}
-              facultySubmissionFileOptions={isFacultyRole ? facultySubmissionFileOptions : undefined}
               facultySubmissionRows={isFacultyRole ? facultySubmissionRows : undefined}
-              onRequestFacultyEditorPreview={isFacultyRole ? requestFacultyEditorPreview : undefined}
               onSubmitFacultyGrade={isFacultyRole ? handleFacultySubmissionGrade : undefined}
               maxGradePoints={assignment.points.total}
+              facultyEditorPreviewPayload={isFacultyRole ? facultyEditorPreviewPayload : null}
             />
           </Panel>
         </PanelGroup>

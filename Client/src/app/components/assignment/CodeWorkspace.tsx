@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Eye, Loader2, Play, Send, RotateCcw, Save, Upload, CheckSquare } from "lucide-react";
+import { Loader2, Play, Send, RotateCcw, Save, Upload, CheckSquare } from "lucide-react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { MonacoEditor } from "../editors";
 import { ConsoleDrawer } from "./ConsoleDrawer";
@@ -20,7 +20,6 @@ import type {
   FacultySubmissionGradePayload,
   FacultySubmissionGradeOption,
   FacultyAssignmentSubmissionRow,
-  FacultySubmissionFileOption,
 } from "../../../types/submission";
 
 interface CodeWorkspaceProps {
@@ -35,13 +34,11 @@ interface CodeWorkspaceProps {
   onRunTests: () => void;
   onSubmit: (file: File) => Promise<void> | void;
   showUploadControls?: boolean;
-  showFacultyViewerControls?: boolean;
   showFacultyGradeControls?: boolean;
-  facultySubmissionFileOptions?: FacultySubmissionFileOption[];
   facultySubmissionRows?: FacultyAssignmentSubmissionRow[];
-  onRequestFacultyEditorPreview?: (optionId: string) => Promise<FacultyEditorPreviewPayload>;
   onSubmitFacultyGrade?: (payload: FacultySubmissionGradePayload) => Promise<void>;
   maxGradePoints?: number;
+  facultyEditorPreviewPayload?: FacultyEditorPreviewPayload | null;
   isMobile?: boolean;
 }
 
@@ -75,13 +72,11 @@ export function CodeWorkspace({
   onRunTests,
   onSubmit,
   showUploadControls = false,
-  showFacultyViewerControls = false,
   showFacultyGradeControls = false,
-  facultySubmissionFileOptions = [],
   facultySubmissionRows = [],
-  onRequestFacultyEditorPreview,
   onSubmitFacultyGrade,
   maxGradePoints,
+  facultyEditorPreviewPayload = null,
   isMobile = false,
 }: CodeWorkspaceProps) {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
@@ -94,10 +89,6 @@ export function CodeWorkspace({
   const [submissionStatusMessage, setSubmissionStatusMessage] = useState<string | null>(null);
   const [submitModalError, setSubmitModalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showFacultyViewerModal, setShowFacultyViewerModal] = useState(false);
-  const [selectedFacultyOptionId, setSelectedFacultyOptionId] = useState<string>("");
-  const [isFacultyViewerLoading, setIsFacultyViewerLoading] = useState(false);
-  const [facultyViewerError, setFacultyViewerError] = useState<string | null>(null);
   const [showFacultyGradeModal, setShowFacultyGradeModal] = useState(false);
   const [selectedGradeSubmissionId, setSelectedGradeSubmissionId] = useState<string>("");
   const [facultyGradeInput, setFacultyGradeInput] = useState<string>("");
@@ -170,9 +161,6 @@ export function CodeWorkspace({
     // NOTE: Reset faculty preview state when assignment context changes.
     setFacultyPreviewLanguage(null);
     setIsFacultyEditorReadOnly(false);
-    setShowFacultyViewerModal(false);
-    setFacultyViewerError(null);
-    setSelectedFacultyOptionId("");
     setShowFacultyGradeModal(false);
     setSelectedGradeSubmissionId("");
     setFacultyGradeInput("");
@@ -182,23 +170,19 @@ export function CodeWorkspace({
   }, [assignmentId]);
 
   useEffect(() => {
-    if (!showFacultyViewerModal) {
+    if (!facultyEditorPreviewPayload) {
       return;
     }
-
-    if (!facultySubmissionFileOptions.length) {
-      setSelectedFacultyOptionId("");
-      return;
-    }
-
-    const selectedStillExists = facultySubmissionFileOptions.some(
-      (option) => option.optionId === selectedFacultyOptionId,
-    );
-    if (!selectedStillExists) {
-      // NOTE: Default to first available file so faculty can preview quickly without extra clicks.
-      setSelectedFacultyOptionId(facultySubmissionFileOptions[0].optionId);
-    }
-  }, [showFacultyViewerModal, facultySubmissionFileOptions, selectedFacultyOptionId]);
+    // FIX: Apply page-driven submission preview payload so faculty can open files from Submissions tab actions.
+    const previewTree = buildInitialFileTree(facultyEditorPreviewPayload.fileName, facultyEditorPreviewPayload.content);
+    setTreeState(previewTree);
+    setOpenTabIds(["main"]);
+    setSavedContents({ main: facultyEditorPreviewPayload.content });
+    setSelectedId("main");
+    setCode(facultyEditorPreviewPayload.content);
+    setFacultyPreviewLanguage(facultyEditorPreviewPayload.language);
+    setIsFacultyEditorReadOnly(true);
+  }, [facultyEditorPreviewPayload]);
 
   const facultyGradeOptions = useMemo<FacultySubmissionGradeOption[]>(() => {
     // NOTE: Grade choices are submission-based (not file-based) so one grade maps to one submission record.
@@ -539,19 +523,6 @@ export function CodeWorkspace({
     }
   };
 
-  const openFacultyViewer = () => {
-    setFacultyViewerError(null);
-    setShowFacultyViewerModal(true);
-  };
-
-  const closeFacultyViewer = () => {
-    if (isFacultyViewerLoading) {
-      return;
-    }
-    setShowFacultyViewerModal(false);
-    setFacultyViewerError(null);
-  };
-
   const openFacultyGradeModal = () => {
     setFacultyGradeError(null);
     setFacultyGradeStatusMessage(null);
@@ -606,37 +577,6 @@ export function CodeWorkspace({
       setFacultyGradeError(getErrorMessage(error));
     } finally {
       setIsFacultyGradeSubmitting(false);
-    }
-  };
-
-  const showSelectedFacultyFileInEditor = async () => {
-    if (!selectedFacultyOptionId) {
-      setFacultyViewerError("Choose a submission file first.");
-      return;
-    }
-    if (!onRequestFacultyEditorPreview) {
-      setFacultyViewerError("Preview action is unavailable.");
-      return;
-    }
-
-    setFacultyViewerError(null);
-    setIsFacultyViewerLoading(true);
-    try {
-      const previewPayload = await onRequestFacultyEditorPreview(selectedFacultyOptionId);
-      // FIX: Replace current workspace content with selected submission code so faculty can inspect exact source.
-      const previewTree = buildInitialFileTree(previewPayload.fileName, previewPayload.content);
-      setTreeState(previewTree);
-      setOpenTabIds(["main"]);
-      setSavedContents({ main: previewPayload.content });
-      setSelectedId("main");
-      setCode(previewPayload.content);
-      setFacultyPreviewLanguage(previewPayload.language);
-      setIsFacultyEditorReadOnly(true);
-      setShowFacultyViewerModal(false);
-    } catch (error) {
-      setFacultyViewerError(getErrorMessage(error));
-    } finally {
-      setIsFacultyViewerLoading(false);
     }
   };
 
@@ -714,16 +654,6 @@ export function CodeWorkspace({
               <span>Run Tests</span>
             </button>
 
-            {showFacultyViewerControls ? (
-              <button
-                onClick={openFacultyViewer}
-                className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors flex items-center gap-2"
-              >
-                <Eye className="w-4 h-4" strokeWidth={2} />
-                <span>See in editor</span>
-              </button>
-            ) : null}
-
             {showFacultyGradeControls ? (
               <button
                 onClick={openFacultyGradeModal}
@@ -778,7 +708,7 @@ export function CodeWorkspace({
             {submissionFileError ?? submissionStatusMessage}
           </p>
         ) : null}
-        {showFacultyViewerControls && isFacultyEditorReadOnly ? (
+        {isFacultyEditorReadOnly ? (
           <p className="mt-2 text-[12px] text-[#5D6A80]">
             {/* NOTE: Faculty preview opens submissions in read-only mode to prevent accidental edits during review. */}
             Viewing selected submission in read-only editor mode.
@@ -856,68 +786,6 @@ export function CodeWorkspace({
       </Panel>
         </PanelGroup>
       </div>
-
-      {showFacultyViewerModal ? (
-        <div className="fixed inset-0 bg-black/40 z-50 p-4 flex items-center justify-center">
-          <div className="w-full max-w-lg bg-white rounded-xl border border-gray-200 shadow-2xl">
-            <div className="px-5 py-4 border-b border-gray-200">
-              <h3 className="text-[16px] font-semibold text-[#2B2A2A]">See in editor</h3>
-              <p className="text-[12px] text-gray-600 mt-1">
-                Select a student submission file, then load it into the editor in read-only mode.
-              </p>
-            </div>
-            <div className="px-5 py-4">
-              {facultySubmissionFileOptions.length > 0 ? (
-                <div className="space-y-2">
-                  <label className="block text-[12px] font-medium text-[#2B2A2A]">Submission file</label>
-                  <select
-                    value={selectedFacultyOptionId}
-                    onChange={(event) => setSelectedFacultyOptionId(event.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-gray-300 text-[13px] text-[#2B2A2A] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/30"
-                  >
-                    {facultySubmissionFileOptions.map((option) => (
-                      <option key={option.optionId} value={option.optionId}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                // NOTE: Explicit empty state avoids a confusing disabled action when no submissions exist yet.
-                <p className="text-[13px] text-gray-600">No submission files are available for this assignment yet.</p>
-              )}
-              {facultyViewerError ? (
-                <p className="mt-3 text-[12px] text-[#C23A42]">{facultyViewerError}</p>
-              ) : null}
-            </div>
-            <div className="px-5 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeFacultyViewer}
-                disabled={isFacultyViewerLoading}
-                className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg text-[13px] text-[#2B2A2A] disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void showSelectedFacultyFileInEditor()}
-                disabled={!selectedFacultyOptionId || isFacultyViewerLoading || facultySubmissionFileOptions.length === 0}
-                className="px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] rounded-lg text-[13px] text-white disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {isFacultyViewerLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} />
-                    <span>Loading...</span>
-                  </>
-                ) : (
-                  <span>Show in editor</span>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {showFacultyGradeModal ? (
         <div className="fixed inset-0 bg-black/40 z-50 p-4 flex items-center justify-center">
