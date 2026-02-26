@@ -16,6 +16,7 @@ import type { RubricCategory } from "../types/grade";
 import type { PublicTestCase } from "../types/submission";
 import api from "../api/axios";
 import { getAuthenticatedRole } from "../app/auth";
+import { getRubric } from "./rubricService";
 
 // NOTE: This service keeps assignment data access centralized for both live API endpoints and remaining mock-only views.
 // TODO(backend): Migrate remaining mock-only helper sections to backend endpoints while keeping return shapes stable.
@@ -112,6 +113,8 @@ interface AssignmentApiResponse {
   availableFrom: string | null;
   dueDate: string | null;
   lateDueDate: string | null;
+  rubricId?: number | null;
+  rubricName?: string | null;
 }
 
 interface SubmissionApiResponse {
@@ -664,20 +667,36 @@ export async function getAssignmentDescription(assignmentId: string): Promise<As
 }
 
 export async function listRubricCategories(assignmentId: string): Promise<RubricCategory[]> {
-  await loadStudentAssignmentWorkspaceSource(assignmentId);
-  // TODO(backend): Replace this placeholder rubric structure when rubric-by-assignment endpoint is available.
-  return [
-    {
-      name: "placeholder text",
-      points: 0,
-      criteria: [
-        {
-          description: "placeholder text",
-          points: 0,
-        },
-      ],
-    },
-  ];
+  const workspaceSource = await loadStudentAssignmentWorkspaceSource(assignmentId);
+  const rubricId = workspaceSource.assignment.rubricId;
+  if (!rubricId) {
+    return [];
+  }
+
+  if (getAuthenticatedRole() !== "FACULTY") {
+    // NOTE: Student scope currently has no rubric-details endpoint; avoid placeholder data and show empty rubric tab state.
+    return [];
+  }
+
+  try {
+    const rubric = await getRubric(rubricId);
+    const totalPoints = rubric.criteria.reduce((sum, criterion) => sum + criterion.maxScore, 0);
+    return [
+      {
+        name: rubric.name,
+        points: totalPoints,
+        criteria: rubric.criteria.map((criterion) => ({
+          description: criterion.description?.trim()
+            ? `${criterion.title}: ${criterion.description}`
+            : criterion.title,
+          points: criterion.maxScore,
+        })),
+      },
+    ];
+  } catch {
+    // FIX: Fallback to empty rubric data when rubric fetch fails so UI never regresses to placeholder text.
+    return [];
+  }
 }
 
 export async function listPublicTestCases(assignmentId: string): Promise<PublicTestCase[]> {

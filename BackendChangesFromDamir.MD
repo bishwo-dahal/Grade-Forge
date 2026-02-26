@@ -493,3 +493,45 @@ Scope: Replaced inline success banner with a modal confirmation after assignment
 ### Backend impact
 - Backend unchanged.
 - UI flow enhancement only.
+
+## Follow-up Fix - Real Rubric Data in Rubric Tab + Remove Duplicate Rubric Section from Description
+
+Date: 2026-02-26  
+Scope: Replaced placeholder rubric content in Assignment > Grading Rubric tab with real rubric criteria (faculty view) and removed redundant Grading Rubric heading/section from Description tab.
+
+### Backend readiness + impact
+- No backend code changes.
+- Reused existing rubric API endpoint already available for faculty:
+  - `GET /api/v1/faculty/rubrics/{id}`
+- Assignment model already includes `rubricId` in response payload.
+
+### Files changed
+
+#### `Client/src/services/assignmentService.ts`
+- Imported rubric service helper:
+  - `getRubric` from `rubricService`.
+- Extended `AssignmentApiResponse` type with optional rubric fields:
+  - `rubricId?: number | null`
+  - `rubricName?: string | null`
+- Replaced `listRubricCategories()` placeholder implementation with real mapping flow:
+  1. Load assignment workspace source.
+  2. Read `assignment.rubricId`.
+  3. If no rubric id -> return empty list.
+  4. For faculty role, fetch rubric by id and map criteria to `RubricCategory` shape.
+  5. On fetch failure -> return empty list (no placeholder fallback).
+- Added inline comments:
+  - `// NOTE:` for student-role endpoint limitations.
+  - `// FIX:` for fallback behavior preventing placeholder regressions.
+
+#### `Client/src/app/components/assignment/DescriptionPanel.tsx`
+- Removed the entire in-description `Grading Rubric` section and heading.
+- Left a `// CLEANUP:` comment explaining rubric content now belongs in dedicated rubric tab.
+- Why: avoids duplicated rubric content and removes misleading placeholder display inside Description tab.
+
+### Verification
+- Frontend build check run:
+  - `cd Client && npm run build` -> success.
+
+### Backend impact
+- Backend unchanged.
+- Frontend now consumes existing rubric API for real rubric rendering where available.
