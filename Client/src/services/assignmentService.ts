@@ -141,6 +141,23 @@ interface StudentAssignmentWorkspaceSource {
 const studentAssignmentWorkspaceCache = new Map<string, Promise<StudentAssignmentWorkspaceSource>>();
 const facultyAssignmentWorkspaceCache = new Map<string, Promise<StudentAssignmentWorkspaceSource>>();
 
+export function invalidateAssignmentWorkspaceCache(assignmentId?: string): void {
+  if (!assignmentId) {
+    // NOTE: Clearing both role caches ensures role-switch scenarios never render stale assignment submission data.
+    studentAssignmentWorkspaceCache.clear();
+    facultyAssignmentWorkspaceCache.clear();
+    return;
+  }
+
+  const trimmedId = assignmentId.trim();
+  if (!trimmedId) {
+    return;
+  }
+
+  studentAssignmentWorkspaceCache.delete(trimmedId);
+  facultyAssignmentWorkspaceCache.delete(trimmedId);
+}
+
 function formatDate(value: string | null): string {
   if (!value) {
     return "No due date";

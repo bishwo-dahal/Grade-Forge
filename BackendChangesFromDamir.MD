@@ -93,3 +93,72 @@ Branch: damirFileSubmissionAndGrading
 1. `wire submission file metadata and upload service methods`
 2. `add student assignment file upload and real submit flow`
 3. `show faculty submission files in class and assignment results`
+
+## Follow-up Fix Report - Submission Feedback + Faculty Visibility Refresh
+
+Date: 2026-02-26
+Scope: Debug/fix after user-reported issue where submit gave no visible progress and faculty views did not immediately show uploaded files.
+
+### Root causes addressed
+1. Submission UX gap:
+- The confirmation modal closed immediately when submit started, so users did not get clear "saving" progress in-context.
+- Success/failure feedback was easy to miss because it only appeared in page-level area.
+
+2. Data freshness gap:
+- Assignment/result service layers cache per-assignment workspace payloads.
+- After new submission, cached data could make assignment/faculty views show stale state/files until hard refresh.
+
+3. Browser MIME edge case:
+- Some browsers can send empty file MIME for `.java`/`.py`; backend validates `fileType` and may reject if missing.
+
+### Files updated in this follow-up
+
+#### `Client/src/app/components/assignment/SubmitConfirmModal.tsx`
+- Added `isSubmitting` + `errorMessage` props.
+- Submit button now shows spinner (`Loader2`) and "Saving..." text while request is in flight.
+- Disabled cancel/close controls during active submit to prevent accidental interruption.
+- Added inline modal error rendering for failed API saves.
+- Why: user now sees explicit progress and immediate error cause in the same action context.
+
+#### `Client/src/app/components/assignment/CodeWorkspace.tsx`
+- Added submit error parser helper and modal-level error state (`submitModalError`).
+- Changed submit flow to keep modal open while submit is running; close only on success.
+- Added explicit success message (`Submitted successfully.`) near workspace action controls after backend success.
+- Cleared stale success/error message when choosing a new file.
+- Why: submit now has visible lifecycle: validating -> saving spinner -> success/error confirmation.
+
+#### `Client/src/services/assignmentService.ts`
+- Added `invalidateAssignmentWorkspaceCache(assignmentId?)` export.
+- Clears student/faculty assignment workspace caches either globally or per-assignment.
+- Why: avoids stale assignment submission data across role switches and post-submit reloads.
+
+#### `Client/src/services/resultService.ts`
+- Added `invalidateAssignmentResultCache(assignmentId?)` export.
+- Clears student/faculty result caches either globally or per-assignment.
+- Why: ensures latest result/submission state after file submission events.
+
+#### `Client/src/app/components/AssignmentPage.tsx`
+- Integrated cache invalidation before loading assignment workspace data.
+- Integrated cache invalidation immediately after successful student submit before reload.
+- Added periodic refresh (15s) while faculty is on Results tab, so new incoming submissions/files appear without manual reload.
+- Why: fixes stale faculty/student assignment views and improves near-real-time visibility.
+
+#### `Client/src/services/submissionService.ts`
+- Added `normalizeUploadFileType(file)` helper.
+- If browser omits MIME type, assigns fallback type (`text/x-java-source` or `text/x-python`) before multipart upload.
+- Why: satisfies backend `fileType` validation reliably for `.java` and `.py` uploads.
+
+#### `Client/src/app/components/FacultyClassPage.tsx`
+- Submissions section now has robust reload behavior:
+  - Added reusable async loader with loading/error states.
+  - Added manual `Refresh` button with spinner state.
+  - Added 15s polling while section is open.
+  - Added skeleton rows during initial loading.
+- Why: faculty submissions table now updates quickly after student uploads and gives clear loading feedback.
+
+### Verification run
+- Frontend build: `cd Client && npm run build` -> success.
+
+### Backend impact
+- No backend code changed.
+- Existing backend endpoints remain unchanged; frontend fixes improve contract compliance and data freshness around those endpoints.

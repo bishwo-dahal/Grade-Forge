@@ -176,6 +176,23 @@ interface AssignmentResultWorkspaceSource {
 const assignmentResultCache = new Map<string, Promise<AssignmentResultWorkspaceSource>>();
 const facultyAssignmentResultCache = new Map<string, Promise<AssignmentResultWorkspaceSource>>();
 
+export function invalidateAssignmentResultCache(assignmentId?: string): void {
+  if (!assignmentId) {
+    // NOTE: Clear both caches together because submission updates affect student and faculty result views.
+    assignmentResultCache.clear();
+    facultyAssignmentResultCache.clear();
+    return;
+  }
+
+  const trimmedId = assignmentId.trim();
+  if (!trimmedId) {
+    return;
+  }
+
+  assignmentResultCache.delete(trimmedId);
+  facultyAssignmentResultCache.delete(trimmedId);
+}
+
 function toLetterGrade(percentage: number): string {
   if (percentage >= 93) return "A";
   if (percentage >= 90) return "A-";

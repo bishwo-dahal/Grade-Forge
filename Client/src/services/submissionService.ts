@@ -248,6 +248,21 @@ function parseAssignmentId(rawAssignmentId: string): number {
   return parsedAssignmentId;
 }
 
+function normalizeUploadFileType(file: File): File {
+  if (file.type) {
+    return file;
+  }
+
+  const lowerFileName = file.name.toLowerCase();
+  const fallbackType = lowerFileName.endsWith(".java")
+    ? "text/x-java-source"
+    : lowerFileName.endsWith(".py")
+      ? "text/x-python"
+      : "application/octet-stream";
+  // FIX: Backend validation requires fileType, so we provide a safe fallback MIME when browser omits it.
+  return new File([file], file.name, { type: fallbackType });
+}
+
 function mapSubmissionFiles(files: SubmissionFileApiResponse[] | null | undefined): SubmissionFileItem[] {
   if (!files?.length) {
     return [];
@@ -286,8 +301,9 @@ export async function submitStudentAssignmentFile(assignmentId: string, file: Fi
   }
 
   const formData = new FormData();
+  const normalizedUploadFile = normalizeUploadFileType(file);
   // NOTE: Backend submission endpoint expects multipart files under `files`.
-  formData.append("files", file, file.name);
+  formData.append("files", normalizedUploadFile, normalizedUploadFile.name);
   await api.post(`/api/v1/student/submissions?assignmentId=${parsedAssignmentId}`, formData);
 }
 

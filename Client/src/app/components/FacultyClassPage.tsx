@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 import { 
   Settings, 
@@ -25,7 +25,8 @@ import {
   UserMinus,
   Calendar,
   Search,
-  X
+  X,
+  RefreshCcw,
 } from "lucide-react";
 import type {
   ClassHeader,
@@ -592,11 +593,31 @@ function SubmissionsSection() {
   const { classId } = useParams();
   // NOTE: Submissions now load from backend-driven submission service mapping.
   const [submissions, setSubmissions] = useState<ClassSubmissionItem[]>([]);
+  const [isSubmissionsLoading, setIsSubmissionsLoading] = useState(false);
+  const [submissionsError, setSubmissionsError] = useState<string | null>(null);
+
+  const loadSubmissions = useCallback(async () => {
+    const resolvedId = classId || "1";
+    setIsSubmissionsLoading(true);
+    setSubmissionsError(null);
+    try {
+      const rows = await listClassSubmissions(resolvedId);
+      setSubmissions(rows);
+    } catch (error) {
+      setSubmissionsError(getErrorMessage(error));
+    } finally {
+      setIsSubmissionsLoading(false);
+    }
+  }, [classId]);
 
   useEffect(() => {
-    const resolvedId = classId || "1";
-    listClassSubmissions(resolvedId).then(setSubmissions);
-  }, [classId]);
+    void loadSubmissions();
+    // NOTE: Polling keeps faculty submission table fresh when student uploads arrive in another tab/session.
+    const refreshInterval = window.setInterval(() => {
+      void loadSubmissions();
+    }, 15000);
+    return () => window.clearInterval(refreshInterval);
+  }, [loadSubmissions]);
 
   return (
     <div>
@@ -608,12 +629,25 @@ function SubmissionsSection() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => void loadSubmissions()}
+            disabled={isSubmissionsLoading}
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <RefreshCcw className={`w-4 h-4 ${isSubmissionsLoading ? "animate-spin" : ""}`} strokeWidth={2} />
+            <span>{isSubmissionsLoading ? "Refreshing..." : "Refresh"}</span>
+          </button>
           <button className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors">
             <Filter className="w-4 h-4" strokeWidth={2} />
             <span>Filter</span>
           </button>
         </div>
       </div>
+      {submissionsError ? (
+        <div className="mb-4 rounded-lg border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-[12px] text-[#C23A42]">
+          {submissionsError}
+        </div>
+      ) : null}
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <table className="w-full">
@@ -643,7 +677,20 @@ function SubmissionsSection() {
             </tr>
           </thead>
           <tbody>
-            {submissions.length > 0 ? (
+            {isSubmissionsLoading && submissions.length === 0 ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <tr key={`faculty-submissions-skeleton-${index}`} className="border-b border-gray-100 last:border-b-0">
+                  {/* NOTE: Skeleton rows avoid a blank submissions table during refresh/load cycles. */}
+                  <td className="px-6 py-4"><div className="h-4 w-24 rounded bg-gray-200 animate-pulse" /></td>
+                  <td className="px-6 py-4"><div className="h-4 w-44 rounded bg-gray-200 animate-pulse" /></td>
+                  <td className="px-6 py-4"><div className="h-4 w-28 rounded bg-gray-200 animate-pulse" /></td>
+                  <td className="px-6 py-4"><div className="h-4 w-20 rounded bg-gray-200 animate-pulse" /></td>
+                  <td className="px-6 py-4"><div className="h-6 w-16 rounded bg-gray-100 animate-pulse" /></td>
+                  <td className="px-6 py-4"><div className="ml-auto h-4 w-10 rounded bg-gray-200 animate-pulse" /></td>
+                  <td className="px-6 py-4"><div className="ml-auto h-7 w-20 rounded bg-gray-100 animate-pulse" /></td>
+                </tr>
+              ))
+            ) : submissions.length > 0 ? (
               submissions.map((submission, index) => (
                 <tr
                   key={submission.id}

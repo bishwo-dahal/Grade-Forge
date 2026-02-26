@@ -16,10 +16,11 @@ import {
   getAssignmentDescription,
   getAssignmentDetailById,
   getEditorCodeExamples,
+  invalidateAssignmentWorkspaceCache,
   listPublicTestCases,
   listRubricCategories,
 } from "../../services/assignmentService";
-import { getAssignmentResult } from "../../services/resultService";
+import { getAssignmentResult, invalidateAssignmentResultCache } from "../../services/resultService";
 import {
   listFacultyAssignmentSubmissionFiles,
   submitStudentAssignmentFile,
@@ -61,6 +62,9 @@ export function AssignmentPage() {
   const isFacultyRole = authenticatedRole === "FACULTY";
 
   const loadAssignmentWorkspace = useCallback(async (resolvedId: string) => {
+    // FIX: Invalidate assignment/result caches before loading so newly submitted files appear immediately in faculty/student views.
+    invalidateAssignmentWorkspaceCache(resolvedId);
+    invalidateAssignmentResultCache(resolvedId);
     const [assignmentData, descriptionData, publicTestsData, rubricData, resultsData, codeExamplesData, facultyRows] = await Promise.all([
       getAssignmentDetailById(resolvedId),
       getAssignmentDescription(resolvedId),
@@ -95,12 +99,27 @@ export function AssignmentPage() {
       .finally(() => setIsLoading(false));
   }, [assignmentId, loadAssignmentWorkspace]);
 
+  useEffect(() => {
+    if (!isFacultyRole || activeTab !== "results") {
+      return;
+    }
+    const resolvedId = assignmentId || "1";
+    // NOTE: Faculty results tab refreshes periodically so new student submissions/files appear without manual reload.
+    const refreshInterval = window.setInterval(() => {
+      void loadAssignmentWorkspace(resolvedId);
+    }, 15000);
+    return () => window.clearInterval(refreshInterval);
+  }, [activeTab, assignmentId, isFacultyRole, loadAssignmentWorkspace]);
+
   const handleStudentSubmit = async (file: File) => {
     const resolvedId = assignmentId || "1";
     // NOTE: Clear previous banner state so only the latest submission attempt is shown.
     setSubmissionFeedback(null);
     try {
       await submitStudentAssignmentFile(resolvedId, file);
+      // NOTE: Submission success changes assignment/result payloads, so cached copies must be cleared before reload.
+      invalidateAssignmentWorkspaceCache(resolvedId);
+      invalidateAssignmentResultCache(resolvedId);
       // FIX: Reload assignment/result sources after submit so attempts and results tab state are immediately accurate.
       await loadAssignmentWorkspace(resolvedId);
       setSubmissionFeedback({ tone: "success", text: "File submitted successfully." });

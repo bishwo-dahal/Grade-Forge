@@ -31,6 +31,17 @@ interface CodeWorkspaceProps {
   isMobile?: boolean;
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  const apiMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+  if (typeof apiMessage === "string" && apiMessage.trim()) {
+    return apiMessage;
+  }
+  return "Unable to submit file.";
+}
+
 function validateSubmissionFile(file: File): string | null {
   const lowerFileName = file.name.toLowerCase();
   if (!lowerFileName.endsWith(".py") && !lowerFileName.endsWith(".java")) {
@@ -55,6 +66,8 @@ export function CodeWorkspace({
   const [cursorPosition, setCursorPosition] = useState({ line: 14, col: 8 });
   const [selectedSubmissionFile, setSelectedSubmissionFile] = useState<File | null>(null);
   const [submissionFileError, setSubmissionFileError] = useState<string | null>(null);
+  const [submissionStatusMessage, setSubmissionStatusMessage] = useState<string | null>(null);
+  const [submitModalError, setSubmitModalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const initialCode = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
@@ -366,6 +379,7 @@ export function CodeWorkspace({
       setSubmissionFileError("Select one .py or .java file before submitting.");
       return;
     }
+    setSubmitModalError(null);
     setShowSubmitModal(true);
   };
 
@@ -382,24 +396,31 @@ export function CodeWorkspace({
     if (validationError) {
       setSelectedSubmissionFile(null);
       setSubmissionFileError(validationError);
+      // CLEANUP: Clear stale success state whenever a new invalid file is selected.
+      setSubmissionStatusMessage(null);
       event.target.value = "";
       return;
     }
     setSelectedSubmissionFile(selectedFile);
     setSubmissionFileError(null);
+    setSubmissionStatusMessage(null);
   };
 
   const confirmSubmit = async () => {
     if (!selectedSubmissionFile || isSubmitting) {
       return;
     }
-    setShowSubmitModal(false);
+    setSubmitModalError(null);
     setIsSubmitting(true);
     try {
       // NOTE: Parent page owns API call and status refresh; workspace only forwards the selected file.
       await onSubmit(selectedSubmissionFile);
-    } catch {
-      // NOTE: Keep selected file for retry and let page-level error banner explain failure reason.
+      setShowSubmitModal(false);
+      // FIX: Success message is shown only after backend confirms persistence.
+      setSubmissionStatusMessage("Submitted successfully.");
+    } catch (error) {
+      // NOTE: Keep modal open and selected file for retry when API save fails.
+      setSubmitModalError(getErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -486,8 +507,10 @@ export function CodeWorkspace({
             ) : null}
           </div>
         </div>
-        {showUploadControls && submissionFileError ? (
-          <p className="mt-2 text-[12px] text-[#C23A42]">{submissionFileError}</p>
+        {showUploadControls && (submissionFileError || submissionStatusMessage) ? (
+          <p className={`mt-2 text-[12px] ${submissionFileError ? "text-[#C23A42]" : "text-[#1E7A3F]"}`}>
+            {submissionFileError ?? submissionStatusMessage}
+          </p>
         ) : null}
       </div>
 
@@ -564,7 +587,15 @@ export function CodeWorkspace({
           submissionsUsed={assignment.submissionsUsed}
           submissionsAllowed={assignment.submissionsAllowed}
           onConfirm={confirmSubmit}
-          onCancel={() => setShowSubmitModal(false)}
+          onCancel={() => {
+            if (isSubmitting) {
+              return;
+            }
+            setShowSubmitModal(false);
+            setSubmitModalError(null);
+          }}
+          isSubmitting={isSubmitting}
+          errorMessage={submitModalError}
         />
       )}
 
