@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Clock3, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import {
@@ -19,9 +19,11 @@ interface FacultyCreateAssignmentViewProps {
   isLoading: boolean;
   isSaving: boolean;
   errorMessage: string | null;
-  successMessage: string | null;
+  showSuccessModal: boolean;
   onFieldChange: <K extends keyof AssignmentCreateFormData>(field: K, value: AssignmentCreateFormData[K]) => void;
   onCreateRubric: () => void;
+  onCloseSuccessModal: () => void;
+  onGoBackToClass: () => void;
   onSubmit: () => void;
 }
 
@@ -32,9 +34,11 @@ function FacultyCreateAssignmentView({
   isLoading,
   isSaving,
   errorMessage,
-  successMessage,
+  showSuccessModal,
   onFieldChange,
   onCreateRubric,
+  onCloseSuccessModal,
+  onGoBackToClass,
   onSubmit,
 }: FacultyCreateAssignmentViewProps) {
   const courseCode = pageData?.header.courseCode ?? "CS 2400";
@@ -59,11 +63,6 @@ function FacultyCreateAssignmentView({
         {errorMessage ? (
           <p className="mt-5 rounded-xl border border-[#F3CDD1] bg-[#FDEBEC] px-3 py-2 text-[13px] text-[#C23A42]">
             {errorMessage}
-          </p>
-        ) : null}
-        {successMessage ? (
-          <p className="mt-5 rounded-xl border border-[#CFE8D5] bg-[#EEF9F1] px-3 py-2 text-[13px] text-[#1C7A41]">
-            {successMessage}
           </p>
         ) : null}
 
@@ -153,24 +152,18 @@ function FacultyCreateAssignmentView({
                   <div>
                     <label className="mb-2 block text-[14px] font-medium text-[#1F2430]">Available From</label>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="relative">
-                        <CalendarDays className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]" strokeWidth={2} />
-                        <input
-                          type="date"
-                          value={form.availableFromDate}
-                          onChange={(event) => onFieldChange("availableFromDate", event.target.value)}
-                          className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                        />
-                      </div>
-                      <div className="relative">
-                        <Clock3 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]" strokeWidth={2} />
-                        <input
-                          type="time"
-                          value={form.availableFromTime}
-                          onChange={(event) => onFieldChange("availableFromTime", event.target.value)}
-                          className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                        />
-                      </div>
+                      <input
+                        type="date"
+                        value={form.availableFromDate}
+                        onChange={(event) => onFieldChange("availableFromDate", event.target.value)}
+                        className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                      />
+                      <input
+                        type="time"
+                        value={form.availableFromTime}
+                        onChange={(event) => onFieldChange("availableFromTime", event.target.value)}
+                        className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                      />
                     </div>
                   </div>
                   <div>
@@ -178,47 +171,35 @@ function FacultyCreateAssignmentView({
                       Due Date & Time <span className="text-[#D84E57]">*</span>
                     </label>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="relative">
-                        <CalendarDays className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]" strokeWidth={2} />
-                        <input
-                          type="date"
-                          value={form.dueDate}
-                          onChange={(event) => onFieldChange("dueDate", event.target.value)}
-                          className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                        />
-                      </div>
-                      <div className="relative">
-                        <Clock3 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]" strokeWidth={2} />
-                        <input
-                          type="time"
-                          value={form.dueTime}
-                          onChange={(event) => onFieldChange("dueTime", event.target.value)}
-                          className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                        />
-                      </div>
+                      <input
+                        type="date"
+                        value={form.dueDate}
+                        onChange={(event) => onFieldChange("dueDate", event.target.value)}
+                        className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                      />
+                      <input
+                        type="time"
+                        value={form.dueTime}
+                        onChange={(event) => onFieldChange("dueTime", event.target.value)}
+                        className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                      />
                     </div>
                   </div>
                   <div>
                     <label className="mb-2 block text-[14px] font-medium text-[#1F2430]">Late Due Date & Time</label>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="relative">
-                        <CalendarDays className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]" strokeWidth={2} />
-                        <input
-                          type="date"
-                          value={form.lateDueDate}
-                          onChange={(event) => onFieldChange("lateDueDate", event.target.value)}
-                          className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                        />
-                      </div>
-                      <div className="relative">
-                        <Clock3 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]" strokeWidth={2} />
-                        <input
-                          type="time"
-                          value={form.lateDueTime}
-                          onChange={(event) => onFieldChange("lateDueTime", event.target.value)}
-                          className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                        />
-                      </div>
+                      <input
+                        type="date"
+                        value={form.lateDueDate}
+                        onChange={(event) => onFieldChange("lateDueDate", event.target.value)}
+                        className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                      />
+                      <input
+                        type="time"
+                        value={form.lateDueTime}
+                        onChange={(event) => onFieldChange("lateDueTime", event.target.value)}
+                        className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                      />
                     </div>
                   </div>
                 </div>
@@ -229,9 +210,13 @@ function FacultyCreateAssignmentView({
                 <p className="mt-1 text-[12px] text-[#6D7B91]">Configure grading weight and optional supporting assets.</p>
                 <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
                   <div>
-                    <label htmlFor="assignment-total-points" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                      Total Points <span className="text-[#D84E57]">*</span>
-                    </label>
+                    <div className="mb-2 flex min-h-[40px] items-center justify-between">
+                      <label htmlFor="assignment-total-points" className="block text-[14px] font-medium text-[#1F2430]">
+                        Total Points <span className="text-[#D84E57]">*</span>
+                      </label>
+                      {/* FIX: Keep this spacer so Total Points and Rubric controls align to the same vertical baseline. */}
+                      <span className="h-9 w-[112px] opacity-0" aria-hidden="true" />
+                    </div>
                     <input
                       id="assignment-total-points"
                       type="number"
@@ -243,7 +228,7 @@ function FacultyCreateAssignmentView({
                   </div>
 
                   <div>
-                    <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="mb-2 flex min-h-[40px] items-center justify-between gap-2">
                       <label htmlFor="assignment-rubric" className="block text-[14px] font-medium text-[#1F2430]">
                         Rubric
                       </label>
@@ -312,6 +297,34 @@ function FacultyCreateAssignmentView({
             </>
           )}
         </section>
+
+        {showSuccessModal ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-md rounded-2xl border border-[#DDE4F0] bg-white p-6 shadow-2xl">
+              <h3 className="text-[20px] font-semibold text-[#1F2430]">Assignment Created</h3>
+              {/* NOTE: Success confirmation is modal-based so faculty can clearly confirm completion before navigation. */}
+              <p className="mt-2 text-[14px] text-[#5D6A80]">
+                Your assignment was created successfully.
+              </p>
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={onCloseSuccessModal}
+                  className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50"
+                >
+                  Stay Here
+                </button>
+                <button
+                  type="button"
+                  onClick={onGoBackToClass}
+                  className="rounded-xl bg-[#2B2A2A] px-4 py-2 text-[14px] font-semibold text-white hover:bg-[#3a3939]"
+                >
+                  Go Back to Class
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </main>
   );
@@ -347,7 +360,7 @@ export function FacultyCreateAssignmentPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
     setIsLoading(true);
@@ -443,11 +456,10 @@ export function FacultyCreateAssignmentPage() {
 
     setIsSaving(true);
     setErrorMessage(null);
-    setSuccessMessage(null);
     try {
       await createFacultyAssignmentDraft(resolvedClassId, form);
       // NOTE: Created assignments are persisted in backend and available through enrolled-student assignment queries.
-      setSuccessMessage("Assignment created successfully. Enrolled students can now see it in this class.");
+      setShowSuccessModal(true);
     } catch (error) {
       setErrorMessage(extractErrorMessage(error));
     } finally {
@@ -462,6 +474,14 @@ export function FacultyCreateAssignmentPage() {
   const handleCreateRubric = () => {
     // NOTE: Create-rubric route lets faculty add multiple rubric templates, then return and select one.
     navigate("/faculty/rubrics/new");
+  };
+
+  const handleCloseSuccessModal = () => {
+    setShowSuccessModal(false);
+  };
+
+  const handleGoBackToClass = () => {
+    navigate(`/faculty/class/${resolvedClassId}`);
   };
 
   const handleLogout = () => {
@@ -489,9 +509,11 @@ export function FacultyCreateAssignmentPage() {
           isLoading={isLoading}
           isSaving={isSaving}
           errorMessage={errorMessage}
-          successMessage={successMessage}
+          showSuccessModal={showSuccessModal}
           onFieldChange={onFieldChange}
           onCreateRubric={handleCreateRubric}
+          onCloseSuccessModal={handleCloseSuccessModal}
+          onGoBackToClass={handleGoBackToClass}
           onSubmit={handleSubmit}
         />
       }

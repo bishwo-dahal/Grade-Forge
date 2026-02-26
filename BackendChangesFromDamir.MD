@@ -457,3 +457,39 @@ Scope: Tightened assignment create page header area and aligned schedule control
 
 ### Backend impact
 - Backend unchanged.
+
+## Follow-up UX Feature - Assignment Create Success Modal + Return-to-Class Action
+
+Date: 2026-02-26  
+Scope: Replaced inline success banner with a modal confirmation after assignment creation, including direct navigation back to class.
+
+### Backend readiness + impact
+- No backend changes.
+- Assignment creation API call remains the same.
+
+### Files changed
+
+#### `Client/src/app/components/FacultyCreateAssignmentPage.tsx`
+- Updated create view props:
+  - Removed `successMessage` prop.
+  - Added `showSuccessModal`, `onCloseSuccessModal`, `onGoBackToClass`.
+- Removed inline success banner from page body.
+- Added centered modal overlay shown after successful assignment creation:
+  - Title: `Assignment Created`
+  - Message: assignment created successfully
+  - Actions:
+    - `Stay Here` closes modal
+    - `Go Back to Class` navigates to current class page
+- In container state:
+  - Replaced `successMessage` state with `showSuccessModal` boolean.
+  - On successful creation, toggles modal open.
+  - Added handlers for closing modal and navigating to `/faculty/class/:classId`.
+- Added inline `// NOTE:` comment documenting why confirmation is modal-based.
+
+### Verification
+- Frontend build check run:
+  - `cd Client && npm run build` -> success.
+
+### Backend impact
+- Backend unchanged.
+- UI flow enhancement only.
