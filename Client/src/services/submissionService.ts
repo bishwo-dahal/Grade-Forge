@@ -1,6 +1,8 @@
 import type {
   ClassSubmissionItem,
+  FacultyAssignmentSubmissionRow,
   PendingSubmissionItem,
+  SubmissionFileItem,
   SubmissionConsoleData,
   SubmissionDetail,
   SubmissionSummary,
@@ -147,31 +149,6 @@ const allSubmissions: SubmissionSummary[] = [
   { id: "sub-004", studentName: "Michael Brown", status: "manually-adjusted", score: 78 },
 ];
 
-const classSubmissions: ClassSubmissionItem[] = [
-  {
-    id: "sub-1",
-    student: "Alex Thompson",
-    assignment: "Assignment 8: BST Implementation",
-    submittedAt: "Oct 23, 2023 10:45 PM",
-    status: "ungraded",
-  },
-  {
-    id: "sub-2",
-    student: "Morgan Davis",
-    assignment: "Assignment 8: BST Implementation",
-    submittedAt: "Oct 23, 2023 8:20 PM",
-    status: "ungraded",
-  },
-  {
-    id: "sub-3",
-    student: "Jamie Park",
-    assignment: "Assignment 7: Hash Table",
-    submittedAt: "Oct 17, 2023 11:30 PM",
-    status: "graded",
-    score: 88,
-  },
-];
-
 const pendingSubmissions: PendingSubmissionItem[] = [
   {
     id: "sub-001",
@@ -238,6 +215,15 @@ interface FacultySubmissionApiResponse {
   studentName: string;
   submittedAt: string;
   marks: number | null;
+  files: SubmissionFileApiResponse[] | null;
+}
+
+interface SubmissionFileApiResponse {
+  id: number;
+  fileName: string;
+  fileType: string | null;
+  fileSize: number | null;
+  downloadUrl: string | null;
 }
 
 function formatSubmissionDate(value: string): string {
@@ -254,6 +240,29 @@ function formatSubmissionDate(value: string): string {
   });
 }
 
+function parseAssignmentId(rawAssignmentId: string): number {
+  const parsedAssignmentId = Number(rawAssignmentId.trim());
+  if (!Number.isFinite(parsedAssignmentId) || parsedAssignmentId <= 0) {
+    throw new Error("Invalid assignment id.");
+  }
+  return parsedAssignmentId;
+}
+
+function mapSubmissionFiles(files: SubmissionFileApiResponse[] | null | undefined): SubmissionFileItem[] {
+  if (!files?.length) {
+    return [];
+  }
+
+  return files.map((file, index) => ({
+    // FIX: Keep file row keys stable in UI even when backend ids are temporarily missing.
+    id: Number.isFinite(file.id) ? String(file.id) : `file-${index}`,
+    fileName: file.fileName || "uploaded-file",
+    fileType: file.fileType ?? null,
+    fileSize: typeof file.fileSize === "number" ? file.fileSize : null,
+    downloadUrl: file.downloadUrl ?? null,
+  }));
+}
+
 export function getSubmissionDetailById(submissionId: string): Promise<SubmissionDetail> {
   // NOTE: submissionId is unused in the mock implementation but preserved for backend parity.
   return Promise.resolve({ ...submissionDetail, id: submissionId });
@@ -267,6 +276,19 @@ export function getSubmissionConsoleData(submissionId: string): Promise<Submissi
 export function listSubmissionsForAssignment(assignmentId: string): Promise<SubmissionSummary[]> {
   // NOTE: assignmentId is unused in the mock implementation but preserved for backend parity.
   return Promise.resolve(allSubmissions);
+}
+
+export async function submitStudentAssignmentFile(assignmentId: string, file: File): Promise<void> {
+  const parsedAssignmentId = parseAssignmentId(assignmentId);
+  const fileName = file.name.toLowerCase();
+  if (!fileName.endsWith(".py") && !fileName.endsWith(".java")) {
+    throw new Error("Only .py or .java files are allowed.");
+  }
+
+  const formData = new FormData();
+  // NOTE: Backend submission endpoint expects multipart files under `files`.
+  formData.append("files", file, file.name);
+  await api.post(`/api/v1/student/submissions?assignmentId=${parsedAssignmentId}`, formData);
 }
 
 export async function listClassSubmissions(classId: string): Promise<ClassSubmissionItem[]> {
@@ -292,13 +314,40 @@ export async function listClassSubmissions(classId: string): Promise<ClassSubmis
   return submissionGroups
     .flat()
     .sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime())
+    .map((submission) => {
+      const mappedFiles = mapSubmissionFiles(submission.files);
+      const primaryFile = mappedFiles[0] ?? null;
+      return {
+        id: String(submission.id),
+        student: submission.studentName,
+        assignment: submission.assignmentName,
+        submittedAt: formatSubmissionDate(submission.submittedAt),
+        status: submission.marks === null ? "ungraded" : "graded",
+        score: submission.marks ?? undefined,
+        files: mappedFiles,
+        primaryFileName: primaryFile?.fileName ?? null,
+        additionalFileCount: Math.max(0, mappedFiles.length - 1),
+        primaryDownloadUrl: primaryFile?.downloadUrl ?? null,
+      } satisfies ClassSubmissionItem;
+    });
+}
+
+export async function listFacultyAssignmentSubmissionFiles(
+  assignmentId: string,
+): Promise<FacultyAssignmentSubmissionRow[]> {
+  const parsedAssignmentId = parseAssignmentId(assignmentId);
+  const { data } = await api.get<FacultySubmissionApiResponse[]>(
+    `/api/v1/faculty/submissions?assignmentId=${parsedAssignmentId}`,
+  );
+
+  // NOTE: Faculty results tab requires full file lists per submission for direct downloads.
+  return data
+    .sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime())
     .map((submission) => ({
-      id: String(submission.id),
-      student: submission.studentName,
-      assignment: submission.assignmentName,
+      submissionId: String(submission.id),
+      studentName: submission.studentName,
       submittedAt: formatSubmissionDate(submission.submittedAt),
-      status: submission.marks === null ? "ungraded" : "graded",
-      score: submission.marks ?? undefined,
+      files: mapSubmissionFiles(submission.files),
     }));
 }
 

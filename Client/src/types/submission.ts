@@ -33,6 +33,15 @@ export interface SubmissionSummary {
   score: number | null;
 }
 
+// NOTE: Submission file metadata stays UI-driven so faculty/student views share one stable shape.
+export interface SubmissionFileItem {
+  id: string;
+  fileName: string;
+  fileType: string | null;
+  fileSize: number | null;
+  downloadUrl: string | null;
+}
+
 // NOTE: Added class-level submission row for faculty class tables.
 export interface ClassSubmissionItem {
   id: string;
@@ -41,6 +50,10 @@ export interface ClassSubmissionItem {
   submittedAt: string;
   status: "ungraded" | "graded";
   score?: number;
+  files: SubmissionFileItem[];
+  primaryFileName: string | null;
+  additionalFileCount: number;
+  primaryDownloadUrl: string | null;
 }
 
 // NOTE: Added right-panel submission link model for pending grading lists.
@@ -82,4 +95,12 @@ export interface SubmissionConsoleData {
   output: string;
   errors: string;
   executionLog: string;
+}
+
+// NOTE: Faculty assignment results tab needs full per-submission file lists for download actions.
+export interface FacultyAssignmentSubmissionRow {
+  submissionId: string;
+  studentName: string;
+  submittedAt: string;
+  files: SubmissionFileItem[];
 }
