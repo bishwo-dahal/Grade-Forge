@@ -304,6 +304,7 @@ export async function submitStudentAssignmentFile(assignmentId: string, file: Fi
   const normalizedUploadFile = normalizeUploadFileType(file);
   // NOTE: Backend submission endpoint expects multipart files under `files`.
   formData.append("files", normalizedUploadFile, normalizedUploadFile.name);
+  // FIX: Axios interceptor keeps FormData headers browser-managed so multipart boundary is sent correctly.
   await api.post(`/api/v1/student/submissions?assignmentId=${parsedAssignmentId}`, formData);
 }
 

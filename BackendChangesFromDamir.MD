@@ -162,3 +162,33 @@ Scope: Debug/fix after user-reported issue where submit gave no visible progress
 ### Backend impact
 - No backend code changed.
 - Existing backend endpoints remain unchanged; frontend fixes improve contract compliance and data freshness around those endpoints.
+
+## Follow-up Fix Report - 400 Multipart Submission Error
+
+Date: 2026-02-26
+Scope: Debugged student submit failure showing `Request failed with status code 400` on `POST /api/v1/student/submissions?assignmentId=...`.
+
+### Root cause
+- Frontend Axios client was globally forcing `Content-Type: application/json` for all requests.
+- Student submission upload uses `FormData` and backend expects `multipart/form-data`.
+- With JSON content type forced, Spring could reject upload parsing and return 400.
+
+### Files updated
+
+#### `Client/src/api/axios.ts`
+- Removed global default `Content-Type: application/json` from axios instance creation.
+- Added request-interceptor guard:
+  - When request body is `FormData`, remove `Content-Type` header so browser sets multipart boundary automatically.
+- Why: multipart upload correctness depends on browser-managed content-type boundary.
+
+#### `Client/src/services/submissionService.ts`
+- Kept upload call as plain `api.post(url, formData)`.
+- Added inline note that interceptor handles multipart header behavior.
+- Why: avoids manually forcing headers and keeps upload contract stable.
+
+### Verification
+- Frontend build: `cd Client && npm run build` -> success.
+
+### Backend impact
+- No backend code changes needed.
+- This fix aligns frontend request format with existing backend multipart controller contract.
