@@ -57,6 +57,10 @@ function validateSubmissionFile(file: File): string | null {
   return null;
 }
 
+function getSubmissionMimeType(fileName: string): string {
+  return fileName.toLowerCase().endsWith(".java") ? "text/x-java-source" : "text/x-python";
+}
+
 export function CodeWorkspace({
   assignmentId,
   assignment,
@@ -418,11 +422,12 @@ export function CodeWorkspace({
     if (!showUploadControls) {
       return;
     }
-    // FIX: Student submission now requires one valid local source file before opening submit confirmation.
-    if (!selectedSubmissionFile) {
-      setSubmissionFileError("Select one .py or .java file before submitting.");
+    // FIX: Student can submit either an uploaded source file or non-empty editor code.
+    if (!canSubmit) {
+      setSubmissionFileError("Upload a .py/.java file or add code in the editor before submitting.");
       return;
     }
+    setSubmissionFileError(null);
     setSubmitModalError(null);
     setShowSubmitModal(true);
   };
@@ -451,14 +456,24 @@ export function CodeWorkspace({
   };
 
   const confirmSubmit = async () => {
-    if (!selectedSubmissionFile || isSubmitting) {
+    if (isSubmitting) {
+      return;
+    }
+    const fileToSubmit = selectedSubmissionFile
+      ?? (editorSubmissionCandidate
+        ? new File([editorSubmissionCandidate.content], editorSubmissionCandidate.fileName, {
+            type: getSubmissionMimeType(editorSubmissionCandidate.fileName),
+          })
+        : null);
+    if (!fileToSubmit) {
+      setSubmitModalError("Upload a .py/.java file or add code in the editor before submitting.");
       return;
     }
     setSubmitModalError(null);
     setIsSubmitting(true);
     try {
-      // NOTE: Parent page owns API call and status refresh; workspace only forwards the selected file.
-      await onSubmit(selectedSubmissionFile);
+      // NOTE: Parent page owns API call and status refresh; workspace only forwards upload file or generated editor file.
+      await onSubmit(fileToSubmit);
       setShowSubmitModal(false);
       // FIX: Success message is shown only after backend confirms persistence.
       setSubmissionStatusMessage("Submitted successfully.");
@@ -513,6 +528,32 @@ export function CodeWorkspace({
       setIsFacultyViewerLoading(false);
     }
   };
+
+  const editorSubmissionCandidate = useMemo(() => {
+    const candidateIds = [
+      ...(selectedId ? [selectedId] : []),
+      "main",
+      ...Object.keys(fileContents),
+    ].filter((value, index, list) => list.indexOf(value) === index);
+
+    for (const candidateId of candidateIds) {
+      const candidateContent = fileContents[candidateId] ?? "";
+      if (!candidateContent.trim()) {
+        continue;
+      }
+
+      const rawFileName = getNodeName(candidateId);
+      const hasSupportedExtension = rawFileName.toLowerCase().endsWith(".py") || rawFileName.toLowerCase().endsWith(".java");
+      // NOTE: Editor submissions must still produce backend-compatible source filenames.
+      const fileName = hasSupportedExtension ? rawFileName : `main${getDefaultExtension(assignment.language)}`;
+      return { fileName, content: candidateContent };
+    }
+
+    return null;
+  }, [assignment.language, fileContents, nodes, selectedId]);
+
+  const canSubmitFromEditor = Boolean(editorSubmissionCandidate);
+  const canSubmit = Boolean(selectedSubmissionFile) || canSubmitFromEditor;
 
   return (
     <div className="flex flex-col h-full">
@@ -595,7 +636,7 @@ export function CodeWorkspace({
                 ) : null}
                 <button
                   onClick={handleSubmit}
-                  disabled={!selectedSubmissionFile || isSubmitting}
+                  disabled={!canSubmit || isSubmitting}
                   className="px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] disabled:bg-[#7E7D7D] disabled:cursor-not-allowed text-white rounded-lg text-[13px] font-medium transition-colors flex items-center gap-2"
                 >
                   <Send className="w-4 h-4" strokeWidth={2} />
@@ -605,6 +646,12 @@ export function CodeWorkspace({
             ) : null}
           </div>
         </div>
+        {showUploadControls && !selectedSubmissionFile && canSubmitFromEditor ? (
+          <p className="mt-2 text-[12px] text-[#5D6A80]">
+            {/* NOTE: If no upload is selected, submit packages the current editor code as a source file. */}
+            No file uploaded. Your editor code will be submitted as {editorSubmissionCandidate?.fileName}.
+          </p>
+        ) : null}
         {showUploadControls && (submissionFileError || submissionStatusMessage) ? (
           <p className={`mt-2 text-[12px] ${submissionFileError ? "text-[#C23A42]" : "text-[#1E7A3F]"}`}>
             {submissionFileError ?? submissionStatusMessage}

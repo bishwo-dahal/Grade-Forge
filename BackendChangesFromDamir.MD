@@ -292,3 +292,39 @@ Scope: Added explicit student-facing confirmation text when a learner tries to s
 
 ### Backend impact
 - Backend unchanged; existing submit endpoint continues to handle submission persistence.
+
+## Follow-up Feature Report - Submit Editor Code As Source File
+
+Date: 2026-02-26  
+Scope: Added student workflow support to submit code typed directly in the editor without requiring a manual local file upload.
+
+### Backend readiness + impact
+- No backend code was modified.
+- Existing endpoint contract remains unchanged:
+  - `POST /api/v1/student/submissions?assignmentId=...` multipart with `files`.
+- Frontend now generates a valid `.py` or `.java` file from editor code when no upload is selected, then submits through the same API path.
+
+### Files changed
+
+#### `Client/src/app/components/assignment/CodeWorkspace.tsx`
+- Added helper `getSubmissionMimeType(fileName)` to assign backend-safe MIME types for generated submission files.
+- Added `editorSubmissionCandidate` derivation logic:
+  - Checks selected file, then `main`, then remaining workspace files.
+  - Picks first non-empty code content.
+  - Ensures submission filename is valid (`.py`/`.java`) and falls back to language-based `main` filename if needed.
+- Updated submit gating:
+  - Submit is enabled when either a valid uploaded file exists OR editor has non-empty code.
+  - Shows clear validation error if both are missing.
+- Updated confirm submit flow:
+  - Uses uploaded file when present.
+  - Otherwise creates a `File` from editor content and submits it through existing `onSubmit` callback.
+- Added UI hint below action bar to explain that editor code will be submitted as a source file when no upload is selected.
+- Why: lets students complete the assignment fully inside the in-browser editor while preserving existing backend file submission contract.
+
+### Verification
+- Frontend build check run:
+  - `cd Client && npm run build` -> success.
+
+### Backend impact
+- Backend unchanged.
+- Feature is additive and reuses current multipart submission pipeline.
