@@ -328,3 +328,69 @@ Scope: Added student workflow support to submit code typed directly in the edito
 ### Backend impact
 - Backend unchanged.
 - Feature is additive and reuses current multipart submission pipeline.
+
+## Follow-up Feature Report - Full Assignment Create Fields + Rubric Selection
+
+Date: 2026-02-26  
+Scope: Expanded faculty assignment creation flow so the page captures all currently persisted assignment fields and allows selecting existing faculty rubrics.
+
+### Backend readiness + impact
+- No backend code was changed.
+- Frontend now sends full `AssignmentRequest`-aligned payload fields supported by backend:
+  - `courseId`, `languageId`, `name`, `description`, `totalPoints`, `submissionType`, `starterCodeUrl`, `availableFrom`, `dueDate`, `lateDueDate`, `rubricId`.
+- Rubric options are loaded from existing faculty rubric endpoint.
+
+### Files changed
+
+#### `Client/src/types/assignment.ts`
+- Expanded `AssignmentCreateFormData` to include backend-backed create fields:
+  - `availableFromDate`, `availableFromTime`
+  - `lateDueDate`, `lateDueTime`
+  - `submissionType`
+  - `starterCodeUrl`
+  - `rubricId`
+- Added `AssignmentSubmissionType` union (`INDIVIDUAL | GROUP`).
+- Expanded `FacultyAssignmentCreatePageData` with `rubricOptions`.
+- Added inline `// NOTE:` comments describing why each new field exists and its backend mapping.
+
+#### `Client/src/services/assignmentService.ts`
+- Expanded default create form seed with new fields.
+- Added rubric option API shape + safe loader:
+  - `listFacultyRubricOptions()` handles backend 404 as empty list.
+- Added `buildOptionalDateTimePayload()` for optional LocalDateTime fields.
+- Updated `getFacultyAssignmentCreatePageData()` to fetch:
+  - course header
+  - active languages
+  - faculty rubrics
+- Updated create payload in `createFacultyAssignmentDraft()` to include:
+  - dynamic `submissionType`
+  - optional `starterCodeUrl`
+  - optional `availableFrom`
+  - required `dueDate`
+  - optional `lateDueDate`
+  - optional `rubricId`
+- Added inline `// NOTE:` and `// FIX:` comments for backend contract and resiliency behavior.
+
+#### `Client/src/app/components/FacultyCreateAssignmentPage.tsx`
+- Added new form controls for missing backend-backed fields:
+  - Available From (date/time)
+  - Late Due Date (date/time)
+  - Submission Type selector
+  - Rubric selector (from faculty-created rubrics)
+  - Starter Code URL input
+- Added empty-rubric helper text directing faculty to Add Rubric flow.
+- Added client-side validation for timeline/data quality:
+  - Optional datetime fields must include time when date is provided.
+  - Available-from cannot be after due date.
+  - Late due cannot be before due date.
+  - Starter URL must start with `http://` or `https://` when provided.
+- Removed outdated placeholder note claiming rubric/starter settings were deferred.
+- Added inline `// NOTE:` and `// FIX:` comments for integration intent.
+
+### Verification
+- Frontend build check run:
+  - `cd Client && npm run build` -> success.
+
+### Backend impact
+- Backend unchanged.
+- Frontend create flow now fully maps to fields currently supported by backend assignment entity/request.
