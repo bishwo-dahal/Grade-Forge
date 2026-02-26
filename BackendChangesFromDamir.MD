@@ -427,3 +427,33 @@ Scope: Reorganized faculty assignment creation UI into clearer sections, removed
 ### Backend impact
 - Backend unchanged.
 - UI-only improvement with no payload contract changes.
+
+## Follow-up UI Cleanup - Remove Subtitle/Back Arrow + Single-Row Schedule Controls
+
+Date: 2026-02-26  
+Scope: Tightened assignment create page header area and aligned schedule controls into one row on desktop.
+
+### Backend readiness + impact
+- No backend changes.
+- No payload/schema changes.
+
+### Files changed
+
+#### `Client/src/app/components/FacultyCreateAssignmentPage.tsx`
+- Removed subtitle text under page heading:
+  - Deleted `Create a new coding assignment for this class.`
+- Removed top back-arrow link (`Back to Class`) from above breadcrumbs.
+- Kept breadcrumbs and bottom cancel action intact for navigation context.
+- Refactored schedule layout:
+  - Changed schedule section wrapper from single-column stack to `lg:grid-cols-3`.
+  - Available From, Due Date & Time, and Late Due Date & Time now align in one row on desktop.
+  - Mobile still stacks naturally.
+- Removed unused imports/variables (`ArrowLeft`, `courseName`) after cleanup.
+- Added inline `// REFACTOR:` comment documenting the one-row schedule alignment intent.
+
+### Verification
+- Frontend build check run:
+  - `cd Client && npm run build` -> success.
+
+### Backend impact
+- Backend unchanged.

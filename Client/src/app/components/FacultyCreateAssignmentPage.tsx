@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CalendarDays, Clock3, Plus } from "lucide-react";
+import { CalendarDays, Clock3, Plus } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import {
@@ -38,21 +38,10 @@ function FacultyCreateAssignmentView({
   onSubmit,
 }: FacultyCreateAssignmentViewProps) {
   const courseCode = pageData?.header.courseCode ?? "CS 2400";
-  const courseName = pageData?.header.courseName ?? "Class";
 
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-8 py-7">
       <div className="mx-auto w-full max-w-[1160px]">
-        <div className="mb-5">
-          <Link
-            to={`/faculty/class/${classId}`}
-            className="inline-flex items-center gap-2 text-[13px] text-[#5D6A80] transition-colors hover:text-[#2B2A2A]"
-          >
-            <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-            Back to Class
-          </Link>
-        </div>
-
         <div className="mb-5 text-[15px] text-[#6D7B91]">
           <Link to="/faculty/my-classes" className="hover:text-[#2B2A2A]">
             My Classes
@@ -66,7 +55,6 @@ function FacultyCreateAssignmentView({
         </div>
 
         <h1 className="text-[34px] font-semibold leading-tight text-[#1F2430]">Create New Assignment</h1>
-        <p className="mt-3 text-[15px] text-[#5D6A80]">Create a new coding assignment for this class.</p>
 
         {errorMessage ? (
           <p className="mt-5 rounded-xl border border-[#F3CDD1] bg-[#FDEBEC] px-3 py-2 text-[13px] text-[#C23A42]">
@@ -160,7 +148,8 @@ function FacultyCreateAssignmentView({
               <section className="mt-5 rounded-2xl border border-[#E5E9F2] bg-[#FAFBFD] p-5">
                 <h3 className="text-[16px] font-semibold text-[#1F2430]">Schedule</h3>
                 <p className="mt-1 text-[12px] text-[#6D7B91]">Set opening, due, and optional late window.</p>
-                <div className="mt-4 grid grid-cols-1 gap-4">
+                {/* REFACTOR: Keep all schedule date/time controls in one aligned row on desktop for faster scanning. */}
+                <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
                   <div>
                     <label className="mb-2 block text-[14px] font-medium text-[#1F2430]">Available From</label>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
