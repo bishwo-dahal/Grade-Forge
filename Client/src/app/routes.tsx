@@ -1,3 +1,4 @@
+import React from "react";
 import { createBrowserRouter, Navigate } from "react-router";
 import { GradeForgeDashboard } from "./components/GradeForgeDashboard";
 import { AssignmentPage } from "./components/AssignmentPage";
@@ -31,6 +32,9 @@ import {
   StudentMaterialsPage,
   StudentMyCoursesPage,
 } from "./components/RoleWorkspacePages";
+import { FacultyRubricsPage } from "./components/faculty/rubrics/FacultyRubricsPage";
+import { FacultyRubricCreatePage } from "./components/faculty/rubrics/FacultyRubricCreatePage";
+import { FacultyRubricDetailPage } from "./components/faculty/rubrics/FacultyRubricDetailPage";
 
 export const router = createBrowserRouter([
   {
@@ -132,6 +136,30 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={["FACULTY"]}>
         <FacultyGradingHubPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/rubrics",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyRubricsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/rubrics/new",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyRubricCreatePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/rubrics/:rubricId",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyRubricDetailPage />
       </ProtectedRoute>
     ),
   },
