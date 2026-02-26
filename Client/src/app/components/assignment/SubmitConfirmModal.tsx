@@ -19,6 +19,7 @@ export function SubmitConfirmModal({
 }: SubmitConfirmModalProps) {
   const hasAttemptsLimit = submissionsAllowed !== null;
   const attemptsRemaining = hasAttemptsLimit ? submissionsAllowed - submissionsUsed : null;
+  const hasSubmittedBefore = submissionsUsed > 0;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -52,6 +53,14 @@ export function SubmitConfirmModal({
               </div>
             </div>
           </div>
+
+          {hasSubmittedBefore ? (
+            <div className="bg-[#C23A42]/10 border border-[#C23A42]/25 rounded-xl p-4 mb-5">
+              <p className="text-[14px] text-[#2B2A2A] font-semibold mb-1">You already submitted this assignment.</p>
+              {/* FIX: Make resubmission intent explicit so students confirm they want to submit again. */}
+              <p className="text-[13px] text-gray-700">Do you want to submit again and replace your previous submission?</p>
+            </div>
+          ) : null}
 
           {/* Submission Count */}
           {hasAttemptsLimit && (
@@ -136,7 +145,7 @@ export function SubmitConfirmModal({
                 <span>Saving...</span>
               </>
             ) : (
-              <span>Submit for Grading</span>
+              <span>{hasSubmittedBefore ? "Submit Again" : "Submit for Grading"}</span>
             )}
           </button>
         </div>

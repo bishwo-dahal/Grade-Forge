@@ -262,3 +262,33 @@ Scope: Added faculty-only assignment workspace flow to preview student submissio
 
 ### Commits
 1. `498a74e` add faculty see-in-editor submission preview flow
+
+## Follow-up Fix Report - Student Resubmission Confirmation Prompt
+
+Date: 2026-02-26  
+Scope: Added explicit student-facing confirmation text when a learner tries to submit an assignment after already submitting once.
+
+### Backend readiness + impact
+- No backend code was modified.
+- No API contract changes were needed.
+- This is a frontend confirmation UX improvement only.
+
+### Files changed
+
+#### `Client/src/app/components/assignment/SubmitConfirmModal.tsx`
+- Added derived state `hasSubmittedBefore` based on `submissionsUsed > 0`.
+- Added a conditional warning panel shown only for resubmissions:
+  - Message states the student already submitted.
+  - Asks clearly whether they want to submit again and replace previous submission.
+- Updated submit CTA label dynamically:
+  - First submission: `Submit for Grading`
+  - Resubmission: `Submit Again`
+- Added inline `// FIX:` comment to document intent and future maintenance context.
+- Why: gives an explicit and unambiguous confirmation step for repeat submissions, matching requested workflow.
+
+### Verification
+- Frontend build check run:
+  - `cd Client && npm run build` -> success.
+
+### Backend impact
+- Backend unchanged; existing submit endpoint continues to handle submission persistence.
