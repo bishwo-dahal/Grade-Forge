@@ -117,6 +117,17 @@ interface AssignmentApiResponse {
   rubricName?: string | null;
 }
 
+interface AssignmentBasicApiResponse {
+  id: number;
+  courseId: number;
+  name: string;
+  description: string | null;
+  totalPoints: number;
+  availableFrom: string | null;
+  dueDate: string | null;
+  lateDueDate: string | null;
+}
+
 interface SubmissionApiResponse {
   id: number;
   assignmentId: number;
@@ -145,6 +156,22 @@ interface ProgrammingLanguageApiResponse {
 interface RubricOptionApiResponse {
   id: number;
   name: string;
+}
+
+interface RubricCriteriaApiResponse {
+  id: number;
+  title: string;
+  description: string | null;
+  maxScore: number;
+  weight: number | null;
+}
+
+interface RubricApiResponse {
+  id: number;
+  name: string;
+  description: string | null;
+  facultyId: number | null;
+  criteria: RubricCriteriaApiResponse[];
 }
 
 async function listFacultyRubricOptions(): Promise<RubricOptionApiResponse[]> {
@@ -353,7 +380,10 @@ async function loadStudentAssignmentWorkspaceSource(assignmentId: string): Promi
 
     const assignmentsByCourse = await Promise.all(
       enrolledCourses.map(async (course) => {
-        const { data: assignments } = await api.get<AssignmentApiResponse[]>(`/api/v1/student/assignments/course/${course.id}`);
+        // NOTE: Student course-assignment list endpoint returns basic shape; fetch detail endpoint for full assignment fields per selected row.
+        const { data: assignments } = await api.get<AssignmentBasicApiResponse[]>(
+          `/api/v1/student/assignments/course/${course.id}`,
+        );
         return { course, assignments };
       }),
     );
@@ -363,6 +393,9 @@ async function loadStudentAssignmentWorkspaceSource(assignmentId: string): Promi
       if (!matchedAssignment) {
         continue;
       }
+      const { data: assignmentDetail } = await api.get<AssignmentApiResponse>(
+        `/api/v1/student/assignments/course/${group.course.id}/${parsedAssignmentId}`,
+      );
 
       const { data: submissions } = await api.get<SubmissionApiResponse[]>(
         `/api/v1/student/submissions/assignment?assignmentId=${parsedAssignmentId}`,
@@ -370,7 +403,8 @@ async function loadStudentAssignmentWorkspaceSource(assignmentId: string): Promi
 
       return {
         course: group.course,
-        assignment: matchedAssignment,
+        // FIX: Use student assignment detail payload so rubric/language fields are present in assignment workspace tabs.
+        assignment: assignmentDetail,
         submissions,
       } satisfies StudentAssignmentWorkspaceSource;
     }
@@ -673,13 +707,15 @@ export async function listRubricCategories(assignmentId: string): Promise<Rubric
     return [];
   }
 
-  if (getAuthenticatedRole() !== "FACULTY") {
-    // NOTE: Student scope currently has no rubric-details endpoint; avoid placeholder data and show empty rubric tab state.
-    return [];
-  }
-
   try {
-    const rubric = await getRubric(rubricId);
+    const authenticatedRole = getAuthenticatedRole();
+    const rubric = authenticatedRole === "FACULTY"
+      ? await getRubric(rubricId)
+      : (
+          await api.get<RubricApiResponse>(
+            `/api/v1/student/assignments/course/${workspaceSource.course.id}/${workspaceSource.assignment.id}/rubric`,
+          )
+        ).data;
     const totalPoints = rubric.criteria.reduce((sum, criterion) => sum + criterion.maxScore, 0);
     return [
       {

@@ -566,3 +566,55 @@ Scope: Enabled direct access to assignment detail workspace from Student Assignm
 ### Backend impact
 - Backend unchanged.
 - Pure frontend navigation/accessibility improvement.
+
+## Follow-up Fix - Student Assignment Rubric Tab Now Shows Real Criteria
+
+Date: 2026-02-26  
+Scope: Restored rubric visibility in assignment Grading Rubric tab by loading full assignment detail for student flows and adding a student-safe rubric details endpoint.
+
+### Root cause
+- Student assignment workspace loader was using `/api/v1/student/assignments/course/{courseId}` (basic response only).
+- Basic assignment response does not include `rubricId`, so rubric tab resolver had no rubric link and returned empty list.
+- Student role also could not call faculty-only rubric endpoint directly.
+
+### Backend changes
+
+#### `Server/src/main/java/com/grade/forge/assignment/controller/AssignmentStudentController.java`
+- Added `RubricService` dependency to student assignment controller.
+- Added new endpoint:
+  - `GET /api/v1/student/assignments/course/{courseId}/{assignmentId}/rubric`
+- Endpoint behavior:
+  1. Validates assignment ownership/context via existing `assignmentService.getAssignmentByCourse(...)`.
+  2. Reads `rubricId` from assignment response.
+  3. Returns `RubricResponse` with full criteria by reusing `rubricService.getRubric(...)`.
+  4. Throws explicit error when assignment has no linked rubric.
+- Why: provides student-safe rubric criteria retrieval without exposing faculty-only rubric routes.
+
+### Frontend changes
+
+#### `Client/src/services/assignmentService.ts`
+- Added `AssignmentBasicApiResponse` to represent student course list endpoint shape explicitly.
+- Added rubric response interfaces used by new student rubric endpoint mapping.
+- Updated `loadStudentAssignmentWorkspaceSource(...)`:
+  - Still loads course assignment list for discovery.
+  - After finding matching assignment, now calls student detail endpoint:
+    - `GET /api/v1/student/assignments/course/{courseId}/{assignmentId}`
+  - Uses detail payload as workspace assignment source.
+- Updated `listRubricCategories(...)`:
+  - For faculty: keeps using `getRubric(rubricId)`.
+  - For student: calls new endpoint:
+    - `GET /api/v1/student/assignments/course/{courseId}/{assignmentId}/rubric`
+  - Maps rubric criteria to existing `RubricCategory` UI shape.
+  - Keeps safe empty fallback on request failure.
+- Added inline `// NOTE:` / `// FIX:` comments documenting why detail endpoint and role-based rubric sourcing are required.
+
+### Verification
+- Frontend build:
+  - `cd Client && npm run build` -> success.
+- Backend compile:
+  - `cd Server && mvn -DskipTests compile` -> success.
+
+### Backend impact summary
+- Added one read-only student endpoint for rubric details by assignment.
+- No database schema changes.
+- Reused existing rubric service mapping/DTO contracts.
