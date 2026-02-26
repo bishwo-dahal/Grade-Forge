@@ -368,6 +368,40 @@ export async function listFacultyAssignmentSubmissionFiles(
     }));
 }
 
+function isPreviewableSourceFile(fileName: string): boolean {
+  const normalizedName = fileName.toLowerCase();
+  return normalizedName.endsWith(".py") || normalizedName.endsWith(".java");
+}
+
+export function resolvePreviewLanguage(fileName: string, fallbackLanguage: string): string {
+  const normalizedName = fileName.toLowerCase();
+  if (normalizedName.endsWith(".py")) {
+    return "Python";
+  }
+  if (normalizedName.endsWith(".java")) {
+    return "Java";
+  }
+  // NOTE: Keep fallback language so editor rendering remains resilient if unsupported extension slips through.
+  return fallbackLanguage;
+}
+
+export async function fetchSubmissionFileText(downloadUrl: string, fileName: string): Promise<string> {
+  if (!isPreviewableSourceFile(fileName)) {
+    throw new Error("Only .py and .java files can be shown in editor.");
+  }
+  if (!downloadUrl) {
+    throw new Error("Download link is unavailable for this file.");
+  }
+
+  // NOTE: Use fetch directly for presigned S3 URLs to avoid auth-header/cors conflicts from API client interceptors.
+  const response = await fetch(downloadUrl);
+  if (!response.ok) {
+    throw new Error(`Unable to load file content (${response.status}).`);
+  }
+
+  return response.text();
+}
+
 export function listPendingSubmissions(): Promise<PendingSubmissionItem[]> {
   return Promise.resolve(pendingSubmissions);
 }

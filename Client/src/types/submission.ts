@@ -104,3 +104,22 @@ export interface FacultyAssignmentSubmissionRow {
   submittedAt: string;
   files: SubmissionFileItem[];
 }
+
+// NOTE: Faculty editor selector options are flattened from submission rows so view components stay data-agnostic.
+export interface FacultySubmissionFileOption {
+  optionId: string;
+  submissionId: string;
+  studentName: string;
+  fileName: string;
+  submittedAt: string;
+  downloadUrl: string | null;
+  label: string;
+}
+
+// NOTE: Read-only editor payload keeps only fields required to render selected submission code in workspace.
+export interface FacultyEditorPreviewPayload {
+  optionId: string;
+  fileName: string;
+  language: string;
+  content: string;
+}

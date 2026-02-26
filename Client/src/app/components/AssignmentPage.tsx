@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { AssignmentHeader } from "./assignment/AssignmentHeader";
@@ -22,12 +22,18 @@ import {
 } from "../../services/assignmentService";
 import { getAssignmentResult, invalidateAssignmentResultCache } from "../../services/resultService";
 import {
+  fetchSubmissionFileText,
   listFacultyAssignmentSubmissionFiles,
+  resolvePreviewLanguage,
   submitStudentAssignmentFile,
 } from "../../services/submissionService";
 import { getAuthenticatedRole } from "../auth";
 import React from "react";
-import type { FacultyAssignmentSubmissionRow } from "../../types/submission";
+import type {
+  FacultyAssignmentSubmissionRow,
+  FacultyEditorPreviewPayload,
+  FacultySubmissionFileOption,
+} from "../../types/submission";
 
 type TabType = 'description' | 'tests' | 'rubric' | 'results';
 
@@ -60,6 +66,24 @@ export function AssignmentPage() {
   const authenticatedRole = getAuthenticatedRole();
   const isStudentRole = authenticatedRole === "STUDENT";
   const isFacultyRole = authenticatedRole === "FACULTY";
+
+  const facultySubmissionFileOptions = useMemo<FacultySubmissionFileOption[]>(() => {
+    if (!isFacultyRole) {
+      return [];
+    }
+    // NOTE: Flatten faculty submission rows into selector options so workspace component stays presentation-focused.
+    return facultySubmissionRows.flatMap((row) =>
+      row.files.map((file) => ({
+        optionId: `${row.submissionId}:${file.id}`,
+        submissionId: row.submissionId,
+        studentName: row.studentName,
+        fileName: file.fileName,
+        submittedAt: row.submittedAt,
+        downloadUrl: file.downloadUrl,
+        label: `${row.studentName} - ${file.fileName} - ${row.submittedAt}`,
+      })),
+    );
+  }, [facultySubmissionRows, isFacultyRole]);
 
   const loadAssignmentWorkspace = useCallback(async (resolvedId: string) => {
     // FIX: Invalidate assignment/result caches before loading so newly submitted files appear immediately in faculty/student views.
@@ -128,6 +152,24 @@ export function AssignmentPage() {
       throw error;
     }
   };
+
+  const requestFacultyEditorPreview = useCallback(
+    async (optionId: string): Promise<FacultyEditorPreviewPayload> => {
+      const matchedOption = facultySubmissionFileOptions.find((option) => option.optionId === optionId);
+      if (!matchedOption) {
+        throw new Error("Selected submission file was not found.");
+      }
+
+      const content = await fetchSubmissionFileText(matchedOption.downloadUrl ?? "", matchedOption.fileName);
+      return {
+        optionId: matchedOption.optionId,
+        fileName: matchedOption.fileName,
+        language: resolvePreviewLanguage(matchedOption.fileName, assignment?.language || "Python"),
+        content,
+      };
+    },
+    [facultySubmissionFileOptions, assignment?.language],
+  );
 
   if (isLoading) {
     return (
@@ -246,6 +288,9 @@ export function AssignmentPage() {
               onSubmit={handleStudentSubmit}
               // NOTE: Faculty assignment pages stay read-only for local file upload controls.
               showUploadControls={isStudentRole}
+              showFacultyViewerControls={isFacultyRole}
+              facultySubmissionFileOptions={isFacultyRole ? facultySubmissionFileOptions : undefined}
+              onRequestFacultyEditorPreview={isFacultyRole ? requestFacultyEditorPreview : undefined}
             />
           </Panel>
         </PanelGroup>

@@ -27,6 +27,8 @@ export interface MonacoEditorProps {
   height?: string;
   /** Optional class name for the wrapper div. */
   className?: string;
+  /** Optional read-only mode for reviewer-style previews. */
+  readOnly?: boolean;
   /** Optional: called when editor is mounted (e.g. to get editor instance). */
   onMount?: OnMount;
 }
@@ -41,6 +43,7 @@ export function MonacoEditor({
   onChange,
   height = "100%",
   className,
+  readOnly = false,
   onMount,
 }: MonacoEditorProps) {
   const monacoLanguage = getMonacoLanguage(language);
@@ -70,6 +73,8 @@ export function MonacoEditor({
           wordWrap: "on",
           padding: { top: 16 },
           useShadowDOM: false,
+          // NOTE: Workspace can toggle reviewer read-only preview mode without branching editor component usage.
+          readOnly,
         }}
       />
     </div>
