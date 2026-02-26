@@ -192,3 +192,73 @@ Scope: Debugged student submit failure showing `Request failed with status code 
 ### Backend impact
 - No backend code changes needed.
 - This fix aligns frontend request format with existing backend multipart controller contract.
+
+## Follow-up Feature Report - Faculty "See in editor" Submission Viewer
+
+Date: 2026-02-26
+Scope: Added faculty-only assignment workspace flow to preview student submission files directly in Monaco editor using existing presigned S3 download URLs.
+
+### Backend readiness + impact
+- No backend code was modified.
+- Existing backend contract was reused:
+  - `GET /api/v1/faculty/submissions?assignmentId=...` for per-submission file metadata (`fileName`, `downloadUrl`).
+  - Presigned S3 `downloadUrl` for file retrieval.
+- Frontend uses direct `fetch(downloadUrl)` for content preview to avoid API client auth-header interference.
+
+### Files changed
+
+#### `Client/src/types/submission.ts`
+- Added `FacultySubmissionFileOption`:
+  - Flattened option shape for faculty selector dropdown.
+  - Carries `optionId`, student name, file name, submitted time, and `downloadUrl`.
+- Added `FacultyEditorPreviewPayload`:
+  - Minimal payload needed to render selected submission code in editor (`fileName`, `language`, `content`).
+- Why: keeps UI contract explicit and reusable between container (`AssignmentPage`) and presentation component (`CodeWorkspace`).
+
+#### `Client/src/services/submissionService.ts`
+- Added `resolvePreviewLanguage(fileName, fallbackLanguage)`:
+  - Maps `.py` -> `Python`, `.java` -> `Java`, fallback for resilience.
+- Added `fetchSubmissionFileText(downloadUrl, fileName)`:
+  - Validates previewable extension (`.py`/`.java`).
+  - Fetches text content from presigned URL with native `fetch`.
+  - Raises clear errors for invalid extension, missing URL, or non-200 response.
+- Why: centralizes file preview data retrieval and language resolution in service layer; keeps components view-focused.
+
+#### `Client/src/app/components/editors/MonacoEditor.tsx`
+- Added optional `readOnly?: boolean` prop (default `false`).
+- Wired prop into Monaco editor options (`readOnly`).
+- Why: enables reviewer-style inspection mode without creating a separate editor component.
+
+#### `Client/src/app/components/AssignmentPage.tsx`
+- Added container-level mapping from `facultySubmissionRows` to flattened `facultySubmissionFileOptions` for selector UI.
+- Added `requestFacultyEditorPreview(optionId)` callback:
+  - Finds selected option.
+  - Loads file text using `fetchSubmissionFileText`.
+  - Resolves language via `resolvePreviewLanguage`.
+  - Returns `FacultyEditorPreviewPayload` to workspace component.
+- Passed faculty-only props to `CodeWorkspace`:
+  - `showFacultyViewerControls`
+  - `facultySubmissionFileOptions`
+  - `onRequestFacultyEditorPreview`
+- Why: preserves page/container ownership of data loading and side effects; keeps workspace presentational for this flow.
+
+#### `Client/src/app/components/assignment/CodeWorkspace.tsx`
+- Added faculty-only `See in editor` button next to `Run Tests`.
+- Added faculty selector modal:
+  - Dropdown of all flattened submission file options.
+  - `Show in editor` action.
+  - Inline loading spinner and inline error message.
+  - Empty-state handling when no files are available.
+- Added preview application logic:
+  - On success, replaces current workspace tree/content with selected file.
+  - Updates tab/file tree display to selected file name.
+  - Switches editor to read-only and uses resolved preview language.
+- Kept student submit/upload workflow unchanged.
+- Why: satisfies faculty review UX while preserving existing assignment workspace structure.
+
+### Verification
+- Frontend build check run:
+  - `cd Client && npm run build` -> success.
+
+### Commits
+1. `498a74e` add faculty see-in-editor submission preview flow
