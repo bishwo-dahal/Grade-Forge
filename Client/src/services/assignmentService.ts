@@ -85,9 +85,16 @@ const defaultCreateAssignmentHeader: FacultyAssignmentCreatePageHeader = {
 const defaultCreateAssignmentForm: AssignmentCreateFormData = {
   title: "",
   description: "",
+  availableFromDate: "",
+  availableFromTime: "00:00",
   dueDate: "",
   dueTime: "23:59",
+  lateDueDate: "",
+  lateDueTime: "23:59",
   languageId: "",
+  submissionType: "INDIVIDUAL",
+  starterCodeUrl: "",
+  rubricId: "",
   totalPoints: 100,
 };
 
@@ -130,6 +137,25 @@ interface ProgrammingLanguageApiResponse {
   id: number;
   name: string;
   isActive: boolean;
+}
+
+interface RubricOptionApiResponse {
+  id: number;
+  name: string;
+}
+
+async function listFacultyRubricOptions(): Promise<RubricOptionApiResponse[]> {
+  try {
+    const { data } = await api.get<RubricOptionApiResponse[]>("/api/v1/faculty/rubrics/faculty/me");
+    return data;
+  } catch (error: any) {
+    const status = error?.response?.status as number | undefined;
+    if (status === 404) {
+      // FIX: Backend returns 404 when faculty has no rubrics yet; keep create-assignment page usable with empty options.
+      return [];
+    }
+    throw error;
+  }
 }
 
 interface StudentAssignmentWorkspaceSource {
@@ -410,6 +436,22 @@ function buildDueDateTimePayload(dateValue: string, timeValue: string): string {
   return dueDateTime;
 }
 
+function buildOptionalDateTimePayload(
+  dateValue: string,
+  timeValue: string,
+  fieldLabel: string,
+): string | null {
+  if (!dateValue.trim()) {
+    return null;
+  }
+  const dateTimeValue = `${dateValue}T${timeValue}:00`;
+  const parsedDateTimeValue = new Date(dateTimeValue);
+  if (Number.isNaN(parsedDateTimeValue.getTime())) {
+    throw new Error(`Invalid ${fieldLabel}.`);
+  }
+  return dateTimeValue;
+}
+
 export async function getAssignmentDetailById(id: string): Promise<AssignmentDetail> {
   const workspaceSource = await loadStudentAssignmentWorkspaceSource(id);
   const latestSubmission = getLatestSubmission(workspaceSource.submissions);
@@ -666,9 +708,11 @@ export async function getEditorCodeExamples(assignmentId: string): Promise<Edito
 export async function getFacultyAssignmentCreatePageData(classId: string): Promise<FacultyAssignmentCreatePageData> {
   // NOTE: Create-assignment page data stays centralized here so the page remains presentation-focused.
   const parsedClassId = parseClassId(classId || defaultCreateAssignmentHeader.classId);
-  const [courseResponse, languagesResponse] = await Promise.all([
+  const [courseResponse, languagesResponse, rubricOptionsResponse] = await Promise.all([
     api.get<FacultyCourseHeaderApiResponse>(`/api/v1/faculty/courses/${parsedClassId}`),
     api.get<ProgrammingLanguageApiResponse[]>("/api/v1/faculty/programming-languages/all"),
+    // NOTE: Assignment creation requires linking previously-created faculty rubrics from the same ownership scope.
+    listFacultyRubricOptions(),
   ]);
 
   const languageOptions: AssignmentCreateOption[] = languagesResponse.data
@@ -678,6 +722,10 @@ export async function getFacultyAssignmentCreatePageData(classId: string): Promi
       id: String(language.id),
       label: language.name,
     }));
+  const rubricOptions: AssignmentCreateOption[] = rubricOptionsResponse.map((rubric) => ({
+    id: String(rubric.id),
+    label: rubric.name,
+  }));
 
   return {
     header: {
@@ -686,6 +734,7 @@ export async function getFacultyAssignmentCreatePageData(classId: string): Promi
       courseName: courseResponse.data.name,
     },
     languageOptions,
+    rubricOptions,
     initialForm: { ...defaultCreateAssignmentForm },
   };
 }
@@ -707,8 +756,12 @@ export async function createFacultyAssignmentDraft(
     name: form.title.trim(),
     description: form.description.trim(),
     totalPoints: form.totalPoints,
-    submissionType: "INDIVIDUAL" as const,
+    submissionType: form.submissionType,
+    starterCodeUrl: form.starterCodeUrl.trim() ? form.starterCodeUrl.trim() : null,
+    availableFrom: buildOptionalDateTimePayload(form.availableFromDate, form.availableFromTime, "available-from date/time"),
     dueDate: buildDueDateTimePayload(form.dueDate, form.dueTime),
+    lateDueDate: buildOptionalDateTimePayload(form.lateDueDate, form.lateDueTime, "late due date/time"),
+    rubricId: form.rubricId.trim() ? Number(form.rubricId) : null,
   };
 
   // NOTE: Creation now calls backend directly so the assignment is persisted and visible to enrolled students.

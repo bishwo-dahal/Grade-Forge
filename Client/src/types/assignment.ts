@@ -112,18 +112,31 @@ export interface AssignmentCreateOption {
   label: string;
 }
 
+export type AssignmentSubmissionType = "INDIVIDUAL" | "GROUP";
+
 export interface AssignmentCreateFormData {
   title: string;
   description: string;
+  // NOTE: Optional schedule gates map directly to backend Assignment.availableFrom.
+  availableFromDate: string;
+  availableFromTime: string;
   dueDate: string;
   dueTime: string;
+  // NOTE: Optional late deadline maps to backend Assignment.lateDueDate.
+  lateDueDate: string;
+  lateDueTime: string;
   languageId: string;
+  submissionType: AssignmentSubmissionType;
+  // NOTE: Starter code file upload is handled elsewhere; assignment create stores URL reference only.
+  starterCodeUrl: string;
+  // NOTE: Rubric linkage is optional and references pre-created faculty rubrics.
+  rubricId: string;
   totalPoints: number;
-  // NOTE: Advanced settings (rubric, starter files, and test cases) are intentionally deferred to a later phase.
 }
 
 export interface FacultyAssignmentCreatePageData {
   header: FacultyAssignmentCreatePageHeader;
   languageOptions: AssignmentCreateOption[];
+  rubricOptions: AssignmentCreateOption[];
   initialForm: AssignmentCreateFormData;
 }
