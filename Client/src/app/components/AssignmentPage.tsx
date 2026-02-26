@@ -20,9 +20,13 @@ import {
   listRubricCategories,
 } from "../../services/assignmentService";
 import { getAssignmentResult } from "../../services/resultService";
-import { submitStudentAssignmentFile } from "../../services/submissionService";
+import {
+  listFacultyAssignmentSubmissionFiles,
+  submitStudentAssignmentFile,
+} from "../../services/submissionService";
 import { getAuthenticatedRole } from "../auth";
 import React from "react";
+import type { FacultyAssignmentSubmissionRow } from "../../types/submission";
 
 type TabType = 'description' | 'tests' | 'rubric' | 'results';
 
@@ -49,18 +53,22 @@ export function AssignmentPage() {
   const [publicTests, setPublicTests] = useState<PublicTestCase[]>([]);
   const [rubricCategories, setRubricCategories] = useState<RubricCategory[]>([]);
   const [results, setResults] = useState<AssignmentResult | null>(null);
+  const [facultySubmissionRows, setFacultySubmissionRows] = useState<FacultyAssignmentSubmissionRow[]>([]);
   const [editorCodeExamples, setEditorCodeExamples] = useState<EditorCodeExamples>({});
   const [isLoading, setIsLoading] = useState(true);
-  const isStudentRole = getAuthenticatedRole() === "STUDENT";
+  const authenticatedRole = getAuthenticatedRole();
+  const isStudentRole = authenticatedRole === "STUDENT";
+  const isFacultyRole = authenticatedRole === "FACULTY";
 
   const loadAssignmentWorkspace = useCallback(async (resolvedId: string) => {
-    const [assignmentData, descriptionData, publicTestsData, rubricData, resultsData, codeExamplesData] = await Promise.all([
+    const [assignmentData, descriptionData, publicTestsData, rubricData, resultsData, codeExamplesData, facultyRows] = await Promise.all([
       getAssignmentDetailById(resolvedId),
       getAssignmentDescription(resolvedId),
       listPublicTestCases(resolvedId),
       listRubricCategories(resolvedId),
       getAssignmentResult(resolvedId),
       getEditorCodeExamples(resolvedId),
+      isFacultyRole ? listFacultyAssignmentSubmissionFiles(resolvedId) : Promise.resolve([]),
     ]);
 
     setAssignment(assignmentData);
@@ -69,9 +77,11 @@ export function AssignmentPage() {
     setRubricCategories(rubricData);
     setResults(resultsData);
     setEditorCodeExamples(codeExamplesData);
+    // NOTE: Faculty results tab receives full submission-file rows from faculty submissions endpoint.
+    setFacultySubmissionRows(facultyRows);
     // FIX: Results tab now reflects whether at least one real submission exists for this assignment.
     setHasSubmitted(assignmentData.submissionsUsed > 0);
-  }, []);
+  }, [isFacultyRole]);
 
   useEffect(() => {
     const resolvedId = assignmentId || "1";
@@ -188,7 +198,12 @@ export function AssignmentPage() {
                 {activeTab === 'description' && <DescriptionPanel description={description} />}
                 {activeTab === 'tests' && <PublicTestsPanel testCases={publicTests} />}
                 {activeTab === 'rubric' && <GradingRubricPanel rubricCategories={rubricCategories} />}
-                {activeTab === 'results' && <ResultsPanel results={results} />}
+                {activeTab === 'results' && (
+                  <ResultsPanel
+                    results={results}
+                    facultySubmissionRows={isFacultyRole ? facultySubmissionRows : undefined}
+                  />
+                )}
               </div>
             </div>
           </Panel>

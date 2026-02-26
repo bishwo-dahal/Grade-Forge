@@ -1,12 +1,14 @@
 import { CheckCircle, XCircle, Lock } from "lucide-react";
 import type { AssignmentResult } from "../../../types/grade";
+import type { FacultyAssignmentSubmissionRow } from "../../../types/submission";
 
 interface ResultsPanelProps {
   // NOTE: Results are provided by the page so this panel stays view-only.
   results: AssignmentResult | null;
+  facultySubmissionRows?: FacultyAssignmentSubmissionRow[];
 }
 
-export function ResultsPanel({ results }: ResultsPanelProps) {
+export function ResultsPanel({ results, facultySubmissionRows }: ResultsPanelProps) {
   const getStatusMessage = (score: number) => {
     if (score >= 95) return "Excellent Work!";
     if (score >= 85) return "Good Effort!";
@@ -175,6 +177,56 @@ export function ResultsPanel({ results }: ResultsPanelProps) {
           </div>
         </div>
       </div>
+
+      {facultySubmissionRows ? (
+        <div className="mb-6">
+          <h3 className="text-[13px] font-semibold text-[#5A7ACD] mb-3 flex items-center gap-2 uppercase tracking-wide">
+            <div className="w-0.5 h-4 bg-[#5A7ACD] rounded-full"></div>
+            Submitted Files
+          </h3>
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {facultySubmissionRows.length > 0 ? (
+              facultySubmissionRows.map((row, rowIndex) => (
+                <div
+                  key={row.submissionId}
+                  className={`p-4 ${rowIndex !== facultySubmissionRows.length - 1 ? "border-b border-gray-100" : ""}`}
+                >
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-[13px] font-semibold text-[#2B2A2A]">{row.studentName}</p>
+                    <p className="text-[11px] text-gray-500">{row.submittedAt}</p>
+                  </div>
+                  {row.files.length > 0 ? (
+                    <div className="flex flex-col gap-1.5">
+                      {row.files.map((file) =>
+                        file.downloadUrl ? (
+                          <a
+                            key={`${row.submissionId}-${file.id}`}
+                            href={file.downloadUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[12px] text-[#5A7ACD] hover:text-[#4a6abd] hover:underline"
+                          >
+                            {file.fileName}
+                          </a>
+                        ) : (
+                          <span key={`${row.submissionId}-${file.id}`} className="text-[12px] text-gray-500">
+                            {file.fileName}
+                          </span>
+                        ),
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-[12px] text-gray-500">No files uploaded with this submission.</p>
+                  )}
+                </div>
+              ))
+            ) : (
+              // NOTE: Faculty result tab keeps an explicit empty state when assignment has no uploaded files yet.
+              <p className="p-4 text-[12px] text-gray-500">No student submission files available yet.</p>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {/* Back Button */}
       <div>

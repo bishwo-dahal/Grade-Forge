@@ -17,8 +17,6 @@ import {
   UserPlus,
   Edit,
   Copy,
-  Eye,
-  EyeOff,
   Trash2,
   MoreVertical,
   Filter,
@@ -631,6 +629,9 @@ function SubmissionsSection() {
                 Submitted
               </th>
               <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                Files
+              </th>
+              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Status
               </th>
               <th className="text-right px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
@@ -664,6 +665,18 @@ function SubmissionsSection() {
                     </span>
                   </td>
                   <td className="px-6 py-4">
+                    {submission.primaryFileName ? (
+                      <div className="flex flex-col">
+                        <span className="text-[13px] text-[#2B2A2A]">{submission.primaryFileName}</span>
+                        {submission.additionalFileCount > 0 ? (
+                          <span className="text-[11px] text-gray-500">+{submission.additionalFileCount} more</span>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-[13px] text-gray-400">&mdash;</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
                     {submission.status === 'ungraded' ? (
                       <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-orange-50">
                         <span className="text-[12px] font-medium text-orange-600">Ungraded</span>
@@ -683,10 +696,26 @@ function SubmissionsSection() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {/* Accessibility: icon-only action buttons need labels for screen readers. */}
-                      <button aria-label="View submission" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                        <Eye className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                      </button>
+                      {submission.primaryDownloadUrl ? (
+                        <a
+                          // FIX: Faculty class table now surfaces a direct primary-file download action.
+                          href={submission.primaryDownloadUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`Download ${submission.primaryFileName ?? "submission file"}`}
+                          className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <Download className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                        </a>
+                      ) : (
+                        <button
+                          aria-label="No downloadable file for this submission"
+                          disabled
+                          className="p-1.5 rounded-lg text-gray-300 cursor-not-allowed"
+                        >
+                          <Download className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                      )}
                       <button aria-label="Edit submission" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
                         <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
                       </button>
@@ -699,7 +728,7 @@ function SubmissionsSection() {
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="px-6 py-6 text-center text-[13px] text-gray-600">
+                <td colSpan={7} className="px-6 py-6 text-center text-[13px] text-gray-600">
                   No submissions found for this class.
                 </td>
               </tr>
