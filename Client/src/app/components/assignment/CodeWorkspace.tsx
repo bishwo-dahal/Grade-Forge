@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Play, Send, RotateCcw, Save } from "lucide-react";
+import { Play, Send, RotateCcw, Save, Upload } from "lucide-react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { MonacoEditor } from "../editors";
 import { ConsoleDrawer } from "./ConsoleDrawer";
@@ -26,16 +26,37 @@ interface CodeWorkspaceProps {
   };
   codeExamples: EditorCodeExamples;
   onRunTests: () => void;
-  onSubmit: () => void;
+  onSubmit: (file: File) => Promise<void> | void;
+  showUploadControls?: boolean;
   isMobile?: boolean;
 }
 
-export function CodeWorkspace({ assignmentId, assignment, codeExamples, onRunTests, onSubmit, isMobile = false }: CodeWorkspaceProps) {
+function validateSubmissionFile(file: File): string | null {
+  const lowerFileName = file.name.toLowerCase();
+  if (!lowerFileName.endsWith(".py") && !lowerFileName.endsWith(".java")) {
+    return "Only .py or .java files are allowed.";
+  }
+  return null;
+}
+
+export function CodeWorkspace({
+  assignmentId,
+  assignment,
+  codeExamples,
+  onRunTests,
+  onSubmit,
+  showUploadControls = false,
+  isMobile = false,
+}: CodeWorkspaceProps) {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [consoleOutput, setConsoleOutput] = useState<string>("");
   const [lastRunTime, setLastRunTime] = useState<string | null>(null);
   const [autoSaved, setAutoSaved] = useState(true);
   const [cursorPosition, setCursorPosition] = useState({ line: 14, col: 8 });
+  const [selectedSubmissionFile, setSelectedSubmissionFile] = useState<File | null>(null);
+  const [submissionFileError, setSubmissionFileError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const initialCode = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
   const [code, setCode] = useState(initialCode);
 
@@ -337,13 +358,51 @@ export function CodeWorkspace({ assignmentId, assignment, codeExamples, onRunTes
   };
 
   const handleSubmit = () => {
+    if (!showUploadControls) {
+      return;
+    }
+    // FIX: Student submission now requires one valid local source file before opening submit confirmation.
+    if (!selectedSubmissionFile) {
+      setSubmissionFileError("Select one .py or .java file before submitting.");
+      return;
+    }
     setShowSubmitModal(true);
   };
 
-  const confirmSubmit = () => {
+  const handleFilePickerOpen = () => {
+    uploadInputRef.current?.click();
+  };
+
+  const handleFileSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0] ?? null;
+    if (!selectedFile) {
+      return;
+    }
+    const validationError = validateSubmissionFile(selectedFile);
+    if (validationError) {
+      setSelectedSubmissionFile(null);
+      setSubmissionFileError(validationError);
+      event.target.value = "";
+      return;
+    }
+    setSelectedSubmissionFile(selectedFile);
+    setSubmissionFileError(null);
+  };
+
+  const confirmSubmit = async () => {
+    if (!selectedSubmissionFile || isSubmitting) {
+      return;
+    }
     setShowSubmitModal(false);
-    onSubmit();
-    // In real implementation, this would trigger actual submission
+    setIsSubmitting(true);
+    try {
+      // NOTE: Parent page owns API call and status refresh; workspace only forwards the selected file.
+      await onSubmit(selectedSubmissionFile);
+    } catch {
+      // NOTE: Keep selected file for retry and let page-level error banner explain failure reason.
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -394,15 +453,42 @@ export function CodeWorkspace({ assignmentId, assignment, codeExamples, onRunTes
               <span>Run Tests</span>
             </button>
 
-            <button 
-              onClick={handleSubmit}
-              className="px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors flex items-center gap-2"
-            >
-              <Send className="w-4 h-4" strokeWidth={2} />
-              <span>Submit</span>
-            </button>
+            {showUploadControls ? (
+              <>
+                <input
+                  ref={uploadInputRef}
+                  type="file"
+                  accept=".py,.java"
+                  className="hidden"
+                  onChange={handleFileSelection}
+                />
+                <button
+                  onClick={handleFilePickerOpen}
+                  className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors flex items-center gap-2"
+                >
+                  <Upload className="w-4 h-4" strokeWidth={2} />
+                  <span>Upload from computer</span>
+                </button>
+                {selectedSubmissionFile ? (
+                  <span className="max-w-[220px] truncate text-[12px] text-gray-600" title={selectedSubmissionFile.name}>
+                    {selectedSubmissionFile.name}
+                  </span>
+                ) : null}
+                <button
+                  onClick={handleSubmit}
+                  disabled={!selectedSubmissionFile || isSubmitting}
+                  className="px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] disabled:bg-[#7E7D7D] disabled:cursor-not-allowed text-white rounded-lg text-[13px] font-medium transition-colors flex items-center gap-2"
+                >
+                  <Send className="w-4 h-4" strokeWidth={2} />
+                  <span>{isSubmitting ? "Submitting..." : "Submit"}</span>
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
+        {showUploadControls && submissionFileError ? (
+          <p className="mt-2 text-[12px] text-[#C23A42]">{submissionFileError}</p>
+        ) : null}
       </div>
 
       {/* Resizable Editor and Console */}

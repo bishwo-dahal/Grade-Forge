@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, Link } from "react-router";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { AssignmentHeader } from "./assignment/AssignmentHeader";
@@ -20,15 +20,29 @@ import {
   listRubricCategories,
 } from "../../services/assignmentService";
 import { getAssignmentResult } from "../../services/resultService";
+import { submitStudentAssignmentFile } from "../../services/submissionService";
+import { getAuthenticatedRole } from "../auth";
 import React from "react";
 
 type TabType = 'description' | 'tests' | 'rubric' | 'results';
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  const apiMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+  if (typeof apiMessage === "string" && apiMessage.trim()) {
+    return apiMessage;
+  }
+  return "Unable to submit assignment file.";
+}
 
 export function AssignmentPage() {
   const { assignmentId } = useParams();
   const [activeTab, setActiveTab] = useState<TabType>('description');
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [submissionFeedback, setSubmissionFeedback] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   // NOTE: Load all assignment-related data here so child panels remain presentation-only.
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [description, setDescription] = useState<AssignmentDescription | null>(null);
@@ -37,35 +51,54 @@ export function AssignmentPage() {
   const [results, setResults] = useState<AssignmentResult | null>(null);
   const [editorCodeExamples, setEditorCodeExamples] = useState<EditorCodeExamples>({});
   const [isLoading, setIsLoading] = useState(true);
+  const isStudentRole = getAuthenticatedRole() === "STUDENT";
 
-  useEffect(() => {
-    const resolvedId = assignmentId || "1";
-    setErrorMessage(null);
-    setIsLoading(true);
-    // NOTE: Keep data loading centralized in page container so assignment panels remain presentation-only.
-    Promise.all([
+  const loadAssignmentWorkspace = useCallback(async (resolvedId: string) => {
+    const [assignmentData, descriptionData, publicTestsData, rubricData, resultsData, codeExamplesData] = await Promise.all([
       getAssignmentDetailById(resolvedId),
       getAssignmentDescription(resolvedId),
       listPublicTestCases(resolvedId),
       listRubricCategories(resolvedId),
       getAssignmentResult(resolvedId),
       getEditorCodeExamples(resolvedId),
-    ])
-      .then(([assignmentData, descriptionData, publicTestsData, rubricData, resultsData, codeExamplesData]) => {
-        setAssignment(assignmentData);
-        setDescription(descriptionData);
-        setPublicTests(publicTestsData);
-        setRubricCategories(rubricData);
-        setResults(resultsData);
-        setEditorCodeExamples(codeExamplesData);
-        // FIX: Results tab now reflects whether at least one real submission exists for this assignment.
-        setHasSubmitted(assignmentData.submissionsUsed > 0);
-      })
+    ]);
+
+    setAssignment(assignmentData);
+    setDescription(descriptionData);
+    setPublicTests(publicTestsData);
+    setRubricCategories(rubricData);
+    setResults(resultsData);
+    setEditorCodeExamples(codeExamplesData);
+    // FIX: Results tab now reflects whether at least one real submission exists for this assignment.
+    setHasSubmitted(assignmentData.submissionsUsed > 0);
+  }, []);
+
+  useEffect(() => {
+    const resolvedId = assignmentId || "1";
+    setErrorMessage(null);
+    setIsLoading(true);
+    // NOTE: Keep data loading centralized in page container so assignment panels remain presentation-only.
+    loadAssignmentWorkspace(resolvedId)
       .catch(() => {
         setErrorMessage("Unable to load assignment data.");
       })
       .finally(() => setIsLoading(false));
-  }, [assignmentId]);
+  }, [assignmentId, loadAssignmentWorkspace]);
+
+  const handleStudentSubmit = async (file: File) => {
+    const resolvedId = assignmentId || "1";
+    // NOTE: Clear previous banner state so only the latest submission attempt is shown.
+    setSubmissionFeedback(null);
+    try {
+      await submitStudentAssignmentFile(resolvedId, file);
+      // FIX: Reload assignment/result sources after submit so attempts and results tab state are immediately accurate.
+      await loadAssignmentWorkspace(resolvedId);
+      setSubmissionFeedback({ tone: "success", text: "File submitted successfully." });
+    } catch (error) {
+      setSubmissionFeedback({ tone: "error", text: getErrorMessage(error) });
+      throw error;
+    }
+  };
 
   if (isLoading) {
     return (
@@ -131,6 +164,17 @@ export function AssignmentPage() {
             <div className="h-full flex flex-col bg-white border-r border-gray-200 overflow-hidden">
               {/* Assignment Header */}
               <AssignmentHeader assignment={assignment} />
+              {submissionFeedback ? (
+                <div
+                  className={`mx-4 mt-3 rounded-lg border px-3 py-2 text-[12px] ${
+                    submissionFeedback.tone === "success"
+                      ? "border-[#C6E8CF] bg-[#F4FBF6] text-[#1E7A3F]"
+                      : "border-[#F2C9CC] bg-[#FFF5F5] text-[#C23A42]"
+                  }`}
+                >
+                  {submissionFeedback.text}
+                </div>
+              ) : null}
 
               {/* Tab Navigation */}
               <TabNavigation 
@@ -165,7 +209,9 @@ export function AssignmentPage() {
               assignment={assignment}
               codeExamples={editorCodeExamples}
               onRunTests={() => console.log("Run tests")}
-              onSubmit={() => setHasSubmitted(true)}
+              onSubmit={handleStudentSubmit}
+              // NOTE: Faculty assignment pages stay read-only for local file upload controls.
+              showUploadControls={isStudentRole}
             />
           </Panel>
         </PanelGroup>
