@@ -535,3 +535,34 @@ Scope: Replaced placeholder rubric content in Assignment > Grading Rubric tab wi
 ### Backend impact
 - Backend unchanged.
 - Frontend now consumes existing rubric API for real rubric rendering where available.
+
+## Follow-up Fix - Student Assignments Page Opens Assignment Workspace
+
+Date: 2026-02-26  
+Scope: Enabled direct access to assignment detail workspace from Student Assignments list page.
+
+### Backend readiness + impact
+- No backend changes.
+- Uses existing frontend route and assignment workspace flow:
+  - `/assignment/:assignmentId`
+
+### Files changed
+
+#### `Client/src/app/components/StudentAssignmentsPage.tsx`
+- Extended presentation props with navigation callback:
+  - Added `onOpenAssignment: (assignmentId: string) => void`.
+- Added per-card action button:
+  - `Open Assignment` button appears next to status badge on each assignment row.
+  - Clicking calls container callback with assignment id.
+- Added container handler:
+  - `handleOpenAssignment(assignmentId)` navigates to `/assignment/${assignmentId}`.
+- Passed callback from container to presentation component.
+- Added inline `// FIX:` comment explaining direct assignment-workspace navigation intent.
+
+### Verification
+- Frontend build check run:
+  - `cd Client && npm run build` -> success.
+
+### Backend impact
+- Backend unchanged.
+- Pure frontend navigation/accessibility improvement.
