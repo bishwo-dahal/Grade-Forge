@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Eye, Loader2, Play, Send, RotateCcw, Save, Upload } from "lucide-react";
+import { Eye, Loader2, Play, Send, RotateCcw, Save, Upload, CheckSquare } from "lucide-react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { MonacoEditor } from "../editors";
 import { ConsoleDrawer } from "./ConsoleDrawer";
@@ -17,6 +17,9 @@ import type { FileTreeNode } from "./filetree";
 import type { EditorCodeExamples } from "../../../types/assignment";
 import type {
   FacultyEditorPreviewPayload,
+  FacultySubmissionGradePayload,
+  FacultySubmissionGradeOption,
+  FacultyAssignmentSubmissionRow,
   FacultySubmissionFileOption,
 } from "../../../types/submission";
 
@@ -33,8 +36,12 @@ interface CodeWorkspaceProps {
   onSubmit: (file: File) => Promise<void> | void;
   showUploadControls?: boolean;
   showFacultyViewerControls?: boolean;
+  showFacultyGradeControls?: boolean;
   facultySubmissionFileOptions?: FacultySubmissionFileOption[];
+  facultySubmissionRows?: FacultyAssignmentSubmissionRow[];
   onRequestFacultyEditorPreview?: (optionId: string) => Promise<FacultyEditorPreviewPayload>;
+  onSubmitFacultyGrade?: (payload: FacultySubmissionGradePayload) => Promise<void>;
+  maxGradePoints?: number;
   isMobile?: boolean;
 }
 
@@ -69,8 +76,12 @@ export function CodeWorkspace({
   onSubmit,
   showUploadControls = false,
   showFacultyViewerControls = false,
+  showFacultyGradeControls = false,
   facultySubmissionFileOptions = [],
+  facultySubmissionRows = [],
   onRequestFacultyEditorPreview,
+  onSubmitFacultyGrade,
+  maxGradePoints,
   isMobile = false,
 }: CodeWorkspaceProps) {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
@@ -87,6 +98,13 @@ export function CodeWorkspace({
   const [selectedFacultyOptionId, setSelectedFacultyOptionId] = useState<string>("");
   const [isFacultyViewerLoading, setIsFacultyViewerLoading] = useState(false);
   const [facultyViewerError, setFacultyViewerError] = useState<string | null>(null);
+  const [showFacultyGradeModal, setShowFacultyGradeModal] = useState(false);
+  const [selectedGradeSubmissionId, setSelectedGradeSubmissionId] = useState<string>("");
+  const [facultyGradeInput, setFacultyGradeInput] = useState<string>("");
+  const [facultyGradeFeedback, setFacultyGradeFeedback] = useState<string>("");
+  const [facultyGradeError, setFacultyGradeError] = useState<string | null>(null);
+  const [facultyGradeStatusMessage, setFacultyGradeStatusMessage] = useState<string | null>(null);
+  const [isFacultyGradeSubmitting, setIsFacultyGradeSubmitting] = useState(false);
   const [facultyPreviewLanguage, setFacultyPreviewLanguage] = useState<string | null>(null);
   const [isFacultyEditorReadOnly, setIsFacultyEditorReadOnly] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -155,6 +173,12 @@ export function CodeWorkspace({
     setShowFacultyViewerModal(false);
     setFacultyViewerError(null);
     setSelectedFacultyOptionId("");
+    setShowFacultyGradeModal(false);
+    setSelectedGradeSubmissionId("");
+    setFacultyGradeInput("");
+    setFacultyGradeFeedback("");
+    setFacultyGradeError(null);
+    setFacultyGradeStatusMessage(null);
   }, [assignmentId]);
 
   useEffect(() => {
@@ -175,6 +199,36 @@ export function CodeWorkspace({
       setSelectedFacultyOptionId(facultySubmissionFileOptions[0].optionId);
     }
   }, [showFacultyViewerModal, facultySubmissionFileOptions, selectedFacultyOptionId]);
+
+  const facultyGradeOptions = useMemo<FacultySubmissionGradeOption[]>(() => {
+    // NOTE: Grade choices are submission-based (not file-based) so one grade maps to one submission record.
+    return facultySubmissionRows.map((submissionRow) => ({
+      submissionId: submissionRow.submissionId,
+      studentName: submissionRow.studentName,
+      submittedAt: submissionRow.submittedAt,
+      currentMarks: submissionRow.marks,
+      label: `${submissionRow.studentName} - ${submissionRow.submittedAt}`,
+    }));
+  }, [facultySubmissionRows]);
+
+  useEffect(() => {
+    if (!showFacultyGradeModal) {
+      return;
+    }
+    if (!facultyGradeOptions.length) {
+      setSelectedGradeSubmissionId("");
+      return;
+    }
+    const selectedExists = facultyGradeOptions.some(
+      (option) => option.submissionId === selectedGradeSubmissionId,
+    );
+    if (!selectedExists) {
+      setSelectedGradeSubmissionId(facultyGradeOptions[0].submissionId);
+      if (facultyGradeOptions[0].currentMarks !== null) {
+        setFacultyGradeInput(String(facultyGradeOptions[0].currentMarks));
+      }
+    }
+  }, [showFacultyGradeModal, facultyGradeOptions, selectedGradeSubmissionId]);
 
   const getNodeName = (id: string) => nodes.find((n) => String(n.id) === id)?.name ?? id;
   const isDirty = (id: string) => (fileContents[id] ?? "") !== (savedContents[id] ?? "");
@@ -498,6 +552,63 @@ export function CodeWorkspace({
     setFacultyViewerError(null);
   };
 
+  const openFacultyGradeModal = () => {
+    setFacultyGradeError(null);
+    setFacultyGradeStatusMessage(null);
+    setShowFacultyGradeModal(true);
+    if (facultyGradeOptions.length > 0 && !selectedGradeSubmissionId) {
+      setSelectedGradeSubmissionId(facultyGradeOptions[0].submissionId);
+      if (facultyGradeOptions[0].currentMarks !== null) {
+        setFacultyGradeInput(String(facultyGradeOptions[0].currentMarks));
+      }
+    }
+  };
+
+  const closeFacultyGradeModal = () => {
+    if (isFacultyGradeSubmitting) {
+      return;
+    }
+    setShowFacultyGradeModal(false);
+    setFacultyGradeError(null);
+  };
+
+  const submitFacultyGrade = async () => {
+    if (!onSubmitFacultyGrade) {
+      setFacultyGradeError("Grade action is unavailable.");
+      return;
+    }
+    if (!selectedGradeSubmissionId) {
+      setFacultyGradeError("Choose a submission first.");
+      return;
+    }
+    const parsedMarks = Number(facultyGradeInput);
+    if (!Number.isFinite(parsedMarks) || parsedMarks < 0) {
+      setFacultyGradeError("Enter a valid grade (0 or higher).");
+      return;
+    }
+    if (typeof maxGradePoints === "number" && parsedMarks > maxGradePoints) {
+      setFacultyGradeError(`Grade cannot exceed ${maxGradePoints}.`);
+      return;
+    }
+
+    setFacultyGradeError(null);
+    setIsFacultyGradeSubmitting(true);
+    try {
+      await onSubmitFacultyGrade({
+        submissionId: selectedGradeSubmissionId,
+        marks: parsedMarks,
+        feedback: facultyGradeFeedback.trim(),
+      });
+      // FIX: Show explicit success after backend grade update so faculty knows save completed.
+      setFacultyGradeStatusMessage("Grade submitted successfully.");
+      setShowFacultyGradeModal(false);
+    } catch (error) {
+      setFacultyGradeError(getErrorMessage(error));
+    } finally {
+      setIsFacultyGradeSubmitting(false);
+    }
+  };
+
   const showSelectedFacultyFileInEditor = async () => {
     if (!selectedFacultyOptionId) {
       setFacultyViewerError("Choose a submission file first.");
@@ -613,6 +724,16 @@ export function CodeWorkspace({
               </button>
             ) : null}
 
+            {showFacultyGradeControls ? (
+              <button
+                onClick={openFacultyGradeModal}
+                className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors flex items-center gap-2"
+              >
+                <CheckSquare className="w-4 h-4" strokeWidth={2} />
+                <span>Grade</span>
+              </button>
+            ) : null}
+
             {showUploadControls ? (
               <>
                 <input
@@ -662,6 +783,9 @@ export function CodeWorkspace({
             {/* NOTE: Faculty preview opens submissions in read-only mode to prevent accidental edits during review. */}
             Viewing selected submission in read-only editor mode.
           </p>
+        ) : null}
+        {showFacultyGradeControls && facultyGradeStatusMessage ? (
+          <p className="mt-2 text-[12px] text-[#1E7A3F]">{facultyGradeStatusMessage}</p>
         ) : null}
       </div>
 
@@ -788,6 +912,97 @@ export function CodeWorkspace({
                   </>
                 ) : (
                   <span>Show in editor</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showFacultyGradeModal ? (
+        <div className="fixed inset-0 bg-black/40 z-50 p-4 flex items-center justify-center">
+          <div className="w-full max-w-lg bg-white rounded-xl border border-gray-200 shadow-2xl">
+            <div className="px-5 py-4 border-b border-gray-200">
+              <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Grade submission</h3>
+              <p className="text-[12px] text-gray-600 mt-1">
+                Choose a submission, enter marks, and save the grade.
+              </p>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div className="space-y-2">
+                <label className="block text-[12px] font-medium text-[#2B2A2A]">Submission</label>
+                <select
+                  value={selectedGradeSubmissionId}
+                  onChange={(event) => {
+                    const nextSubmissionId = event.target.value;
+                    setSelectedGradeSubmissionId(nextSubmissionId);
+                    const selectedOption = facultyGradeOptions.find(
+                      (option) => option.submissionId === nextSubmissionId,
+                    );
+                    if (selectedOption?.currentMarks !== null) {
+                      setFacultyGradeInput(String(selectedOption.currentMarks));
+                    }
+                  }}
+                  className="w-full h-10 px-3 rounded-lg border border-gray-300 text-[13px] text-[#2B2A2A] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/30"
+                >
+                  <option value="">Select submission</option>
+                  {facultyGradeOptions.map((option) => (
+                    <option key={option.submissionId} value={option.submissionId}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-[12px] font-medium text-[#2B2A2A]">
+                  Marks {typeof maxGradePoints === "number" ? `(max ${maxGradePoints})` : ""}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={facultyGradeInput}
+                  onChange={(event) => setFacultyGradeInput(event.target.value)}
+                  className="w-full h-10 px-3 rounded-lg border border-gray-300 text-[13px] text-[#2B2A2A] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/30"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-[12px] font-medium text-[#2B2A2A]">Feedback (optional)</label>
+                <textarea
+                  rows={3}
+                  value={facultyGradeFeedback}
+                  onChange={(event) => setFacultyGradeFeedback(event.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-[13px] text-[#2B2A2A] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/30"
+                />
+              </div>
+
+              {facultyGradeError ? (
+                <p className="text-[12px] text-[#C23A42]">{facultyGradeError}</p>
+              ) : null}
+            </div>
+            <div className="px-5 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeFacultyGradeModal}
+                disabled={isFacultyGradeSubmitting}
+                className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg text-[13px] text-[#2B2A2A] disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitFacultyGrade()}
+                disabled={isFacultyGradeSubmitting || facultyGradeOptions.length === 0}
+                className="px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] rounded-lg text-[13px] text-white disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isFacultyGradeSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <span>Submit Grade</span>
                 )}
               </button>
             </div>

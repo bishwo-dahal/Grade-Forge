@@ -102,6 +102,7 @@ export interface FacultyAssignmentSubmissionRow {
   submissionId: string;
   studentName: string;
   submittedAt: string;
+  marks: number | null;
   files: SubmissionFileItem[];
 }
 
@@ -122,4 +123,19 @@ export interface FacultyEditorPreviewPayload {
   fileName: string;
   language: string;
   content: string;
+}
+
+// NOTE: Grade modal options are flattened from faculty submission rows to keep grading UI strictly presentational.
+export interface FacultySubmissionGradeOption {
+  submissionId: string;
+  studentName: string;
+  submittedAt: string;
+  currentMarks: number | null;
+  label: string;
+}
+
+export interface FacultySubmissionGradePayload {
+  submissionId: string;
+  marks: number;
+  feedback: string;
 }

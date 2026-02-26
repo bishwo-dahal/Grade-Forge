@@ -1,6 +1,7 @@
 import type {
   ClassSubmissionItem,
   FacultyAssignmentSubmissionRow,
+  FacultySubmissionGradePayload,
   PendingSubmissionItem,
   SubmissionFileItem,
   SubmissionConsoleData,
@@ -248,6 +249,14 @@ function parseAssignmentId(rawAssignmentId: string): number {
   return parsedAssignmentId;
 }
 
+function parseSubmissionId(rawSubmissionId: string): number {
+  const parsedSubmissionId = Number(rawSubmissionId.trim());
+  if (!Number.isFinite(parsedSubmissionId) || parsedSubmissionId <= 0) {
+    throw new Error("Invalid submission id.");
+  }
+  return parsedSubmissionId;
+}
+
 function normalizeUploadFileType(file: File): File {
   if (file.type) {
     return file;
@@ -364,8 +373,22 @@ export async function listFacultyAssignmentSubmissionFiles(
       submissionId: String(submission.id),
       studentName: submission.studentName,
       submittedAt: formatSubmissionDate(submission.submittedAt),
+      marks: typeof submission.marks === "number" ? submission.marks : null,
       files: mapSubmissionFiles(submission.files),
     }));
+}
+
+export async function submitFacultySubmissionGrade(payload: FacultySubmissionGradePayload): Promise<void> {
+  const parsedSubmissionId = parseSubmissionId(payload.submissionId);
+  if (!Number.isFinite(payload.marks) || payload.marks < 0) {
+    throw new Error("Grade must be zero or higher.");
+  }
+
+  // NOTE: Faculty grade updates map directly to backend submission grade endpoint used for final marks/feedback.
+  await api.put(`/api/v1/faculty/submissions/${parsedSubmissionId}/grade`, {
+    marks: payload.marks,
+    feedback: payload.feedback,
+  });
 }
 
 function isPreviewableSourceFile(fileName: string): boolean {

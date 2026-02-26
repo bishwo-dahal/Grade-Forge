@@ -25,6 +25,7 @@ import {
   fetchSubmissionFileText,
   listFacultyAssignmentSubmissionFiles,
   resolvePreviewLanguage,
+  submitFacultySubmissionGrade,
   submitStudentAssignmentFile,
 } from "../../services/submissionService";
 import { getAuthenticatedRole } from "../auth";
@@ -32,6 +33,7 @@ import React from "react";
 import type {
   FacultyAssignmentSubmissionRow,
   FacultyEditorPreviewPayload,
+  FacultySubmissionGradePayload,
   FacultySubmissionFileOption,
 } from "../../types/submission";
 
@@ -45,7 +47,7 @@ function getErrorMessage(error: unknown): string {
   if (typeof apiMessage === "string" && apiMessage.trim()) {
     return apiMessage;
   }
-  return "Unable to submit assignment file.";
+  return "Unable to save changes.";
 }
 
 export function AssignmentPage() {
@@ -171,6 +173,22 @@ export function AssignmentPage() {
     [facultySubmissionFileOptions, assignment?.language],
   );
 
+  const handleFacultySubmissionGrade = async (payload: FacultySubmissionGradePayload) => {
+    const resolvedId = assignmentId || "1";
+    setSubmissionFeedback(null);
+    try {
+      await submitFacultySubmissionGrade(payload);
+      invalidateAssignmentWorkspaceCache(resolvedId);
+      invalidateAssignmentResultCache(resolvedId);
+      // FIX: Refresh assignment/result panels after grading so faculty and student see latest marks immediately.
+      await loadAssignmentWorkspace(resolvedId);
+      setSubmissionFeedback({ tone: "success", text: "Grade submitted successfully." });
+    } catch (error) {
+      setSubmissionFeedback({ tone: "error", text: getErrorMessage(error) });
+      throw error;
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col h-screen bg-[#F5F2F2]">
@@ -289,8 +307,12 @@ export function AssignmentPage() {
               // NOTE: Faculty assignment pages stay read-only for local file upload controls.
               showUploadControls={isStudentRole}
               showFacultyViewerControls={isFacultyRole}
+              showFacultyGradeControls={isFacultyRole}
               facultySubmissionFileOptions={isFacultyRole ? facultySubmissionFileOptions : undefined}
+              facultySubmissionRows={isFacultyRole ? facultySubmissionRows : undefined}
               onRequestFacultyEditorPreview={isFacultyRole ? requestFacultyEditorPreview : undefined}
+              onSubmitFacultyGrade={isFacultyRole ? handleFacultySubmissionGrade : undefined}
+              maxGradePoints={assignment.points.total}
             />
           </Panel>
         </PanelGroup>

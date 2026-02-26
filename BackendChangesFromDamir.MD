@@ -618,3 +618,67 @@ Scope: Restored rubric visibility in assignment Grading Rubric tab by loading fu
 - Added one read-only student endpoint for rubric details by assignment.
 - No database schema changes.
 - Reused existing rubric service mapping/DTO contracts.
+
+## Follow-up Feature - Faculty Quick Grade From Assignment Workspace
+
+Date: 2026-02-26  
+Scope: Implemented simple faculty grading flow in assignment workspace: open submission code, click `Grade`, enter marks/feedback, submit, and refresh state so student-visible grade updates.
+
+### Backend readiness + impact
+- No backend code changes were required for this feature.
+- Reused existing backend endpoint:
+  - `PUT /api/v1/faculty/submissions/{submissionId}/grade`
+  - payload `{ marks, feedback }`
+
+### Files changed
+
+#### `Client/src/types/submission.ts`
+- Extended `FacultyAssignmentSubmissionRow` with `marks: number | null` so grading UI can prefill current grade when available.
+- Added `FacultySubmissionGradeOption` type for grading modal dropdown choices.
+- Added `FacultySubmissionGradePayload` type for grade submit action contract.
+- Why: keeps grading UI contracts shared and strongly typed across service/container/view layers.
+
+#### `Client/src/services/submissionService.ts`
+- Added `parseSubmissionId(...)` validator helper.
+- Updated `listFacultyAssignmentSubmissionFiles(...)` mapping to include `marks` field.
+- Added `submitFacultySubmissionGrade(payload)`:
+  - Validates submission id and marks.
+  - Calls backend grade endpoint with marks + feedback.
+- Added inline `// NOTE:` comment on endpoint mapping intent.
+
+#### `Client/src/app/components/AssignmentPage.tsx`
+- Imported and wired `submitFacultySubmissionGrade`.
+- Added `handleFacultySubmissionGrade(payload)` in container:
+  - Submits grade via service.
+  - Invalidates assignment/result caches.
+  - Reloads workspace data immediately.
+  - Shows success/error banner message.
+- Passed new grading props into `CodeWorkspace` (faculty-only):
+  - `showFacultyGradeControls`
+  - `facultySubmissionRows`
+  - `onSubmitFacultyGrade`
+  - `maxGradePoints`
+- Why: keeps data mutation and refresh logic in page container (presentation-only component rule preserved).
+
+#### `Client/src/app/components/assignment/CodeWorkspace.tsx`
+- Added faculty `Grade` button next to `See in editor`.
+- Added grading modal UI:
+  - Submission dropdown
+  - Marks input (with max hint)
+  - Optional feedback textarea
+  - Loading state + error handling
+- Added grading handlers:
+  - open/close modal
+  - validate marks range and selection
+  - submit via container callback
+  - success message after save
+- Added grade options derivation from `facultySubmissionRows`.
+- Added inline `// NOTE:` / `// FIX:` comments documenting intent and behavior.
+
+### Verification
+- Frontend build:
+  - `cd Client && npm run build` -> success.
+
+### Backend impact
+- Backend unchanged.
+- Feature uses existing faculty grade endpoint and existing student submission grade-read paths.
