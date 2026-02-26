@@ -394,3 +394,36 @@ Scope: Expanded faculty assignment creation flow so the page captures all curren
 ### Backend impact
 - Backend unchanged.
 - Frontend create flow now fully maps to fields currently supported by backend assignment entity/request.
+
+## Follow-up UI Refinement - Assignment Create Form Organization + Rubric Quick Add
+
+Date: 2026-02-26  
+Scope: Reorganized faculty assignment creation UI into clearer sections, removed the small course subtitle under heading, and added a rubric quick-add action with plus icon.
+
+### Backend readiness + impact
+- No backend code changes.
+- Existing assignment create payload and validation flow remain unchanged.
+- Rubric quick-add uses existing frontend route `/faculty/rubrics/new`.
+
+### Files changed
+
+#### `Client/src/app/components/FacultyCreateAssignmentPage.tsx`
+- Removed the small course-code/course-name subtitle line under page heading as requested.
+- Reworked form layout into grouped sections for better structure:
+  - `Basics`
+  - `Schedule`
+  - `Points, Rubric, and Resources`
+- Normalized field spacing and grouping so related controls are no longer visually scattered.
+- Added rubric quick action button with plus icon (`Add Rubric`) beside rubric selector.
+- Wired new `onCreateRubric` view prop to container callback.
+- Added container handler `handleCreateRubric()` that navigates to rubric creation page.
+- Kept all existing field behavior and timeline validation logic intact.
+- Added inline `// REFACTOR:` and `// NOTE:` comments documenting intent and integration seam.
+
+### Verification
+- Frontend build check run:
+  - `cd Client && npm run build` -> success.
+
+### Backend impact
+- Backend unchanged.
+- UI-only improvement with no payload contract changes.

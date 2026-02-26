@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CalendarDays, Clock3 } from "lucide-react";
+import { ArrowLeft, CalendarDays, Clock3, Plus } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import {
@@ -21,6 +21,7 @@ interface FacultyCreateAssignmentViewProps {
   errorMessage: string | null;
   successMessage: string | null;
   onFieldChange: <K extends keyof AssignmentCreateFormData>(field: K, value: AssignmentCreateFormData[K]) => void;
+  onCreateRubric: () => void;
   onSubmit: () => void;
 }
 
@@ -33,6 +34,7 @@ function FacultyCreateAssignmentView({
   errorMessage,
   successMessage,
   onFieldChange,
+  onCreateRubric,
   onSubmit,
 }: FacultyCreateAssignmentViewProps) {
   const courseCode = pageData?.header.courseCode ?? "CS 2400";
@@ -65,9 +67,6 @@ function FacultyCreateAssignmentView({
 
         <h1 className="text-[34px] font-semibold leading-tight text-[#1F2430]">Create New Assignment</h1>
         <p className="mt-3 text-[15px] text-[#5D6A80]">Create a new coding assignment for this class.</p>
-        <p className="mt-2 text-[14px] text-[#7C879A]">
-          {courseCode} - {courseName}
-        </p>
 
         {errorMessage ? (
           <p className="mt-5 rounded-xl border border-[#F3CDD1] bg-[#FDEBEC] px-3 py-2 text-[13px] text-[#C23A42]">
@@ -81,232 +80,229 @@ function FacultyCreateAssignmentView({
         ) : null}
 
         <section className="mt-10 rounded-3xl border border-gray-200 bg-white p-6">
-          <h2 className="text-[24px] font-semibold text-[#1F2430]">Basic Information</h2>
+          <h2 className="text-[24px] font-semibold text-[#1F2430]">Assignment Setup</h2>
 
           {isLoading || !form || !pageData ? (
             <div className="mt-5 space-y-4 animate-pulse">
               {/* NOTE: Skeleton form blocks keep assignment-create layout visible while page data loads. */}
               <div className="h-12 w-full rounded-xl bg-gray-100" />
               <div className="h-36 w-full rounded-xl bg-gray-100" />
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <div className="h-12 w-full rounded-xl bg-gray-100" />
-                <div className="h-12 w-full rounded-xl bg-gray-100" />
-              </div>
-              <div className="h-12 w-full max-w-[460px] rounded-xl bg-gray-100" />
+              <div className="h-40 w-full rounded-xl bg-gray-100" />
+              <div className="h-44 w-full rounded-xl bg-gray-100" />
             </div>
           ) : (
             <>
-              <div className="mt-6">
-                <label htmlFor="assignment-title" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                  Assignment Title <span className="text-[#D84E57]">*</span>
-                </label>
-                <input
-                  id="assignment-title"
-                  value={form.title}
-                  onChange={(event) => onFieldChange("title", event.target.value)}
-                  placeholder="e.g., Binary Search Tree Implementation"
-                  className="h-14 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                />
-              </div>
-
-              <div className="mt-5">
-                <label htmlFor="assignment-description" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                  Description <span className="text-[#D84E57]">*</span>
-                </label>
-                <textarea
-                  id="assignment-description"
-                  value={form.description}
-                  onChange={(event) => onFieldChange("description", event.target.value)}
-                  rows={6}
-                  placeholder="Describe the assignment requirements and expected outcomes..."
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                />
-              </div>
-
-              <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-[14px] font-medium text-[#1F2430]">Available From</label>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="relative">
-                      <CalendarDays
-                        className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]"
-                        strokeWidth={2}
-                      />
-                      <input
-                        type="date"
-                        value={form.availableFromDate}
-                        onChange={(event) => onFieldChange("availableFromDate", event.target.value)}
-                        className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                      />
-                    </div>
-                    <div className="relative">
-                      <Clock3
-                        className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]"
-                        strokeWidth={2}
-                      />
-                      <input
-                        type="time"
-                        value={form.availableFromTime}
-                        onChange={(event) => onFieldChange("availableFromTime", event.target.value)}
-                        className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                    Due Date & Time <span className="text-[#D84E57]">*</span>
-                  </label>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="relative">
-                      <CalendarDays
-                        className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]"
-                        strokeWidth={2}
-                      />
-                      <input
-                        type="date"
-                        value={form.dueDate}
-                        onChange={(event) => onFieldChange("dueDate", event.target.value)}
-                        className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                      />
-                    </div>
-                    <div className="relative">
-                      <Clock3
-                        className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]"
-                        strokeWidth={2}
-                      />
-                      <input
-                        type="time"
-                        value={form.dueTime}
-                        onChange={(event) => onFieldChange("dueTime", event.target.value)}
-                        className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="assignment-language" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                    Programming Language <span className="text-[#D84E57]">*</span>
-                  </label>
-                  <select
-                    id="assignment-language"
-                    value={form.languageId}
-                    onChange={(event) => onFieldChange("languageId", event.target.value)}
-                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                  >
-                    <option value="">Select language</option>
-                    {pageData.languageOptions.map((language) => (
-                      <option key={language.id} value={language.id}>
-                        {language.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-[14px] font-medium text-[#1F2430]">Late Due Date & Time</label>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="relative">
-                      <CalendarDays
-                        className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]"
-                        strokeWidth={2}
-                      />
-                      <input
-                        type="date"
-                        value={form.lateDueDate}
-                        onChange={(event) => onFieldChange("lateDueDate", event.target.value)}
-                        className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                      />
-                    </div>
-                    <div className="relative">
-                      <Clock3
-                        className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]"
-                        strokeWidth={2}
-                      />
-                      <input
-                        type="time"
-                        value={form.lateDueTime}
-                        onChange={(event) => onFieldChange("lateDueTime", event.target.value)}
-                        className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="assignment-submission-type" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                    Submission Type <span className="text-[#D84E57]">*</span>
-                  </label>
-                  <select
-                    id="assignment-submission-type"
-                    value={form.submissionType}
-                    onChange={(event) => onFieldChange("submissionType", event.target.value as AssignmentCreateFormData["submissionType"])}
-                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                  >
-                    <option value="INDIVIDUAL">Individual</option>
-                    <option value="GROUP">Group</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="mt-5 max-w-[460px]">
-                <label htmlFor="assignment-total-points" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                  Total Points <span className="text-[#D84E57]">*</span>
-                </label>
-                <input
-                  id="assignment-total-points"
-                  type="number"
-                  min={1}
-                  value={form.totalPoints}
-                  onChange={(event) => onFieldChange("totalPoints", Number(event.target.value))}
-                  className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                />
-              </div>
-
-              <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <div>
-                  <label htmlFor="assignment-rubric" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                    Rubric
-                  </label>
-                  <select
-                    id="assignment-rubric"
-                    value={form.rubricId}
-                    onChange={(event) => onFieldChange("rubricId", event.target.value)}
-                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                  >
-                    <option value="">No rubric</option>
-                    {pageData.rubricOptions.map((rubric) => (
-                      <option key={rubric.id} value={rubric.id}>
-                        {rubric.label}
-                      </option>
-                    ))}
-                  </select>
-                  {pageData.rubricOptions.length === 0 ? (
-                    // NOTE: Faculty can still create assignments without rubric, but this hint explains how to add one.
-                    <p className="mt-2 text-[12px] text-[#6D7B91]">
-                      No rubric found. Create one in the Add Rubric page, then return here.
-                    </p>
-                  ) : null}
-                </div>
-
-                <div>
-                  <label htmlFor="assignment-starter-code-url" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                    Starter Code URL
+              {/* REFACTOR: Group related controls by task so the form is easier to scan and complete. */}
+              <section className="mt-6 rounded-2xl border border-[#E5E9F2] bg-[#FAFBFD] p-5">
+                <h3 className="text-[16px] font-semibold text-[#1F2430]">Basics</h3>
+                <p className="mt-1 text-[12px] text-[#6D7B91]">Core assignment identity and language settings.</p>
+                <div className="mt-4">
+                  <label htmlFor="assignment-title" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                    Assignment Title <span className="text-[#D84E57]">*</span>
                   </label>
                   <input
-                    id="assignment-starter-code-url"
-                    type="url"
-                    value={form.starterCodeUrl}
-                    onChange={(event) => onFieldChange("starterCodeUrl", event.target.value)}
-                    placeholder="https://..."
-                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    id="assignment-title"
+                    value={form.title}
+                    onChange={(event) => onFieldChange("title", event.target.value)}
+                    placeholder="e.g., Binary Search Tree Implementation"
+                    className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
                   />
                 </div>
-              </div>
+                <div className="mt-4">
+                  <label htmlFor="assignment-description" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                    Description <span className="text-[#D84E57]">*</span>
+                  </label>
+                  <textarea
+                    id="assignment-description"
+                    value={form.description}
+                    onChange={(event) => onFieldChange("description", event.target.value)}
+                    rows={5}
+                    placeholder="Describe the assignment requirements and expected outcomes..."
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div>
+                    <label htmlFor="assignment-language" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                      Programming Language <span className="text-[#D84E57]">*</span>
+                    </label>
+                    <select
+                      id="assignment-language"
+                      value={form.languageId}
+                      onChange={(event) => onFieldChange("languageId", event.target.value)}
+                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    >
+                      <option value="">Select language</option>
+                      {pageData.languageOptions.map((language) => (
+                        <option key={language.id} value={language.id}>
+                          {language.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="assignment-submission-type" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                      Submission Type <span className="text-[#D84E57]">*</span>
+                    </label>
+                    <select
+                      id="assignment-submission-type"
+                      value={form.submissionType}
+                      onChange={(event) => onFieldChange("submissionType", event.target.value as AssignmentCreateFormData["submissionType"])}
+                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    >
+                      <option value="INDIVIDUAL">Individual</option>
+                      <option value="GROUP">Group</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
+
+              <section className="mt-5 rounded-2xl border border-[#E5E9F2] bg-[#FAFBFD] p-5">
+                <h3 className="text-[16px] font-semibold text-[#1F2430]">Schedule</h3>
+                <p className="mt-1 text-[12px] text-[#6D7B91]">Set opening, due, and optional late window.</p>
+                <div className="mt-4 grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="mb-2 block text-[14px] font-medium text-[#1F2430]">Available From</label>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="relative">
+                        <CalendarDays className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]" strokeWidth={2} />
+                        <input
+                          type="date"
+                          value={form.availableFromDate}
+                          onChange={(event) => onFieldChange("availableFromDate", event.target.value)}
+                          className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                        />
+                      </div>
+                      <div className="relative">
+                        <Clock3 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]" strokeWidth={2} />
+                        <input
+                          type="time"
+                          value={form.availableFromTime}
+                          onChange={(event) => onFieldChange("availableFromTime", event.target.value)}
+                          className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                      Due Date & Time <span className="text-[#D84E57]">*</span>
+                    </label>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="relative">
+                        <CalendarDays className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]" strokeWidth={2} />
+                        <input
+                          type="date"
+                          value={form.dueDate}
+                          onChange={(event) => onFieldChange("dueDate", event.target.value)}
+                          className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                        />
+                      </div>
+                      <div className="relative">
+                        <Clock3 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]" strokeWidth={2} />
+                        <input
+                          type="time"
+                          value={form.dueTime}
+                          onChange={(event) => onFieldChange("dueTime", event.target.value)}
+                          className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-[14px] font-medium text-[#1F2430]">Late Due Date & Time</label>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="relative">
+                        <CalendarDays className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]" strokeWidth={2} />
+                        <input
+                          type="date"
+                          value={form.lateDueDate}
+                          onChange={(event) => onFieldChange("lateDueDate", event.target.value)}
+                          className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                        />
+                      </div>
+                      <div className="relative">
+                        <Clock3 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]" strokeWidth={2} />
+                        <input
+                          type="time"
+                          value={form.lateDueTime}
+                          onChange={(event) => onFieldChange("lateDueTime", event.target.value)}
+                          className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="mt-5 rounded-2xl border border-[#E5E9F2] bg-[#FAFBFD] p-5">
+                <h3 className="text-[16px] font-semibold text-[#1F2430]">Points, Rubric, and Resources</h3>
+                <p className="mt-1 text-[12px] text-[#6D7B91]">Configure grading weight and optional supporting assets.</p>
+                <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div>
+                    <label htmlFor="assignment-total-points" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                      Total Points <span className="text-[#D84E57]">*</span>
+                    </label>
+                    <input
+                      id="assignment-total-points"
+                      type="number"
+                      min={1}
+                      value={form.totalPoints}
+                      onChange={(event) => onFieldChange("totalPoints", Number(event.target.value))}
+                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <label htmlFor="assignment-rubric" className="block text-[14px] font-medium text-[#1F2430]">
+                        Rubric
+                      </label>
+                      <button
+                        type="button"
+                        onClick={onCreateRubric}
+                        className="inline-flex items-center gap-1 rounded-lg border border-[#D8DFEC] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[#30415F] hover:bg-[#F3F6FB]"
+                      >
+                        <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+                        Add Rubric
+                      </button>
+                    </div>
+                    <select
+                      id="assignment-rubric"
+                      value={form.rubricId}
+                      onChange={(event) => onFieldChange("rubricId", event.target.value)}
+                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    >
+                      <option value="">No rubric</option>
+                      {pageData.rubricOptions.map((rubric) => (
+                        <option key={rubric.id} value={rubric.id}>
+                          {rubric.label}
+                        </option>
+                      ))}
+                    </select>
+                    {pageData.rubricOptions.length === 0 ? (
+                      // NOTE: Explicit empty state guides faculty to create rubric first, then return to assign it.
+                      <p className="mt-2 text-[12px] text-[#6D7B91]">
+                        No rubric found yet. Use Add Rubric to create as many as you need.
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="lg:col-span-2">
+                    <label htmlFor="assignment-starter-code-url" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                      Starter Code URL
+                    </label>
+                    <input
+                      id="assignment-starter-code-url"
+                      type="url"
+                      value={form.starterCodeUrl}
+                      onChange={(event) => onFieldChange("starterCodeUrl", event.target.value)}
+                      placeholder="https://..."
+                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    />
+                  </div>
+                </div>
+              </section>
 
               <div className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 pt-5">
                 <Link
@@ -474,6 +470,11 @@ export function FacultyCreateAssignmentPage() {
     navigate(`/settings?section=${section}`);
   };
 
+  const handleCreateRubric = () => {
+    // NOTE: Create-rubric route lets faculty add multiple rubric templates, then return and select one.
+    navigate("/faculty/rubrics/new");
+  };
+
   const handleLogout = () => {
     clearAuthenticated();
     navigate("/signin", { replace: true });
@@ -501,6 +502,7 @@ export function FacultyCreateAssignmentPage() {
           errorMessage={errorMessage}
           successMessage={successMessage}
           onFieldChange={onFieldChange}
+          onCreateRubric={handleCreateRubric}
           onSubmit={handleSubmit}
         />
       }
