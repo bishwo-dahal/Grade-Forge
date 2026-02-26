@@ -46,6 +46,7 @@ function mapRubricToSummary(api: RubricApiResponse): RubricSummary {
     description: api.description,
     criteriaCount: criteria.length,
     totalMaxScore,
+    criteria: criteria.map(mapCriterion),
   };
 }
 

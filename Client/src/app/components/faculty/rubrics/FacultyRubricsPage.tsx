@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { listMyRubrics, deleteRubric } from "../../../../services/rubricService";
 import type { RubricSummary } from "../../../../types/rubric";
@@ -6,18 +6,22 @@ import { clearAuthenticated, getAuthenticatedUser } from "../../../auth";
 import { AuthShell } from "../../layout/AuthShell";
 import { AuthTopBar } from "../../layout/AuthTopBar";
 import type { SettingsSection } from "../../layout/AuthTopBar";
-import { Eye, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 interface FacultyRubricsViewProps {
   rubrics: RubricSummary[];
   loading: boolean;
   error: string | null;
+  totalRubrics: number;
+  expandedId: number | null;
 }
 
 function FacultyRubricsView({
   rubrics,
   loading,
   error,
+  totalRubrics,
+  expandedId,
   onNewRubric,
   onViewRubric,
   onDeleteRubric,
@@ -31,18 +35,27 @@ function FacultyRubricsView({
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-[18px] font-semibold text-[#2B2A2A]">Rubrics</h1>
-          <p className="text-[13px] text-gray-600">Manage grading rubrics for your assignments.</p>
+          <p className="text-[13px] text-gray-600">
+            Manage reusable grading rubrics for your assignments.
+          </p>
         </div>
-        <button
-          type="button"
-          onClick={onNewRubric}
-          className="inline-flex h-10 items-center gap-2 rounded-2xl bg-[#5A7ACD] px-5 text-[14px] leading-none font-semibold text-white"
-        >
-          New Rubric
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-1.5 text-[12px] text-[#3E4E67]">
+            <span className="h-2 w-2 rounded-full bg-[#5A7ACD]" />
+            <span className="font-medium">{totalRubrics}</span>
+            <span className="text-[#7C879A]">rubrics</span>
+          </div>
+          <button
+            type="button"
+            onClick={onNewRubric}
+            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-[#5A7ACD] px-5 text-[14px] leading-none font-semibold text-white"
+          >
+            New Rubric
+          </button>
+        </div>
       </div>
 
-      <div className="mt-2">
+      <div className="mt-1">
         {loading && <p className="text-[13px] text-gray-600">Loading rubrics…</p>}
         {error && !loading && (
           <p className="text-[13px] text-red-600">
@@ -65,50 +78,85 @@ function FacultyRubricsView({
         )}
         {!loading && !error && rubrics.length > 0 && (
           <ul className="space-y-3">
-            {rubrics.map((rubric) => (
-              <li
-                key={rubric.id}
-                className="bg-white border border-gray-200 rounded-2xl px-4 py-3 cursor-pointer hover:border-[#5A7ACD]/60 hover:shadow-sm transition-colors"
-                onClick={() => onViewRubric(rubric.id)}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-[14px] font-medium text-[#2B2A2A]">{rubric.name}</div>
-                    {rubric.description && (
-                      <div className="text-[12px] text-gray-600 line-clamp-2 mt-0.5">{rubric.description}</div>
-                    )}
+            {rubrics.map((rubric) => {
+              const isExpanded = expandedId === rubric.id;
+              return (
+                <li
+                  key={rubric.id}
+                  className="rounded-2xl border border-gray-200 bg-white px-4 py-3 hover:border-[#5A7ACD]/60 hover:shadow-sm transition-colors cursor-pointer"
+                  onClick={() => onViewRubric(rubric.id)}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-[14px] font-medium text-[#2B2A2A]">{rubric.name}</div>
+                      <div className="mt-0.5 text-[12px] text-gray-600 line-clamp-2">
+                        {rubric.description || "No description provided."}
+                      </div>
+                      <div className="mt-1 text-[11px] text-[#7C879A]">
+                        {rubric.criteriaCount} criteria • {rubric.totalMaxScore} total points
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onViewRubric(rubric.id);
+                        }}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#5A7ACD] text-white hover:bg-[#4a6abd]"
+                        aria-label="Edit rubric"
+                      >
+                        <Pencil className="h-4 w-4" strokeWidth={2} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteRubric(rubric.id);
+                        }}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+                        aria-label="Delete rubric"
+                      >
+                        <Trash2 className="h-4 w-4" strokeWidth={2} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="text-right text-[12px] text-gray-600">
-                    <div>{rubric.criteriaCount} criteria</div>
-                    <div className="mt-0.5">{rubric.totalMaxScore} pts total</div>
-                  </div>
-                </div>
-                <div className="mt-3 flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onViewRubric(rubric.id);
-                    }}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#5A7ACD] text-white hover:bg-[#4a6abd]"
-                    aria-label="View or edit rubric"
-                  >
-                    <Eye className="h-4 w-4" strokeWidth={2} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onDeleteRubric(rubric.id);
-                    }}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-                    aria-label="Delete rubric"
-                  >
-                    <Trash2 className="h-4 w-4" strokeWidth={2} />
-                  </button>
-                </div>
-              </li>
-            ))}
+
+                  {isExpanded && rubric.criteria.length > 0 && (
+                    <div className="mt-3 rounded-2xl bg-[#F9FAFB] px-3 py-3">
+                      <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[#8D97AC]">
+                        Criteria
+                      </p>
+                      <ul className="space-y-2">
+                        {rubric.criteria.map((criterion) => (
+                          <li
+                            key={criterion.id ?? `${criterion.title}-${criterion.maxScore}`}
+                            className="flex items-start justify-between gap-3"
+                          >
+                            <div>
+                              <div className="text-[13px] font-medium text-[#1F2430]">
+                                {criterion.title}
+                              </div>
+                              {criterion.description && (
+                                <div className="text-[12px] text-[#6D7B91]">
+                                  {criterion.description}
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right text-[11px] text-[#6D7B91]">
+                              <div>{criterion.maxScore} pts</div>
+                              {criterion.weight != null && (
+                                <div className="mt-0.5">weight {criterion.weight}</div>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
@@ -132,6 +180,9 @@ export function FacultyRubricsPage() {
   const [rubrics, setRubrics] = useState<RubricSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const totalRubrics = useMemo(() => rubrics.length, [rubrics]);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -176,7 +227,7 @@ export function FacultyRubricsPage() {
   };
 
   const handleViewRubric = (id: number) => {
-    navigate(`/faculty/rubrics/${id}`);
+    setExpandedId((current) => (current === id ? null : id));
   };
 
   const handleDeleteRubric = async (id: number) => {
@@ -208,6 +259,8 @@ export function FacultyRubricsPage() {
           rubrics={rubrics}
           loading={loading}
           error={error}
+          totalRubrics={totalRubrics}
+          expandedId={expandedId}
           onNewRubric={handleNewRubric}
           onViewRubric={handleViewRubric}
           onDeleteRubric={handleDeleteRubric}

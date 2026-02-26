@@ -1,4 +1,3 @@
-
 export interface RubricCriterion {
   id?: number;
   title: string;
@@ -22,6 +21,8 @@ export interface RubricSummary {
   description?: string | null;
   criteriaCount: number;
   totalMaxScore: number;
+  /** Full criteria list is available for inline previews without extra API calls. */
+  criteria: RubricCriterion[];
 }
 
 /** Payload used when creating or updating a rubric from the faculty UI. */
