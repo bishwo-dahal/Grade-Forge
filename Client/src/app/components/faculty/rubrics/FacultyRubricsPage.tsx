@@ -81,11 +81,11 @@ function FacultyRubricsView({
           </div>
         )}
         {!loading && !error && rubrics.length > 0 && (
-          <ul className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
             {rubrics.map((rubric) => {
               const isExpanded = expandedId === rubric.id;
               return (
-                <li
+                <div
                   key={rubric.id}
                   className="rounded-2xl border border-gray-200 bg-white px-4 py-3 hover:border-[#5A7ACD]/60 hover:shadow-sm transition-colors cursor-pointer"
                   onClick={() => onToggleExpand(rubric.id)}
@@ -138,41 +138,55 @@ function FacultyRubricsView({
                   </div>
 
                   {isExpanded && rubric.criteria.length > 0 && (
-                    <div className="mt-3 rounded-2xl bg-[#F9FAFB] px-3 py-3">
+                    <div className="mt-3 border-t border-gray-200 pt-3">
                       <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[#8D97AC]">
                         Criteria
                       </p>
                       <ul className="space-y-2">
-                        {rubric.criteria.map((criterion) => (
-                          <li
-                            key={criterion.id ?? `${criterion.title}-${criterion.maxScore}`}
-                            className="flex items-start justify-between gap-3"
-                          >
-                            <div>
-                              <div className="text-[13px] font-medium text-[#1F2430]">
-                                {criterion.title}
+                        {rubric.criteria.map((criterion, index) => {
+                          const isLast = index === rubric.criteria.length - 1;
+                          return (
+                            <li
+                              key={criterion.id ?? `${criterion.title}-${criterion.maxScore}-${index}`}
+                              className="flex items-start gap-3"
+                            >
+                              <div className="flex flex-col items-center pt-1">
+                                <div className="h-2 w-2 rounded-full bg-[#5A7ACD]" />
+                                {!isLast && (
+                                  <div className="mt-1 h-full w-px bg-gray-300" />
+                                )}
                               </div>
-                              {criterion.description && (
-                                <div className="text-[12px] text-[#6D7B91]">
-                                  {criterion.description}
+                              <div className="flex-1 flex items-start gap-2">
+                                <div className="mt-2 h-px w-4 bg-gray-300" />
+                                <div className="flex-1 flex items-start justify-between gap-3">
+                                  <div>
+                                    <div className="text-[13px] font-medium text-[#1F2430]">
+                                      {criterion.title}
+                                    </div>
+                                    {criterion.description && (
+                                      <div className="text-[12px] text-[#6D7B91]">
+                                        {criterion.description}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="text-right text-[11px] text-[#6D7B91]">
+                                    <div>{criterion.maxScore} pts</div>
+                                    {criterion.weight != null && (
+                                      <div className="mt-0.5">weight {criterion.weight}</div>
+                                    )}
+                                  </div>
                                 </div>
-                              )}
-                            </div>
-                            <div className="text-right text-[11px] text-[#6D7B91]">
-                              <div>{criterion.maxScore} pts</div>
-                              {criterion.weight != null && (
-                                <div className="mt-0.5">weight {criterion.weight}</div>
-                              )}
-                            </div>
-                          </li>
-                        ))}
+                              </div>
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   )}
-                </li>
+                </div>
               );
             })}
-          </ul>
+          </div>
         )}
       </div>
     </main>
