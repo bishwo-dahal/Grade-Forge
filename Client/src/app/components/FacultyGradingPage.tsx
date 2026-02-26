@@ -18,6 +18,8 @@ export default function FacultyGradingPage() {
   const [assignment, setAssignment] = useState<GradingAssignmentContext | null>(null);
   const [submission, setSubmission] = useState<SubmissionDetail | null>(null);
   const [allSubmissions, setAllSubmissions] = useState<SubmissionSummary[]>([]);
+  const [isAssignmentLoading, setIsAssignmentLoading] = useState(true);
+  const [isSubmissionLoading, setIsSubmissionLoading] = useState(true);
 
   useEffect(() => {
     if (submissionId) {
@@ -27,13 +29,19 @@ export default function FacultyGradingPage() {
 
   useEffect(() => {
     const resolvedAssignmentId = assignmentId || "assignment-8";
-    getGradingAssignmentContext(resolvedAssignmentId).then(setAssignment);
+    setIsAssignmentLoading(true);
+    getGradingAssignmentContext(resolvedAssignmentId)
+      .then(setAssignment)
+      .finally(() => setIsAssignmentLoading(false));
     listSubmissionsForAssignment(resolvedAssignmentId).then(setAllSubmissions);
   }, [assignmentId]);
 
   useEffect(() => {
     const resolvedSubmissionId = selectedSubmissionId || "sub-001";
-    getSubmissionDetailById(resolvedSubmissionId).then(setSubmission);
+    setIsSubmissionLoading(true);
+    getSubmissionDetailById(resolvedSubmissionId)
+      .then(setSubmission)
+      .finally(() => setIsSubmissionLoading(false));
   }, [selectedSubmissionId]);
 
   const handleFinalizeGrade = () => {
@@ -56,8 +64,22 @@ export default function FacultyGradingPage() {
     console.log("Grade finalized");
   };
 
+  if (isAssignmentLoading || isSubmissionLoading) {
+    return (
+      <div className="h-screen flex flex-col bg-[#F5F2F2] p-4 animate-pulse">
+        {/* NOTE: Skeleton layout prevents grading workspace from disappearing while data loads. */}
+        <div className="h-14 rounded-xl bg-white border border-gray-200 mb-3" />
+        <div className="flex-1 rounded-xl bg-white border border-gray-200" />
+      </div>
+    );
+  }
+
   if (!assignment || !submission) {
-    return null;
+    return (
+      <div className="h-screen flex items-center justify-center bg-[#F5F2F2] text-[14px] text-gray-600">
+        Unable to load grading data.
+      </div>
+    );
   }
 
   return (

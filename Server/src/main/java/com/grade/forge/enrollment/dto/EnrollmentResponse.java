@@ -18,6 +18,8 @@ public class EnrollmentResponse {
     private Long id;
     private Long studentId;
     private String studentName;
+    // NOTE: Faculty class-management student table renders email directly from enrollment payload.
+    private String studentEmail;
     private Long courseId;
     private LocalDateTime enrolledAt;
     private EnrolledStatus enrolledStatus;

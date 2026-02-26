@@ -115,6 +115,7 @@ export function SettingsPage() {
         name: response.name,
         email: response.email,
         role: response.role,
+        profileCompleted: response.profileCompleted,
       });
 
       setPasswordSuccess(response.message || "Password updated successfully.");

@@ -22,8 +22,12 @@ export interface ClassOverviewItem {
 
 export interface CourseCard {
   id: string;
+  // NOTE: My Courses cards display catalog metadata; keep these fields aligned with the current UI only.
+  courseCode: string;
+  credits: number;
   title: string;
   instructor: string;
+  semester: string;
   completed: number;
   total: number;
   icon: string;
@@ -38,6 +42,25 @@ export interface FacultyCourseCard {
   students: number;
   pendingSubmissions: number;
   activeAssignments: number;
+  icon: string;
+  iconBg: string;
+}
+
+// NOTE: UI-driven model for Faculty My Classes workspace cards; keep fields aligned to what the page renders.
+export interface FacultyMyClassItem {
+  id: string;
+  title: string;
+  code: string;
+  section: string;
+  semester: string;
+  isActive: boolean;
+  students: number;
+  assignments: number;
+  avgScore: number;
+  pendingGrading: number;
+  pendingReview: number;
+  schedule: string;
+  location: string;
   icon: string;
   iconBg: string;
 }
@@ -169,6 +192,59 @@ export interface ClassStudent {
   email: string;
   status?: string;
   group?: string;
+}
+
+// NOTE: UI-driven search result shape for faculty email lookup in the class roster page.
+export interface FacultyStudentSearchResult {
+  studentId: number | null;
+  userId: number | null;
+  studentName: string;
+  studentEmail: string;
+  major: string;
+  cwid: string;
+  canvasUserId: string;
+  alreadyInCourse: boolean;
+  currentStatus: string;
+  canEnroll: boolean;
+  reason: string;
+}
+
+// NOTE: UI-driven suggestion item now includes full student profile fields from teammate search endpoint.
+export interface FacultyStudentEmailSuggestion {
+  studentId: number | null;
+  userId: number | null;
+  name: string;
+  email: string;
+  major: string;
+  cwid: string;
+  canvasUserId: string;
+  currentStatus: string;
+  alreadyInCourse: boolean;
+}
+
+// NOTE: UI-driven roster row shape for faculty student table; keep aligned to rendered columns only.
+export interface FacultyRosterStudentRow {
+  id: string;
+  studentId: number | null;
+  name: string;
+  email: string;
+  enrolledLabel: string;
+  status: "active" | "inactive" | "unassigned";
+  group: string;
+  progressSubmitted: number;
+  progressTotal: number;
+  completionPercent: number;
+  avgScore: number;
+  lastActivity: string;
+}
+
+// NOTE: UI-driven roster stats used by the top summary cards on the faculty student roster section.
+export interface FacultyRosterStats {
+  totalStudents: number;
+  activeStudents: number;
+  inactiveStudents: number;
+  avgScore: number;
+  completion: number;
 }
 
 export interface ClassSubmissionRow {

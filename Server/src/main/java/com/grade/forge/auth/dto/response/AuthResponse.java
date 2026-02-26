@@ -14,6 +14,9 @@ public class AuthResponse {
     private String email;
     private String name;
     private Role role;
+    // NOTE: Backend sends this flag so the app can decide if a student must complete registration before dashboard access.
+    // IMPORTANT: Keep this backend-driven so behavior stays correct across sessions and devices.
+    private boolean profileCompleted;
     private String message;
 }
 

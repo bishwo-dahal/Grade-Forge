@@ -11,10 +11,15 @@ import type {
   ClassStudent,
   CourseCard,
   CourseDetail,
+  FacultyRosterStudentRow,
+  FacultyRosterStats,
+  FacultyStudentEmailSuggestion,
+  FacultyStudentSearchResult,
   FacultyCourseCreatePayload,
   FacultySemesterOption,
   FacultyDashboardStat,
   FacultyAssignment,
+  FacultyMyClassItem,
   FacultyCourseCard,
   InstructorProfile,
   TeachingAssistantProfile,
@@ -25,10 +30,14 @@ import api from "../api/axios";
 // TODO(backend): Replace mock service with real API calls. Keep return shapes stable for the UI.
 
 const enrolledCourses: CourseCard[] = [
+  // NOTE: Expanded to six cards so the My Courses grid can mirror the current UI design density.
   {
     id: "cs-2400",
+    courseCode: "CS 2400",
+    credits: 3,
     title: "Data Structures & Algorithms",
     instructor: "Dr. Sarah Miller",
+    semester: "Fall 2024",
     completed: 7,
     total: 12,
     icon: "\u{1F4BB}",
@@ -37,8 +46,11 @@ const enrolledCourses: CourseCard[] = [
   },
   {
     id: "web-dev-301",
+    courseCode: "CS 301",
+    credits: 4,
     title: "Web Development",
     instructor: "Prof. James Wilson",
+    semester: "Fall 2024",
     completed: 3,
     total: 8,
     icon: "\u{1F310}",
@@ -47,8 +59,11 @@ const enrolledCourses: CourseCard[] = [
   },
   {
     id: "ml-401",
+    courseCode: "CS 401",
+    credits: 3,
     title: "Machine Learning",
     instructor: "Dr. Emily Chen",
+    semester: "Fall 2024",
     completed: 11,
     total: 12,
     icon: "\u{1F916}",
@@ -57,11 +72,40 @@ const enrolledCourses: CourseCard[] = [
   },
   {
     id: "db-350",
+    courseCode: "CS 350",
+    credits: 3,
     title: "Database Systems",
     instructor: "Prof. Michael Brown",
+    semester: "Fall 2024",
     completed: 5,
     total: 10,
     icon: "\u{1F5C4}\uFE0F",
+    iconBg: "bg-[#FEB05D]/10",
+    progressColor: "bg-[#FEB05D]",
+  },
+  {
+    id: "advanced-algorithms-425",
+    courseCode: "CS 425",
+    credits: 3,
+    title: "Advanced Algorithms",
+    instructor: "Dr. Robert Lee",
+    semester: "Fall 2024",
+    completed: 4,
+    total: 10,
+    icon: "\u{1F4CA}",
+    iconBg: "bg-[#5A7ACD]/10",
+    progressColor: "bg-[#5A7ACD]",
+  },
+  {
+    id: "cybersecurity-310",
+    courseCode: "CS 310",
+    credits: 3,
+    title: "Cybersecurity Fundamentals",
+    instructor: "Prof. Jessica Taylor",
+    semester: "Fall 2024",
+    completed: 6,
+    total: 9,
+    icon: "\u{1F512}",
     iconBg: "bg-[#FEB05D]/10",
     progressColor: "bg-[#FEB05D]",
   },
@@ -102,38 +146,6 @@ const classesOverview: ClassOverviewItem[] = [
   },
 ];
 
-const facultyCourses: FacultyCourseCard[] = [
-  {
-    id: "cs-301",
-    title: "Data Structures & Algorithms",
-    code: "CS 301",
-    students: 45,
-    pendingSubmissions: 8,
-    activeAssignments: 2,
-    icon: "\u{1F4BB}",
-    iconBg: "bg-[#5A7ACD]/10",
-  },
-  {
-    id: "cs-402",
-    title: "Advanced Web Development",
-    code: "CS 402",
-    students: 38,
-    pendingSubmissions: 12,
-    activeAssignments: 3,
-    icon: "\u{1F310}",
-    iconBg: "bg-[#FEB05D]/10",
-  },
-  {
-    id: "cs-101",
-    title: "Introduction to Programming",
-    code: "CS 101",
-    students: 73,
-    pendingSubmissions: 3,
-    activeAssignments: 1,
-    icon: "\u{1F4DD}",
-    iconBg: "bg-[#5A7ACD]/10",
-  },
-];
 
 const courseDetails: Record<string, CourseDetail> = {
   "1": {
@@ -512,7 +524,7 @@ const facultyAssignments: FacultyAssignment[] = [
   },
 ];
 
-interface FacultyCourseApiResponse {
+interface CourseApiResponse {
   id: number;
   name: string;
   courseCode: string;
@@ -522,6 +534,19 @@ interface FacultyCourseApiResponse {
   canvasCourseId: string | null;
   active: boolean;
   isPublished: boolean;
+  semester?: {
+    id: number;
+    name: string;
+    startDate: string;
+    endDate: string;
+  } | null;
+  faculty?: {
+    id: number;
+    name: string;
+    email: string;
+    department: string;
+    qualifications: string;
+  } | null;
 }
 
 interface FacultySemesterApiResponse {
@@ -529,6 +554,58 @@ interface FacultySemesterApiResponse {
   name: string;
   startDate: string;
   endDate: string;
+}
+
+interface AssignmentApiResponse {
+  id: number;
+  courseId: number;
+  courseName: string;
+  languageId: number;
+  languageName: string;
+  name: string;
+  description: string | null;
+  totalPoints: number;
+  submissionType: string;
+  starterCodeUrl: string | null;
+  availableFrom: string | null;
+  dueDate: string | null;
+  lateDueDate: string | null;
+}
+
+interface SubmissionApiResponse {
+  id: number;
+  assignmentId: number;
+  assignmentName: string;
+  courseId: number;
+  courseName: string;
+  studentId: number;
+  studentName: string;
+  studentEmail: string;
+  marks: number | null;
+  feedback: string | null;
+  submittedAt: string;
+}
+
+interface EnrollmentApiResponse {
+  id: number;
+  studentId: number;
+  studentName: string;
+  studentEmail?: string;
+  courseId: number;
+  enrolledAt: string;
+  enrolledStatus: string;
+  grade: string | null;
+}
+
+interface FacultyStudentSearchApiResponse {
+  id: number | null;
+  userId: number | null;
+  cwid: string | null;
+  major: string | null;
+  canvasUserId: string | null;
+  name: string | null;
+  email: string | null;
+  enrolledStatus: string | null;
 }
 
 function buildCourseIcon(courseCode: string): { icon: string; iconBg: string } {
@@ -546,16 +623,312 @@ function buildCourseIcon(courseCode: string): { icon: string; iconBg: string } {
   return { icon: "\u{1F4BB}", iconBg: "bg-[#5A7ACD]/10" };
 }
 
-function mapFacultyCourseToCard(course: FacultyCourseApiResponse): FacultyCourseCard {
+function formatDateTime(value: string | null | undefined, fallback = "TBD"): string {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return fallback;
+  }
+
+  return parsed.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatRelativeTime(value: string | null | undefined): string {
+  if (!value) {
+    return "just now";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "just now";
+  }
+
+  const deltaSeconds = Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 1000));
+  const deltaMinutes = Math.floor(deltaSeconds / 60);
+  const deltaHours = Math.floor(deltaMinutes / 60);
+  const deltaDays = Math.floor(deltaHours / 24);
+
+  if (deltaMinutes < 1) {
+    return "just now";
+  }
+  if (deltaMinutes < 60) {
+    return `${deltaMinutes} minute${deltaMinutes === 1 ? "" : "s"} ago`;
+  }
+  if (deltaHours < 24) {
+    return `${deltaHours} hour${deltaHours === 1 ? "" : "s"} ago`;
+  }
+  return `${deltaDays} day${deltaDays === 1 ? "" : "s"} ago`;
+}
+
+function formatEnrollmentLabel(value: string | null | undefined): string {
+  if (!value) {
+    return "Enrolled date unavailable";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Enrolled date unavailable";
+  }
+  return `Enrolled ${parsed.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })}`;
+}
+
+function mapEnrollmentStatusToRosterStatus(status: string | null | undefined): FacultyRosterStudentRow["status"] {
+  if (status === "ENROLLED") {
+    return "active";
+  }
+  if (status === "DROPPED") {
+    return "inactive";
+  }
+  return "unassigned";
+}
+
+function toLetterGrade(percentage: number): string {
+  if (percentage >= 93) return "A";
+  if (percentage >= 90) return "A-";
+  if (percentage >= 87) return "B+";
+  if (percentage >= 83) return "B";
+  if (percentage >= 80) return "B-";
+  if (percentage >= 77) return "C+";
+  if (percentage >= 73) return "C";
+  if (percentage >= 70) return "C-";
+  if (percentage >= 67) return "D+";
+  if (percentage >= 63) return "D";
+  if (percentage >= 60) return "D-";
+  return "F";
+}
+
+function toCourseId(rawId: string): number {
+  const parsed = Number(rawId);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error("Invalid course id.");
+  }
+  return parsed;
+}
+
+async function listStudentAssignmentsByCourse(courseId: number): Promise<AssignmentApiResponse[]> {
+  // NOTE: Student class pages now read real assignments from backend instead of mock rows.
+  const { data } = await api.get<AssignmentApiResponse[]>(`/api/v1/student/assignments/course/${courseId}`);
+  return data;
+}
+
+async function listFacultyAssignmentsByCourse(courseId: number): Promise<AssignmentApiResponse[]> {
+  // NOTE: Faculty class management now reads assignment lists from backend course scope.
+  const { data } = await api.get<AssignmentApiResponse[]>(`/api/v1/faculty/assignments/course/${courseId}`);
+  return data;
+}
+
+async function listStudentSubmissionsByAssignment(assignmentId: number): Promise<SubmissionApiResponse[]> {
+  const { data } = await api.get<SubmissionApiResponse[]>(
+    `/api/v1/student/submissions/assignment?assignmentId=${assignmentId}`,
+  );
+  return data;
+}
+
+async function listFacultySubmissionsByAssignment(assignmentId: number): Promise<SubmissionApiResponse[]> {
+  const { data } = await api.get<SubmissionApiResponse[]>(
+    `/api/v1/faculty/submissions?assignmentId=${assignmentId}`,
+  );
+  return data;
+}
+
+async function listFacultyEnrollmentsByCourse(courseId: number): Promise<EnrollmentApiResponse[]> {
+  const { data } = await api.get<EnrollmentApiResponse[]>(`/api/v1/faculty/enrollments/course/${courseId}`);
+  return data;
+}
+
+async function searchStudentsForFacultyCourse(
+  courseId: number,
+  keyword: string,
+): Promise<FacultyStudentSearchApiResponse[]> {
+  const trimmedKeyword = keyword.trim();
+  if (trimmedKeyword.length < 1) {
+    return [];
+  }
+  // NOTE: Teammate backend now exposes roster candidate search via shared student search endpoint.
+  const { data } = await api.get<FacultyStudentSearchApiResponse[]>("/api/search/students", {
+    params: { keyword: trimmedKeyword, courseId },
+  });
+  return data;
+}
+
+function mapEnrolledStatusToReason(status: string, canEnroll: boolean): string {
+  if (status === "ENROLLED") {
+    return "Student is already enrolled in this course.";
+  }
+  if (canEnroll) {
+    return "Student can be enrolled in this course.";
+  }
+  return "Student cannot be enrolled right now.";
+}
+
+async function getStudentCourseById(courseId: number): Promise<CourseApiResponse> {
+  const { data } = await api.get<CourseApiResponse>(`/api/v1/student/classes/${courseId}`);
+  return data;
+}
+
+async function getFacultyCourseById(courseId: number): Promise<CourseApiResponse> {
+  const { data } = await api.get<CourseApiResponse>(`/api/v1/faculty/courses/${courseId}`);
+  return data;
+}
+
+async function fetchStudentAssignmentsWithSubmissions(courseId: number): Promise<
+  Array<{ assignment: AssignmentApiResponse; submissions: SubmissionApiResponse[] }>
+> {
+  const assignments = await listStudentAssignmentsByCourse(courseId);
+  const submissionsByAssignment = await Promise.all(
+    assignments.map(async (assignment) => ({
+      assignment,
+      submissions: await listStudentSubmissionsByAssignment(assignment.id),
+    })),
+  );
+  return submissionsByAssignment;
+}
+
+async function fetchFacultyAssignmentsWithSubmissions(courseId: number): Promise<
+  Array<{ assignment: AssignmentApiResponse; submissions: SubmissionApiResponse[] }>
+> {
+  const assignments = await listFacultyAssignmentsByCourse(courseId);
+  const submissionsByAssignment = await Promise.all(
+    assignments.map(async (assignment) => ({
+      assignment,
+      submissions: await listFacultySubmissionsByAssignment(assignment.id),
+    })),
+  );
+  return submissionsByAssignment;
+}
+
+function pickLatestSubmission(submissions: SubmissionApiResponse[]): SubmissionApiResponse | null {
+  if (submissions.length === 0) {
+    return null;
+  }
+  return [...submissions].sort((left, right) => {
+    return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+  })[0] ?? null;
+}
+
+function mapStudentClassAssignment(
+  assignment: AssignmentApiResponse,
+  submissions: SubmissionApiResponse[],
+): ClassAssignment {
+  const latestSubmission = pickLatestSubmission(submissions);
+  const hasSubmission = submissions.length > 0;
+  const gradedScore = latestSubmission?.marks ?? null;
+  const dueAt = assignment.dueDate ? new Date(assignment.dueDate).getTime() : null;
+  const isPastDue = typeof dueAt === "number" && Number.isFinite(dueAt) && dueAt < Date.now();
+
+  let status: ClassAssignment["status"] = "upcoming";
+  if (gradedScore !== null) {
+    status = "graded";
+  } else if (hasSubmission || isPastDue) {
+    status = "submitted";
+  }
+
+  return {
+    id: String(assignment.id),
+    title: assignment.name,
+    language: assignment.languageName || "N/A",
+    dueDate: formatDateTime(assignment.dueDate, "No due date"),
+    status,
+    grade: gradedScore,
+    totalPoints: assignment.totalPoints,
+  };
+}
+
+async function getFacultyCourseMetrics(courseId: number): Promise<{
+  students: number;
+  assignments: number;
+  activeAssignments: number;
+  pendingSubmissions: number;
+  pendingGrading: number;
+  pendingReview: number;
+  avgScore: number;
+}> {
+  const [enrollments, assignmentsWithSubmissions] = await Promise.all([
+    listFacultyEnrollmentsByCourse(courseId),
+    fetchFacultyAssignmentsWithSubmissions(courseId),
+  ]);
+
+  const activeStudents = enrollments.filter((enrollment) => enrollment.enrolledStatus === "ENROLLED").length;
+  const students = activeStudents > 0 ? activeStudents : enrollments.length;
+  const assignments = assignmentsWithSubmissions.length;
+  const now = Date.now();
+  const activeAssignments = assignmentsWithSubmissions.filter(({ assignment }) => {
+    if (!assignment.dueDate) {
+      return true;
+    }
+    const dueAt = new Date(assignment.dueDate).getTime();
+    return Number.isFinite(dueAt) && dueAt >= now;
+  }).length;
+
+  const allSubmissions = assignmentsWithSubmissions.flatMap(({ submissions }) => submissions);
+  const pendingSubmissions = allSubmissions.filter((submission) => submission.marks === null).length;
+  const gradedSubmissions = allSubmissions.filter((submission) => submission.marks !== null);
+  const avgScore =
+    gradedSubmissions.length > 0
+      ? Math.round(
+          gradedSubmissions.reduce((sum, submission) => sum + Number(submission.marks ?? 0), 0) /
+            gradedSubmissions.length,
+        )
+      : 0;
+
+  return {
+    students,
+    assignments,
+    activeAssignments,
+    pendingSubmissions,
+    pendingGrading: pendingSubmissions,
+    pendingReview: pendingSubmissions,
+    avgScore,
+  };
+}
+
+function mapFacultyCourseToCard(course: CourseApiResponse, metrics: Awaited<ReturnType<typeof getFacultyCourseMetrics>>): FacultyCourseCard {
   const iconData = buildCourseIcon(course.courseCode || course.name);
   return {
     id: String(course.id),
     title: course.name,
     code: course.courseCode,
-    // NOTE: Student/submission metrics are not returned by this endpoint yet; defaulting to 0 keeps UI stable.
-    students: 0,
-    pendingSubmissions: 0,
-    activeAssignments: 0,
+    // NOTE: Faculty dashboard cards now use backend-derived metrics from assignments/submissions/enrollments.
+    students: metrics.students,
+    pendingSubmissions: metrics.pendingSubmissions,
+    activeAssignments: metrics.activeAssignments,
+    icon: iconData.icon,
+    iconBg: iconData.iconBg,
+  };
+}
+
+function mapFacultyCourseToWorkspaceItem(
+  course: CourseApiResponse,
+  metrics: Awaited<ReturnType<typeof getFacultyCourseMetrics>>,
+): FacultyMyClassItem {
+  const iconData = buildCourseIcon(course.courseCode || course.name);
+  return {
+    id: String(course.id),
+    title: course.name,
+    code: course.courseCode,
+    section: course.section ?? "TBD",
+    semester: course.semester?.name ?? "TBD",
+    isActive: Boolean(course.active),
+    // NOTE: Faculty My Classes cards now show backend-derived metrics; non-modeled fields keep explicit placeholders.
+    students: metrics.students,
+    assignments: metrics.assignments,
+    avgScore: metrics.avgScore,
+    pendingGrading: metrics.pendingGrading,
+    pendingReview: metrics.pendingReview,
+    schedule: "TBD",
+    location: "TBD",
     icon: iconData.icon,
     iconBg: iconData.iconBg,
   };
@@ -580,26 +953,51 @@ function toCreatePayload(form: ClassCreateFormData): FacultyCourseCreatePayload 
   };
 }
 
-export function listEnrolledCourses(): Promise<CourseCard[]> {
-  return Promise.resolve(enrolledCourses);
-}
-
 export function listClassesOverview(): Promise<ClassOverviewItem[]> {
   return Promise.resolve(classesOverview);
 }
 
 export async function listFacultyCourses(): Promise<FacultyCourseCard[]> {
-  try {
-    // IMPORTANT: Backend resolves faculty context from authenticated email.
-    // IMPORTANT: This call returns 400 when the logged-in user exists in Users but is not mapped in Faculty.
-    // NOTE: University admin must create/assign the faculty profile first.
-    // TODO(backend): Keep the return shape stable when backend expands this endpoint with metrics.
-    const { data } = await api.get<FacultyCourseApiResponse[]>("/api/v1/faculty/courses");
-    return data.map(mapFacultyCourseToCard);
-  } catch {
-    // FIX: Fallback to existing mock list so faculty UI still works if backend is temporarily unavailable.
-    return Promise.resolve(facultyCourses);
-  }
+  // IMPORTANT: Backend resolves faculty context from authenticated email.
+  // IMPORTANT: This call returns 400 when the logged-in user exists in Users but is not mapped in Faculty.
+  // NOTE: University admin must create/assign the faculty profile first.
+  // TODO(backend): Keep the return shape stable so course cards can stay mapped without UI rewrites.
+  const { data } = await api.get<CourseApiResponse[]>("/api/v1/faculty/courses");
+  const cards = await Promise.all(
+    data.map(async (course) => {
+      const metrics = await getFacultyCourseMetrics(course.id).catch(() => ({
+        students: 0,
+        assignments: 0,
+        activeAssignments: 0,
+        pendingSubmissions: 0,
+        pendingGrading: 0,
+        pendingReview: 0,
+        avgScore: 0,
+      }));
+      return mapFacultyCourseToCard(course, metrics);
+    }),
+  );
+  return cards;
+}
+
+export async function listFacultyMyClasses(): Promise<FacultyMyClassItem[]> {
+  // NOTE: Faculty workspace cards now hydrate from live backend metrics instead of hardcoded placeholder zeros.
+  const { data } = await api.get<CourseApiResponse[]>("/api/v1/faculty/courses");
+  const classItems = await Promise.all(
+    data.map(async (course) => {
+      const metrics = await getFacultyCourseMetrics(course.id).catch(() => ({
+        students: 0,
+        assignments: 0,
+        activeAssignments: 0,
+        pendingSubmissions: 0,
+        pendingGrading: 0,
+        pendingReview: 0,
+        avgScore: 0,
+      }));
+      return mapFacultyCourseToWorkspaceItem(course, metrics);
+    }),
+  );
+  return classItems;
 }
 
 export async function listFacultySemesters(): Promise<FacultySemesterOption[]> {
@@ -621,74 +1019,462 @@ export async function createFacultyCourse(form: ClassCreateFormData): Promise<vo
   await api.post("/api/v1/faculty/courses/create", payload);
 }
 
-export function getCourseDetailById(id: string): Promise<CourseDetail> {
-  return Promise.resolve(courseDetails[id] || courseDetails["1"]);
+export async function listEnrolledCourses(): Promise<CourseCard[]> {
+  // NOTE: Student dashboard and My Courses now consume enrolled classes from backend.
+  const { data } = await api.get<CourseApiResponse[]>("/api/v1/student/classes/enrolled");
+  const courseCards = await Promise.all(
+    data.map(async (course) => {
+      const assignmentBundles = await fetchStudentAssignmentsWithSubmissions(course.id).catch(() => []);
+      const completed = assignmentBundles.filter(({ submissions }) => submissions.length > 0).length;
+      const total = assignmentBundles.length;
+      const iconData = buildCourseIcon(course.courseCode || course.name);
+      return {
+        id: String(course.id),
+        courseCode: course.courseCode,
+        // NOTE: Backend does not expose credits yet; keep deterministic fallback until schema expands.
+        credits: 3,
+        title: course.name,
+        instructor: course.faculty?.name ?? "TBD",
+        semester: course.semester?.name ?? "TBD",
+        completed,
+        total,
+        icon: iconData.icon,
+        iconBg: iconData.iconBg,
+        progressColor: iconData.iconBg.includes("FEB05D") ? "bg-[#FEB05D]" : "bg-[#5A7ACD]",
+      };
+    }),
+  );
+  return courseCards;
 }
 
-export function listClassImportantDates(classId: string): Promise<ClassImportantDate[]> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(classImportantDates);
+export async function getCourseDetailById(id: string): Promise<CourseDetail> {
+  const courseId = toCourseId(id);
+  const course = await getStudentCourseById(courseId);
+  const iconData = buildCourseIcon(course.courseCode || course.name);
+  return {
+    id: String(course.id),
+    title: course.name,
+    code: course.courseCode,
+    instructor: course.faculty?.name ?? "TBD",
+    icon: iconData.icon,
+    iconBg: iconData.iconBg,
+  };
 }
 
-export function listClassOverviewStats(classId: string): Promise<ClassOverviewStat[]> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(classOverviewStats);
+export async function listClassImportantDates(classId: string): Promise<ClassImportantDate[]> {
+  const courseId = toCourseId(classId);
+  const assignments = await listStudentAssignmentsByCourse(courseId);
+  // NOTE: Overview important dates now map to real assignment due dates; no hardcoded timeline rows.
+  return assignments
+    .filter((assignment) => assignment.dueDate)
+    .sort((left, right) => new Date(left.dueDate ?? "").getTime() - new Date(right.dueDate ?? "").getTime())
+    .slice(0, 3)
+    .map((assignment) => ({
+      id: `assignment-${assignment.id}`,
+      date: assignment.dueDate ?? new Date().toISOString(),
+      title: `${assignment.name} Due`,
+      description: assignment.name,
+      type: "assignment",
+    }));
 }
 
-export function listFacultyDashboardStats(classId: string): Promise<FacultyDashboardStat[]> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(facultyDashboardStats);
+export async function listClassOverviewStats(classId: string): Promise<ClassOverviewStat[]> {
+  const courseId = toCourseId(classId);
+  const bundles = await fetchStudentAssignmentsWithSubmissions(courseId);
+  const completedAssignments = bundles.filter(({ submissions }) => submissions.length > 0).length;
+  const gradedBundles = bundles.filter(({ submissions }) => {
+    const latestSubmission = pickLatestSubmission(submissions);
+    return latestSubmission?.marks !== null && latestSubmission?.marks !== undefined;
+  });
+
+  const earnedPoints = gradedBundles.reduce((sum, bundle) => {
+    const latest = pickLatestSubmission(bundle.submissions);
+    return sum + Number(latest?.marks ?? 0);
+  }, 0);
+  const totalPoints = gradedBundles.reduce((sum, bundle) => sum + bundle.assignment.totalPoints, 0);
+  const percentage = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 0;
+
+  // NOTE: Keep stats card return shape stable so the existing overview UI does not need structural changes.
+  return [
+    {
+      label: "Overall Grade",
+      value: `${percentage.toFixed(1)}%`,
+      subtitle: toLetterGrade(percentage),
+      subtitleColor: percentage >= 70 ? "text-green-600" : "text-[#C23A42]",
+    },
+    {
+      label: "Assignments",
+      value: `${completedAssignments}/${bundles.length}`,
+      subtitle: "Completed",
+    },
+    {
+      label: "Unread Announcements",
+      value: "0",
+      subtitle: "No updates",
+      valueColor: "text-[#5D6A80]",
+    },
+  ];
 }
 
-export function getClassHeaderById(classId: string): Promise<ClassHeader> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve({ ...classHeader, id: classId || classHeader.id });
+export async function listFacultyDashboardStats(classId: string): Promise<FacultyDashboardStat[]> {
+  const courseId = toCourseId(classId);
+  const metrics = await getFacultyCourseMetrics(courseId);
+  return [
+    {
+      label: "Total Students",
+      value: String(metrics.students),
+      iconKey: "users",
+      iconBg: "bg-[#5A7ACD]/10",
+      iconColor: "text-[#5A7ACD]",
+    },
+    {
+      label: "Active Assignments",
+      value: String(metrics.activeAssignments),
+      iconKey: "file-text",
+      iconBg: "bg-[#FEB05D]/10",
+      iconColor: "text-[#FEB05D]",
+    },
+    {
+      label: "Pending Submissions",
+      value: String(metrics.pendingSubmissions),
+      iconKey: "clock",
+      iconBg: "bg-orange-50",
+      iconColor: "text-orange-600",
+    },
+    {
+      label: "Ungraded Items",
+      value: String(metrics.pendingGrading),
+      iconKey: "alert",
+      iconBg: "bg-red-50",
+      iconColor: "text-red-600",
+      badge: metrics.pendingGrading > 0,
+    },
+  ];
 }
 
-export function getFacultyClassHeaderById(classId: string): Promise<ClassHeader> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve({ ...facultyClassHeader, id: classId || facultyClassHeader.id });
+export async function getClassHeaderById(classId: string): Promise<ClassHeader> {
+  const courseId = toCourseId(classId);
+  const course = await getStudentCourseById(courseId);
+  return {
+    id: String(course.id),
+    code: course.courseCode,
+    name: course.name,
+    section: course.section ?? "Section TBD",
+    semester: course.semester?.name ?? "Semester TBD",
+    instructor: course.faculty?.name ?? "TBD",
+    instructorEmail: course.faculty?.email ?? "",
+  };
+}
+
+export async function getFacultyClassHeaderById(classId: string): Promise<ClassHeader> {
+  const courseId = toCourseId(classId);
+  const course = await getFacultyCourseById(courseId);
+  return {
+    id: String(course.id),
+    code: course.courseCode,
+    name: course.name,
+    section: course.section ?? "Section TBD",
+    semester: course.semester?.name ?? "Semester TBD",
+    instructor: course.faculty?.name ?? "TBD",
+    role: "Instructor",
+  };
 }
 
 export function listClassAnnouncements(classId: string): Promise<ClassAnnouncement[]> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(classAnnouncements);
+  // TODO(backend): Add class announcements endpoint and replace this intentional empty-state fallback.
+  return Promise.resolve([]);
 }
 
 export function listClassResources(classId: string): Promise<ClassResource[]> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(classResources);
+  // TODO(backend): Add class resources endpoint and replace this intentional empty-state fallback.
+  return Promise.resolve([]);
 }
 
-export function getClassPeople(classId: string): Promise<{
+export async function getClassPeople(classId: string): Promise<{
   instructor: InstructorProfile;
   teachingAssistants: TeachingAssistantProfile[];
   students: ClassStudent[];
 }> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve({
-    instructor: instructorProfile,
-    teachingAssistants,
-    students: classStudents,
+  const courseId = toCourseId(classId);
+  const course = await getStudentCourseById(courseId);
+  // NOTE: Student class People tab now uses live instructor details and explicit empty states for unsupported sub-entities.
+  return {
+    instructor: {
+      name: course.faculty?.name ?? "TBD",
+      email: course.faculty?.email ?? "tbd@university.edu",
+      officeHours: "TBD",
+      office: "TBD",
+    },
+    teachingAssistants: [],
+    students: [],
+  };
+}
+
+export async function listFacultyClassStudents(classId: string): Promise<ClassStudent[]> {
+  const courseId = toCourseId(classId);
+  const enrollments = await listFacultyEnrollmentsByCourse(courseId);
+  return enrollments.map((enrollment, index) => ({
+    id: enrollment.studentId ?? index + 1,
+    name: enrollment.studentName || "Student",
+    email: enrollment.studentEmail || "N/A",
+    status: enrollment.enrolledStatus === "ENROLLED" ? "Active" : "Inactive",
+    group: "Unassigned",
+  }));
+}
+
+export async function listFacultyRosterRows(classId: string): Promise<FacultyRosterStudentRow[]> {
+  const courseId = toCourseId(classId);
+  // NOTE: Roster rows are centralized here so FacultyClassPage remains a data container, not a data-mapping layer.
+  const [enrollments, assignmentsWithSubmissions] = await Promise.all([
+    listFacultyEnrollmentsByCourse(courseId),
+    fetchFacultyAssignmentsWithSubmissions(courseId).catch(() => []),
+  ]);
+
+  const totalAssignments = assignmentsWithSubmissions.length;
+  const submissions = assignmentsWithSubmissions.flatMap(({ submissions }) => submissions);
+
+  return enrollments.map((enrollment, index) => {
+    const studentSubmissions = submissions.filter((submission) => submission.studentId === enrollment.studentId);
+    const submittedAssignmentCount = new Set(studentSubmissions.map((submission) => submission.assignmentId)).size;
+    const gradedSubmissions = studentSubmissions.filter((submission) => submission.marks !== null);
+    const latestSubmission = [...studentSubmissions].sort((left, right) => {
+      return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+    })[0];
+
+    const avgScore =
+      gradedSubmissions.length > 0
+        ? Math.round(
+            gradedSubmissions.reduce((sum, submission) => sum + Number(submission.marks ?? 0), 0) / gradedSubmissions.length,
+          )
+        : 0;
+    const completionPercent =
+      totalAssignments > 0 ? Math.round((submittedAssignmentCount / totalAssignments) * 100) : 0;
+
+    return {
+      id: String(enrollment.id ?? `${enrollment.studentId ?? "row"}-${index}`),
+      studentId: enrollment.studentId ?? null,
+      name: enrollment.studentName || "Student",
+      email: enrollment.studentEmail || "No email",
+      enrolledLabel: formatEnrollmentLabel(enrollment.enrolledAt),
+      status: mapEnrollmentStatusToRosterStatus(enrollment.enrolledStatus),
+      group: "Unassigned",
+      progressSubmitted: submittedAssignmentCount,
+      progressTotal: totalAssignments,
+      completionPercent,
+      avgScore,
+      lastActivity: latestSubmission ? formatRelativeTime(latestSubmission.submittedAt) : "No activity",
+    } satisfies FacultyRosterStudentRow;
   });
 }
 
-export function listFacultyClassStudents(classId: string): Promise<ClassStudent[]> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(facultyClassStudents);
+export async function searchFacultyStudentByEmail(
+  classId: string,
+  email: string,
+): Promise<FacultyStudentSearchResult> {
+  const courseId = toCourseId(classId);
+  const trimmedEmail = email.trim();
+  if (!trimmedEmail) {
+    throw new Error("Email is required.");
+  }
+
+  const students = await searchStudentsForFacultyCourse(courseId, trimmedEmail);
+  const exactEmailMatch = students.find(
+    (student) => (student.email ?? "").trim().toLowerCase() === trimmedEmail.toLowerCase(),
+  );
+  // REFACTOR: Search supports teammate keyword lookup (name/email/CWID), while enroll still resolves one student record.
+  const matchedStudent =
+    exactEmailMatch ??
+    (students.length === 1 ? students[0] : null);
+
+  if (!matchedStudent) {
+    if (students.length > 1) {
+      throw new Error("Multiple students matched. Select one from the suggestions.");
+    }
+    // FIX: Normalize "not found" into a consistent frontend error even though backend returns an empty list.
+    throw new Error("User not found.");
+  }
+
+  const normalizedStatus = (matchedStudent.enrolledStatus ?? "NOT_ENROLLED").toUpperCase();
+  const alreadyInCourse = normalizedStatus === "ENROLLED";
+  const canEnroll = !alreadyInCourse && typeof matchedStudent.id === "number";
+  const reason = mapEnrolledStatusToReason(normalizedStatus, canEnroll);
+
+  // NOTE: Keep the existing frontend return shape stable so roster UI logic does not need structural changes.
+  return {
+    studentId: matchedStudent.id ?? null,
+    userId: matchedStudent.userId ?? null,
+    studentName: matchedStudent.name ?? "Unknown student",
+    studentEmail: matchedStudent.email ?? trimmedEmail,
+    major: matchedStudent.major ?? "N/A",
+    cwid: matchedStudent.cwid ?? "N/A",
+    canvasUserId: matchedStudent.canvasUserId ?? "N/A",
+    alreadyInCourse,
+    currentStatus: normalizedStatus,
+    canEnroll,
+    reason,
+  };
 }
 
-export function listClassRecentActivity(classId: string): Promise<ClassRecentActivity[]> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(classRecentActivity);
+export async function listFacultyStudentEmailSuggestions(
+  classId: string,
+  query: string,
+): Promise<FacultyStudentEmailSuggestion[]> {
+  const courseId = toCourseId(classId);
+  const trimmedQuery = query.trim();
+  if (trimmedQuery.length < 1) {
+    return [];
+  }
+
+  const students = await searchStudentsForFacultyCourse(courseId, trimmedQuery);
+
+  const dedupedByEmail = new Map<string, FacultyStudentEmailSuggestion>();
+  students
+    // NOTE: Prefix-first ordering keeps suggestions predictable in the UI dropdown.
+    .sort((left, right) => {
+      const leftEmail = (left.email ?? "").toLowerCase();
+      const rightEmail = (right.email ?? "").toLowerCase();
+      const normalizedQuery = trimmedQuery.toLowerCase();
+      const leftStartsWith = leftEmail.startsWith(normalizedQuery);
+      const rightStartsWith = rightEmail.startsWith(normalizedQuery);
+      if (leftStartsWith !== rightStartsWith) {
+        return leftStartsWith ? -1 : 1;
+      }
+      return leftEmail.localeCompare(rightEmail);
+    })
+    .forEach((student) => {
+      const email = student.email?.trim();
+      if (!email) {
+        return;
+      }
+      const emailKey = email.toLowerCase();
+      if (dedupedByEmail.has(emailKey)) {
+        return;
+      }
+      dedupedByEmail.set(emailKey, {
+        studentId: student.id ?? null,
+        userId: student.userId ?? null,
+        name: student.name ?? "Unknown student",
+        email,
+        major: student.major ?? "N/A",
+        cwid: student.cwid ?? "N/A",
+        canvasUserId: student.canvasUserId ?? "N/A",
+        currentStatus: (student.enrolledStatus ?? "NOT_ENROLLED").toUpperCase(),
+        alreadyInCourse: (student.enrolledStatus ?? "").toUpperCase() === "ENROLLED",
+      });
+    });
+
+  return Array.from(dedupedByEmail.values()).slice(0, 8);
 }
 
-export function listClassAssignments(classId: string): Promise<ClassAssignment[]> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(classAssignments);
+export async function enrollStudentByEmail(classId: string, email: string): Promise<void> {
+  const courseId = toCourseId(classId);
+  const trimmedEmail = email.trim();
+  if (!trimmedEmail) {
+    throw new Error("Email is required.");
+  }
+
+  const matchedStudent = await searchFacultyStudentByEmail(classId, trimmedEmail);
+  if (matchedStudent.alreadyInCourse) {
+    throw new Error("Student is already enrolled in this course.");
+  }
+  if (!matchedStudent.studentId) {
+    throw new Error("User not found.");
+  }
+
+  // REFACTOR: Switch to teammate enrollment contract (studentId + courseId) while keeping same frontend function signature.
+  await api.post("/api/v1/faculty/enrollments", {
+    studentId: matchedStudent.studentId,
+    courseId,
+  });
 }
 
-export function listFacultyAssignments(classId: string): Promise<FacultyAssignment[]> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(facultyAssignments);
+export function summarizeFacultyRosterStats(rows: FacultyRosterStudentRow[]): FacultyRosterStats {
+  const totalStudents = rows.length;
+  const activeStudents = rows.filter((row) => row.status === "active").length;
+  const inactiveStudents = rows.filter((row) => row.status === "inactive").length;
+  const avgScore =
+    totalStudents > 0
+      ? Math.round(rows.reduce((sum, row) => sum + row.avgScore, 0) / totalStudents)
+      : 0;
+  const completion =
+    totalStudents > 0
+      ? Math.round(rows.reduce((sum, row) => sum + row.completionPercent, 0) / totalStudents)
+      : 0;
+
+  return {
+    totalStudents,
+    activeStudents,
+    inactiveStudents,
+    avgScore,
+    completion,
+  };
+}
+
+export async function listClassRecentActivity(classId: string): Promise<ClassRecentActivity[]> {
+  const courseId = toCourseId(classId);
+  const bundles = await fetchFacultyAssignmentsWithSubmissions(courseId);
+  const activities = bundles
+    .flatMap(({ assignment, submissions }) =>
+      submissions.map((submission) => ({
+        assignmentName: assignment.name,
+        submission,
+      })),
+    )
+    .sort((left, right) => {
+      return new Date(right.submission.submittedAt).getTime() - new Date(left.submission.submittedAt).getTime();
+    })
+    .slice(0, 8)
+    .map((entry, index) => {
+      const isGraded = entry.submission.marks !== null;
+      return {
+        id: index + 1,
+        type: isGraded ? "graded" : "submission",
+        message: isGraded
+          ? `Graded ${entry.submission.studentName} for ${entry.assignmentName}`
+          : `${entry.submission.studentName} submitted ${entry.assignmentName}`,
+        time: formatRelativeTime(entry.submission.submittedAt),
+        iconKey: isGraded ? "check" : "send",
+        iconBg: isGraded ? "bg-green-50" : "bg-blue-50",
+        iconColor: isGraded ? "text-green-600" : "text-[#5A7ACD]",
+      } satisfies ClassRecentActivity;
+    });
+  return activities;
+}
+
+export async function listClassAssignments(classId: string): Promise<ClassAssignment[]> {
+  const courseId = toCourseId(classId);
+  const bundles = await fetchStudentAssignmentsWithSubmissions(courseId);
+  return bundles.map(({ assignment, submissions }) => mapStudentClassAssignment(assignment, submissions));
+}
+
+export async function listFacultyAssignments(classId: string): Promise<FacultyAssignment[]> {
+  const courseId = toCourseId(classId);
+  const [bundles, enrollments] = await Promise.all([
+    fetchFacultyAssignmentsWithSubmissions(courseId),
+    listFacultyEnrollmentsByCourse(courseId),
+  ]);
+  const enrolledCount = enrollments.filter((enrollment) => enrollment.enrolledStatus === "ENROLLED").length;
+  const totalStudents = enrolledCount > 0 ? enrolledCount : enrollments.length;
+  const now = Date.now();
+
+  return bundles.map(({ assignment, submissions }) => {
+    const availableAt = assignment.availableFrom ? new Date(assignment.availableFrom).getTime() : null;
+    const dueAt = assignment.dueDate ? new Date(assignment.dueDate).getTime() : null;
+    let status: FacultyAssignment["status"] = "published";
+    if (typeof availableAt === "number" && Number.isFinite(availableAt) && availableAt > now) {
+      status = "draft";
+    } else if (typeof dueAt === "number" && Number.isFinite(dueAt) && dueAt < now) {
+      status = "closed";
+    }
+
+    return {
+      id: String(assignment.id),
+      name: assignment.name,
+      language: assignment.languageName || "N/A",
+      dueDate: formatDateTime(assignment.dueDate, "No due date"),
+      submissions: submissions.length,
+      totalStudents,
+      status,
+    };
+  });
 }

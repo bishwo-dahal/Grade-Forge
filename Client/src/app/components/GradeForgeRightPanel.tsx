@@ -7,22 +7,30 @@ interface GradeForgeRightPanelViewProps {
   // NOTE: View props keep this component presentation-only.
   alerts: NotificationItem[];
   taskDays: CalendarDay[];
+  isLoading: boolean;
 }
 
 export function GradeForgeRightPanel() {
   // NOTE: Container loads data once and passes into the view component.
   const [alerts, setAlerts] = useState<NotificationItem[]>([]);
   const [taskDays, setTaskDays] = useState<CalendarDay[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    listStudentAlerts().then(setAlerts);
-    getStudentTaskDays().then(setTaskDays);
+    // NOTE: Shared loading state prevents right-panel sections from briefly disappearing during fetch.
+    setIsLoading(true);
+    Promise.all([listStudentAlerts(), getStudentTaskDays()])
+      .then(([alertsData, taskDaysData]) => {
+        setAlerts(alertsData);
+        setTaskDays(taskDaysData);
+      })
+      .finally(() => setIsLoading(false));
   }, []);
 
-  return <GradeForgeRightPanelView alerts={alerts} taskDays={taskDays} />;
+  return <GradeForgeRightPanelView alerts={alerts} taskDays={taskDays} isLoading={isLoading} />;
 }
 
-function GradeForgeRightPanelView({ alerts, taskDays }: GradeForgeRightPanelViewProps) {
+function GradeForgeRightPanelView({ alerts, taskDays, isLoading }: GradeForgeRightPanelViewProps) {
   // NOTE: Trimmed unused resource data from the export to reduce dead code.
   const currentDate = new Date(2023, 9, 22); // October 22, 2023
 
@@ -124,27 +132,44 @@ function GradeForgeRightPanelView({ alerts, taskDays }: GradeForgeRightPanelView
           </h3>
 
           <div className="space-y-3">
-            {alerts.map((alert) => (
-              <div
-                key={alert.id}
-                className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer"
-              >
-                <div className="w-8 h-8 bg-[#5A7ACD]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Bell className="w-4 h-4 text-[#5A7ACD]" strokeWidth={2} />
+            {isLoading
+              ? Array.from({ length: 3 }).map((_, index) => (
+                  <div
+                    key={`student-alert-skeleton-${index}`}
+                    // NOTE: Skeleton alert cards keep right-panel spacing stable during async load.
+                    className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 animate-pulse"
+                  >
+                    <div className="w-8 h-8 bg-[#EEF2FA] rounded-lg flex-shrink-0" />
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="h-3 w-28 rounded bg-gray-200" />
+                      <div className="h-3 w-full rounded bg-gray-200" />
+                      <div className="h-3 w-16 rounded bg-gray-200" />
+                    </div>
+                  </div>
+                ))
+              : null}
+            {!isLoading &&
+              alerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer"
+                >
+                  <div className="w-8 h-8 bg-[#5A7ACD]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Bell className="w-4 h-4 text-[#5A7ACD]" strokeWidth={2} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-medium text-[#2B2A2A] mb-0.5">
+                      {alert.title}
+                    </p>
+                    <p className="text-[11px] text-gray-500 truncate">
+                      {alert.description}
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      {alert.time}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-medium text-[#2B2A2A] mb-0.5">
-                    {alert.title}
-                  </p>
-                  <p className="text-[11px] text-gray-500 truncate">
-                    {alert.description}
-                  </p>
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    {alert.time}
-                  </p>
-                </div>
-              </div>
-            ))}
+              ))}
           </div>
 
           {/* NOTE: Replace garbled arrow glyph from the export with ASCII. */}

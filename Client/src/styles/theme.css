@@ -126,6 +126,8 @@
 
   body {
     @apply bg-background text-foreground;
+    /* NOTE: Apply shared typography token globally so every page uses Montserrat consistently. */
+    font-family: var(--font-family-base);
   }
 
   /**
@@ -177,5 +179,13 @@
     font-size: var(--text-base);
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
+  }
+
+  /* NOTE: Native form controls do not always inherit body font; force consistent Montserrat rendering. */
+  button,
+  input,
+  textarea,
+  select {
+    font-family: inherit;
   }
 }

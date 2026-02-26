@@ -1,13 +1,18 @@
 import { useState } from "react";
 import { Link, Navigate } from "react-router";
-import { Eye, EyeOff, ArrowRight } from "lucide-react";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { AuthSplitLayout } from "./auth/AuthSplitLayout";
-import { getAuthenticatedRole, getDefaultRouteForRole, isAuthenticated, setAuthenticated } from "../auth";
+import {
+  getAuthenticatedRole,
+  getDefaultRouteForRole,
+  isAuthenticated,
+  isStudentRegistrationComplete,
+  setAuthenticated,
+} from "../auth";
 import { signup } from "../../services/authService";
 
 export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -16,38 +21,51 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
 
   if (isAuthenticated()) {
-    // NOTE: Signed-in users are routed to their own dashboard by role.
-    return <Navigate to={getDefaultRouteForRole(getAuthenticatedRole())} replace />;
+    const role = getAuthenticatedRole();
+    // NOTE: Incomplete student profiles are routed to completion instead of dashboard even from auth pages.
+    const target = role === "STUDENT" && !isStudentRegistrationComplete()
+      ? "/complete-registration"
+      : getDefaultRouteForRole(role);
+    return <Navigate to={target} replace />;
   }
 
   const handleSignUp = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!agreedToTerms) {
-      setError("Please agree to the Terms & Conditions.");
+    // NOTE: Create the account as soon as base fields are valid so user can complete profile later.
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password.trim()) {
+      setError("Please fill in first name, last name, email, and password.");
       return;
     }
+
     setError(null);
     setLoading(true);
+
     try {
       const name = `${firstName.trim()} ${lastName.trim()}`.trim();
       const response = await signup({
         name: name || email,
-        email,
+        email: email.trim(),
         password,
         // NOTE: Public signup is student-only; other roles are provisioned/admin-managed.
-        role: "STUDENT",
+        role: "STUDENT" as const,
       });
+
       setAuthenticated(response.token, {
         name: response.name,
         email: response.email,
         role: response.role,
+        profileCompleted: response.profileCompleted,
       });
-      // NOTE: Hard redirect keeps the post-signup flow consistent with current auth bootstrap.
-      window.location.href = getDefaultRouteForRole(response.role);
+      // IMPORTANT: If profile is incomplete, force next step immediately so student can finish required fields.
+      window.location.href =
+        response.role.toUpperCase() === "STUDENT" && !response.profileCompleted
+          ? "/complete-registration"
+          : getDefaultRouteForRole(response.role);
     } catch (err: unknown) {
-      const msg = err && typeof err === "object" && "response" in err
-        ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-        : "Sign up failed. Please try again.";
+      const msg =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : "Sign up failed. Please try again.";
       setError(msg ?? "Sign up failed.");
     } finally {
       setLoading(false);
@@ -57,34 +75,24 @@ export default function SignUpPage() {
   return (
     <AuthSplitLayout activeDotIndex={2}>
       {/* NOTE: Shared auth shell keeps sign-in and sign-up layouts consistent. */}
-      {/* Back to Website Button */}
       <Link
         to="/"
-        className="inline-flex items-center gap-2 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors mb-8"
+        className="mb-8 inline-flex items-center gap-2 text-[13px] text-gray-600 transition-colors hover:text-[#2B2A2A]"
       >
         Back to website
-        <ArrowRight className="w-4 h-4" strokeWidth={2} />
+        <ArrowRight className="h-4 w-4" strokeWidth={2} />
       </Link>
 
-      {/* Header */}
-      <h1 className="text-3xl font-bold text-[#2B2A2A] mb-2">
-        Create an account
-      </h1>
-      <p className="text-[14px] text-gray-600 mb-8">
+      <h1 className="mb-2 text-3xl font-bold text-[#2B2A2A]">Create an account</h1>
+      <p className="mb-8 text-[14px] text-gray-600">
         Already have an account?{" "}
-        <Link to="/signin" className="text-[#FEB05D] hover:text-[#f5a04d] underline">
+        <Link to="/signin" className="text-[#FEB05D] underline hover:text-[#f5a04d]">
           Log in
         </Link>
       </p>
 
-      {/* Form */}
       <form className="space-y-4" onSubmit={handleSignUp}>
-        {error && (
-          <div className="py-2 px-3 bg-red-50 border border-red-200 rounded-lg text-[13px] text-red-700">
-            {error}
-          </div>
-        )}
-        {/* First and Last Name */}
+        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div>}
         <div className="grid grid-cols-2 gap-3">
           <label htmlFor="first-name" className="sr-only">
             First name
@@ -93,9 +101,9 @@ export default function SignUpPage() {
             id="first-name"
             type="text"
             value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
+            onChange={(event) => setFirstName(event.target.value)}
             placeholder="First name"
-            className="px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FEB05D] focus:border-transparent"
+            className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#FEB05D]"
           />
           <label htmlFor="last-name" className="sr-only">
             Last name
@@ -104,13 +112,12 @@ export default function SignUpPage() {
             id="last-name"
             type="text"
             value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
+            onChange={(event) => setLastName(event.target.value)}
             placeholder="Last name"
-            className="px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FEB05D] focus:border-transparent"
+            className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#FEB05D]"
           />
         </div>
 
-        {/* Email */}
         <label htmlFor="signup-email" className="sr-only">
           Email
         </label>
@@ -118,13 +125,11 @@ export default function SignUpPage() {
           id="signup-email"
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(event) => setEmail(event.target.value)}
           placeholder="Email"
-          required
-          className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FEB05D] focus:border-transparent"
+          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#FEB05D]"
         />
 
-        {/* Password */}
         <div className="relative">
           <label htmlFor="signup-password" className="sr-only">
             Password
@@ -133,69 +138,47 @@ export default function SignUpPage() {
             id="signup-password"
             type={showPassword ? "text" : "password"}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(event) => setPassword(event.target.value)}
             placeholder="Enter your password"
-            required
-            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FEB05D] focus:border-transparent pr-12"
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 pr-12 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#FEB05D]"
           />
-          {/* Accessibility: icon-only toggle needs an explicit label. */}
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
             aria-label={showPassword ? "Hide password" : "Show password"}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
           >
-            {showPassword ? (
-              <EyeOff className="w-5 h-5" strokeWidth={2} />
-            ) : (
-              <Eye className="w-5 h-5" strokeWidth={2} />
-            )}
+            {showPassword ? <EyeOff className="h-5 w-5" strokeWidth={2} /> : <Eye className="h-5 w-5" strokeWidth={2} />}
           </button>
         </div>
 
-        {/* Terms Checkbox */}
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="terms"
-            checked={agreedToTerms}
-            onChange={(e) => setAgreedToTerms(e.target.checked)}
-            className="w-4 h-4 rounded border-gray-300 bg-white text-[#FEB05D] focus:ring-2 focus:ring-[#FEB05D] focus:ring-offset-0 cursor-pointer"
-          />
-          <label htmlFor="terms" className="text-[13px] text-gray-600 cursor-pointer">
-            I agree to the{" "}
-            <a href="#" className="text-[#FEB05D] hover:text-[#f5a04d] underline">
-              Terms & Conditions
-            </a>
-          </label>
-        </div>
-
-        {/* Create Account Button */}
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3 bg-[#FEB05D] hover:bg-[#f5a04d] disabled:opacity-60 text-white rounded-lg text-[14px] font-semibold transition-colors mt-6"
+          className="mt-6 w-full rounded-lg bg-[#FEB05D] py-3 text-[14px] font-semibold text-white transition-colors hover:bg-[#f5a04d] disabled:opacity-60"
         >
           {loading ? "Creating account..." : "Create account"}
         </button>
 
-        {/* Divider */}
+        <p className="text-[12px] text-gray-600">
+          Next step: complete your registration with major, CWID, and Canvas ID.
+        </p>
+
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-300"></div>
           </div>
           <div className="relative flex justify-center text-[12px]">
-            <span className="px-3 bg-white text-gray-500">Or register with</span>
+            <span className="bg-white px-3 text-gray-500">Or register with</span>
           </div>
         </div>
 
-        {/* Social Sign Up Buttons */}
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
-            className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] hover:bg-gray-50 transition-colors"
+            className="flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-3 text-[14px] text-[#2B2A2A] transition-colors hover:bg-gray-50"
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path
                 fill="#4285F4"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -218,9 +201,9 @@ export default function SignUpPage() {
 
           <button
             type="button"
-            className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] hover:bg-gray-50 transition-colors"
+            className="flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-3 text-[14px] text-[#2B2A2A] transition-colors hover:bg-gray-50"
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="#2B2A2A">
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="#2B2A2A">
               <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
             </svg>
             <span>Apple</span>

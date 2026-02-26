@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 
 @Entity
+@Table(name = "student")
+// FIX: Explicit table mapping aligns Student entity with the existing production table name ("student").
 @Getter
 @Setter
 @AllArgsConstructor

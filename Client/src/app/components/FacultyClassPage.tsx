@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 import { 
   Settings, 
@@ -9,10 +9,6 @@ import {
   BarChart3, 
   Users, 
   UsersRound,
-  ClipboardList,
-  FlaskConical,
-  ShieldAlert,
-  Megaphone,
   Plus,
   Upload,
   CheckCircle2,
@@ -29,42 +25,83 @@ import {
   Download,
   Mail,
   UserMinus,
-  Calendar
+  Calendar,
+  Search,
+  X
 } from "lucide-react";
 import type {
   ClassHeader,
   ClassRecentActivity,
-  ClassStudent,
   FacultyAssignment,
   FacultyDashboardStat,
+  FacultyStudentEmailSuggestion,
+  FacultyRosterStats,
+  FacultyRosterStudentRow,
+  FacultyStudentSearchResult,
 } from "../../types/class";
 import type { ClassSubmissionItem } from "../../types/submission";
 import {
+  enrollStudentByEmail,
   getFacultyClassHeaderById,
   listClassRecentActivity,
   listFacultyAssignments,
-  listFacultyClassStudents,
+  listFacultyStudentEmailSuggestions,
+  listFacultyRosterRows,
   listFacultyDashboardStats,
+  searchFacultyStudentByEmail,
+  summarizeFacultyRosterStats,
 } from "../../services/classService";
 import { listClassSubmissions } from "../../services/submissionService";
+import { SegmentedFilter } from "./ui/SegmentedFilter";
 
-type SectionType = 'dashboard' | 'assignments' | 'submissions' | 'grades' | 'students' | 'groups' | 'rubrics' | 'tests' | 'integrity' | 'announcements' | 'settings';
+type SectionType = 'dashboard' | 'assignments' | 'submissions' | 'grades' | 'students' | 'groups' | 'settings';
+type RosterFilter = "all" | "active" | "inactive" | "unassigned";
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  const apiMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+  if (typeof apiMessage === "string" && apiMessage.trim()) {
+    return apiMessage;
+  }
+
+  return "Something went wrong. Please try again.";
+}
 
 export function FacultyClassPage() {
   const { classId } = useParams();
   const [activeSection, setActiveSection] = useState<SectionType>('dashboard');
+  const [submissionBadgeCount, setSubmissionBadgeCount] = useState(0);
+  const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
 
-  // NOTE: Class header data now comes from the mock service.
+  // NOTE: Class header data now comes from backend-driven service mapping.
   const [classHeader, setClassHeader] = useState<ClassHeader | null>(null);
 
   useEffect(() => {
-    const resolvedId = classId || "cs-2400";
+    const resolvedId = classId || "1";
     getFacultyClassHeaderById(resolvedId).then(setClassHeader);
   }, [classId]);
 
+  useEffect(() => {
+    const resolvedId = classId || "1";
+    // NOTE: Sidebar submissions badge now reflects live ungraded submission count for this class.
+    listClassSubmissions(resolvedId).then((submissions) => {
+      setSubmissionBadgeCount(submissions.filter((submission) => submission.status === "ungraded").length);
+    });
+  }, [classId]);
+
+  useEffect(() => {
+    // NOTE: Close add-student modal when user navigates away from Students section to avoid stale overlay state.
+    if (activeSection !== "students") {
+      setIsAddStudentModalOpen(false);
+    }
+  }, [activeSection]);
+
   // NOTE: Lightweight placeholder keeps layout stable during async load.
   const classData: ClassHeader = classHeader ?? {
-    id: classId || "cs-2400",
+    id: classId || "1",
     code: "",
     name: "",
     section: "",
@@ -110,7 +147,7 @@ export function FacultyClassPage() {
                 label="Submissions"
                 active={activeSection === 'submissions'}
                 onClick={() => setActiveSection('submissions')}
-                badge={12}
+                badge={submissionBadgeCount > 0 ? submissionBadgeCount : undefined}
               />
               <NavItem
                 icon={<BarChart3 className="w-4 h-4" strokeWidth={2} />}
@@ -130,30 +167,7 @@ export function FacultyClassPage() {
                 active={activeSection === 'groups'}
                 onClick={() => setActiveSection('groups')}
               />
-              <NavItem
-                icon={<ClipboardList className="w-4 h-4" strokeWidth={2} />}
-                label="Rubrics"
-                active={activeSection === 'rubrics'}
-                onClick={() => setActiveSection('rubrics')}
-              />
-              <NavItem
-                icon={<FlaskConical className="w-4 h-4" strokeWidth={2} />}
-                label="Tests"
-                active={activeSection === 'tests'}
-                onClick={() => setActiveSection('tests')}
-              />
-              <NavItem
-                icon={<ShieldAlert className="w-4 h-4" strokeWidth={2} />}
-                label="Integrity"
-                active={activeSection === 'integrity'}
-                onClick={() => setActiveSection('integrity')}
-              />
-              <NavItem
-                icon={<Megaphone className="w-4 h-4" strokeWidth={2} />}
-                label="Announcements"
-                active={activeSection === 'announcements'}
-                onClick={() => setActiveSection('announcements')}
-              />
+              {/* CLEANUP: Removed Rubrics/Tests/Integrity/Announcements tabs from faculty class navigation per scope update. */}
               <NavItem
                 icon={<Settings className="w-4 h-4" strokeWidth={2} />}
                 label="Settings"
@@ -169,7 +183,7 @@ export function FacultyClassPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Header */}
         <header className="bg-white border-b border-gray-200 px-8 py-6">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
@@ -185,18 +199,26 @@ export function FacultyClassPage() {
                 <span>{classData.section}</span>
               </div>
             </div>
-            
-            {/* Primary Action Buttons */}
-            <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
-                <Upload className="w-4 h-4" strokeWidth={2} />
-                <span>Import Students</span>
-              </button>
-              <button className="flex items-center gap-2 px-4 py-2.5 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors">
-                <Plus className="w-4 h-4" strokeWidth={2} />
-                <span>Create Assignment</span>
-              </button>
-            </div>
+            {/* NOTE: Student-roster actions live in the top header so they align with the page-level action position. */}
+            {activeSection === "students" ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
+                  <Upload className="w-4 h-4" strokeWidth={2} />
+                  <span>Export Roster</span>
+                </button>
+                <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
+                  <Download className="w-4 h-4" strokeWidth={2} />
+                  <span>Import from Canvas</span>
+                </button>
+                <button
+                  onClick={() => setIsAddStudentModalOpen(true)}
+                  className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
+                >
+                  <Plus className="w-4 h-4" strokeWidth={2} />
+                  <span>Add Student</span>
+                </button>
+              </div>
+            ) : null}
           </div>
         </header>
 
@@ -207,12 +229,14 @@ export function FacultyClassPage() {
             {activeSection === 'assignments' && <AssignmentsSection />}
             {activeSection === 'submissions' && <SubmissionsSection />}
             {activeSection === 'grades' && <GradesSection />}
-            {activeSection === 'students' && <StudentsSection />}
+            {activeSection === 'students' && (
+              <StudentsSection
+                isAddStudentModalOpen={isAddStudentModalOpen}
+                onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
+              />
+            )}
             {activeSection === 'groups' && <GroupsSection />}
-            {activeSection === 'rubrics' && <RubricsSection />}
-            {activeSection === 'tests' && <TestsSection />}
-            {activeSection === 'integrity' && <IntegritySection />}
-            {activeSection === 'announcements' && <AnnouncementsSection />}
+            {/* CLEANUP: Removed Rubrics/Tests/Integrity/Announcements section rendering per updated faculty class management scope. */}
             {activeSection === 'settings' && <SettingsSection />}
           </div>
         </main>
@@ -267,12 +291,12 @@ function NavItem({
 // Placeholder sections - will be implemented
 function DashboardSection() {
   const { classId } = useParams();
-  // NOTE: Dashboard stats and activity now load from mock services.
+  // NOTE: Dashboard stats and activity now load from backend-driven service calls.
   const [recentActivity, setRecentActivity] = useState<ClassRecentActivity[]>([]);
   const [stats, setStats] = useState<FacultyDashboardStat[]>([]);
 
   useEffect(() => {
-    const resolvedId = classId || "cs-2400";
+    const resolvedId = classId || "1";
     listClassRecentActivity(resolvedId).then(setRecentActivity);
     listFacultyDashboardStats(resolvedId).then(setStats);
   }, [classId]);
@@ -324,23 +348,27 @@ function DashboardSection() {
           <button className="text-[12px] text-gray-500 hover:text-[#2B2A2A]">View All</button>
         </div>
         <div className="space-y-4">
-          {recentActivity.map((activity) => {
-            const ActivityIcon = activityIconMap[activity.iconKey];
-            return (
-              <div
-                key={activity.id}
-                className="flex items-start gap-3 pb-4 border-b border-gray-100 last:border-b-0 last:pb-0"
-              >
-                <div className={`mt-0.5 w-8 h-8 ${activity.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                  <ActivityIcon className={`w-4 h-4 ${activity.iconColor}`} strokeWidth={2} />
+          {recentActivity.length > 0 ? (
+            recentActivity.map((activity) => {
+              const ActivityIcon = activityIconMap[activity.iconKey];
+              return (
+                <div
+                  key={activity.id}
+                  className="flex items-start gap-3 pb-4 border-b border-gray-100 last:border-b-0 last:pb-0"
+                >
+                  <div className={`mt-0.5 w-8 h-8 ${activity.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                    <ActivityIcon className={`w-4 h-4 ${activity.iconColor}`} strokeWidth={2} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] text-[#2B2A2A]">{activity.message}</p>
+                    <p className="text-[12px] text-gray-500 mt-0.5">{activity.time}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[14px] text-[#2B2A2A]">{activity.message}</p>
-                  <p className="text-[12px] text-gray-500 mt-0.5">{activity.time}</p>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          ) : (
+            <p className="text-[13px] text-gray-600">No recent class activity yet.</p>
+          )}
         </div>
       </div>
     </div>
@@ -382,13 +410,19 @@ function StatCard({
 
 function AssignmentsSection() {
   const { classId } = useParams();
+  const resolvedClassId = classId || "1";
   const [selectedAssignments, setSelectedAssignments] = useState<string[]>([]);
-  // NOTE: Assignments now load from the mock class service.
+  // NOTE: Assignments now load from backend-driven class service mapping.
   const [assignments, setAssignments] = useState<FacultyAssignment[]>([]);
+  const [isAssignmentsLoading, setIsAssignmentsLoading] = useState(true);
 
   useEffect(() => {
-    const resolvedId = classId || "cs-2400";
-    listFacultyAssignments(resolvedId).then(setAssignments);
+    // FIX: Keep a loading flag so "No assignments" does not flash before backend data finishes loading.
+    setIsAssignmentsLoading(true);
+    listFacultyAssignments(resolvedClassId)
+      .then(setAssignments)
+      .catch(() => setAssignments([]))
+      .finally(() => setIsAssignmentsLoading(false));
   }, [classId]);
 
   return (
@@ -405,10 +439,14 @@ function AssignmentsSection() {
             <Upload className="w-4 h-4" strokeWidth={2} />
             <span>Import</span>
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors">
+          <Link
+            to={`/faculty/class/${resolvedClassId}/assignments/create`}
+            // NOTE: Assignment creation now uses a standalone page route so faculty can manage the full form flow.
+            className="flex items-center gap-2 px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
+          >
             <Plus className="w-4 h-4" strokeWidth={2} />
             <span>Create Assignment</span>
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -437,70 +475,114 @@ function AssignmentsSection() {
             </tr>
           </thead>
           <tbody>
-            {assignments.map((assignment, index) => (
-              <tr
-                key={assignment.id}
-                className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === assignments.length - 1 ? 'border-b-0' : ''}`}
-              >
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedAssignments.includes(assignment.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedAssignments([...selectedAssignments, assignment.id]);
-                        } else {
-                          setSelectedAssignments(selectedAssignments.filter(id => id !== assignment.id));
-                        }
-                      }}
-                      className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
-                    />
-                    <span className="text-[14px] font-medium text-[#2B2A2A]">
-                      {assignment.name}
+            {isAssignmentsLoading ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <tr key={`faculty-assignments-skeleton-${index}`} className="border-b border-gray-100 last:border-b-0">
+                  {/* NOTE: Skeleton rows keep assignment table structure visible while assignments are fetching. */}
+                  <td className="px-6 py-4">
+                    <div className="h-4 w-44 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-6 w-20 rounded-md bg-gray-100 animate-pulse" />
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 w-16 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-6 w-20 rounded-md bg-gray-100 animate-pulse" />
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center justify-end gap-2">
+                      <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse" />
+                      <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse" />
+                      <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse" />
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : assignments.length > 0 ? (
+              assignments.map((assignment, index) => (
+                <tr
+                  key={assignment.id}
+                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === assignments.length - 1 ? 'border-b-0' : ''}`}
+                >
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedAssignments.includes(assignment.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedAssignments([...selectedAssignments, assignment.id]);
+                          } else {
+                            setSelectedAssignments(selectedAssignments.filter(id => id !== assignment.id));
+                          }
+                        }}
+                        className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
+                      />
+                      <Link
+                        // FIX: Faculty assignment names now navigate to a faculty-accessible assignment page.
+                        to={`/faculty/assignment/${assignment.id}`}
+                        className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
+                      >
+                        {assignment.name}
+                      </Link>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-[12px] font-medium text-gray-700">
+                      {assignment.language}
                     </span>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-[12px] font-medium text-gray-700">
-                    {assignment.language}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="text-[13px] text-gray-600">{assignment.dueDate}</span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="text-[13px] text-gray-600">
-                    {assignment.submissions}/{assignment.totalStudents}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium ${
-                    assignment.status === 'published'
-                      ? 'bg-green-50 text-green-600'
-                      : assignment.status === 'closed'
-                      ? 'bg-gray-100 text-gray-600'
-                      : 'bg-orange-50 text-orange-600'
-                  }`}>
-                    {assignment.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    {/* Accessibility: icon-only action buttons need labels for screen readers. */}
-                    <button aria-label="Edit assignment" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                    <button aria-label="Duplicate assignment" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <Copy className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                    <button aria-label="More assignment actions" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                  </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-[13px] text-gray-600">{assignment.dueDate}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-[13px] text-gray-600">
+                      {assignment.submissions}/{assignment.totalStudents}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium ${
+                      assignment.status === 'published'
+                        ? 'bg-green-50 text-green-600'
+                        : assignment.status === 'closed'
+                        ? 'bg-gray-100 text-gray-600'
+                        : 'bg-orange-50 text-orange-600'
+                    }`}>
+                      {assignment.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {/* Accessibility: icon-only action buttons need labels for screen readers. */}
+                      <Link
+                        aria-label="Edit assignment"
+                        to={`/faculty/assignment/${assignment.id}`}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </Link>
+                      <button aria-label="Duplicate assignment" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <Copy className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                      <button aria-label="More assignment actions" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={6} className="px-6 py-6 text-center text-[13px] text-gray-600">
+                  No assignments found for this class.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
@@ -510,11 +592,11 @@ function AssignmentsSection() {
 
 function SubmissionsSection() {
   const { classId } = useParams();
-  // NOTE: Submissions now load from the mock submission service.
+  // NOTE: Submissions now load from backend-driven submission service mapping.
   const [submissions, setSubmissions] = useState<ClassSubmissionItem[]>([]);
 
   useEffect(() => {
-    const resolvedId = classId || "cs-2400";
+    const resolvedId = classId || "1";
     listClassSubmissions(resolvedId).then(setSubmissions);
   }, [classId]);
 
@@ -560,60 +642,68 @@ function SubmissionsSection() {
             </tr>
           </thead>
           <tbody>
-            {submissions.map((submission, index) => (
-              <tr
-                key={submission.id}
-                className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === submissions.length - 1 ? 'border-b-0' : ''}`}
-              >
-                <td className="px-6 py-4">
-                  <span className="text-[14px] font-medium text-[#2B2A2A]">
-                    {submission.student}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="text-[13px] text-gray-600">
-                    {submission.assignment}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="text-[13px] text-gray-600">
-                    {submission.submittedAt}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  {submission.status === 'ungraded' ? (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-orange-50">
-                      <span className="text-[12px] font-medium text-orange-600">Ungraded</span>
+            {submissions.length > 0 ? (
+              submissions.map((submission, index) => (
+                <tr
+                  key={submission.id}
+                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === submissions.length - 1 ? 'border-b-0' : ''}`}
+                >
+                  <td className="px-6 py-4">
+                    <span className="text-[14px] font-medium text-[#2B2A2A]">
+                      {submission.student}
                     </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-green-50">
-                      <span className="text-[12px] font-medium text-green-600">Graded</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-[13px] text-gray-600">
+                      {submission.assignment}
                     </span>
-                  )}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  {submission.score !== undefined ? (
-                    <span className="text-[13px] font-semibold text-[#2B2A2A]">{submission.score}</span>
-                  ) : (
-                    <span className="text-[13px] text-gray-400">&mdash;</span>
-                  )}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    {/* Accessibility: icon-only action buttons need labels for screen readers. */}
-                    <button aria-label="View submission" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <Eye className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                    <button aria-label="Edit submission" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                    <button aria-label="More submission actions" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                  </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-[13px] text-gray-600">
+                      {submission.submittedAt}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    {submission.status === 'ungraded' ? (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-orange-50">
+                        <span className="text-[12px] font-medium text-orange-600">Ungraded</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-green-50">
+                        <span className="text-[12px] font-medium text-green-600">Graded</span>
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    {submission.score !== undefined ? (
+                      <span className="text-[13px] font-semibold text-[#2B2A2A]">{submission.score}</span>
+                    ) : (
+                      <span className="text-[13px] text-gray-400">&mdash;</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {/* Accessibility: icon-only action buttons need labels for screen readers. */}
+                      <button aria-label="View submission" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <Eye className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                      <button aria-label="Edit submission" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                      <button aria-label="More submission actions" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={6} className="px-6 py-6 text-center text-[13px] text-gray-600">
+                  No submissions found for this class.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
@@ -644,108 +734,548 @@ function GradesSection() {
   );
 }
 
-function StudentsSection() {
+function StudentsSection({
+  isAddStudentModalOpen,
+  onCloseAddStudentModal,
+}: {
+  isAddStudentModalOpen: boolean;
+  onCloseAddStudentModal: () => void;
+}) {
   const { classId } = useParams();
-  // NOTE: Students now load from the mock class service.
-  const [students, setStudents] = useState<ClassStudent[]>([]);
+  const resolvedId = classId || "1";
+
+  // NOTE: Main page search only filters existing roster rows.
+  const [rosterRows, setRosterRows] = useState<FacultyRosterStudentRow[]>([]);
+  const [activeFilter, setActiveFilter] = useState<RosterFilter>("all");
+  const [rosterSearchValue, setRosterSearchValue] = useState("");
+  const [isRosterLoading, setIsRosterLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // NOTE: Add-student flow is isolated in modal state so it does not interfere with roster filtering.
+  const [lookupEmail, setLookupEmail] = useState("");
+  const [lookupResult, setLookupResult] = useState<FacultyStudentSearchResult | null>(null);
+  const [isLookupLoading, setIsLookupLoading] = useState(false);
+  const [isEnrollLoading, setIsEnrollLoading] = useState(false);
+  const [isSuggestionLoading, setIsSuggestionLoading] = useState(false);
+  const [emailSuggestions, setEmailSuggestions] = useState<FacultyStudentEmailSuggestion[]>([]);
+  const [suggestionError, setSuggestionError] = useState<string | null>(null);
+  const [feedbackMessage, setFeedbackMessage] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
+
+  const loadRoster = async () => {
+    setIsRosterLoading(true);
+    setErrorMessage(null);
+    try {
+      const rows = await listFacultyRosterRows(resolvedId);
+      setRosterRows(rows);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsRosterLoading(false);
+    }
+  };
+
+  const resetAddStudentState = () => {
+    // CLEANUP: Reset modal state each time it closes to avoid stale results/messages.
+    setLookupEmail("");
+    setLookupResult(null);
+    setEmailSuggestions([]);
+    setSuggestionError(null);
+    setFeedbackMessage(null);
+    setIsSuggestionLoading(false);
+    setIsLookupLoading(false);
+    setIsEnrollLoading(false);
+  };
+
+  const closeAddStudentModal = () => {
+    resetAddStudentState();
+    onCloseAddStudentModal();
+  };
 
   useEffect(() => {
-    const resolvedId = classId || "cs-2400";
-    listFacultyClassStudents(resolvedId).then(setStudents);
-  }, [classId]);
+    void loadRoster();
+  }, [resolvedId]);
+
+  useEffect(() => {
+    if (!isAddStudentModalOpen) {
+      return;
+    }
+
+    const trimmedQuery = lookupEmail.trim();
+    if (trimmedQuery.length < 1) {
+      setEmailSuggestions([]);
+      setIsSuggestionLoading(false);
+      setSuggestionError(null);
+      return;
+    }
+
+    let isCancelled = false;
+    // NOTE: Debounced typeahead avoids firing a backend request on every single keystroke.
+    const timer = window.setTimeout(async () => {
+      setIsSuggestionLoading(true);
+      setSuggestionError(null);
+      try {
+        const suggestions = await listFacultyStudentEmailSuggestions(resolvedId, trimmedQuery);
+        if (!isCancelled) {
+          setEmailSuggestions(suggestions);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          setEmailSuggestions([]);
+          // FIX: Show suggestion fetch errors instead of silently hiding them to make debugging easier.
+          setSuggestionError(getErrorMessage(error));
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsSuggestionLoading(false);
+        }
+      }
+    }, 200);
+
+    return () => {
+      isCancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [isAddStudentModalOpen, lookupEmail, resolvedId]);
+
+  const rosterStats: FacultyRosterStats = useMemo(() => summarizeFacultyRosterStats(rosterRows), [rosterRows]);
+
+  const filterItems = useMemo(() => {
+    const activeCount = rosterRows.filter((row) => row.status === "active").length;
+    const inactiveCount = rosterRows.filter((row) => row.status === "inactive").length;
+    const unassignedCount = rosterRows.filter((row) => row.status === "unassigned").length;
+    return [
+      { id: "all", label: "All", count: rosterRows.length },
+      { id: "active", label: "Active", count: activeCount },
+      { id: "inactive", label: "Inactive", count: inactiveCount },
+      { id: "unassigned", label: "Unassigned", count: unassignedCount },
+    ] as const;
+  }, [rosterRows]);
+
+  const filteredRows = useMemo(() => {
+    const normalizedQuery = rosterSearchValue.trim().toLowerCase();
+    return rosterRows.filter((row) => {
+      const filterMatches = activeFilter === "all" ? true : row.status === activeFilter;
+      if (!filterMatches) {
+        return false;
+      }
+      if (!normalizedQuery) {
+        return true;
+      }
+      return row.name.toLowerCase().includes(normalizedQuery) || row.email.toLowerCase().includes(normalizedQuery);
+    });
+  }, [activeFilter, rosterRows, rosterSearchValue]);
+
+  const handleLookup = async (suggestedEmail?: string) => {
+    const resolvedEmail = (suggestedEmail ?? lookupEmail).trim();
+    if (!resolvedEmail) {
+      setLookupResult(null);
+      setFeedbackMessage({ tone: "error", text: "Enter a student email to search." });
+      return;
+    }
+
+    setLookupEmail(resolvedEmail);
+    setSuggestionError(null);
+    setIsLookupLoading(true);
+    setFeedbackMessage(null);
+    try {
+      const result = await searchFacultyStudentByEmail(resolvedId, resolvedEmail);
+      setLookupResult(result);
+      if (!result.canEnroll) {
+        setFeedbackMessage({ tone: "info", text: result.reason });
+      }
+    } catch (error) {
+      setLookupResult(null);
+      const statusCode = (error as { response?: { status?: number } })?.response?.status;
+      // FIX: Convert lookup 400 responses into user-friendly not-found feedback instead of raw transport-style error text.
+      if (statusCode === 400) {
+        setFeedbackMessage({ tone: "info", text: "User not found." });
+      } else {
+        setFeedbackMessage({ tone: "error", text: getErrorMessage(error) });
+      }
+    } finally {
+      setIsLookupLoading(false);
+    }
+  };
+
+  const handleEnroll = async () => {
+    if (!lookupResult?.studentEmail) {
+      return;
+    }
+
+    setIsEnrollLoading(true);
+    setFeedbackMessage(null);
+    try {
+      await enrollStudentByEmail(resolvedId, lookupResult.studentEmail);
+      setFeedbackMessage({ tone: "success", text: `${lookupResult.studentName} was enrolled successfully.` });
+      await loadRoster();
+      closeAddStudentModal();
+    } catch (error) {
+      setFeedbackMessage({ tone: "error", text: getErrorMessage(error) });
+    } finally {
+      setIsEnrollLoading(false);
+    }
+  };
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Students</h2>
-          <p className="text-[13px] text-gray-600">
-            Manage enrolled students ({students.length} total)
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors">
-            <Upload className="w-4 h-4" strokeWidth={2} />
-            <span>Import Students</span>
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors">
-            <Plus className="w-4 h-4" strokeWidth={2} />
-            <span>Add Student</span>
-          </button>
+      <div className="mb-6">
+        <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Student Roster</h2>
+        {/* CLEANUP: Removed extra helper sentence under Student Roster heading per current UI copy direction. */}
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+        <RosterStatCard
+          icon={<Users className="w-4 h-4 text-[#5A7ACD]" strokeWidth={2} />}
+          iconBg="bg-[#5A7ACD]/10"
+          value={String(rosterStats.totalStudents)}
+          label="Total Students"
+        />
+        <RosterStatCard
+          icon={<UserPlus className="w-4 h-4 text-green-600" strokeWidth={2} />}
+          iconBg="bg-green-50"
+          value={String(rosterStats.activeStudents)}
+          label="Active"
+        />
+        <RosterStatCard
+          icon={<UserMinus className="w-4 h-4 text-red-500" strokeWidth={2} />}
+          iconBg="bg-red-50"
+          value={String(rosterStats.inactiveStudents)}
+          label="Inactive"
+        />
+        <RosterStatCard
+          icon={<BarChart3 className="w-4 h-4 text-[#F0A561]" strokeWidth={2} />}
+          iconBg="bg-[#F0A561]/10"
+          value={`${rosterStats.avgScore}%`}
+          label="Avg Score"
+        />
+        <RosterStatCard
+          icon={<CheckCircle2 className="w-4 h-4 text-[#5A7ACD]" strokeWidth={2} />}
+          iconBg="bg-[#5A7ACD]/10"
+          value={`${rosterStats.completion}%`}
+          label="Completion"
+        />
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-full md:max-w-xl">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={2} />
+            <input
+              value={rosterSearchValue}
+              onChange={(event) => setRosterSearchValue(event.target.value)}
+              type="text"
+              placeholder="Search students in this class by name or email..."
+              className="w-full h-11 rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/25"
+            />
+          </div>
+          <SegmentedFilter
+            className="ml-auto"
+            items={filterItems}
+            value={activeFilter}
+            onValueChange={(value) => setActiveFilter(value)}
+          />
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <table className="w-full">
+      {errorMessage ? (
+        <div className="mb-4 rounded-xl border border-[#F2C9CC] bg-[#FFF5F5] p-3 text-[13px] text-[#C23A42]">
+          {errorMessage}
+        </div>
+      ) : null}
+
+      <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+        <table className="w-full min-w-[980px]">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Name
+              <th className="text-left px-4 py-3 w-10">
+                <input type="checkbox" className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]" />
               </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Email
-              </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Status
-              </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Group
-              </th>
-              <th className="text-right px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Actions
-              </th>
+              <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Student</th>
+              <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Email</th>
+              <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Status</th>
+              <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Group</th>
+              <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Progress</th>
+              <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Avg Score</th>
+              <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Last Activity</th>
+              <th className="text-right px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {students.map((student, index) => (
-              <tr
-                key={student.id}
-                className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === students.length - 1 ? 'border-b-0' : ''}`}
-              >
-                <td className="px-6 py-4">
-                  <span className="text-[14px] font-medium text-[#2B2A2A]">
-                    {student.name}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <a
-                    href={`mailto:${student.email}`}
-                    className="text-[13px] text-gray-600 hover:text-[#5A7ACD] transition-colors"
-                  >
-                    {student.email}
-                  </a>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`text-[12px] font-medium px-2 py-1 rounded-md ${
-                    student.status === 'Active'
-                      ? 'bg-green-50 text-green-600'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}>
-                    {student.status || 'Inactive'}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="text-[13px] text-gray-600">{student.group || 'Unassigned'}</span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    {/* Accessibility: icon-only action buttons need labels for screen readers. */}
-                    <button aria-label="Email student" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <Mail className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                    <button aria-label="Remove student" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <UserMinus className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                    <button aria-label="More student actions" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                      <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                    </button>
-                  </div>
+            {isRosterLoading ? (
+              Array.from({ length: 5 }).map((_, index) => (
+                <tr key={`faculty-roster-skeleton-${index}`} className="border-b border-gray-100 last:border-b-0">
+                  {/* NOTE: Skeleton roster rows keep full table structure visible while roster data is fetching. */}
+                  <td className="px-4 py-4">
+                    <div className="h-4 w-4 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="space-y-2 animate-pulse">
+                      <div className="h-4 w-28 rounded bg-gray-200" />
+                      <div className="h-3 w-24 rounded bg-gray-200" />
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="h-4 w-40 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="h-6 w-16 rounded-md bg-gray-100 animate-pulse" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="h-4 w-20 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="space-y-2 animate-pulse">
+                      <div className="h-2 w-28 rounded-full bg-gray-100" />
+                      <div className="h-3 w-20 rounded bg-gray-200" />
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="h-4 w-10 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="h-4 w-20 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center justify-end gap-1">
+                      <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse" />
+                      <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse" />
+                      <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse" />
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : filteredRows.length > 0 ? (
+              filteredRows.map((student) => (
+                <tr key={student.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-4">
+                    <input type="checkbox" className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <p className="text-[14px] font-medium text-[#2B2A2A]">{student.name}</p>
+                    <p className="text-[12px] text-gray-500 mt-1">{student.enrolledLabel}</p>
+                  </td>
+                  <td className="px-4 py-4">
+                    <a href={`mailto:${student.email}`} className="text-[13px] text-[#5D6A80] hover:text-[#5A7ACD] transition-colors">
+                      {student.email}
+                    </a>
+                  </td>
+                  <td className="px-4 py-4">
+                    <span
+                      className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium ${
+                        student.status === "active"
+                          ? "bg-green-50 text-green-600"
+                          : student.status === "inactive"
+                            ? "bg-gray-100 text-gray-600"
+                            : "bg-[#F4F5F9] text-[#5D6A80]"
+                      }`}
+                    >
+                      {student.status === "active" ? "Active" : student.status === "inactive" ? "Inactive" : "Unassigned"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4">
+                    <span className="text-[13px] text-gray-700">{student.group}</span>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="w-28 h-2 bg-gray-100 rounded-full overflow-hidden mb-1">
+                      <div className="h-full bg-[#5A7ACD]" style={{ width: `${Math.min(100, student.completionPercent)}%` }} />
+                    </div>
+                    <p className="text-[12px] text-[#5D6A80]">
+                      {student.progressSubmitted}/{student.progressTotal} submitted
+                    </p>
+                  </td>
+                  <td className="px-4 py-4 text-[13px] font-semibold text-[#2B2A2A]">
+                    {student.avgScore}%
+                  </td>
+                  <td className="px-4 py-4 text-[13px] text-gray-600">{student.lastActivity}</td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center justify-end gap-1">
+                      <button aria-label="Schedule student meeting" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <Calendar className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                      <button aria-label="Email student" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <Mail className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                      <button aria-label="Remove student" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                        <UserMinus className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={9} className="px-6 py-6 text-center text-[13px] text-gray-600">
+                  No students found for this filter.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
+
+      {isAddStudentModalOpen ? (
+        <div className="fixed inset-0 z-40 bg-black/35 flex items-center justify-center p-4" onClick={closeAddStudentModal}>
+          <div
+            // REFACTOR: Wider modal keeps search and suggestion content readable without cramped wrapping.
+            className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <h3 className="text-[18px] font-semibold text-[#2B2A2A]">Add Student</h3>
+              <button
+                type="button"
+                onClick={closeAddStudentModal}
+                className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="Close add student dialog"
+              >
+                <X className="w-4 h-4 text-gray-500" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="p-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative flex-1 min-w-[260px]">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={2} />
+                  <input
+                    value={lookupEmail}
+                    onChange={(event) => {
+                      setLookupEmail(event.target.value);
+                      setLookupResult(null);
+                      setSuggestionError(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void handleLookup();
+                      }
+                    }}
+                    type="text"
+                    // NOTE: Teammate search supports email, name, and CWID keywords.
+                    placeholder="Search by email, name, or CWID..."
+                    className="w-full h-11 rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/25"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleLookup()}
+                  disabled={isLookupLoading}
+                  className="h-11 px-4 rounded-xl bg-[#2B2A2A] text-white text-[13px] font-medium hover:bg-[#3a3939] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isLookupLoading ? "Searching..." : "Search Email"}
+                </button>
+              </div>
+
+              {lookupEmail.trim().length >= 1 ? (
+                // NOTE: Suggestions now render in normal flow under the search row so modal grows naturally.
+                <div className="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white">
+                  {isSuggestionLoading ? (
+                    <div className="px-3 py-2.5 space-y-2 animate-pulse">
+                      {/* NOTE: Suggestion skeleton avoids a blank modal body during live-search fetches. */}
+                      <div className="h-4 w-full rounded bg-gray-200" />
+                      <div className="h-4 w-[88%] rounded bg-gray-200" />
+                    </div>
+                  ) : emailSuggestions.length > 0 ? (
+                    emailSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion.email}
+                        type="button"
+                        onClick={() => {
+                          setLookupEmail(suggestion.email);
+                          void handleLookup(suggestion.email);
+                        }}
+                        className="w-full px-3 py-2.5 text-left hover:bg-[#F4F6FB] transition-colors border-b border-gray-100 last:border-b-0"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" strokeWidth={2} />
+                            <div className="min-w-0">
+                              <p className="truncate text-[13px] font-medium text-[#2B2A2A]">{suggestion.name}</p>
+                              <p className="truncate text-[12px] text-[#5D6A80]">{suggestion.email}</p>
+                              <p className="truncate text-[11px] text-[#7A8599]">
+                                CWID: {suggestion.cwid} • Major: {suggestion.major} • Canvas: {suggestion.canvasUserId}
+                              </p>
+                            </div>
+                          </div>
+                          <span
+                            className={`text-[11px] px-2 py-0.5 rounded-full ${
+                              suggestion.alreadyInCourse
+                                ? "bg-[#EEF2FA] text-[#5D6A80]"
+                                : "bg-[#EAF8EE] text-[#219653]"
+                            }`}
+                          >
+                            {suggestion.alreadyInCourse ? "Already in class" : "Can add"}
+                          </span>
+                        </div>
+                      </button>
+                    ))
+                  ) : suggestionError ? (
+                    <p className="px-3 py-2 text-[12px] text-[#C23A42]">{suggestionError}</p>
+                  ) : (
+                    <p className="px-3 py-2 text-[12px] text-gray-500">No matching student emails.</p>
+                  )}
+                </div>
+              ) : null}
+
+              {lookupResult ? (
+                <div className="mt-4 rounded-xl border border-gray-200 bg-[#F9FAFC] px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[14px] font-semibold text-[#2B2A2A]">{lookupResult.studentName}</p>
+                    <p className="text-[13px] text-gray-600">{lookupResult.studentEmail}</p>
+                    {/* NOTE: Detailed profile fields are shown here so faculty can confirm the correct student before enrolling. */}
+                    <p className="mt-1 text-[12px] text-[#5D6A80]">
+                      CWID: {lookupResult.cwid} • Major: {lookupResult.major} • Canvas: {lookupResult.canvasUserId}
+                    </p>
+                    <p className="text-[12px] text-[#5D6A80]">Status: {lookupResult.currentStatus}</p>
+                    <p className="text-[12px] text-gray-500 mt-1">{lookupResult.reason}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleEnroll()}
+                    disabled={!lookupResult.canEnroll || isEnrollLoading}
+                    className="h-10 px-4 rounded-lg bg-[#5A7ACD] text-white text-[13px] font-medium hover:bg-[#4e6fbd] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {isEnrollLoading ? "Enrolling..." : "Enroll"}
+                  </button>
+                </div>
+              ) : null}
+
+              {feedbackMessage ? (
+                <p
+                  className={`mt-3 text-[13px] ${
+                    feedbackMessage.tone === "success"
+                      ? "text-green-700"
+                      : feedbackMessage.tone === "error"
+                        ? "text-red-600"
+                        : "text-[#5D6A80]"
+                  }`}
+                >
+                  {feedbackMessage.text}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function RosterStatCard({
+  icon,
+  iconBg,
+  value,
+  label,
+}: {
+  icon: React.ReactNode;
+  iconBg: string;
+  value: string;
+  label: string;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 px-4 py-3">
+      <div className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center mb-2`}>{icon}</div>
+      <p className="text-[30px] leading-none font-semibold text-[#2B2A2A]">{value}</p>
+      <p className="text-[13px] text-[#5D6A80] mt-1">{label}</p>
     </div>
   );
 }
@@ -761,76 +1291,6 @@ function GroupsSection() {
       {/* NOTE: This placeholder section was re-added to prevent runtime crashes from missing component references. */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <p className="text-[14px] text-gray-600">Group management UI will be displayed here.</p>
-      </div>
-    </div>
-  );
-}
-
-function RubricsSection() {
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Rubrics</h2>
-        <p className="text-[13px] text-gray-600">Define grading rubrics and criteria for assignments</p>
-      </div>
-
-      {/* NOTE: Missing RubricsSection caused the runtime ReferenceError; keeping this explicit placeholder prevents regressions. */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <p className="text-[14px] text-gray-600">Rubric builder and rubric list will be displayed here.</p>
-      </div>
-    </div>
-  );
-}
-
-function TestsSection() {
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Tests</h2>
-        <p className="text-[13px] text-gray-600">Configure test cases and execution settings for submissions</p>
-      </div>
-
-      {/* NOTE: Placeholder keeps navigation stable until tests workflow is implemented. */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <p className="text-[14px] text-gray-600">Test case configuration UI will be displayed here.</p>
-      </div>
-    </div>
-  );
-}
-
-function IntegritySection() {
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Integrity</h2>
-        <p className="text-[13px] text-gray-600">Review plagiarism and integrity checks</p>
-      </div>
-
-      {/* NOTE: Placeholder keeps this route functional while backend integrity signals are integrated later. */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <p className="text-[14px] text-gray-600">Integrity reports and alerts will be displayed here.</p>
-      </div>
-    </div>
-  );
-}
-
-function AnnouncementsSection() {
-  return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Announcements</h2>
-          <p className="text-[13px] text-gray-600">Post updates and reminders to your class</p>
-        </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors">
-          <Plus className="w-4 h-4" strokeWidth={2} />
-          <span>New Announcement</span>
-        </button>
-      </div>
-
-      {/* NOTE: Placeholder keeps section render-safe while announcement CRUD is implemented. */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <p className="text-[14px] text-gray-600">Announcements timeline will be displayed here.</p>
       </div>
     </div>
   );

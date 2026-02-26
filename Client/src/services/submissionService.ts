@@ -5,6 +5,7 @@ import type {
   SubmissionDetail,
   SubmissionSummary,
 } from "../types/submission";
+import api from "../api/axios";
 
 // NOTE: Centralized mock submission data to create a single integration seam.
 // TODO(backend): Replace mock service with real API calls. Keep return shapes stable for the UI.
@@ -224,6 +225,35 @@ Total Score: 85/100`,
 [2023-10-24 23:42:21] Auto-grading complete: 85/100`,
 };
 
+interface AssignmentApiResponse {
+  id: number;
+  courseId: number;
+  name: string;
+}
+
+interface FacultySubmissionApiResponse {
+  id: number;
+  assignmentId: number;
+  assignmentName: string;
+  studentName: string;
+  submittedAt: string;
+  marks: number | null;
+}
+
+function formatSubmissionDate(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Unknown date";
+  }
+  return parsed.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export function getSubmissionDetailById(submissionId: string): Promise<SubmissionDetail> {
   // NOTE: submissionId is unused in the mock implementation but preserved for backend parity.
   return Promise.resolve({ ...submissionDetail, id: submissionId });
@@ -239,9 +269,37 @@ export function listSubmissionsForAssignment(assignmentId: string): Promise<Subm
   return Promise.resolve(allSubmissions);
 }
 
-export function listClassSubmissions(classId: string): Promise<ClassSubmissionItem[]> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(classSubmissions);
+export async function listClassSubmissions(classId: string): Promise<ClassSubmissionItem[]> {
+  const parsedClassId = Number(classId);
+  if (!Number.isFinite(parsedClassId) || parsedClassId <= 0) {
+    throw new Error("Invalid class id.");
+  }
+
+  // NOTE: Faculty submissions table now aggregates real submissions for all assignments in the selected class.
+  const { data: assignments } = await api.get<AssignmentApiResponse[]>(
+    `/api/v1/faculty/assignments/course/${parsedClassId}`,
+  );
+
+  const submissionGroups = await Promise.all(
+    assignments.map(async (assignment) => {
+      const { data } = await api.get<FacultySubmissionApiResponse[]>(
+        `/api/v1/faculty/submissions?assignmentId=${assignment.id}`,
+      );
+      return data;
+    }),
+  );
+
+  return submissionGroups
+    .flat()
+    .sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime())
+    .map((submission) => ({
+      id: String(submission.id),
+      student: submission.studentName,
+      assignment: submission.assignmentName,
+      submittedAt: formatSubmissionDate(submission.submittedAt),
+      status: submission.marks === null ? "ungraded" : "graded",
+      score: submission.marks ?? undefined,
+    }));
 }
 
 export function listPendingSubmissions(): Promise<PendingSubmissionItem[]> {

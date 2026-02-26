@@ -28,6 +28,7 @@ export function AssignmentPage() {
   const { assignmentId } = useParams();
   const [activeTab, setActiveTab] = useState<TabType>('description');
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // NOTE: Load all assignment-related data here so child panels remain presentation-only.
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [description, setDescription] = useState<AssignmentDescription | null>(null);
@@ -35,19 +36,75 @@ export function AssignmentPage() {
   const [rubricCategories, setRubricCategories] = useState<RubricCategory[]>([]);
   const [results, setResults] = useState<AssignmentResult | null>(null);
   const [editorCodeExamples, setEditorCodeExamples] = useState<EditorCodeExamples>({});
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const resolvedId = assignmentId || "assignment-8";
-    getAssignmentDetailById(resolvedId).then(setAssignment);
-    getAssignmentDescription(resolvedId).then(setDescription);
-    listPublicTestCases(resolvedId).then(setPublicTests);
-    listRubricCategories(resolvedId).then(setRubricCategories);
-    getAssignmentResult(resolvedId).then(setResults);
-    getEditorCodeExamples(resolvedId).then(setEditorCodeExamples);
+    const resolvedId = assignmentId || "1";
+    setErrorMessage(null);
+    setIsLoading(true);
+    // NOTE: Keep data loading centralized in page container so assignment panels remain presentation-only.
+    Promise.all([
+      getAssignmentDetailById(resolvedId),
+      getAssignmentDescription(resolvedId),
+      listPublicTestCases(resolvedId),
+      listRubricCategories(resolvedId),
+      getAssignmentResult(resolvedId),
+      getEditorCodeExamples(resolvedId),
+    ])
+      .then(([assignmentData, descriptionData, publicTestsData, rubricData, resultsData, codeExamplesData]) => {
+        setAssignment(assignmentData);
+        setDescription(descriptionData);
+        setPublicTests(publicTestsData);
+        setRubricCategories(rubricData);
+        setResults(resultsData);
+        setEditorCodeExamples(codeExamplesData);
+        // FIX: Results tab now reflects whether at least one real submission exists for this assignment.
+        setHasSubmitted(assignmentData.submissionsUsed > 0);
+      })
+      .catch(() => {
+        setErrorMessage("Unable to load assignment data.");
+      })
+      .finally(() => setIsLoading(false));
   }, [assignmentId]);
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-screen bg-[#F5F2F2]">
+        {/* NOTE: Skeleton shell keeps assignment workspace visible while backend data initializes. */}
+        <div className="bg-white border-b border-gray-200 px-6 py-3">
+          <div className="h-4 w-56 rounded bg-gray-200 animate-pulse" />
+        </div>
+        <div className="flex flex-1 overflow-hidden gap-1 p-0">
+          <div className="w-[35%] min-w-[320px] bg-white border-r border-gray-200 p-4 animate-pulse">
+            <div className="h-7 w-52 rounded bg-gray-200 mb-4" />
+            <div className="h-10 w-full rounded bg-gray-100 mb-4" />
+            <div className="space-y-3">
+              <div className="h-24 w-full rounded bg-gray-100" />
+              <div className="h-24 w-full rounded bg-gray-100" />
+              <div className="h-24 w-full rounded bg-gray-100" />
+            </div>
+          </div>
+          <div className="flex-1 p-4 animate-pulse">
+            <div className="h-full w-full rounded-xl bg-gray-100" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!assignment) {
-    return null;
+    if (errorMessage) {
+      return (
+        <div className="flex h-screen items-center justify-center bg-[#F5F2F2] text-[14px] text-[#C23A42]">
+          {errorMessage}
+        </div>
+      );
+    }
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#F5F2F2] text-[14px] text-gray-600">
+        Assignment not found.
+      </div>
+    );
   }
 
   return (

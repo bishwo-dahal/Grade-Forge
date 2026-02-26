@@ -48,6 +48,22 @@ export interface UpcomingAssignment {
   iconBg: string;
 }
 
+// NOTE: Student assignments workspace type includes only fields rendered in the current list UI.
+export type StudentAssignmentStatus = "upcoming" | "active" | "completed" | "overdue";
+
+export interface StudentAssignmentListItem {
+  id: string;
+  title: string;
+  courseCode: string;
+  courseName: string;
+  points: number;
+  dueAt: string;
+  status: StudentAssignmentStatus;
+  progressPercent: number | null;
+  icon: string;
+  iconBg: string;
+}
+
 // NOTE: Added list item type used by the recent assignments table UI.
 export interface RecentAssignmentItem {
   name: string;
@@ -82,4 +98,32 @@ export interface AssignmentDescription {
 // NOTE: Added editor example map so code samples can come from services.
 export interface EditorCodeExamples {
   [language: string]: string;
+}
+
+// NOTE: UI-driven models for faculty assignment creation; grow only when the create page renders new fields.
+export interface FacultyAssignmentCreatePageHeader {
+  classId: string;
+  courseCode: string;
+  courseName: string;
+}
+
+export interface AssignmentCreateOption {
+  id: string;
+  label: string;
+}
+
+export interface AssignmentCreateFormData {
+  title: string;
+  description: string;
+  dueDate: string;
+  dueTime: string;
+  languageId: string;
+  totalPoints: number;
+  // NOTE: Advanced settings (rubric, starter files, and test cases) are intentionally deferred to a later phase.
+}
+
+export interface FacultyAssignmentCreatePageData {
+  header: FacultyAssignmentCreatePageHeader;
+  languageOptions: AssignmentCreateOption[];
+  initialForm: AssignmentCreateFormData;
 }

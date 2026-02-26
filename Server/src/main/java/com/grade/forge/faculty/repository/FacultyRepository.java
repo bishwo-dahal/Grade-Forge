@@ -9,6 +9,7 @@ import java.util.Optional;
 
 public interface FacultyRepository extends JpaRepository<Faculty, Long> {
     Optional<Faculty> findByEmail(String email);
+    Optional<Faculty> findByEmailIgnoreCase(String email);
     List<Faculty> findByDepartment(String department);
     List<Faculty> findByActive(boolean active);
     Optional<Faculty> findByUser_Id(Long userId);

@@ -52,6 +52,40 @@ public class StudentService {
         return mapToResponse(saved);
     }
 
+    public StudentResponse completeCurrentStudentRegistration(String email, StudentRequest request) {
+        // NOTE: Student must provide all required profile fields here before dashboard access is allowed.
+        validateCompletionRequest(request);
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+
+        // NOTE: Use upsert logic: update existing student row, or create one if signup skipped profile fields.
+        Student student = studentRepository.findByUserId(user.getId()).orElseGet(() -> {
+            Student created = new Student();
+            created.setUser(user);
+            created.setPreferences(new HashMap<>());
+            return created;
+        });
+
+        String normalizedCwid = request.getCwid().trim();
+        Optional<Student> existingByCwid = studentRepository.findByCwid(normalizedCwid);
+        if (existingByCwid.isPresent() && !existingByCwid.get().getId().equals(student.getId())) {
+            // IMPORTANT: Keep CWID unique, even in the deferred completion flow.
+            throw new IllegalArgumentException("Student already exists with CWID: " + normalizedCwid);
+        }
+
+        student.setCwid(normalizedCwid);
+        student.setMajor(request.getMajor().trim());
+        student.setCanvasUserId(request.getCanvasUserId().trim());
+        if (request.getPreferences() != null) {
+            student.setPreferences(request.getPreferences());
+        } else if (student.getPreferences() == null) {
+            student.setPreferences(new HashMap<>());
+        }
+
+        Student saved = studentRepository.save(student);
+        return mapToResponse(saved);
+    }
+
 
     @Transactional(readOnly = true)
     public List<StudentResponse> getAllStudents() {
@@ -81,6 +115,19 @@ public class StudentService {
         }
         if (request.getMajor() == null || request.getMajor().isBlank()) {
             throw new IllegalArgumentException("Major is required");
+        }
+    }
+
+    private void validateCompletionRequest(StudentRequest request) {
+        // IMPORTANT: Require all fields on server-side too, so direct API calls cannot bypass completion rules.
+        if (request.getCwid() == null || request.getCwid().isBlank()) {
+            throw new IllegalArgumentException("CWID is required");
+        }
+        if (request.getMajor() == null || request.getMajor().isBlank()) {
+            throw new IllegalArgumentException("Major is required");
+        }
+        if (request.getCanvasUserId() == null || request.getCanvasUserId().isBlank()) {
+            throw new IllegalArgumentException("Canvas ID is required");
         }
     }
 
