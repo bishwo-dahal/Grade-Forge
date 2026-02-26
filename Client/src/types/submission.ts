@@ -45,6 +45,8 @@ export interface SubmissionFileItem {
 // NOTE: Added class-level submission row for faculty class tables.
 export interface ClassSubmissionItem {
   id: string;
+  // FIX: Faculty submissions table needs assignment id to route each row to the assignment workspace.
+  assignmentId: string;
   student: string;
   assignment: string;
   submittedAt: string;

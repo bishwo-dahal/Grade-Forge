@@ -345,6 +345,8 @@ export async function listClassSubmissions(classId: string): Promise<ClassSubmis
       const primaryFile = mappedFiles[0] ?? null;
       return {
         id: String(submission.id),
+        // FIX: Keep assignment id on each row so faculty submissions list can deep-link into assignment page.
+        assignmentId: String(submission.assignmentId),
         student: submission.studentName,
         assignment: submission.assignmentName,
         submittedAt: formatSubmissionDate(submission.submittedAt),

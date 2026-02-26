@@ -697,14 +697,22 @@ function SubmissionsSection() {
                   className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === submissions.length - 1 ? 'border-b-0' : ''}`}
                 >
                   <td className="px-6 py-4">
-                    <span className="text-[14px] font-medium text-[#2B2A2A]">
+                    <Link
+                      // NOTE: Student name also links to assignment so clicking a submission row detail opens the workspace.
+                      to={`/faculty/assignment/${submission.assignmentId}`}
+                      className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
+                    >
                       {submission.student}
-                    </span>
+                    </Link>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-[13px] text-gray-600">
+                    <Link
+                      // FIX: Faculty can now open assignment workspace directly from each submissions-table row.
+                      to={`/faculty/assignment/${submission.assignmentId}`}
+                      className="text-[13px] text-gray-600 hover:text-[#5A7ACD] transition-colors"
+                    >
                       {submission.assignment}
-                    </span>
+                    </Link>
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-[13px] text-gray-600">
@@ -763,9 +771,14 @@ function SubmissionsSection() {
                           <Download className="w-4 h-4" strokeWidth={2} />
                         </button>
                       )}
-                      <button aria-label="Edit submission" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                      <Link
+                        // FIX: "Edit submission" now opens the target assignment page from faculty submissions list.
+                        to={`/faculty/assignment/${submission.assignmentId}`}
+                        aria-label="Open assignment"
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
                         <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                      </button>
+                      </Link>
                       <button aria-label="More submission actions" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
                         <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
                       </button>
