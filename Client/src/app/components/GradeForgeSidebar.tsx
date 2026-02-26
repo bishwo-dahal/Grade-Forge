@@ -8,6 +8,7 @@ import {
   Users,
   ClipboardCheck,
   Code2,
+  ListChecks,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { Link, useLocation } from "react-router";
@@ -38,6 +39,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
     { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard" },
     { icon: BookOpen, label: "My Classes", to: "/faculty/my-classes" },
     { icon: ClipboardCheck, label: "Grading", to: "/faculty/grading" },
+    { icon: ListChecks, label: "Rubrics", to: "/faculty/rubrics" },
     { icon: Users, label: "Students", to: "/faculty/students" },
     { icon: Calendar, label: "Schedule", to: "/faculty/schedule" },
   ];
