@@ -6,7 +6,7 @@ import { clearAuthenticated, getAuthenticatedUser } from "../../../auth";
 import { AuthShell } from "../../layout/AuthShell";
 import { AuthTopBar } from "../../layout/AuthTopBar";
 import type { SettingsSection } from "../../layout/AuthTopBar";
-import { Pencil, Trash2 } from "lucide-react";
+import { Copy, Pencil, Trash2 } from "lucide-react";
 
 interface FacultyRubricsViewProps {
   rubrics: RubricSummary[];
@@ -23,12 +23,16 @@ function FacultyRubricsView({
   totalRubrics,
   expandedId,
   onNewRubric,
-  onViewRubric,
+  onToggleExpand,
+  onEditRubric,
   onDeleteRubric,
+  onDuplicateRubric,
 }: FacultyRubricsViewProps & {
   onNewRubric: () => void;
-  onViewRubric: (id: number) => void;
+  onToggleExpand: (id: number) => void;
+  onEditRubric: (id: number) => void;
   onDeleteRubric: (id: number) => void;
+  onDuplicateRubric: (rubric: RubricSummary) => void;
 }) {
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-6 py-5">
@@ -84,7 +88,7 @@ function FacultyRubricsView({
                 <li
                   key={rubric.id}
                   className="rounded-2xl border border-gray-200 bg-white px-4 py-3 hover:border-[#5A7ACD]/60 hover:shadow-sm transition-colors cursor-pointer"
-                  onClick={() => onViewRubric(rubric.id)}
+                  onClick={() => onToggleExpand(rubric.id)}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -101,12 +105,23 @@ function FacultyRubricsView({
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          onViewRubric(rubric.id);
+                          onEditRubric(rubric.id);
                         }}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#5A7ACD] text-white hover:bg-[#4a6abd]"
-                        aria-label="Edit rubric"
+                        className="inline-flex h-8 items-center gap-1 rounded-2xl bg-[#5A7ACD] px-3 text-[12px] font-semibold text-white hover:bg-[#4a6abd]"
                       >
-                        <Pencil className="h-4 w-4" strokeWidth={2} />
+                        <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDuplicateRubric(rubric);
+                        }}
+                        className="inline-flex h-8 items-center gap-1 rounded-2xl border border-gray-200 bg-white px-3 text-[12px] font-medium text-[#2B2A2A] hover:bg-[#EEF2FB]"
+                      >
+                        <Copy className="h-3.5 w-3.5" strokeWidth={2} />
+                        <span>Duplicate</span>
                       </button>
                       <button
                         type="button"
@@ -114,10 +129,10 @@ function FacultyRubricsView({
                           event.stopPropagation();
                           onDeleteRubric(rubric.id);
                         }}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-                        aria-label="Delete rubric"
+                        className="inline-flex h-8 items-center gap-1 rounded-2xl border border-red-200 bg-red-50 px-3 text-[12px] font-medium text-red-600 hover:bg-red-100"
                       >
-                        <Trash2 className="h-4 w-4" strokeWidth={2} />
+                        <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                        <span>Delete</span>
                       </button>
                     </div>
                   </div>
@@ -226,8 +241,12 @@ export function FacultyRubricsPage() {
     navigate("/faculty/rubrics/new");
   };
 
-  const handleViewRubric = (id: number) => {
+  const handleToggleExpand = (id: number) => {
     setExpandedId((current) => (current === id ? null : id));
+  };
+
+  const handleEditRubric = (id: number) => {
+    navigate(`/faculty/rubrics/${id}`);
   };
 
   const handleDeleteRubric = async (id: number) => {
@@ -240,6 +259,10 @@ export function FacultyRubricsPage() {
       const message = err?.response?.data?.message ?? err?.message ?? "Failed to delete rubric.";
       setError(message);
     }
+  };
+
+  const handleDuplicateRubric = (rubric: RubricSummary) => {
+    navigate("/faculty/rubrics/new", { state: { fromRubric: rubric } });
   };
 
   return (
@@ -262,8 +285,10 @@ export function FacultyRubricsPage() {
           totalRubrics={totalRubrics}
           expandedId={expandedId}
           onNewRubric={handleNewRubric}
-          onViewRubric={handleViewRubric}
+          onToggleExpand={handleToggleExpand}
+          onEditRubric={handleEditRubric}
           onDeleteRubric={handleDeleteRubric}
+          onDuplicateRubric={handleDuplicateRubric}
         />
       }
     />
