@@ -1,6 +1,7 @@
 package com.grade.forge.faculty.entity;
 
 import com.grade.forge.coursemgmt.entity.Course;
+import com.grade.forge.gradingassistant.entity.GradingAssistant;
 import com.grade.forge.rubric.entity.Rubric;
 import com.grade.forge.user.entity.Users;
 import jakarta.persistence.*;
@@ -52,6 +53,9 @@ public class Faculty {
 
     @OneToMany(mappedBy = "faculty", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Rubric> rubrics = new ArrayList<>();
+
+    @OneToMany(mappedBy = "faculty", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<GradingAssistant> gradingAssistants = new ArrayList<>();
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "user_id", nullable = false)

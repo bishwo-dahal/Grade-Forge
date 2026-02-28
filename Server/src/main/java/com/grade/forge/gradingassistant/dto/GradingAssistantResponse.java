@@ -14,10 +14,10 @@ import lombok.Setter;
 public class GradingAssistantResponse {
     private Long id;
     private Long userId;
+    private Long facultyId;
     private String name;
     private String email;
     private String role;
     private String officeHours;
     private String department;
 }
-

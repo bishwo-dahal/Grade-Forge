@@ -1,5 +1,6 @@
 package com.grade.forge.gradingassistant.entity;
 
+import com.grade.forge.faculty.entity.Faculty;
 import com.grade.forge.user.entity.Users;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -22,6 +23,10 @@ public class GradingAssistant {
     @OneToOne
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private Users user;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "faculty_id")
+    private Faculty faculty;
 
     @Column(nullable = false)
     private String officeHours;

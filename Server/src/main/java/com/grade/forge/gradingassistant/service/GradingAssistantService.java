@@ -1,6 +1,8 @@
 package com.grade.forge.gradingassistant.service;
 
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
+import com.grade.forge.faculty.entity.Faculty;
+import com.grade.forge.faculty.repository.FacultyRepository;
 import com.grade.forge.gradingassistant.dto.GradingAssistantRequest;
 import com.grade.forge.gradingassistant.dto.GradingAssistantResponse;
 import com.grade.forge.gradingassistant.entity.GradingAssistant;
@@ -24,10 +26,12 @@ public class GradingAssistantService {
 
     private final GradingAssistantRepository gradingAssistantRepository;
     private final UserRepository userRepository;
+    private final FacultyRepository facultyRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public GradingAssistantResponse createGradingAssistant(GradingAssistantRequest request) {
+    public GradingAssistantResponse createGradingAssistant(GradingAssistantRequest request, Long facultyUserId) {
         validateCreateRequest(request);
+        Faculty faculty = resolveFaculty(facultyUserId);
         userRepository.findByEmail(request.getEmail()).ifPresent(existing -> {
             throw new IllegalArgumentException("User with email already exists: " + request.getEmail());
         });
@@ -41,6 +45,7 @@ public class GradingAssistantService {
 
         GradingAssistant gradingAssistant = new GradingAssistant();
         gradingAssistant.setUser(savedUser);
+        gradingAssistant.setFaculty(faculty);
         gradingAssistant.setOfficeHours(request.getOfficeHours().trim());
         gradingAssistant.setDepartment(request.getDepartment().trim());
 
@@ -49,20 +54,23 @@ public class GradingAssistantService {
     }
 
     @Transactional(readOnly = true)
-    public GradingAssistantResponse getGradingAssistant(Long id) {
-        GradingAssistant gradingAssistant = findById(id);
+    public GradingAssistantResponse getGradingAssistant(Long id, Long facultyUserId) {
+        Faculty faculty = resolveFaculty(facultyUserId);
+        GradingAssistant gradingAssistant = findByIdAndFaculty(id, faculty.getId());
         return mapToResponse(gradingAssistant);
     }
 
     @Transactional(readOnly = true)
-    public List<GradingAssistantResponse> getAllGradingAssistants() {
-        return gradingAssistantRepository.findAll().stream()
+    public List<GradingAssistantResponse> getAllGradingAssistants(Long facultyUserId) {
+        Faculty faculty = resolveFaculty(facultyUserId);
+        return gradingAssistantRepository.findAllByFacultyId(faculty.getId()).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    public GradingAssistantResponse updateGradingAssistant(Long id, GradingAssistantRequest request) {
-        GradingAssistant gradingAssistant = findById(id);
+    public GradingAssistantResponse updateGradingAssistant(Long id, GradingAssistantRequest request, Long facultyUserId) {
+        Faculty faculty = resolveFaculty(facultyUserId);
+        GradingAssistant gradingAssistant = findByIdAndFaculty(id, faculty.getId());
         Users user = gradingAssistant.getUser();
 
         if (hasText(request.getName())) {
@@ -94,8 +102,9 @@ public class GradingAssistantService {
         return mapToResponse(saved);
     }
 
-    public void deleteGradingAssistant(Long id) {
-        GradingAssistant gradingAssistant = findById(id);
+    public void deleteGradingAssistant(Long id, Long facultyUserId) {
+        Faculty faculty = resolveFaculty(facultyUserId);
+        GradingAssistant gradingAssistant = findByIdAndFaculty(id, faculty.getId());
         Users user = gradingAssistant.getUser();
         gradingAssistantRepository.delete(gradingAssistant);
         if (user != null) {
@@ -103,8 +112,13 @@ public class GradingAssistantService {
         }
     }
 
-    private GradingAssistant findById(Long id) {
-        return gradingAssistantRepository.findById(id)
+    private Faculty resolveFaculty(Long facultyUserId) {
+        return facultyRepository.findByUser_Id(facultyUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found for user id: " + facultyUserId));
+    }
+
+    private GradingAssistant findByIdAndFaculty(Long id, Long facultyId) {
+        return gradingAssistantRepository.findByIdAndFacultyId(id, facultyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Grading assistant not found with id: " + id));
     }
 
@@ -113,6 +127,7 @@ public class GradingAssistantService {
         return GradingAssistantResponse.builder()
                 .id(gradingAssistant.getId())
                 .userId(user != null ? user.getId() : null)
+                .facultyId(gradingAssistant.getFaculty() != null ? gradingAssistant.getFaculty().getId() : null)
                 .name(user != null ? user.getName() : null)
                 .email(user != null ? user.getEmail() : null)
                 .role(user != null && user.getRole() != null ? user.getRole().toString() : null)
@@ -143,4 +158,3 @@ public class GradingAssistantService {
         return value != null && !value.trim().isEmpty();
     }
 }
-
