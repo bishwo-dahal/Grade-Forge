@@ -2,11 +2,25 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { ChevronLeft, FileText, Send } from "lucide-react";
 import type { GradingAssistantCourseResponse } from "../../../types/gradingAssistantCourse";
+import type { AssignmentBasicResponse } from "../../../types/gradingAssistantAssignment";
 import { listGradingAssistantCourses } from "../../../services/gradingAssistantCourseService";
+import { listAssignmentsByCourse } from "../../../services/gradingAssistantAssignmentService";
 import { clearAuthenticated, getAuthenticatedUser } from "../../auth";
 import { AuthShell } from "../layout/AuthShell";
 import { AuthTopBar } from "../layout/AuthTopBar";
 import type { SettingsSection } from "../layout/AuthTopBar";
+
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  } catch {
+    return iso;
+  }
+}
 
 export function GradingAssistantClassPage() {
   const { classId } = useParams();
@@ -23,8 +37,11 @@ export function GradingAssistantClassPage() {
       .join("") || "GA";
 
   const [course, setCourse] = useState<GradingAssistantCourseResponse | null>(null);
+  const [assignments, setAssignments] = useState<AssignmentBasicResponse[]>([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const courseIdNum = classId ? Number(classId) : 0;
 
   useEffect(() => {
     if (!classId) {
@@ -43,6 +60,15 @@ export function GradingAssistantClassPage() {
       .catch(() => setError("Failed to load course."))
       .finally(() => setLoading(false));
   }, [classId]);
+
+  useEffect(() => {
+    if (!courseIdNum || !course) return;
+    setAssignmentsLoading(true);
+    listAssignmentsByCourse(courseIdNum)
+      .then(setAssignments)
+      .catch(() => setAssignments([]))
+      .finally(() => setAssignmentsLoading(false));
+  }, [courseIdNum, course]);
 
   const goToSettingsSection = (section: SettingsSection) => {
     navigate(`/settings?section=${section}`);
@@ -114,14 +140,41 @@ export function GradingAssistantClassPage() {
                 </header>
 
                 <div className="space-y-6">
-                  <section className="bg-white rounded-2xl border border-gray-200 p-6">
-                    <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-4 flex items-center gap-2">
+                  <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                    <h2 className="text-[18px] font-semibold text-[#2B2A2A] px-6 py-4 flex items-center gap-2 border-b border-gray-200">
                       <FileText className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
                       Assignments
                     </h2>
-                    <p className="text-[14px] text-gray-600">
-                      Assignment list and grading tasks will be available here.
-                    </p>
+                    {assignmentsLoading ? (
+                      <div className="px-6 py-6 text-[14px] text-gray-600">Loading assignments…</div>
+                    ) : assignments.length === 0 ? (
+                      <div className="px-6 py-6 text-[14px] text-gray-600">No assignments in this course yet.</div>
+                    ) : (
+                      <ul className="divide-y divide-gray-100">
+                        {assignments.map((a) => (
+                          <li key={a.id}>
+                            <Link
+                              to={`/grading-assistant/class/${classId}/assignment/${a.id}`}
+                              className="block px-6 py-4 hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[14px] font-medium text-[#2B2A2A]">{a.name}</p>
+                                  {a.description && (
+                                    <p className="text-[13px] text-gray-600 mt-0.5 line-clamp-2">{a.description}</p>
+                                  )}
+                                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0 text-[12px] text-gray-500">
+                                    {a.totalPoints != null && <span>{a.totalPoints} pts</span>}
+                                    {a.dueDate && <span>Due: {formatDate(a.dueDate)}</span>}
+                                  </div>
+                                </div>
+                                <span className="text-[13px] text-[#5A7ACD] font-medium flex-shrink-0">View details →</span>
+                              </div>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </section>
                   <section className="bg-white rounded-2xl border border-gray-200 p-6">
                     <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-4 flex items-center gap-2">

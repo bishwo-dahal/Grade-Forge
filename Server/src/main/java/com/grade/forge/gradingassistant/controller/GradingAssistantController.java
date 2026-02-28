@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/grading-assistants")
+@RequestMapping("/api/v1/grading-assistant")
 @RequiredArgsConstructor
 @PreAuthorize("hasAuthority('GRADING_ASSISTANT')")
 public class GradingAssistantController {
