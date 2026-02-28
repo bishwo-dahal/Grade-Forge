@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ChevronLeft, FileText, Send } from "lucide-react";
+import { ChevronLeft, FileText } from "lucide-react";
 import type { GradingAssistantCourseResponse } from "../../../types/gradingAssistantCourse";
 import type { AssignmentBasicResponse } from "../../../types/gradingAssistantAssignment";
 import { listGradingAssistantCourses } from "../../../services/gradingAssistantCourseService";
@@ -175,15 +175,6 @@ export function GradingAssistantClassPage() {
                         ))}
                       </ul>
                     )}
-                  </section>
-                  <section className="bg-white rounded-2xl border border-gray-200 p-6">
-                    <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-4 flex items-center gap-2">
-                      <Send className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
-                      Submissions
-                    </h2>
-                    <p className="text-[14px] text-gray-600">
-                      Student submissions to grade will appear here.
-                    </p>
                   </section>
                 </div>
               </>
