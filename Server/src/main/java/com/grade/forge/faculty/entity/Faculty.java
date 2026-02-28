@@ -42,6 +42,8 @@ public class Faculty {
 
     private String officeLocation;
 
+    private String officeHours;
+
     @Column(name = "is_active")
     private Boolean active;
 

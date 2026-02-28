@@ -16,5 +16,6 @@ public class FacultyUpdateRequest {
     private String qualifications;
     private String phoneNumber;
     private String officeLocation;
+    private String officeHours;
 }
 

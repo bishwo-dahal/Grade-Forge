@@ -18,6 +18,7 @@ public class FacultyResponse {
     private String phoneNumber;
     private String officeLocation;
     private Boolean active;
+    private String officeHours;
 
     // login info (safe only)
     private Long userId;

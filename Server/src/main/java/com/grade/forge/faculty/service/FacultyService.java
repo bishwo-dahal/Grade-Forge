@@ -55,6 +55,7 @@ public class FacultyService implements FacultyServiceInterface {
         faculty.setQualifications(facultyCreateRequest.getQualifications());
         faculty.setPhoneNumber(facultyCreateRequest.getPhoneNumber());
         faculty.setOfficeLocation(facultyCreateRequest.getOfficeLocation());
+        faculty.setOfficeHours(facultyCreateRequest.getOfficeHours());
         faculty.setActive(true);
         faculty.setUser(savedUser);
 
@@ -69,6 +70,7 @@ public class FacultyService implements FacultyServiceInterface {
         response.setQualifications(savedFaculty.getQualifications());
         response.setPhoneNumber(savedFaculty.getPhoneNumber());
         response.setOfficeLocation(savedFaculty.getOfficeLocation());
+        response.setOfficeHours(savedFaculty.getOfficeHours());
         response.setActive(savedFaculty.getActive());
 
         response.setUserId(savedUser.getId());
@@ -92,6 +94,7 @@ public class FacultyService implements FacultyServiceInterface {
         response.setPhoneNumber(faculty.getPhoneNumber());
         response.setOfficeLocation(faculty.getOfficeLocation());
         response.setActive(faculty.getActive());
+        response.setOfficeHours(faculty.getOfficeHours());
 
         response.setUserId(faculty.getUser().getId());
         response.setEmail(faculty.getUser().getEmail());
@@ -113,6 +116,7 @@ public class FacultyService implements FacultyServiceInterface {
         response.setPhoneNumber(faculty.getPhoneNumber());
         response.setOfficeLocation(faculty.getOfficeLocation());
         response.setActive(faculty.getActive());
+        response.setOfficeHours(faculty.getOfficeHours());
 
         response.setUserId(faculty.getUser().getId());
         response.setEmail(faculty.getUser().getEmail());
@@ -153,6 +157,10 @@ public class FacultyService implements FacultyServiceInterface {
             faculty.setOfficeLocation(request.getOfficeLocation());
         }
 
+        if (request.getOfficeHours() != null) {
+            faculty.setOfficeHours(request.getOfficeHours());
+        }
+
         Faculty savedFaculty = facultyRepository.save(faculty);
 
         FacultyResponse response = new FacultyResponse();
@@ -162,6 +170,7 @@ public class FacultyService implements FacultyServiceInterface {
         response.setQualifications(savedFaculty.getQualifications());
         response.setPhoneNumber(savedFaculty.getPhoneNumber());
         response.setOfficeLocation(savedFaculty.getOfficeLocation());
+        response.setOfficeHours(savedFaculty.getOfficeHours());
         response.setActive(savedFaculty.getActive());
 
         response.setUserId(savedFaculty.getUser().getId());
@@ -205,6 +214,10 @@ public class FacultyService implements FacultyServiceInterface {
             faculty.setOfficeLocation(facultyDetails.getOfficeLocation());
         }
 
+        if (facultyDetails.getOfficeHours() != null) {
+            faculty.setOfficeHours(facultyDetails.getOfficeHours());
+        }
+
         Faculty savedFaculty = facultyRepository.save(faculty);
 
         FacultyResponse response = new FacultyResponse();
@@ -215,6 +228,7 @@ public class FacultyService implements FacultyServiceInterface {
         response.setPhoneNumber(savedFaculty.getPhoneNumber());
         response.setOfficeLocation(savedFaculty.getOfficeLocation());
         response.setActive(savedFaculty.getActive());
+        response.setOfficeHours(savedFaculty.getOfficeHours());
 
         response.setUserId(savedFaculty.getUser().getId());
         response.setEmail(savedFaculty.getUser().getEmail());
@@ -238,6 +252,7 @@ public class FacultyService implements FacultyServiceInterface {
         response.setPhoneNumber(savedFaculty.getPhoneNumber());
         response.setOfficeLocation(savedFaculty.getOfficeLocation());
         response.setActive(savedFaculty.getActive());
+        response.setOfficeHours(savedFaculty.getOfficeHours());
 
         response.setUserId(savedFaculty.getUser().getId());
         response.setEmail(savedFaculty.getUser().getEmail());
@@ -259,6 +274,7 @@ public class FacultyService implements FacultyServiceInterface {
             response.setPhoneNumber(faculty.getPhoneNumber());
             response.setOfficeLocation(faculty.getOfficeLocation());
             response.setActive(faculty.getActive());
+            response.setOfficeHours(faculty.getOfficeHours());
 
             response.setUserId(faculty.getUser().getId());
             response.setEmail(faculty.getUser().getEmail());
@@ -280,6 +296,7 @@ public class FacultyService implements FacultyServiceInterface {
             response.setPhoneNumber(faculty.getPhoneNumber());
             response.setOfficeLocation(faculty.getOfficeLocation());
             response.setActive(faculty.getActive());
+            response.setOfficeHours(faculty.getOfficeHours());
 
             response.setUserId(faculty.getUser().getId());
             response.setEmail(faculty.getUser().getEmail());
@@ -301,6 +318,7 @@ public class FacultyService implements FacultyServiceInterface {
             response.setPhoneNumber(faculty.getPhoneNumber());
             response.setOfficeLocation(faculty.getOfficeLocation());
             response.setActive(faculty.getActive());
+            response.setOfficeHours(faculty.getOfficeHours());
 
             response.setUserId(faculty.getUser().getId());
             response.setEmail(faculty.getUser().getEmail());
