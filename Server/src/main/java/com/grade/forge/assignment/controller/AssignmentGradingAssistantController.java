@@ -25,15 +25,15 @@ public class AssignmentGradingAssistantController {
     private final AssignmentService assignmentService;
 
     @GetMapping
-    public ResponseEntity<List<AssignmentBasicResponse>> getMyAssignments(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
-        List<AssignmentBasicResponse> assignments = assignmentService.getAssignmentsForGradingAssistant(customUserDetails.getUserId());
+    public ResponseEntity<List<AssignmentBasicResponse>> getMyAssignments(Long courseId) {
+        List<AssignmentBasicResponse> assignments = assignmentService.getAssignmentsByCourse(courseId);
         return new ResponseEntity<>(assignments, HttpStatus.OK);
     }
 
-    @GetMapping("/{assignmentId}")
-    public ResponseEntity<AssignmentResponse> getAssignmentById(@PathVariable Long assignmentId,
-                                                                @AuthenticationPrincipal CustomUserDetails customUserDetails) {
-        AssignmentResponse assignment = assignmentService.getAssignmentForGradingAssistant(customUserDetails.getUserId(), assignmentId);
+    @GetMapping("/course/{courseId}/{assignmentId}")
+    public ResponseEntity<AssignmentResponse> getAssignmentById(@PathVariable Long courseId,@PathVariable Long assignmentId
+                                                                ) {
+        AssignmentResponse assignment = assignmentService.getAssignmentByCourse(courseId,assignmentId);
         return new ResponseEntity<>(assignment, HttpStatus.OK);
     }
 }

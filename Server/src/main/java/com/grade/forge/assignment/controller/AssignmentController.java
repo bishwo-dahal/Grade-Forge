@@ -40,11 +40,7 @@ public class AssignmentController {
         return new ResponseEntity<>(assignments, HttpStatus.OK);
     }
 
-    @GetMapping("/all")
-    public ResponseEntity<List<AssignmentResponse>> getAllAssignments() {
-        List<AssignmentResponse> assignments = assignmentService.getAllAssignments();
-        return new ResponseEntity<>(assignments, HttpStatus.OK);
-    }
+
 
     @PutMapping("/{id}")
     public ResponseEntity<AssignmentResponse> updateAssignment(@PathVariable Long id,
