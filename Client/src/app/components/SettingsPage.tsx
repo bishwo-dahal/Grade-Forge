@@ -3,8 +3,10 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff, Pencil } from "lucide-react";
 import type { UserProfile } from "../../types/user";
 import type { FacultyResponse, FacultyUpdateRequest } from "../../types/faculty";
+import type { GradingAssistantResponse } from "../../types/gradingAssistant";
 import { getFacultyProfile, getStudentProfile, updatePassword } from "../../services/authService";
 import { getCurrentFaculty, updateCurrentFaculty } from "../../services/facultyService";
+import { getCurrentGradingAssistantProfile } from "../../services/gradingAssistantService";
 import { clearAuthenticated, getAuthenticatedRole, getAuthenticatedUser, getToken, setAuthenticated } from "../auth";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
@@ -18,6 +20,9 @@ export function SettingsPage() {
   const [isEditingFaculty, setIsEditingFaculty] = useState(false);
   const [updatingFaculty, setUpdatingFaculty] = useState(false);
   const [facultyUpdateSuccess, setFacultyUpdateSuccess] = useState<string | null>(null);
+  const [gaProfile, setGaProfile] = useState<GradingAssistantResponse | null>(null);
+  const [gaProfileLoading, setGaProfileLoading] = useState(false);
+  const [gaProfileError, setGaProfileError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<"profile" | "security" | "notifications" | "appearance">("profile");
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -58,6 +63,16 @@ export function SettingsPage() {
       return;
     }
 
+    if (role === "GRADING_ASSISTANT") {
+      setGaProfileLoading(true);
+      setGaProfileError(null);
+      getCurrentGradingAssistantProfile()
+        .then(setGaProfile)
+        .catch(() => setGaProfileError("Failed to load profile."))
+        .finally(() => setGaProfileLoading(false));
+      return;
+    }
+
     getStudentProfile().then(setProfile);
   }, [role]);
 
@@ -71,12 +86,12 @@ export function SettingsPage() {
 
   const loggedInUser = getAuthenticatedUser();
   const displayName =
-    (role === "FACULTY" ? facultyProfile?.name : null) ??
+    (role === "FACULTY" ? facultyProfile?.name : role === "GRADING_ASSISTANT" ? gaProfile?.name : null) ??
     loggedInUser?.name ??
     profile?.name ??
     "Alex Johnson";
   const displayEmail =
-    (role === "FACULTY" ? facultyProfile?.email : null) ??
+    (role === "FACULTY" ? facultyProfile?.email : role === "GRADING_ASSISTANT" ? gaProfile?.email : null) ??
     loggedInUser?.email ??
     profile?.handle ??
     "alex.johnson@university.edu";
@@ -387,30 +402,58 @@ export function SettingsPage() {
                       )}
                     </>
                   ) : viewMode === "gradingAssistant" ? (
-                    <div className="space-y-4">
-                      <div>
-                        <label htmlFor="settings-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
-                          Full Name
-                        </label>
-                        <input
-                          id="settings-full-name"
-                          value={displayName}
-                          readOnly
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="settings-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
-                          Email Address
-                        </label>
-                        <input
-                          id="settings-email"
-                          value={displayEmail}
-                          readOnly
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
-                        />
-                      </div>
-                    </div>
+                    <>
+                      {gaProfileLoading && <p className="text-[14px] text-gray-600 mb-4">Loading profile…</p>}
+                      {gaProfileError && !gaProfileLoading && (
+                        <div className="mb-4 py-2 px-3 bg-red-50 border border-red-200 rounded-lg text-[13px] text-red-700">
+                          {gaProfileError}
+                        </div>
+                      )}
+                      {!gaProfileLoading && gaProfile && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                          <div>
+                            <label className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">Full Name</label>
+                            <input
+                              value={gaProfile.name ?? ""}
+                              readOnly
+                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">Email Address</label>
+                            <input
+                              value={gaProfile.email ?? ""}
+                              readOnly
+                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">Role</label>
+                            <input
+                              value={gaProfile.role ? gaProfile.role.replace(/_/g, " ") : ""}
+                              readOnly
+                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">Department</label>
+                            <input
+                              value={gaProfile.department ?? ""}
+                              readOnly
+                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">Office Hours</label>
+                            <input
+                              value={gaProfile.officeHours ?? ""}
+                              readOnly
+                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <div className="space-y-4">
                       <div>
