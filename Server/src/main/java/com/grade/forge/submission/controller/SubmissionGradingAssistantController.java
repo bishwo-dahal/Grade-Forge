@@ -27,6 +27,7 @@ public class SubmissionGradingAssistantController {
 
     private final SubmissionService submissionService;
 
+//    Getting the submissions for the grading assistant based on the assignment id
     @GetMapping
     public ResponseEntity<List<SubmissionResponse>> getSubmissionsByAssignment(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                                                                @RequestParam("assignmentId") Long assignmentId) {
@@ -34,6 +35,8 @@ public class SubmissionGradingAssistantController {
         return new ResponseEntity<>(submissions, HttpStatus.OK);
     }
 
+
+//    For Grading the submission on the assignment
     @PutMapping("/{submissionId}/grade")
     public ResponseEntity<SubmissionResponse> updateGrade(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                                           @PathVariable Long submissionId,
