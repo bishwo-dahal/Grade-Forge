@@ -39,6 +39,7 @@ import { FacultyGradingAssistantsPage } from "./components/faculty/gradingAssist
 import { GradingAssistantCoursesPage } from "./components/gradingAssistant/GradingAssistantCoursesPage";
 import { GradingAssistantClassPage } from "./components/gradingAssistant/GradingAssistantClassPage";
 import { GradingAssistantAssignmentDetailPage } from "./components/gradingAssistant/GradingAssistantAssignmentDetailPage";
+import { GradingAssistantSubmissionDetailPage } from "./components/gradingAssistant/GradingAssistantSubmissionDetailPage";
 
 export const router = createBrowserRouter([
   {
@@ -84,6 +85,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={["GRADING_ASSISTANT"]}>
         <GradingAssistantAssignmentDetailPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/grading-assistant/class/:classId/assignment/:assignmentId/submission/:submissionId",
+    element: (
+      <ProtectedRoute allowedRoles={["GRADING_ASSISTANT"]}>
+        <GradingAssistantSubmissionDetailPage />
       </ProtectedRoute>
     ),
   },

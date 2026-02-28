@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ChevronLeft, FileText } from "lucide-react";
+import { ChevronLeft, FileText, Inbox } from "lucide-react";
 import type { AssignmentDetailResponse } from "../../../types/gradingAssistantAssignment";
+import type { GradingAssistantSubmissionResponse } from "../../../types/gradingAssistantSubmission";
 import { getAssignmentByCourse } from "../../../services/gradingAssistantAssignmentService";
+import { listSubmissionsByAssignment } from "../../../services/gradingAssistantSubmissionService";
 import { clearAuthenticated, getAuthenticatedUser } from "../../auth";
 import { AuthShell } from "../layout/AuthShell";
 import { AuthTopBar } from "../layout/AuthTopBar";
@@ -35,7 +37,9 @@ export function GradingAssistantAssignmentDetailPage() {
       .join("") || "GA";
 
   const [assignment, setAssignment] = useState<AssignmentDetailResponse | null>(null);
+  const [submissions, setSubmissions] = useState<GradingAssistantSubmissionResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,6 +61,17 @@ export function GradingAssistantAssignmentDetailPage() {
       .catch(() => setError("Failed to load assignment."))
       .finally(() => setLoading(false));
   }, [classId, assignmentId]);
+
+  useEffect(() => {
+    if (!assignmentId) return;
+    const aId = Number(assignmentId);
+    if (!aId) return;
+    setSubmissionsLoading(true);
+    listSubmissionsByAssignment(aId)
+      .then(setSubmissions)
+      .catch(() => setSubmissions([]))
+      .finally(() => setSubmissionsLoading(false));
+  }, [assignmentId]);
 
   const goToSettingsSection = (section: SettingsSection) => {
     navigate(`/settings?section=${section}`);
@@ -176,6 +191,61 @@ export function GradingAssistantAssignmentDetailPage() {
                         {assignment.starterCodeUrl}
                       </a>
                     </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {!loading && assignment && (
+              <div className="mt-6 bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                  <Inbox className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
+                  <h2 className="text-[16px] font-semibold text-[#2B2A2A]">Submissions</h2>
+                </div>
+                <div className="overflow-x-auto">
+                  {submissionsLoading && (
+                    <p className="px-6 py-4 text-[14px] text-gray-500">Loading submissions…</p>
+                  )}
+                  {!submissionsLoading && submissions.length === 0 && (
+                    <p className="px-6 py-4 text-[14px] text-gray-500">No submissions yet.</p>
+                  )}
+                  {!submissionsLoading && submissions.length > 0 && (
+                    <table className="w-full">
+                      <thead>
+                        <tr className="text-left text-[12px] font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                          <th className="px-6 py-3">Student</th>
+                          <th className="px-6 py-3">Submitted</th>
+                          <th className="px-6 py-3">Status</th>
+                          <th className="px-6 py-3">Marks</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {submissions.map((s) => (
+                          <tr
+                            key={s.id}
+                            className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                          >
+                            <td className="px-6 py-3">
+                              <Link
+                                to={`/grading-assistant/class/${classId}/assignment/${assignmentId}/submission/${s.id}`}
+                                className="text-[14px] font-medium text-[#5A7ACD] hover:underline"
+                              >
+                                {s.studentName ?? s.studentEmail ?? `Submission #${s.id}`}
+                              </Link>
+                            </td>
+                            <td className="px-6 py-3 text-[14px] text-[#2B2A2A]">
+                              {formatDate(s.submittedAt ?? undefined)}
+                            </td>
+                            <td className="px-6 py-3 text-[14px] text-[#2B2A2A]">
+                              {s.status ?? "—"}
+                            </td>
+                            <td className="px-6 py-3 text-[14px] text-[#2B2A2A]">
+                              {s.marks != null ? String(s.marks) : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   )}
                 </div>
               </div>
