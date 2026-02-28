@@ -36,6 +36,8 @@ import { FacultyRubricsPage } from "./components/faculty/rubrics/FacultyRubricsP
 import { FacultyRubricCreatePage } from "./components/faculty/rubrics/FacultyRubricCreatePage";
 import { FacultyRubricDetailPage } from "./components/faculty/rubrics/FacultyRubricDetailPage";
 import { FacultyGradingAssistantsPage } from "./components/faculty/gradingAssistants/FacultyGradingAssistantsPage";
+import { GradingAssistantCoursesPage } from "./components/gradingAssistant/GradingAssistantCoursesPage";
+import { GradingAssistantClassPage } from "./components/gradingAssistant/GradingAssistantClassPage";
 
 export const router = createBrowserRouter([
   {
@@ -46,7 +48,7 @@ export const router = createBrowserRouter([
     path: "/dashboard",
     element: (
       // NOTE: Student/Faculty shared shell; university admin has a separate dashboard.
-      <ProtectedRoute allowedRoles={["STUDENT", "FACULTY"]}>
+      <ProtectedRoute allowedRoles={["STUDENT", "FACULTY", "GRADING_ASSISTANT"]}>
         <GradeForgeDashboard />
       </ProtectedRoute>
     ),
@@ -55,8 +57,24 @@ export const router = createBrowserRouter([
     path: "/settings",
     element: (
       // NOTE: Settings shell is student/faculty-only; university admin uses dedicated university pages.
-      <ProtectedRoute allowedRoles={["STUDENT", "FACULTY"]}>
+      <ProtectedRoute allowedRoles={["STUDENT", "FACULTY", "GRADING_ASSISTANT"]}>
         <SettingsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/grading-assistant/courses",
+    element: (
+      <ProtectedRoute allowedRoles={["GRADING_ASSISTANT"]}>
+        <GradingAssistantCoursesPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/grading-assistant/class/:classId",
+    element: (
+      <ProtectedRoute allowedRoles={["GRADING_ASSISTANT"]}>
+        <GradingAssistantClassPage />
       </ProtectedRoute>
     ),
   },

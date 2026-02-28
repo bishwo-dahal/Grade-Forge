@@ -3,6 +3,7 @@ import { GradeForgeMain } from "./GradeForgeMain";
 import { GradeForgeRightPanel } from "./GradeForgeRightPanel";
 import { FacultyMain } from "./FacultyMain";
 import { FacultyRightPanel } from "./FacultyRightPanel";
+import { GradingAssistantMain } from "./GradingAssistantMain";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import { clearAuthenticated, getAuthenticatedRole, getAuthenticatedUser } from "../auth";
@@ -18,10 +19,13 @@ export function GradeForgeDashboard() {
     return <Navigate to="/university-admin" replace />;
   }
 
-  // NOTE: View mode is now role-driven; removed manual student/faculty switching.
-  const viewMode: "student" | "faculty" = role === "FACULTY" ? "faculty" : "student";
-  const fallbackName = viewMode === "faculty" ? "Dr. Sarah Miller" : "Alex Johnson";
-  const fallbackEmail = viewMode === "faculty" ? "@smiller.edu" : "@alexj.edu";
+  // NOTE: View mode is now role-driven; grading assistant has its own dashboard.
+  const viewMode: "student" | "faculty" | "gradingAssistant" =
+    role === "FACULTY" ? "faculty" : role === "GRADING_ASSISTANT" ? "gradingAssistant" : "student";
+  const fallbackName =
+    viewMode === "faculty" ? "Dr. Sarah Miller" : viewMode === "gradingAssistant" ? "Grading Assistant" : "Alex Johnson";
+  const fallbackEmail =
+    viewMode === "faculty" ? "@smiller.edu" : viewMode === "gradingAssistant" ? "@ga.edu" : "@alexj.edu";
   const displayName = loggedInUser?.name ?? fallbackName;
   const displayEmail = loggedInUser?.email ?? fallbackEmail;
   const displayInitials =
@@ -45,22 +49,28 @@ export function GradeForgeDashboard() {
     <AuthTopBar
       roleView={viewMode}
       profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-      // NOTE: Unified search copy across student/faculty to keep top-nav behavior visually consistent on future pages.
-      searchPlaceholder="Search calendar, assignments..."
-      // CLEANUP: Removed student "Enroll in Class" top-nav action per updated toolbar requirements.
+      searchPlaceholder={viewMode === "gradingAssistant" ? "Search courses..." : "Search calendar, assignments..."}
       onSettingsSectionSelect={goToSettingsSection}
       onLogout={handleLogout}
     />
   );
 
+  const mainContent =
+    viewMode === "student"
+      ? <GradeForgeMain />
+      : viewMode === "gradingAssistant"
+        ? <GradingAssistantMain />
+        : <FacultyMain />;
+
+  const rightPanel =
+    viewMode === "student" ? <GradeForgeRightPanel /> : viewMode === "gradingAssistant" ? undefined : <FacultyRightPanel />;
+
   return (
     <AuthShell
       roleView={viewMode}
       topBar={topBar}
-      // NOTE: Main workflow content stays split by role to avoid mixing student and faculty business flows.
-      mainContent={viewMode === "student" ? <GradeForgeMain /> : <FacultyMain />}
-      // NOTE: Right panel remains role-specific since data and widgets are fundamentally different.
-      rightPanel={viewMode === "student" ? <GradeForgeRightPanel /> : <FacultyRightPanel />}
+      mainContent={mainContent}
+      rightPanel={rightPanel}
     />
   );
 }

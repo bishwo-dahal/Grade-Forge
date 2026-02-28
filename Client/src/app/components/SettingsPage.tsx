@@ -32,8 +32,9 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const role = getAuthenticatedRole();
-  // NOTE: Settings keeps the same role mapping as dashboard so the shared shell renders matching navigation.
-  const viewMode: "student" | "faculty" = role === "FACULTY" ? "faculty" : "student";
+  // NOTE: Settings keeps the same role mapping as dashboard; grading assistant uses faculty-style UI (profile/settings same).
+  const viewMode: "student" | "faculty" | "gradingAssistant" =
+    role === "FACULTY" ? "faculty" : role === "GRADING_ASSISTANT" ? "gradingAssistant" : "student";
 
   useEffect(() => {
     if (role === "FACULTY") {
@@ -385,6 +386,31 @@ export function SettingsPage() {
                         </div>
                       )}
                     </>
+                  ) : viewMode === "gradingAssistant" ? (
+                    <div className="space-y-4">
+                      <div>
+                        <label htmlFor="settings-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                          Full Name
+                        </label>
+                        <input
+                          id="settings-full-name"
+                          value={displayName}
+                          readOnly
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="settings-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                          Email Address
+                        </label>
+                        <input
+                          id="settings-email"
+                          value={displayEmail}
+                          readOnly
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                        />
+                      </div>
+                    </div>
                   ) : (
                     <div className="space-y-4">
                       <div>

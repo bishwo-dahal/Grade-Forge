@@ -15,7 +15,7 @@ import type { ComponentType } from "react";
 import { Link, useLocation } from "react-router";
 
 interface GradeForgeSidebarProps {
-  viewMode: "student" | "faculty" | "university";
+  viewMode: "student" | "faculty" | "gradingAssistant" | "university";
 }
 
 interface SidebarNavItem {
@@ -45,6 +45,12 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
     { icon: Users, label: "Students", to: "/faculty/students" },
     { icon: Calendar, label: "Schedule", to: "/faculty/schedule" },
   ];
+
+  const gradingAssistantItems: SidebarNavItem[] = [
+    { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard" },
+    { icon: BookOpen, label: "Courses", to: "/grading-assistant/courses", matchPrefixes: ["/grading-assistant/class"] },
+  ];
+
   // NOTE: University navigation is section-based and mapped to nested /university-admin/* routes.
   const universityItems: SidebarNavItem[] = [
     { icon: Users, label: "Faculty", to: "/university-admin/faculty" },
@@ -55,19 +61,27 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
   ];
 
   const learningItems =
-    viewMode === "student" ? studentItems : viewMode === "faculty" ? facultyItems : universityItems;
+    viewMode === "student"
+      ? studentItems
+      : viewMode === "faculty"
+        ? facultyItems
+        : viewMode === "gradingAssistant"
+          ? gradingAssistantItems
+          : universityItems;
   const resourceItems: SidebarNavItem[] =
     viewMode === "university"
       ? []
-      : viewMode === "student"
-      ? [
-          { icon: FolderOpen, label: "Materials", to: "/student/materials" },
-          { icon: MessageSquare, label: "Discussions", to: "/student/discussions" },
-        ]
-      : [
-          { icon: FolderOpen, label: "Materials", to: "/faculty/materials" },
-          { icon: MessageSquare, label: "Discussions", to: "/faculty/discussions" },
-        ];
+      : viewMode === "gradingAssistant"
+        ? []
+        : viewMode === "student"
+          ? [
+              { icon: FolderOpen, label: "Materials", to: "/student/materials" },
+              { icon: MessageSquare, label: "Discussions", to: "/student/discussions" },
+            ]
+          : [
+              { icon: FolderOpen, label: "Materials", to: "/faculty/materials" },
+              { icon: MessageSquare, label: "Discussions", to: "/faculty/discussions" },
+            ];
 
   const isItemActive = (item: SidebarNavItem): boolean => {
     const prefixes = [item.to, ...(item.matchPrefixes ?? [])];
@@ -109,7 +123,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
           {viewMode !== "university" && (
             <div className="px-3 mb-2">
               <span className="text-[11px] font-semibold tracking-wider text-[#8D97AC] uppercase">
-                {viewMode === "student" ? "Learning" : "Teaching"}
+                {viewMode === "student" ? "Learning" : viewMode === "gradingAssistant" ? "Grading" : "Teaching"}
               </span>
             </div>
           )}
