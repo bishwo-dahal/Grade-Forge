@@ -226,7 +226,7 @@ export function SettingsPage() {
           <h1 className="text-[38px] leading-none font-bold text-[#2B2A2A] mb-3">Settings</h1>
           <p className="text-[14px] text-gray-600 mb-8">Manage your account preferences and settings</p>
 
-          <div className="max-w-[710px] space-y-6">
+          <div className={`space-y-6 ${viewMode === "faculty" && activeSection === "profile" ? "max-w-[1100px]" : "max-w-[710px]"}`}>
             {activeSection === "profile" && (
               <section className="bg-white rounded-2xl border border-gray-200 p-6">
                   <h2 className="text-[28px] font-semibold text-[#2B2A2A] mb-5 flex items-center gap-2">
@@ -250,7 +250,7 @@ export function SettingsPage() {
                         </div>
                       )}
                       {!facultyLoading && facultyProfile && (
-                        <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
                           <div>
                             <label htmlFor="settings-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
                               Full Name
@@ -322,7 +322,7 @@ export function SettingsPage() {
                               className="w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
                             />
                           </div>
-                          <div>
+                          <div className="md:col-span-2 lg:col-span-3">
                             <label htmlFor="settings-office-hours" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
                               Office Hours
                             </label>
@@ -334,7 +334,7 @@ export function SettingsPage() {
                               className="w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
                             />
                           </div>
-                          <div className="pt-2">
+                          <div className="md:col-span-2 lg:col-span-3 pt-2">
                             <button
                               type="button"
                               onClick={handleFacultyUpdate}
