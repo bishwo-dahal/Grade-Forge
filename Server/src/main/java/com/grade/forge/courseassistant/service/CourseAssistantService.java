@@ -4,6 +4,7 @@ import com.grade.forge.courseassistant.dto.CourseAssistantRequest;
 import com.grade.forge.courseassistant.dto.CourseAssistantResponse;
 import com.grade.forge.courseassistant.entity.CourseAssistant;
 import com.grade.forge.courseassistant.repository.CourseAssistantRepository;
+import com.grade.forge.coursemgmt.dto.CourseResponseDto;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -92,6 +94,20 @@ public class CourseAssistantService {
         courseAssistantRepository.delete(courseAssistant);
     }
 
+    @Transactional(readOnly = true)
+    public List<CourseResponseDto> listCoursesForGradingAssistant(Long gaUserId) {
+        GradingAssistant ga = gradingAssistantRepository.findByUserId(gaUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Grading assistant not found for user id: " + gaUserId));
+
+        Map<Long, Course> coursesById = courseAssistantRepository.findAllByGradingAssistant_Id(ga.getId()).stream()
+                .map(CourseAssistant::getCourse)
+                .collect(Collectors.toMap(Course::getId, course -> course, (existing, replacement) -> existing));
+
+        return coursesById.values().stream()
+                .map(this::mapCourseToResponse)
+                .collect(Collectors.toList());
+    }
+
     private CourseAssistant findByIdAndFaculty(Long id, Long facultyId) {
         return courseAssistantRepository.findByIdAndCourse_Faculty_Id(id, facultyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course assistant not found with id: " + id));
@@ -132,6 +148,37 @@ public class CourseAssistantService {
                 .gradingAssistantName(ga.getUser().getName())
                 .gradingAssistantEmail(ga.getUser().getEmail())
                 .assignedAt(courseAssistant.getAssignedAt())
+                .build();
+    }
+
+    private CourseResponseDto mapCourseToResponse(Course course) {
+        CourseResponseDto.SemesterBasicDto semesterDto = CourseResponseDto.SemesterBasicDto.builder()
+                .id(course.getSemester().getId())
+                .name(course.getSemester().getName())
+                .startDate(course.getSemester().getStartDate().toString())
+                .endDate(course.getSemester().getEndDate().toString())
+                .build();
+
+        CourseResponseDto.FacultyBasicDto facultyDto = CourseResponseDto.FacultyBasicDto.builder()
+                .id(course.getFaculty().getId())
+                .name(course.getFaculty().getName())
+                .email(course.getFaculty().getEmail())
+                .department(course.getFaculty().getDepartment())
+                .qualifications(course.getFaculty().getQualifications())
+                .build();
+
+        return CourseResponseDto.builder()
+                .id(course.getId())
+                .name(course.getName())
+                .courseCode(course.getCourseCode())
+                .section(course.getSection())
+                .description(course.getDescription())
+                .imageUrl(course.getImageUrl())
+                .canvasCourseId(course.getCanvasCourseId())
+                .active(course.getActive())
+                .isPublished(course.getIsPublished())
+                .semester(semesterDto)
+                .faculty(facultyDto)
                 .build();
     }
 }

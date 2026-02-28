@@ -11,5 +11,6 @@ public interface CourseAssistantRepository extends JpaRepository<CourseAssistant
     List<CourseAssistant> findAllByCourse_IdAndCourse_Faculty_Id(Long courseId, Long facultyId);
     Optional<CourseAssistant> findByIdAndCourse_Faculty_Id(Long id, Long facultyId);
     boolean existsByGradingAssistant_IdAndCourse_Id(Long gradingAssistantId, Long courseId);
+    List<CourseAssistant> findAllByGradingAssistant_Id(Long gradingAssistantId);
+    List<CourseAssistant> findAllByGradingAssistant_User_Id(Long gaUserId);
 }
-
