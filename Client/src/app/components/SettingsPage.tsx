@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router";
-import { Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff } from "lucide-react";
+import { Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff, Pencil } from "lucide-react";
 import type { UserProfile } from "../../types/user";
 import type { FacultyResponse, FacultyUpdateRequest } from "../../types/faculty";
 import { getFacultyProfile, getStudentProfile, updatePassword } from "../../services/authService";
@@ -15,6 +15,7 @@ export function SettingsPage() {
   const [facultyLoading, setFacultyLoading] = useState(false);
   const [facultyProfileError, setFacultyProfileError] = useState<string | null>(null);
   const [facultyForm, setFacultyForm] = useState<FacultyUpdateRequest>({});
+  const [isEditingFaculty, setIsEditingFaculty] = useState(false);
   const [updatingFaculty, setUpdatingFaculty] = useState(false);
   const [facultyUpdateSuccess, setFacultyUpdateSuccess] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<"profile" | "security" | "notifications" | "appearance">("profile");
@@ -105,6 +106,7 @@ export function SettingsPage() {
         });
       }
       setFacultyUpdateSuccess("Profile updated successfully.");
+      setIsEditingFaculty(false);
     } catch (err: unknown) {
       const msg =
         err && typeof err === "object" && "response" in err
@@ -257,9 +259,10 @@ export function SettingsPage() {
                             </label>
                             <input
                               id="settings-full-name"
-                              value={facultyForm.name ?? ""}
+                              value={isEditingFaculty ? (facultyForm.name ?? "") : (facultyProfile.name ?? "")}
                               onChange={(e) => setFacultyForm((f) => ({ ...f, name: e.target.value }))}
-                              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                              readOnly={!isEditingFaculty}
+                              className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${isEditingFaculty ? "text-[#2B2A2A] focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent" : "bg-gray-50 text-gray-700"}`}
                             />
                           </div>
                           <div>
@@ -279,10 +282,11 @@ export function SettingsPage() {
                             </label>
                             <input
                               id="settings-department"
-                              value={facultyForm.department ?? ""}
+                              value={isEditingFaculty ? (facultyForm.department ?? "") : (facultyProfile.department ?? "")}
                               onChange={(e) => setFacultyForm((f) => ({ ...f, department: e.target.value }))}
+                              readOnly={!isEditingFaculty}
                               placeholder="e.g. Computer Science"
-                              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                              className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${isEditingFaculty ? "text-[#2B2A2A] placeholder:text-gray-400 focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent" : "bg-gray-50 text-gray-700"}`}
                             />
                           </div>
                           <div>
@@ -291,10 +295,11 @@ export function SettingsPage() {
                             </label>
                             <input
                               id="settings-qualifications"
-                              value={facultyForm.qualifications ?? ""}
+                              value={isEditingFaculty ? (facultyForm.qualifications ?? "") : (facultyProfile.qualifications ?? "")}
                               onChange={(e) => setFacultyForm((f) => ({ ...f, qualifications: e.target.value }))}
+                              readOnly={!isEditingFaculty}
                               placeholder="e.g. Ph.D. Computer Science"
-                              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                              className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${isEditingFaculty ? "text-[#2B2A2A] placeholder:text-gray-400 focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent" : "bg-gray-50 text-gray-700"}`}
                             />
                           </div>
                           <div>
@@ -304,10 +309,11 @@ export function SettingsPage() {
                             <input
                               id="settings-phone"
                               type="tel"
-                              value={facultyForm.phoneNumber ?? ""}
+                              value={isEditingFaculty ? (facultyForm.phoneNumber ?? "") : (facultyProfile.phoneNumber ?? "")}
                               onChange={(e) => setFacultyForm((f) => ({ ...f, phoneNumber: e.target.value || null }))}
+                              readOnly={!isEditingFaculty}
                               placeholder="Optional"
-                              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                              className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${isEditingFaculty ? "text-[#2B2A2A] placeholder:text-gray-400 focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent" : "bg-gray-50 text-gray-700"}`}
                             />
                           </div>
                           <div>
@@ -316,10 +322,11 @@ export function SettingsPage() {
                             </label>
                             <input
                               id="settings-office"
-                              value={facultyForm.officeLocation ?? ""}
+                              value={isEditingFaculty ? (facultyForm.officeLocation ?? "") : (facultyProfile.officeLocation ?? "")}
                               onChange={(e) => setFacultyForm((f) => ({ ...f, officeLocation: e.target.value || null }))}
+                              readOnly={!isEditingFaculty}
                               placeholder="Optional"
-                              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                              className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${isEditingFaculty ? "text-[#2B2A2A] placeholder:text-gray-400 focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent" : "bg-gray-50 text-gray-700"}`}
                             />
                           </div>
                           <div className="md:col-span-2 lg:col-span-3">
@@ -328,21 +335,52 @@ export function SettingsPage() {
                             </label>
                             <input
                               id="settings-office-hours"
-                              value={facultyForm.officeHours ?? ""}
+                              value={isEditingFaculty ? (facultyForm.officeHours ?? "") : (facultyProfile.officeHours ?? "")}
                               onChange={(e) => setFacultyForm((f) => ({ ...f, officeHours: e.target.value || null }))}
+                              readOnly={!isEditingFaculty}
                               placeholder="e.g. Mon 2-4pm, Wed 10-12"
-                              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                              className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${isEditingFaculty ? "text-[#2B2A2A] placeholder:text-gray-400 focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent" : "bg-gray-50 text-gray-700"}`}
                             />
                           </div>
-                          <div className="md:col-span-2 lg:col-span-3 pt-2">
-                            <button
-                              type="button"
-                              onClick={handleFacultyUpdate}
-                              disabled={updatingFaculty}
-                              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5A7ACD] hover:bg-[#4a6abd] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
-                            >
-                              {updatingFaculty ? "Saving…" : "Save changes"}
-                            </button>
+                          <div className="md:col-span-2 lg:col-span-3 pt-2 flex items-center gap-3">
+                            {isEditingFaculty ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsEditingFaculty(false);
+                                    setFacultyForm({
+                                      name: facultyProfile.name ?? "",
+                                      department: facultyProfile.department ?? "",
+                                      qualifications: facultyProfile.qualifications ?? "",
+                                      phoneNumber: facultyProfile.phoneNumber ?? "",
+                                      officeLocation: facultyProfile.officeLocation ?? "",
+                                      officeHours: facultyProfile.officeHours ?? "",
+                                    });
+                                  }}
+                                  className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 bg-white hover:bg-gray-50 rounded-xl text-[14px] font-medium text-[#2B2A2A] transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleFacultyUpdate}
+                                  disabled={updatingFaculty}
+                                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5A7ACD] hover:bg-[#4a6abd] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
+                                >
+                                  {updatingFaculty ? "Saving…" : "Save changes"}
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setIsEditingFaculty(true)}
+                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5A7ACD] hover:bg-[#4a6abd] rounded-xl text-[14px] font-semibold text-white transition-colors"
+                              >
+                                <Pencil className="w-4 h-4" strokeWidth={2} />
+                                Edit
+                              </button>
+                            )}
                           </div>
                         </div>
                       )}
