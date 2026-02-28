@@ -41,6 +41,7 @@ import type {
 } from "../../types/class";
 import type { ClassSubmissionItem } from "../../types/submission";
 import {
+  dropStudentFromCourse,
   enrollStudentByEmail,
   getFacultyClassHeaderById,
   listClassRecentActivity,
@@ -775,6 +776,11 @@ function StudentsSection({
   const [emailSuggestions, setEmailSuggestions] = useState<FacultyStudentEmailSuggestion[]>([]);
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
+  const [dropConfirm, setDropConfirm] = useState<FacultyRosterStudentRow | null>(null);
+  const [dropping, setDropping] = useState(false);
+  const [dropError, setDropError] = useState<string | null>(null);
+
+  const courseId = useMemo(() => Number(resolvedId) || 0, [resolvedId]);
 
   const loadRoster = async () => {
     setIsRosterLoading(true);
@@ -809,6 +815,21 @@ function StudentsSection({
   useEffect(() => {
     void loadRoster();
   }, [resolvedId]);
+
+  const handleDropConfirm = async () => {
+    if (!dropConfirm?.studentId || !courseId) return;
+    setDropping(true);
+    setDropError(null);
+    try {
+      await dropStudentFromCourse(dropConfirm.studentId, courseId);
+      setDropConfirm(null);
+      await loadRoster();
+    } catch (error) {
+      setDropError(getErrorMessage(error));
+    } finally {
+      setDropping(false);
+    }
+  };
 
   useEffect(() => {
     if (!isAddStudentModalOpen) {
@@ -1110,7 +1131,12 @@ function StudentsSection({
                       <button aria-label="Email student" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
                         <Mail className="w-4 h-4 text-gray-500" strokeWidth={2} />
                       </button>
-                      <button aria-label="Remove student" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                      <button
+                        aria-label="Drop student from course"
+                        onClick={() => student.studentId != null && setDropConfirm(student)}
+                        disabled={student.studentId == null}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
                         <UserMinus className="w-4 h-4 text-gray-500" strokeWidth={2} />
                       </button>
                     </div>
@@ -1271,6 +1297,38 @@ function StudentsSection({
           </div>
         </div>
       ) : null}
+
+      {dropConfirm !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white shadow-xl p-5">
+            <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Drop student from course?</h3>
+            <p className="mt-2 text-[14px] text-gray-600">
+              <span className="font-medium text-[#2B2A2A]">{dropConfirm.name}</span> will be removed from this course and will no longer have access to course materials or assignments.
+            </p>
+            {dropError && (
+              <p className="mt-2 text-[13px] text-red-600">{dropError}</p>
+            )}
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setDropConfirm(null); setDropError(null); }}
+                disabled={dropping}
+                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDropConfirm()}
+                disabled={dropping}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-[14px] font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {dropping ? "Dropping…" : "Drop"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
