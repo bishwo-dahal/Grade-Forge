@@ -2,6 +2,13 @@ import api from "../api/axios";
 import type { GradingAssistantRequest, GradingAssistantResponse } from "../types/gradingAssistant";
 
 const BASE = "/api/v1/faculty/grading-assistants";
+const GA_ME_BASE = "/api/v1/grading-assistants";
+
+/** GET /api/v1/grading-assistants/me - current grading assistant's own profile. */
+export async function getCurrentGradingAssistantProfile(): Promise<GradingAssistantResponse> {
+  const { data } = await api.get<GradingAssistantResponse>(`${GA_ME_BASE}/me`);
+  return data;
+}
 
 export async function getAllGradingAssistants(): Promise<GradingAssistantResponse[]> {
   const { data } = await api.get<GradingAssistantResponse[]>(BASE);

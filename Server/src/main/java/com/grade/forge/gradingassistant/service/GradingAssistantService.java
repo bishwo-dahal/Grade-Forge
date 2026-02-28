@@ -61,6 +61,13 @@ public class GradingAssistantService {
     }
 
     @Transactional(readOnly = true)
+    public GradingAssistantResponse getCurrentGradingAssistant(Long userId) {
+        GradingAssistant gradingAssistant = gradingAssistantRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Grading assistant not found for user id: " + userId));
+        return mapToResponse(gradingAssistant);
+    }
+
+    @Transactional(readOnly = true)
     public List<GradingAssistantResponse> getAllGradingAssistants(Long facultyUserId) {
         Faculty faculty = resolveFaculty(facultyUserId);
         return gradingAssistantRepository.findAllByFacultyId(faculty.getId()).stream()

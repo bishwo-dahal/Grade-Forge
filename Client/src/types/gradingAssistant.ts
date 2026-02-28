@@ -7,7 +7,7 @@ export interface GradingAssistantRequest {
   department?: string;
 }
 
-/** Response shape from the grading assistant API. */
+/** Response shape from the grading assistant API (faculty list and GA /me profile). */
 export interface GradingAssistantResponse {
   id: number;
   userId: number;
