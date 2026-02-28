@@ -35,6 +35,7 @@ import {
 import { FacultyRubricsPage } from "./components/faculty/rubrics/FacultyRubricsPage";
 import { FacultyRubricCreatePage } from "./components/faculty/rubrics/FacultyRubricCreatePage";
 import { FacultyRubricDetailPage } from "./components/faculty/rubrics/FacultyRubricDetailPage";
+import { FacultyGradingAssistantsPage } from "./components/faculty/gradingAssistants/FacultyGradingAssistantsPage";
 
 export const router = createBrowserRouter([
   {
@@ -160,6 +161,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={["FACULTY"]}>
         <FacultyRubricDetailPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/grading-assistants",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyGradingAssistantsPage />
       </ProtectedRoute>
     ),
   },

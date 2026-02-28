@@ -6,6 +6,7 @@ import {
   FolderOpen,
   MessageSquare,
   Users,
+  UserPlus,
   ClipboardCheck,
   Code2,
   ListChecks,
@@ -40,6 +41,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
     { icon: BookOpen, label: "My Classes", to: "/faculty/my-classes" },
     { icon: ClipboardCheck, label: "Grading", to: "/faculty/grading" },
     { icon: ListChecks, label: "Rubrics", to: "/faculty/rubrics" },
+    { icon: UserPlus, label: "Grading Assistants", to: "/faculty/grading-assistants" },
     { icon: Users, label: "Students", to: "/faculty/students" },
     { icon: Calendar, label: "Schedule", to: "/faculty/schedule" },
   ];
