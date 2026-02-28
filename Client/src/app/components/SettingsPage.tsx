@@ -2,13 +2,21 @@ import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff } from "lucide-react";
 import type { UserProfile } from "../../types/user";
+import type { FacultyResponse, FacultyUpdateRequest } from "../../types/faculty";
 import { getFacultyProfile, getStudentProfile, updatePassword } from "../../services/authService";
-import { clearAuthenticated, getAuthenticatedRole, getAuthenticatedUser, setAuthenticated } from "../auth";
+import { getCurrentFaculty, updateCurrentFaculty } from "../../services/facultyService";
+import { clearAuthenticated, getAuthenticatedRole, getAuthenticatedUser, getToken, setAuthenticated } from "../auth";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 
 export function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [facultyProfile, setFacultyProfile] = useState<FacultyResponse | null>(null);
+  const [facultyLoading, setFacultyLoading] = useState(false);
+  const [facultyProfileError, setFacultyProfileError] = useState<string | null>(null);
+  const [facultyForm, setFacultyForm] = useState<FacultyUpdateRequest>({});
+  const [updatingFaculty, setUpdatingFaculty] = useState(false);
+  const [facultyUpdateSuccess, setFacultyUpdateSuccess] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<"profile" | "security" | "notifications" | "appearance">("profile");
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -27,8 +35,23 @@ export function SettingsPage() {
   const viewMode: "student" | "faculty" = role === "FACULTY" ? "faculty" : "student";
 
   useEffect(() => {
-    // NOTE: Profile fallback source now follows role to avoid showing student mock data in faculty settings.
     if (role === "FACULTY") {
+      setFacultyLoading(true);
+      setFacultyProfileError(null);
+      getCurrentFaculty()
+        .then((data) => {
+          setFacultyProfile(data);
+          setFacultyForm({
+            name: data.name ?? "",
+            department: data.department ?? "",
+            qualifications: data.qualifications ?? "",
+            phoneNumber: data.phoneNumber ?? "",
+            officeLocation: data.officeLocation ?? "",
+            officeHours: data.officeHours ?? "",
+          });
+        })
+        .catch(() => setFacultyProfileError("Failed to load faculty profile."))
+        .finally(() => setFacultyLoading(false));
       getFacultyProfile().then(setProfile);
       return;
     }
@@ -45,10 +68,18 @@ export function SettingsPage() {
   }, [location.search]);
 
   const loggedInUser = getAuthenticatedUser();
-  const displayName = loggedInUser?.name ?? profile?.name ?? "Alex Johnson";
-  const displayEmail = loggedInUser?.email ?? profile?.handle ?? "alex.johnson@university.edu";
-  const displayInitials = loggedInUser?.name
-    ? loggedInUser.name
+  const displayName =
+    (role === "FACULTY" ? facultyProfile?.name : null) ??
+    loggedInUser?.name ??
+    profile?.name ??
+    "Alex Johnson";
+  const displayEmail =
+    (role === "FACULTY" ? facultyProfile?.email : null) ??
+    loggedInUser?.email ??
+    profile?.handle ??
+    "alex.johnson@university.edu";
+  const displayInitials = displayName
+    ? displayName
         .split(" ")
         .filter(Boolean)
         .slice(0, 2)
@@ -56,6 +87,34 @@ export function SettingsPage() {
         .join("") || "AJ"
     : profile?.initials ?? "AJ";
   const displayStudentId = profile?.id ?? "2024-CS-1234";
+
+  const handleFacultyUpdate = async () => {
+    setFacultyProfileError(null);
+    setFacultyUpdateSuccess(null);
+    setUpdatingFaculty(true);
+    try {
+      const updated = await updateCurrentFaculty(facultyForm);
+      setFacultyProfile(updated);
+      const token = getToken();
+      if (token) {
+        setAuthenticated(token, {
+          name: updated.name,
+          email: updated.email,
+          role: loggedInUser?.role ?? "FACULTY",
+          profileCompleted: true,
+        });
+      }
+      setFacultyUpdateSuccess("Profile updated successfully.");
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : "Failed to update profile.";
+      setFacultyProfileError(msg ?? "Failed to update profile.");
+    } finally {
+      setUpdatingFaculty(false);
+    }
+  };
 
   const handleLogout = () => {
     clearAuthenticated();
@@ -175,43 +234,156 @@ export function SettingsPage() {
                     <span>Profile Information</span>
                   </h2>
 
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="settings-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
-                        Full Name
-                      </label>
-                      <input
-                        id="settings-full-name"
-                        value={displayName}
-                        readOnly
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
-                      />
+                  {viewMode === "faculty" ? (
+                    <>
+                      {facultyLoading && (
+                        <p className="text-[14px] text-gray-600 mb-4">Loading profile…</p>
+                      )}
+                      {facultyProfileError && !facultyLoading && (
+                        <div className="mb-4 py-2 px-3 bg-red-50 border border-red-200 rounded-lg text-[13px] text-red-700">
+                          {facultyProfileError}
+                        </div>
+                      )}
+                      {facultyUpdateSuccess && (
+                        <div className="mb-4 py-2 px-3 bg-green-50 border border-green-200 rounded-lg text-[13px] text-green-700">
+                          {facultyUpdateSuccess}
+                        </div>
+                      )}
+                      {!facultyLoading && facultyProfile && (
+                        <div className="space-y-4">
+                          <div>
+                            <label htmlFor="settings-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                              Full Name
+                            </label>
+                            <input
+                              id="settings-full-name"
+                              value={facultyForm.name ?? ""}
+                              onChange={(e) => setFacultyForm((f) => ({ ...f, name: e.target.value }))}
+                              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="settings-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                              Email Address
+                            </label>
+                            <input
+                              id="settings-email"
+                              value={facultyProfile.email}
+                              readOnly
+                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="settings-department" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                              Department
+                            </label>
+                            <input
+                              id="settings-department"
+                              value={facultyForm.department ?? ""}
+                              onChange={(e) => setFacultyForm((f) => ({ ...f, department: e.target.value }))}
+                              placeholder="e.g. Computer Science"
+                              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="settings-qualifications" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                              Qualifications
+                            </label>
+                            <input
+                              id="settings-qualifications"
+                              value={facultyForm.qualifications ?? ""}
+                              onChange={(e) => setFacultyForm((f) => ({ ...f, qualifications: e.target.value }))}
+                              placeholder="e.g. Ph.D. Computer Science"
+                              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="settings-phone" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                              Phone Number
+                            </label>
+                            <input
+                              id="settings-phone"
+                              type="tel"
+                              value={facultyForm.phoneNumber ?? ""}
+                              onChange={(e) => setFacultyForm((f) => ({ ...f, phoneNumber: e.target.value || null }))}
+                              placeholder="Optional"
+                              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="settings-office" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                              Office Location
+                            </label>
+                            <input
+                              id="settings-office"
+                              value={facultyForm.officeLocation ?? ""}
+                              onChange={(e) => setFacultyForm((f) => ({ ...f, officeLocation: e.target.value || null }))}
+                              placeholder="Optional"
+                              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="settings-office-hours" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                              Office Hours
+                            </label>
+                            <input
+                              id="settings-office-hours"
+                              value={facultyForm.officeHours ?? ""}
+                              onChange={(e) => setFacultyForm((f) => ({ ...f, officeHours: e.target.value || null }))}
+                              placeholder="e.g. Mon 2-4pm, Wed 10-12"
+                              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                            />
+                          </div>
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={handleFacultyUpdate}
+                              disabled={updatingFaculty}
+                              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5A7ACD] hover:bg-[#4a6abd] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
+                            >
+                              {updatingFaculty ? "Saving…" : "Save changes"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <label htmlFor="settings-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                          Full Name
+                        </label>
+                        <input
+                          id="settings-full-name"
+                          value={displayName}
+                          readOnly
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="settings-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                          Email Address
+                        </label>
+                        <input
+                          id="settings-email"
+                          value={displayEmail}
+                          readOnly
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="settings-student-id" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                          Student ID
+                        </label>
+                        <input
+                          id="settings-student-id"
+                          value={displayStudentId}
+                          readOnly
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                        />
+                      </div>
                     </div>
-
-                    <div>
-                      <label htmlFor="settings-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
-                        Email Address
-                      </label>
-                      <input
-                        id="settings-email"
-                        value={displayEmail}
-                        readOnly
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="settings-student-id" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
-                        Student ID
-                      </label>
-                      <input
-                        id="settings-student-id"
-                        value={displayStudentId}
-                        readOnly
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
-                      />
-                    </div>
-                  </div>
+                  )}
               </section>
             )}
 
