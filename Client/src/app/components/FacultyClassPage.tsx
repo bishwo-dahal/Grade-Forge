@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 import { 
   Settings, 
@@ -52,9 +52,17 @@ import {
   summarizeFacultyRosterStats,
 } from "../../services/classService";
 import { listClassSubmissions } from "../../services/submissionService";
+import {
+  listCourseAssistants,
+  assignCourseAssistant,
+  removeCourseAssistant,
+} from "../../services/courseAssistantService";
+import { getAllGradingAssistants } from "../../services/gradingAssistantService";
+import type { GradingAssistantResponse } from "../../types/gradingAssistant";
+import type { CourseAssistantResponse } from "../../types/courseAssistant";
 import { SegmentedFilter } from "./ui/SegmentedFilter";
 
-type SectionType = 'dashboard' | 'assignments' | 'submissions' | 'grades' | 'students' | 'groups' | 'settings';
+type SectionType = 'dashboard' | 'assignments' | 'submissions' | 'grades' | 'students' | 'assistants' | 'groups' | 'settings';
 type RosterFilter = "all" | "active" | "inactive" | "unassigned";
 
 function getErrorMessage(error: unknown): string {
@@ -162,6 +170,12 @@ export function FacultyClassPage() {
                 onClick={() => setActiveSection('students')}
               />
               <NavItem
+                icon={<UserPlus className="w-4 h-4" strokeWidth={2} />}
+                label="Grading Assistants"
+                active={activeSection === 'assistants'}
+                onClick={() => setActiveSection('assistants')}
+              />
+              <NavItem
                 icon={<UsersRound className="w-4 h-4" strokeWidth={2} />}
                 label="Groups"
                 active={activeSection === 'groups'}
@@ -235,6 +249,7 @@ export function FacultyClassPage() {
                 onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
               />
             )}
+            {activeSection === 'assistants' && <AssistantsSection />}
             {activeSection === 'groups' && <GroupsSection />}
             {/* CLEANUP: Removed Rubrics/Tests/Integrity/Announcements section rendering per updated faculty class management scope. */}
             {activeSection === 'settings' && <SettingsSection />}
@@ -1276,6 +1291,323 @@ function RosterStatCard({
       <div className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center mb-2`}>{icon}</div>
       <p className="text-[30px] leading-none font-semibold text-[#2B2A2A]">{value}</p>
       <p className="text-[13px] text-[#5D6A80] mt-1">{label}</p>
+    </div>
+  );
+}
+
+function AssistantsSection() {
+  const { classId } = useParams();
+  const courseId = useMemo(() => (classId ? Number(classId) : 0), [classId]);
+
+  const [courseAssistants, setCourseAssistants] = useState<CourseAssistantResponse[]>([]);
+  const [gradingAssistants, setGradingAssistants] = useState<GradingAssistantResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedGradingAssistantId, setSelectedGradingAssistantId] = useState<number | "">("");
+  const [assigning, setAssigning] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [removeConfirm, setRemoveConfirm] = useState<CourseAssistantResponse | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [errorDialog, setErrorDialog] = useState<string | null>(null);
+
+  const loadData = useCallback(() => {
+    if (!courseId) return;
+    setLoading(true);
+    Promise.all([
+      listCourseAssistants(courseId),
+      getAllGradingAssistants(),
+    ])
+      .then(([assistants, grading]) => {
+        setCourseAssistants(assistants);
+        setGradingAssistants(grading);
+      })
+      .catch(() => {
+        setCourseAssistants([]);
+        setGradingAssistants([]);
+      })
+      .finally(() => setLoading(false));
+  }, [courseId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const assignedGradingIds = useMemo(
+    () => new Set(courseAssistants.map((a) => a.gradingAssistantId)),
+    [courseAssistants]
+  );
+  const availableToAssign = useMemo(
+    () => gradingAssistants.filter((g) => !assignedGradingIds.has(g.id)),
+    [gradingAssistants, assignedGradingIds]
+  );
+
+  const handleAssign = async () => {
+    if (selectedGradingAssistantId === "" || !courseId) return;
+    setAssigning(true);
+    setAssignError(null);
+    try {
+      await assignCourseAssistant({
+        courseId,
+        gradingAssistantId: selectedGradingAssistantId as number,
+      });
+      setAssignModalOpen(false);
+      setSelectedGradingAssistantId("");
+      loadData();
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ?? err?.message ?? "Failed to assign assistant.";
+      setAssignError(msg);
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const handleRemoveClick = (assistant: CourseAssistantResponse) => {
+    setRemoveConfirm(assistant);
+  };
+
+  const handleRemoveConfirm = async () => {
+    if (!removeConfirm) return;
+    setRemoving(true);
+    setErrorDialog(null);
+    try {
+      await removeCourseAssistant(removeConfirm.id);
+      setRemoveConfirm(null);
+      loadData();
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ?? err?.message ?? "Failed to remove assistant.";
+      setErrorDialog(msg);
+    } finally {
+      setRemoving(false);
+    }
+  };
+
+  const formatAssignedAt = (iso: string) => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return iso;
+    }
+  };
+
+  return (
+    <div>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Grading Assistants</h2>
+          <p className="text-[13px] text-gray-600">
+            Assign grading assistants to this course. They can help grade submissions.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setAssignModalOpen(true);
+            setAssignError(null);
+            setSelectedGradingAssistantId(availableToAssign.length ? availableToAssign[0].id : "");
+          }}
+          disabled={loading}
+          className="flex items-center gap-2 px-3.5 py-2 bg-[#5A7ACD] hover:bg-[#4a6abd] disabled:opacity-60 text-white rounded-lg text-[13px] font-medium transition-colors"
+        >
+          <UserPlus className="w-4 h-4" strokeWidth={2} />
+          Assign Assistant
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <p className="text-[14px] text-gray-600">Loading assistants…</p>
+        </div>
+      ) : courseAssistants.length === 0 ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
+          <p className="text-[14px] text-gray-600 mb-4">
+            No grading assistants assigned to this course yet.
+          </p>
+          <p className="text-[13px] text-gray-500 mb-4">
+            Create grading assistants from the dashboard, then assign them here.
+          </p>
+          <Link
+            to="/faculty/grading-assistants"
+            className="inline-flex items-center gap-2 text-[13px] font-medium text-[#5A7ACD] hover:text-[#4a6abd]"
+          >
+            Manage Grading Assistants
+          </Link>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <table className="w-full min-w-[520px]">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50">
+                <th className="text-left py-3 px-4 text-[12px] font-semibold text-[#2B2A2A] uppercase tracking-wide">
+                  Name
+                </th>
+                <th className="text-left py-3 px-4 text-[12px] font-semibold text-[#2B2A2A] uppercase tracking-wide">
+                  Email
+                </th>
+                <th className="text-left py-3 px-4 text-[12px] font-semibold text-[#2B2A2A] uppercase tracking-wide">
+                  Assigned
+                </th>
+                <th className="text-right py-3 px-4 text-[12px] font-semibold text-[#2B2A2A] uppercase tracking-wide">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {courseAssistants.map((row) => (
+                <tr key={row.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50">
+                  <td className="py-3 px-4 text-[14px] text-[#2B2A2A]">
+                    {row.gradingAssistantName}
+                  </td>
+                  <td className="py-3 px-4 text-[14px] text-gray-600">
+                    {row.gradingAssistantEmail}
+                  </td>
+                  <td className="py-3 px-4 text-[13px] text-gray-600">
+                    {formatAssignedAt(row.assignedAt)}
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveClick(row)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-[12px] font-medium text-red-600 hover:bg-red-100"
+                    >
+                      <UserMinus className="w-3.5 h-3.5" strokeWidth={2} />
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Assign modal */}
+      {assignModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white shadow-xl p-5">
+            <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Assign grading assistant</h3>
+            <p className="mt-1 text-[13px] text-gray-600">
+              Choose an assistant to assign to this course.
+            </p>
+            {availableToAssign.length === 0 ? (
+              <p className="mt-4 text-[13px] text-amber-600">
+                {gradingAssistants.length === 0
+                  ? "No grading assistants available. Create some from "
+                  : "All your grading assistants are already assigned to this course. Create more from "}
+                <Link to="/faculty/grading-assistants" className="text-[#5A7ACD] font-medium">
+                  Grading Assistants
+                </Link>
+                .
+              </p>
+            ) : (
+              <>
+                <div className="mt-4">
+                  <label htmlFor="assistants-select" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                    Assistant
+                  </label>
+                  <select
+                    id="assistants-select"
+                    value={selectedGradingAssistantId}
+                    onChange={(e) => setSelectedGradingAssistantId(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[14px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]"
+                  >
+                    <option value="">Select…</option>
+                    {availableToAssign.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name} ({g.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {assignError && (
+                  <p className="mt-2 text-[13px] text-red-600">{assignError}</p>
+                )}
+              </>
+            )}
+            <div className="mt-5 flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setAssignModalOpen(false)}
+                className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              {availableToAssign.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleAssign}
+                  disabled={assigning || selectedGradingAssistantId === ""}
+                  className="rounded-xl bg-[#5A7ACD] px-4 py-2.5 text-[14px] font-semibold text-white hover:bg-[#4a6abd] disabled:opacity-60"
+                >
+                  {assigning ? "Assigning…" : "Assign"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove confirmation */}
+      {removeConfirm !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white shadow-xl p-5">
+            <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Remove from course?</h3>
+            <p className="mt-2 text-[14px] text-gray-600">
+              <span className="font-medium text-[#2B2A2A]">{removeConfirm.gradingAssistantName}</span> will no longer be assigned to this course.
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => !removing && setRemoveConfirm(null)}
+                disabled={removing}
+                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRemoveConfirm}
+                disabled={removing}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-[14px] font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {removing ? "Removing…" : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error dialog */}
+      {errorDialog !== null && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-red-200 bg-white shadow-xl p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <AlertCircle className="h-5 w-5" strokeWidth={2} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Could not remove assistant</h3>
+                <p className="mt-2 text-[14px] text-gray-600 whitespace-pre-wrap">{errorDialog}</p>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setErrorDialog(null)}
+                className="rounded-xl bg-[#5A7ACD] px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-[#4a6abd]"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
