@@ -12,12 +12,17 @@ import com.grade.forge.programminglanguage.entity.ProgrammingLanguage;
 import com.grade.forge.programminglanguage.repository.ProgrammingLanguageRepository;
 import com.grade.forge.rubric.entity.Rubric;
 import com.grade.forge.rubric.repository.RubricRepository;
+import com.grade.forge.courseassistant.entity.CourseAssistant;
+import com.grade.forge.courseassistant.repository.CourseAssistantRepository;
+import com.grade.forge.gradingassistant.entity.GradingAssistant;
+import com.grade.forge.gradingassistant.repository.GradingAssistantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -30,6 +35,8 @@ public class AssignmentService {
     private final CourseRepository courseRepository;
     private final ProgrammingLanguageRepository programmingLanguageRepository;
     private final RubricRepository rubricRepository;
+    private final CourseAssistantRepository courseAssistantRepository;
+    private final GradingAssistantRepository gradingAssistantRepository;
 
     public AssignmentResponse createAssignment(AssignmentRequest request, String userEmail) {
         validateCreate(request);
@@ -221,5 +228,38 @@ public class AssignmentService {
         response.setDueDate(assignment.getDueDate());
         response.setLateDueDate(assignment.getLateDueDate());
         return response;
+    }
+
+    @Transactional(readOnly = true)
+    public List<AssignmentBasicResponse> getAssignmentsForGradingAssistant(Long gaUserId) {
+        GradingAssistant ga = gradingAssistantRepository.findByUserId(gaUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Grading assistant not found for user id: " + gaUserId));
+
+        Map<Long, Course> accessibleCourses = courseAssistantRepository.findAllByGradingAssistant_Id(ga.getId()).stream()
+                .map(CourseAssistant::getCourse)
+                .collect(Collectors.toMap(Course::getId, course -> course, (existing, replacement) -> existing));
+
+        return accessibleCourses.values().stream()
+                .flatMap(course -> assignmentRepository.findByCourse_Id(course.getId()).stream())
+                .map(this::mapToBasicResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public AssignmentResponse getAssignmentForGradingAssistant(Long gaUserId, Long assignmentId) {
+        GradingAssistant ga = gradingAssistantRepository.findByUserId(gaUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Grading assistant not found for user id: " + gaUserId));
+
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId));
+
+        boolean hasAccess = courseAssistantRepository.findAllByGradingAssistant_Id(ga.getId()).stream()
+                .anyMatch(ca -> ca.getCourse().getId().equals(assignment.getCourse().getId()));
+
+        if (!hasAccess) {
+            throw new IllegalArgumentException("Not authorized to view this assignment");
+        }
+
+        return mapToResponse(assignment);
     }
 }
