@@ -289,6 +289,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: "/faculty/class/:classId/assignment/:assignmentId/submission/:submissionId",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <AssignmentPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: "/course/:courseId",
     element: (
       <ProtectedRoute allowedRoles={["STUDENT"]}>

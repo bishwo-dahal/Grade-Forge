@@ -714,8 +714,7 @@ function SubmissionsSection() {
                 >
                   <td className="px-6 py-4">
                     <Link
-                      // NOTE: Student name also links to assignment so clicking a submission row detail opens the workspace.
-                      to={`/faculty/assignment/${submission.assignmentId}`}
+                      to={`/faculty/class/${classId || "1"}/assignment/${submission.assignmentId}/submission/${submission.id}`}
                       className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
                     >
                       {submission.student}
@@ -723,8 +722,7 @@ function SubmissionsSection() {
                   </td>
                   <td className="px-6 py-4">
                     <Link
-                      // FIX: Faculty can now open assignment workspace directly from each submissions-table row.
-                      to={`/faculty/assignment/${submission.assignmentId}`}
+                      to={`/faculty/class/${classId || "1"}/assignment/${submission.assignmentId}/submission/${submission.id}`}
                       className="text-[13px] text-gray-600 hover:text-[#5A7ACD] transition-colors"
                     >
                       {submission.assignment}
@@ -788,9 +786,8 @@ function SubmissionsSection() {
                         </button>
                       )}
                       <Link
-                        // FIX: "Edit submission" now opens the target assignment page from faculty submissions list.
-                        to={`/faculty/assignment/${submission.assignmentId}`}
-                        aria-label="Open assignment"
+                        to={`/faculty/class/${classId || "1"}/assignment/${submission.assignmentId}/submission/${submission.id}`}
+                        aria-label="Open submission in workspace"
                         className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
                       >
                         <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
