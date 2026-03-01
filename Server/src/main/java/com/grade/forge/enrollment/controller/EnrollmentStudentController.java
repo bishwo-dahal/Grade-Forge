@@ -25,8 +25,6 @@ public class EnrollmentStudentController {
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
-
-
     @PatchMapping("/{courseId}/drop")
     public ResponseEntity<EnrollmentResponse> dropCourse(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                                          @PathVariable Long courseId) {

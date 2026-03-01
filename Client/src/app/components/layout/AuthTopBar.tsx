@@ -11,7 +11,7 @@ import {
 export type SettingsSection = "profile" | "security" | "notifications" | "appearance";
 
 export interface AuthTopBarProps {
-  roleView: "student" | "faculty" | "university";
+  roleView: "student" | "faculty" | "gradingAssistant" | "university";
   profile: {
     name: string;
     email: string;
@@ -38,9 +38,9 @@ export function AuthTopBar({
   isSettingsActive = false,
 }: AuthTopBarProps) {
   const avatarGradient =
-    roleView === "faculty" || roleView === "university" ? "from-[#5A7ACD] to-[#4a6abd]" : "from-[#FEB05D] to-[#ff9a3d]";
+    roleView === "faculty" || roleView === "gradingAssistant" || roleView === "university" ? "from-[#5A7ACD] to-[#4a6abd]" : "from-[#FEB05D] to-[#ff9a3d]";
   const accountItemGradient =
-    roleView === "faculty" || roleView === "university" ? "from-[#5A7ACD] to-[#4a6abd]" : "from-[#FEB05D] to-[#ff9a3d]";
+    roleView === "faculty" || roleView === "gradingAssistant" || roleView === "university" ? "from-[#5A7ACD] to-[#4a6abd]" : "from-[#FEB05D] to-[#ff9a3d]";
   // NOTE: Keep top-bar visual tokens centralized so future pages inherit the same navigation style by default.
   const iconButtonBaseClass =
     // FIX: Notification/settings actions now use plain white surfaces (no gray fill) to match toolbar styling requirements.

@@ -203,6 +203,13 @@ Reference for REST controllers, grouped by package. Each endpoint lists purpose,
 - GET `/active` → `[{FacultyResponse}, ...]`
 - DELETE `/{id}` → plain string `"Faculty deleted successfully"`
 
+**FacultyController** (`/api/v1/faculty`, FACULTY)
+- GET `/me` → `FacultyResponse`
+- PUT `/me` update → Request `FacultyUpdateRequest`; Response `FacultyResponse`
+
+**GradingAssistantController** (`/api/v1/grading-assistants`, GRADING_ASSISTANT)
+- GET `/me` → `GradingAssistantResponse`
+
 ## grading
 **SubmissionGradeController** (`/api/v1/faculty/submission-grades`, FACULTY)
 - POST `/`

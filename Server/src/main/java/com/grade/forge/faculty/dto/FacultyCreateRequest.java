@@ -18,6 +18,7 @@ public class FacultyCreateRequest {
     private String qualifications;
     private String phoneNumber;
     private String officeLocation;
+    private String officeHours;
     private String password;
 
 

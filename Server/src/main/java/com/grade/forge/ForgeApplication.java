@@ -58,6 +58,7 @@ public class ForgeApplication {
                 "Computer Science",
                 "PhD in Computer Science",
                 "+1-555-123-4567",
+                "4pm - 6pm",
                 "Room 305, Science Building",
                 "faculty"
         );

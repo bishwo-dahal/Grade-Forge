@@ -13,12 +13,23 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  const path = config.url ?? "";
+  const method = (config.method ?? "get").toUpperCase();
+  console.log(`[API Request] ${method} ${path}`, config.params ? { params: config.params } : "", config.data ? { body: config.data } : "");
   return config;
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const path = response.config?.url ?? "";
+    const status = response.status;
+    console.log(`[API Response] ${status} ${path}`, response.data);
+    return response;
+  },
   (error) => {
+    const path = error.config?.url ?? "";
+    const status = error.response?.status;
+    console.log(`[API Response] ${status ?? "ERR"} ${path}`, error.response?.data ?? error.message);
     const requestUrl = typeof error.config?.url === "string" ? error.config.url : "";
     const isAuthEndpoint = requestUrl.startsWith("/api/v1/auth/");
 

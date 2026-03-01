@@ -122,11 +122,6 @@ public class AssignmentService {
         return mapToResponse(assignment);
     }
 
-    public List<AssignmentResponse> getAllAssignments() {
-        return assignmentRepository.findAll().stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
 
     public List<AssignmentBasicResponse> getAssignmentsByCourse(Long courseId) {
         return assignmentRepository.findByCourse_Id(courseId).stream()

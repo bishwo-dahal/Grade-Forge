@@ -10,7 +10,7 @@ export interface AuthenticatedUser {
 }
 
 // NOTE: Centralized app role union used by route-guard logic.
-export type AppRole = "STUDENT" | "FACULTY" | "UNIVERSITY_ADMIN" | "SYSTEM_ADMIN";
+export type AppRole = "STUDENT" | "FACULTY" | "GRADING_ASSISTANT" | "UNIVERSITY_ADMIN" | "SYSTEM_ADMIN";
 
 export function isAuthenticated(): boolean {
   return !!getToken();
@@ -62,6 +62,7 @@ export function getAuthenticatedRole(): AppRole | null {
   if (
     normalizedRole === "STUDENT" ||
     normalizedRole === "FACULTY" ||
+    normalizedRole === "GRADING_ASSISTANT" ||
     normalizedRole === "UNIVERSITY_ADMIN" ||
     normalizedRole === "SYSTEM_ADMIN"
   ) {
@@ -78,6 +79,7 @@ export function getDefaultRouteForRole(role?: string | null): string {
       return "/university-admin";
     case "FACULTY":
     case "STUDENT":
+    case "GRADING_ASSISTANT":
       return "/dashboard";
     default:
       return "/dashboard";
