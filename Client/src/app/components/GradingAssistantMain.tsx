@@ -17,7 +17,7 @@ export function GradingAssistantMain() {
 
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
-      <div className="p-8">
+      <div className="max-w-7xl mx-auto px-8 py-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-[#2B2A2A]">My Assigned Courses</h2>
           <Link

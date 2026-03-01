@@ -299,7 +299,7 @@ export function GradingAssistantSubmissionDetailPage() {
       }
       mainContent={
         <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
-          <div className="max-w-3xl mx-auto px-8 py-6">
+          <div className="max-w-5xl mx-auto px-8 py-6">
             <Link
               to={`/grading-assistant/class/${classId}/assignment/${assignmentId}`}
               className="inline-flex items-center gap-1.5 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors mb-4"

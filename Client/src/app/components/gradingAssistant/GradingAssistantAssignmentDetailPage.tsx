@@ -112,7 +112,7 @@ export function GradingAssistantAssignmentDetailPage() {
       }
       mainContent={
         <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
-          <div className="max-w-3xl mx-auto px-8 py-6">
+          <div className="max-w-5xl mx-auto px-8 py-6">
             <Link
               to={`/grading-assistant/class/${classId}`}
               className="inline-flex items-center gap-1.5 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors mb-4"
@@ -133,7 +133,7 @@ export function GradingAssistantAssignmentDetailPage() {
                 </Link>
               </div>
             )}
-            {!loading && assignment && (
+              {!loading && assignment && (
               <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                 <div className="px-6 py-5 border-b border-gray-200">
                   <div className="flex items-start gap-3">

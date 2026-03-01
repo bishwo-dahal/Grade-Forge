@@ -75,7 +75,8 @@ export function GradingAssistantCoursesPage() {
         />
       }
       mainContent={
-        <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-6 py-5">
+        <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
+          <div className="max-w-7xl mx-auto px-6 py-5">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
             <div>
               <h1 className="text-[18px] font-semibold text-[#2B2A2A]">Courses</h1>
@@ -136,6 +137,7 @@ export function GradingAssistantCoursesPage() {
               ))}
             </section>
           )}
+          </div>
         </main>
       }
     />

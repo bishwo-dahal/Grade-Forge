@@ -93,7 +93,7 @@ export function GradingAssistantClassPage() {
       }
       mainContent={
         <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
-          <div className="max-w-5xl mx-auto px-8 py-6">
+          <div className="max-w-7xl mx-auto px-8 py-6">
             <Link
               to="/grading-assistant/courses"
               className="inline-flex items-center gap-1.5 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors mb-4"
@@ -141,40 +141,135 @@ export function GradingAssistantClassPage() {
 
                 <div className="space-y-6">
                   <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                    <h2 className="text-[18px] font-semibold text-[#2B2A2A] px-6 py-4 flex items-center gap-2 border-b border-gray-200">
-                      <FileText className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
-                      Assignments
-                    </h2>
-                    {assignmentsLoading ? (
-                      <div className="px-6 py-6 text-[14px] text-gray-600">Loading assignments…</div>
-                    ) : assignments.length === 0 ? (
-                      <div className="px-6 py-6 text-[14px] text-gray-600">No assignments in this course yet.</div>
-                    ) : (
-                      <ul className="divide-y divide-gray-100">
-                        {assignments.map((a) => (
-                          <li key={a.id}>
-                            <Link
-                              to={`/grading-assistant/class/${classId}/assignment/${a.id}`}
-                              className="block px-6 py-4 hover:bg-gray-50 transition-colors"
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-[14px] font-medium text-[#2B2A2A]">{a.name}</p>
-                                  {a.description && (
-                                    <p className="text-[13px] text-gray-600 mt-0.5 line-clamp-2">{a.description}</p>
-                                  )}
-                                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0 text-[12px] text-gray-500">
-                                    {a.totalPoints != null && <span>{a.totalPoints} pts</span>}
-                                    {a.dueDate && <span>Due: {formatDate(a.dueDate)}</span>}
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
+                        <div>
+                          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Assignments</h2>
+                          <p className="text-[13px] text-gray-600">
+                            Assignments you can help grade in this course.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[720px]">
+                        <thead>
+                          <tr className="border-b border-gray-200 bg-gray-50">
+                            <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                              Assignment
+                            </th>
+                            <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                              Total Points
+                            </th>
+                            <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                              Available From
+                            </th>
+                            <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                              Due Date
+                            </th>
+                            <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                              Late Due
+                            </th>
+                            <th className="text-right px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {assignmentsLoading ? (
+                            Array.from({ length: 4 }).map((_, index) => (
+                              <tr
+                                key={`ga-assignments-skeleton-${index}`}
+                                className="border-b border-gray-100 last:border-b-0"
+                              >
+                                <td className="px-6 py-4">
+                                  <div className="h-4 w-40 rounded bg-gray-200 animate-pulse" />
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="h-4 w-16 rounded bg-gray-200 animate-pulse" />
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" />
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="ml-auto h-8 w-24 rounded-lg bg-gray-100 animate-pulse" />
+                                </td>
+                              </tr>
+                            ))
+                          ) : assignments.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan={6}
+                                className="px-6 py-6 text-center text-[13px] text-gray-600"
+                              >
+                                No assignments in this course yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            assignments.map((a, index) => (
+                              <tr
+                                key={a.id}
+                                className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                                  index === assignments.length - 1 ? "border-b-0" : ""
+                                }`}
+                              >
+                                <td className="px-6 py-4">
+                                  <div className="min-w-0">
+                                    <Link
+                                      to={`/grading-assistant/class/${classId}/assignment/${a.id}`}
+                                      className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
+                                    >
+                                      {a.name}
+                                    </Link>
+                                    {a.description && (
+                                      <p className="mt-0.5 text-[13px] text-gray-600 line-clamp-2">
+                                        {a.description}
+                                      </p>
+                                    )}
                                   </div>
-                                </div>
-                                <span className="text-[13px] text-[#5A7ACD] font-medium flex-shrink-0">View details →</span>
-                              </div>
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className="text-[13px] text-gray-700">
+                                    {a.totalPoints != null ? `${a.totalPoints} pts` : "—"}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className="text-[13px] text-gray-700">
+                                    {formatDate(a.availableFrom)}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className="text-[13px] text-gray-700">
+                                    {formatDate(a.dueDate)}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className="text-[13px] text-gray-700">
+                                    {formatDate(a.lateDueDate)}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <Link
+                                    to={`/grading-assistant/class/${classId}/assignment/${a.id}`}
+                                    className="inline-flex h-8 items-center justify-center rounded-lg bg-[#5A7ACD] px-3 text-[12px] font-semibold text-white hover:bg-[#4a6abd] transition-colors"
+                                  >
+                                    View details
+                                  </Link>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </section>
                 </div>
               </>
