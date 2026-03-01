@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ChevronLeft, FileText, Save } from "lucide-react";
+import { CheckCircle, ChevronLeft, FileText, Save } from "lucide-react";
 import type { AssignmentDetailResponse } from "../../../types/gradingAssistantAssignment";
 import type { GradingAssistantRubricResponse, RubricCriteriaResponse } from "../../../types/gradingAssistantRubric";
 import type { GradingAssistantSubmissionResponse } from "../../../types/gradingAssistantSubmission";
@@ -118,6 +118,7 @@ export function GradingAssistantSubmissionDetailPage() {
   const [criteriaScores, setCriteriaScores] = useState<Record<number, { awardedScore: string; feedback: string }>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (!classId || !assignmentId || !submissionId) {
@@ -203,6 +204,7 @@ export function GradingAssistantSubmissionDetailPage() {
     }
     setSaving(true);
     setSaveError(null);
+    setSaveSuccess(null);
     updateSubmissionGrade(submissionId, {
       marks: numMarks,
       feedback: feedback.trim() || undefined,
@@ -212,6 +214,8 @@ export function GradingAssistantSubmissionDetailPage() {
         setMarks(updated.marks != null ? String(updated.marks) : "");
         setFeedback(updated.feedback ?? "");
         setSaveError(null);
+        setSaveSuccess("Grade saved.");
+        setTimeout(() => setSaveSuccess(null), 4000);
       })
       .catch(() => setSaveError("Failed to save grade."))
       .finally(() => setSaving(false));
@@ -223,6 +227,7 @@ export function GradingAssistantSubmissionDetailPage() {
     const subId = submission.id;
     setSaving(true);
     setSaveError(null);
+    setSaveSuccess(null);
     try {
       const promises: Promise<SubmissionGradeResponse>[] = [];
       for (const c of rubric.criteria) {
@@ -257,6 +262,8 @@ export function GradingAssistantSubmissionDetailPage() {
         return next;
       });
       setSaveError(null);
+      setSaveSuccess("Rubric grades saved.");
+      setTimeout(() => setSaveSuccess(null), 4000);
     } catch {
       setSaveError("Failed to save rubric grades.");
     } finally {
@@ -418,6 +425,13 @@ export function GradingAssistantSubmissionDetailPage() {
                     )}
                   </div>
                 </div>
+
+                {saveSuccess && (
+                  <div className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[14px] text-emerald-800">
+                    <CheckCircle className="h-5 w-5 flex-shrink-0 text-emerald-600" strokeWidth={2} />
+                    <span>{saveSuccess}</span>
+                  </div>
+                )}
 
                 {/* Plain grade (marks + feedback) — always shown */}
                 <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6">
