@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ChevronLeft, FileText, Inbox } from "lucide-react";
+import { ChevronLeft, FileText, Inbox, ListChecks } from "lucide-react";
 import type { AssignmentDetailResponse } from "../../../types/gradingAssistantAssignment";
+import type { GradingAssistantRubricResponse } from "../../../types/gradingAssistantRubric";
 import type { GradingAssistantSubmissionResponse } from "../../../types/gradingAssistantSubmission";
 import { getAssignmentByCourse } from "../../../services/gradingAssistantAssignmentService";
+import { getRubric } from "../../../services/gradingAssistantRubricService";
 import { listSubmissionsByAssignment } from "../../../services/gradingAssistantSubmissionService";
 import { clearAuthenticated, getAuthenticatedUser } from "../../auth";
 import { AuthShell } from "../layout/AuthShell";
@@ -37,8 +39,10 @@ export function GradingAssistantAssignmentDetailPage() {
       .join("") || "GA";
 
   const [assignment, setAssignment] = useState<AssignmentDetailResponse | null>(null);
+  const [rubric, setRubric] = useState<GradingAssistantRubricResponse | null>(null);
   const [submissions, setSubmissions] = useState<GradingAssistantSubmissionResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rubricLoading, setRubricLoading] = useState(false);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,6 +65,18 @@ export function GradingAssistantAssignmentDetailPage() {
       .catch(() => setError("Failed to load assignment."))
       .finally(() => setLoading(false));
   }, [classId, assignmentId]);
+
+  useEffect(() => {
+    if (!assignment?.rubricId) {
+      setRubric(null);
+      return;
+    }
+    setRubricLoading(true);
+    getRubric(assignment.rubricId)
+      .then(setRubric)
+      .catch(() => setRubric(null))
+      .finally(() => setRubricLoading(false));
+  }, [assignment?.rubricId]);
 
   useEffect(() => {
     if (!assignmentId) return;
@@ -158,12 +174,6 @@ export function GradingAssistantAssignmentDetailPage() {
                         <p className="text-[14px] text-[#2B2A2A]">{assignment.languageName}</p>
                       </div>
                     )}
-                    {assignment.rubricName && (
-                      <div>
-                        <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Rubric</h3>
-                        <p className="text-[14px] text-[#2B2A2A]">{assignment.rubricName}</p>
-                      </div>
-                    )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-gray-100">
                     <div>
@@ -190,6 +200,41 @@ export function GradingAssistantAssignmentDetailPage() {
                       >
                         {assignment.starterCodeUrl}
                       </a>
+                    </div>
+                  )}
+                  {assignment.rubricId != null && (
+                    <div className="pt-2 border-t border-gray-100">
+                      <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Rubric</h3>
+                      {rubricLoading && <p className="text-[14px] text-gray-500">Loading rubric…</p>}
+                      {!rubricLoading && rubric && (
+                        <div className="space-y-3">
+                          <p className="text-[14px] font-medium text-[#2B2A2A]">{rubric.name ?? assignment.rubricName ?? "Rubric"}</p>
+                          {rubric.description && (
+                            <p className="text-[13px] text-gray-600">{rubric.description}</p>
+                          )}
+                          {rubric.criteria && rubric.criteria.length > 0 && (
+                            <ul className="space-y-2">
+                              {rubric.criteria.map((c) => (
+                                <li key={c.id} className="text-[13px] text-[#2B2A2A] border-l-2 border-[#EEF3FF] pl-3">
+                                  <span className="font-medium">{c.title ?? "Criterion"}</span>
+                                  {c.maxScore != null && (
+                                    <span className="text-gray-500"> — max {c.maxScore} pts</span>
+                                  )}
+                                  {c.weight != null && (
+                                    <span className="text-gray-500"> (weight {c.weight})</span>
+                                  )}
+                                  {c.description && (
+                                    <p className="text-gray-600 mt-0.5">{c.description}</p>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+                      {!rubricLoading && !rubric && assignment.rubricName && (
+                        <p className="text-[14px] text-[#2B2A2A]">{assignment.rubricName}</p>
+                      )}
                     </div>
                   )}
                 </div>
