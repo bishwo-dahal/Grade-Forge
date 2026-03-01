@@ -2,6 +2,7 @@ package com.grade.forge.exceptionhandler;
 
 
 import com.grade.forge.exceptionhandler.dto.ErrorResponseDto;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.InvalidDataAccessResourceUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,14 @@ public class GlobalExceptionHandling {
         ErrorResponseDto errorResponse= new ErrorResponseDto(exception.getMessage(),401,false);
         return  new ResponseEntity<>(errorResponse,HttpStatus.BAD_REQUEST);
     }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponseDto> handleDataIntegrityViolationException(DataIntegrityViolationException exception){
+        ErrorResponseDto errorResponse= new ErrorResponseDto(exception.getMessage(),401,false);
+        return  new ResponseEntity<>(errorResponse,HttpStatus.BAD_REQUEST);
+    }
+
+
 
     @ExceptionHandler(InvalidDataAccessResourceUsageException.class)
     public ResponseEntity<ErrorResponseDto> handleInvalidDataAccessResourceUsageException(InvalidDataAccessResourceUsageException exception){

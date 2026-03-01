@@ -146,6 +146,7 @@ public class EnrollmentService {
                 .enrolledAt(enrollment.getEnrolledAt())
                 .enrolledStatus(enrollment.getEnrolledStatus())
                 .grade(enrollment.getGrade())
+                .studentEmail(enrollment.getStudent().getUser().getEmail())
                 .build();
     }
 

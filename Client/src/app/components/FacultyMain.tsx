@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router";
 import type { FacultyCourseCard } from "../../types/class";
 import type { UserProfile } from "../../types/user";
@@ -29,10 +29,20 @@ export function FacultyMain({}: FacultyMainProps) {
       .finally(() => setIsCoursesLoading(false));
   }, []);
 
-  return <FacultyMainView profile={profile} courses={courses} isCoursesLoading={isCoursesLoading} />;
+  return (
+    <FacultyMainView
+      profile={profile}
+      courses={courses}
+      isCoursesLoading={isCoursesLoading}
+    />
+  );
 }
 
-function FacultyMainView({ profile: _profile, courses, isCoursesLoading }: FacultyMainViewProps) {
+function FacultyMainView({
+  profile: _profile,
+  courses,
+  isCoursesLoading,
+}: FacultyMainViewProps) {
   // CLEANUP: Greeting copy was removed, so profile display-name derivation is no longer needed here.
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { GradeForgeSidebar } from "../GradeForgeSidebar";
 
 export interface AuthShellProps {
-  roleView: "student" | "faculty" | "university";
+  roleView: "student" | "faculty" | "gradingAssistant" | "university";
   topBar: ReactNode;
   mainContent: ReactNode;
   rightPanel?: ReactNode;

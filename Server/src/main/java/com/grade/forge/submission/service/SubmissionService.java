@@ -18,6 +18,9 @@ import com.grade.forge.user.repository.UserRepository;
 import com.grade.forge.storage.service.FileStorageService;
 import com.grade.forge.faculty.entity.Faculty;
 import com.grade.forge.faculty.repository.FacultyRepository;
+import com.grade.forge.courseassistant.repository.CourseAssistantRepository;
+import com.grade.forge.gradingassistant.entity.GradingAssistant;
+import com.grade.forge.gradingassistant.repository.GradingAssistantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +42,8 @@ public class SubmissionService {
     private final FileStorageService fileStorageService;
     private final SubmissionFileRepository submissionFileRepository;
     private final FacultyRepository facultyRepository;
+    private final GradingAssistantRepository gradingAssistantRepository;
+    private final CourseAssistantRepository courseAssistantRepository;
 
     public SubmissionResponse submitAssignment(String userEmail, Long assignmentId, List<MultipartFile> files) {
         validateRequest(assignmentId, files);
@@ -144,6 +149,44 @@ public class SubmissionService {
         return mapToResponse(saved);
     }
 
+    @Transactional(readOnly = true)
+    public List<SubmissionResponse> getSubmissionsForGradingAssistantByAssignment(Long gradingAssistantUserId, Long assignmentId) {
+        GradingAssistant gradingAssistant = gradingAssistantRepository.findByUserId(gradingAssistantUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Grading assistant not found for user id: " + gradingAssistantUserId));
+
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId));
+
+        validateGradingAssistantCourseAccess(gradingAssistant.getId(), assignment.getCourse().getId());
+
+        List<Submission> submissions = submissionRepository.findByAssignment_Id(assignmentId);
+        return submissions.stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Transactional
+    public SubmissionResponse updateGradeForSubmissionByGradingAssistant(Long gradingAssistantUserId, Long submissionId, SubmissionGradeRequest request) {
+        GradingAssistant gradingAssistant = gradingAssistantRepository.findByUserId(gradingAssistantUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Grading assistant not found for user id: " + gradingAssistantUserId));
+
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
+
+        validateGradingAssistantCourseAccess(gradingAssistant.getId(), submission.getAssignment().getCourse().getId());
+
+        if (request.getMarks() != null) {
+            submission.setMarks(request.getMarks());
+        }
+        if (request.getFeedback() != null) {
+            submission.setFeedback(request.getFeedback());
+        }
+        submission.setStatus(SubmissionStatus.GRADED);
+
+        Submission saved = submissionRepository.save(submission);
+        return mapToResponse(saved);
+    }
+
     private void validateRequest(Long assignmentId, List<MultipartFile> files) {
         if (assignmentId == null) {
             throw new IllegalArgumentException("assignmentId is required");
@@ -190,5 +233,12 @@ public class SubmissionService {
                 .fileSize(file.getFileSize())
                 .downloadUrl(fileStorageService.generatePresignedDownloadUrl(file.getFileKey(),file.getFileName()))
                 .build();
+    }
+
+    private void validateGradingAssistantCourseAccess(Long gradingAssistantId, Long courseId) {
+        boolean allowed = courseAssistantRepository.existsByGradingAssistant_IdAndCourse_Id(gradingAssistantId, courseId);
+        if (!allowed) {
+            throw new IllegalArgumentException("You are not allowed to access submissions for this assignment");
+        }
     }
 }

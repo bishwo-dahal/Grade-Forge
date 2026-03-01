@@ -748,6 +748,11 @@ async function listFacultyEnrollmentsByCourse(courseId: number): Promise<Enrollm
   return data;
 }
 
+/** Drops a student's enrollment from a course. PATCH /api/v1/faculty/enrollments/{studentId}/drop/{courseId} */
+export async function dropStudentFromCourse(studentId: number, courseId: number): Promise<void> {
+  await api.patch(`/api/v1/faculty/enrollments/${studentId}/drop/${courseId}`);
+}
+
 async function searchStudentsForFacultyCourse(
   courseId: number,
   keyword: string,

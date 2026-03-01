@@ -1,6 +1,7 @@
 package com.grade.forge.coursemgmt.entity;
 
 import com.grade.forge.assignment.entity.Assignment;
+import com.grade.forge.courseassistant.entity.CourseAssistant;
 import com.grade.forge.faculty.entity.Faculty;
 import com.grade.forge.semester.entity.Semester;
 import com.grade.forge.enrollment.entity.Enrollment;
@@ -59,11 +60,19 @@ public class Course {
     private Faculty faculty;
 
 
+//    One Course will have many Assignments
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Assignment> assignment;
 
+
+//    For Students, we will have a separate entity Enrollment that links a Student to a Course. This allows us to manage the many-to-many relationship between courses and students, as a course can have multiple students enrolled and a student can enroll in multiple courses.
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Enrollment> enrollments = new ArrayList<>();
 
+
+//    For Grading Assistants, we will have a separate entity CourseAssistant that links a Grading Assistant to a Course. This allows us to manage the many-to-many relationship between courses and grading assistants, as a course can have multiple grading assistants and a grading assistant can assist with multiple courses.
+    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<CourseAssistant> assistants = new ArrayList<>();
 
 }
