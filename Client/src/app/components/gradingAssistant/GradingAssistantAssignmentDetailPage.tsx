@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ChevronLeft, FileText, Inbox } from "lucide-react";
+import { ChevronLeft, FileText, Inbox, Download, MoreVertical, Filter, RefreshCcw } from "lucide-react";
 import type { AssignmentDetailResponse } from "../../../types/gradingAssistantAssignment";
 import type { GradingAssistantRubricResponse } from "../../../types/gradingAssistantRubric";
 import type { GradingAssistantSubmissionResponse } from "../../../types/gradingAssistantSubmission";
@@ -89,6 +89,17 @@ export function GradingAssistantAssignmentDetailPage() {
       .finally(() => setSubmissionsLoading(false));
   }, [assignmentId]);
 
+  const reloadSubmissions = useCallback(() => {
+    if (!assignmentId) return;
+    const aId = Number(assignmentId);
+    if (!aId) return;
+    setSubmissionsLoading(true);
+    listSubmissionsByAssignment(aId)
+      .then(setSubmissions)
+      .catch(() => setSubmissions([]))
+      .finally(() => setSubmissionsLoading(false));
+  }, [assignmentId]);
+
   const goToSettingsSection = (section: SettingsSection) => {
     navigate(`/settings?section=${section}`);
   };
@@ -112,7 +123,7 @@ export function GradingAssistantAssignmentDetailPage() {
       }
       mainContent={
         <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
-          <div className="max-w-5xl mx-auto px-8 py-6">
+          <div className="max-w-7xl mx-auto px-8 py-6">
             <Link
               to={`/grading-assistant/class/${classId}`}
               className="inline-flex items-center gap-1.5 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors mb-4"
@@ -133,7 +144,7 @@ export function GradingAssistantAssignmentDetailPage() {
                 </Link>
               </div>
             )}
-              {!loading && assignment && (
+            {!loading && assignment && (
               <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                 <div className="px-6 py-5 border-b border-gray-200">
                   <div className="flex items-start gap-3">
@@ -243,55 +254,186 @@ export function GradingAssistantAssignmentDetailPage() {
 
             {!loading && assignment && (
               <div className="mt-6 bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
-                  <Inbox className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
-                  <h2 className="text-[16px] font-semibold text-[#2B2A2A]">Submissions</h2>
+                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Inbox className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
+                    <div>
+                      <h2 className="text-[16px] font-semibold text-[#2B2A2A]">Submissions</h2>
+                      <p className="text-[13px] text-gray-600">
+                        Review and grade student submissions for this assignment.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => reloadSubmissions()}
+                      disabled={submissionsLoading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      <RefreshCcw
+                        className={`w-4 h-4 ${submissionsLoading ? "animate-spin" : ""}`}
+                        strokeWidth={2}
+                      />
+                      <span>{submissionsLoading ? "Refreshing…" : "Refresh"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50"
+                    >
+                      <Filter className="w-4 h-4" strokeWidth={2} />
+                      <span>Filter</span>
+                    </button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
-                  {submissionsLoading && (
-                    <p className="px-6 py-4 text-[14px] text-gray-500">Loading submissions…</p>
-                  )}
-                  {!submissionsLoading && submissions.length === 0 && (
-                    <p className="px-6 py-4 text-[14px] text-gray-500">No submissions yet.</p>
-                  )}
-                  {!submissionsLoading && submissions.length > 0 && (
-                    <table className="w-full">
-                      <thead>
-                        <tr className="text-left text-[12px] font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">
-                          <th className="px-6 py-3">Student</th>
-                          <th className="px-6 py-3">Submitted</th>
-                          <th className="px-6 py-3">Status</th>
-                          <th className="px-6 py-3">Marks</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {submissions.map((s) => (
+                  <table className="w-full min-w-[720px]">
+                    <thead>
+                      <tr className="border-b border-gray-100 bg-gray-50 text-left text-[12px] font-semibold text-gray-500 uppercase tracking-wide">
+                        <th className="px-6 py-3">Student</th>
+                        <th className="px-6 py-3">Submitted</th>
+                        <th className="px-6 py-3">Files</th>
+                        <th className="px-6 py-3">Status</th>
+                        <th className="px-6 py-3">Score</th>
+                        <th className="px-6 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {submissionsLoading && submissions.length === 0 ? (
+                        Array.from({ length: 4 }).map((_, index) => (
                           <tr
-                            key={s.id}
-                            className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                            key={`ga-submissions-skeleton-${index}`}
+                            className="border-b border-gray-100 last:border-b-0"
                           >
-                            <td className="px-6 py-3">
-                              <Link
-                                to={`/grading-assistant/class/${classId}/assignment/${assignmentId}/submission/${s.id}`}
-                                className="text-[14px] font-medium text-[#5A7ACD] hover:underline"
-                              >
-                                {s.studentName ?? s.studentEmail ?? `Submission #${s.id}`}
-                              </Link>
+                            <td className="px-6 py-4">
+                              <div className="h-4 w-32 rounded bg-gray-200 animate-pulse" />
                             </td>
-                            <td className="px-6 py-3 text-[14px] text-[#2B2A2A]">
-                              {formatDate(s.submittedAt ?? undefined)}
+                            <td className="px-6 py-4">
+                              <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
                             </td>
-                            <td className="px-6 py-3 text-[14px] text-[#2B2A2A]">
-                              {s.status ?? "—"}
+                            <td className="px-6 py-4">
+                              <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" />
                             </td>
-                            <td className="px-6 py-3 text-[14px] text-[#2B2A2A]">
-                              {s.marks != null ? String(s.marks) : "—"}
+                            <td className="px-6 py-4">
+                              <div className="h-6 w-20 rounded-md bg-gray-100 animate-pulse" />
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="h-4 w-10 rounded bg-gray-200 animate-pulse" />
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="ml-auto h-8 w-20 rounded-lg bg-gray-100 animate-pulse" />
                             </td>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
+                        ))
+                      ) : submissions.length > 0 ? (
+                        submissions.map((s, index) => {
+                          const files = s.files ?? [];
+                          const primaryFile = files[0];
+                          const additionalCount = Math.max(0, files.length - 1);
+                          const statusLabel = s.status ?? "—";
+                          const isUngraded = statusLabel.toLowerCase() === "ungraded";
+
+                          return (
+                            <tr
+                              key={s.id}
+                              className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                                index === submissions.length - 1 ? "border-b-0" : ""
+                              }`}
+                            >
+                              <td className="px-6 py-4">
+                                <Link
+                                  to={`/grading-assistant/class/${classId}/assignment/${assignmentId}/submission/${s.id}`}
+                                  className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
+                                >
+                                  {s.studentName ?? s.studentEmail ?? `Submission #${s.id}`}
+                                </Link>
+                              </td>
+                              <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">
+                                {formatDate(s.submittedAt ?? undefined)}
+                              </td>
+                              <td className="px-6 py-4">
+                                {primaryFile ? (
+                                  <div className="flex flex-col">
+                                    <span className="text-[13px] text-[#2B2A2A]">
+                                      {primaryFile.fileName ?? "File"}
+                                    </span>
+                                    {additionalCount > 0 && (
+                                      <span className="text-[11px] text-gray-500">
+                                        +{additionalCount} more
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-[13px] text-gray-400">—</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span
+                                  className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium ${
+                                    isUngraded
+                                      ? "bg-orange-50 text-orange-600"
+                                      : "bg-green-50 text-green-600"
+                                  }`}
+                                >
+                                  {statusLabel}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">
+                                {s.marks != null ? String(s.marks) : "—"}
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  {primaryFile?.url ? (
+                                    <a
+                                      href={primaryFile.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      aria-label={`Download ${primaryFile.fileName ?? "submission file"}`}
+                                      className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                                    >
+                                      <Download className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                                    </a>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      aria-label="No downloadable file"
+                                      disabled
+                                      className="p-1.5 rounded-lg text-gray-300 cursor-not-allowed"
+                                    >
+                                      <Download className="w-4 h-4" strokeWidth={2} />
+                                    </button>
+                                  )}
+                                  <Link
+                                    to={`/grading-assistant/class/${classId}/assignment/${assignmentId}/submission/${s.id}`}
+                                    aria-label="Open submission"
+                                    className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                                  >
+                                    <FileText className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                                  </Link>
+                                  <button
+                                    type="button"
+                                    aria-label="More submission actions"
+                                    className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                                  >
+                                    <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan={6}
+                            className="px-6 py-6 text-center text-[13px] text-gray-600"
+                          >
+                            No submissions yet.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
