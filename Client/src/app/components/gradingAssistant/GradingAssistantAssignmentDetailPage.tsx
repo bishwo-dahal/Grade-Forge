@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ChevronLeft, FileText, Inbox, ListChecks } from "lucide-react";
+import { ChevronLeft, FileText, Inbox } from "lucide-react";
 import type { AssignmentDetailResponse } from "../../../types/gradingAssistantAssignment";
 import type { GradingAssistantRubricResponse } from "../../../types/gradingAssistantRubric";
 import type { GradingAssistantSubmissionResponse } from "../../../types/gradingAssistantSubmission";
