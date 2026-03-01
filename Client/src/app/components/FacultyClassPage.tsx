@@ -17,8 +17,6 @@ import {
   UserPlus,
   Edit,
   Copy,
-  Eye,
-  EyeOff,
   Trash2,
   MoreVertical,
   Filter,
@@ -27,7 +25,8 @@ import {
   UserMinus,
   Calendar,
   Search,
-  X
+  X,
+  RefreshCcw,
 } from "lucide-react";
 import type {
   ClassHeader,
@@ -610,11 +609,31 @@ function SubmissionsSection() {
   const { classId } = useParams();
   // NOTE: Submissions now load from backend-driven submission service mapping.
   const [submissions, setSubmissions] = useState<ClassSubmissionItem[]>([]);
+  const [isSubmissionsLoading, setIsSubmissionsLoading] = useState(false);
+  const [submissionsError, setSubmissionsError] = useState<string | null>(null);
+
+  const loadSubmissions = useCallback(async () => {
+    const resolvedId = classId || "1";
+    setIsSubmissionsLoading(true);
+    setSubmissionsError(null);
+    try {
+      const rows = await listClassSubmissions(resolvedId);
+      setSubmissions(rows);
+    } catch (error) {
+      setSubmissionsError(getErrorMessage(error));
+    } finally {
+      setIsSubmissionsLoading(false);
+    }
+  }, [classId]);
 
   useEffect(() => {
-    const resolvedId = classId || "1";
-    listClassSubmissions(resolvedId).then(setSubmissions);
-  }, [classId]);
+    void loadSubmissions();
+    // NOTE: Polling keeps faculty submission table fresh when student uploads arrive in another tab/session.
+    const refreshInterval = window.setInterval(() => {
+      void loadSubmissions();
+    }, 15000);
+    return () => window.clearInterval(refreshInterval);
+  }, [loadSubmissions]);
 
   return (
     <div>
@@ -626,12 +645,25 @@ function SubmissionsSection() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => void loadSubmissions()}
+            disabled={isSubmissionsLoading}
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <RefreshCcw className={`w-4 h-4 ${isSubmissionsLoading ? "animate-spin" : ""}`} strokeWidth={2} />
+            <span>{isSubmissionsLoading ? "Refreshing..." : "Refresh"}</span>
+          </button>
           <button className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors">
             <Filter className="w-4 h-4" strokeWidth={2} />
             <span>Filter</span>
           </button>
         </div>
       </div>
+      {submissionsError ? (
+        <div className="mb-4 rounded-lg border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-[12px] text-[#C23A42]">
+          {submissionsError}
+        </div>
+      ) : null}
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <table className="w-full">
@@ -647,6 +679,9 @@ function SubmissionsSection() {
                 Submitted
               </th>
               <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                Files
+              </th>
+              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Status
               </th>
               <th className="text-right px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
@@ -658,26 +693,59 @@ function SubmissionsSection() {
             </tr>
           </thead>
           <tbody>
-            {submissions.length > 0 ? (
+            {isSubmissionsLoading && submissions.length === 0 ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <tr key={`faculty-submissions-skeleton-${index}`} className="border-b border-gray-100 last:border-b-0">
+                  {/* NOTE: Skeleton rows avoid a blank submissions table during refresh/load cycles. */}
+                  <td className="px-6 py-4"><div className="h-4 w-24 rounded bg-gray-200 animate-pulse" /></td>
+                  <td className="px-6 py-4"><div className="h-4 w-44 rounded bg-gray-200 animate-pulse" /></td>
+                  <td className="px-6 py-4"><div className="h-4 w-28 rounded bg-gray-200 animate-pulse" /></td>
+                  <td className="px-6 py-4"><div className="h-4 w-20 rounded bg-gray-200 animate-pulse" /></td>
+                  <td className="px-6 py-4"><div className="h-6 w-16 rounded bg-gray-100 animate-pulse" /></td>
+                  <td className="px-6 py-4"><div className="ml-auto h-4 w-10 rounded bg-gray-200 animate-pulse" /></td>
+                  <td className="px-6 py-4"><div className="ml-auto h-7 w-20 rounded bg-gray-100 animate-pulse" /></td>
+                </tr>
+              ))
+            ) : submissions.length > 0 ? (
               submissions.map((submission, index) => (
                 <tr
                   key={submission.id}
                   className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === submissions.length - 1 ? 'border-b-0' : ''}`}
                 >
                   <td className="px-6 py-4">
-                    <span className="text-[14px] font-medium text-[#2B2A2A]">
+                    <Link
+                      // NOTE: Student name also links to assignment so clicking a submission row detail opens the workspace.
+                      to={`/faculty/assignment/${submission.assignmentId}`}
+                      className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
+                    >
                       {submission.student}
-                    </span>
+                    </Link>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-[13px] text-gray-600">
+                    <Link
+                      // FIX: Faculty can now open assignment workspace directly from each submissions-table row.
+                      to={`/faculty/assignment/${submission.assignmentId}`}
+                      className="text-[13px] text-gray-600 hover:text-[#5A7ACD] transition-colors"
+                    >
                       {submission.assignment}
-                    </span>
+                    </Link>
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-[13px] text-gray-600">
                       {submission.submittedAt}
                     </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    {submission.primaryFileName ? (
+                      <div className="flex flex-col">
+                        <span className="text-[13px] text-[#2B2A2A]">{submission.primaryFileName}</span>
+                        {submission.additionalFileCount > 0 ? (
+                          <span className="text-[11px] text-gray-500">+{submission.additionalFileCount} more</span>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-[13px] text-gray-400">&mdash;</span>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     {submission.status === 'ungraded' ? (
@@ -699,13 +767,34 @@ function SubmissionsSection() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {/* Accessibility: icon-only action buttons need labels for screen readers. */}
-                      <button aria-label="View submission" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                        <Eye className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                      </button>
-                      <button aria-label="Edit submission" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                      {submission.primaryDownloadUrl ? (
+                        <a
+                          // FIX: Faculty class table now surfaces a direct primary-file download action.
+                          href={submission.primaryDownloadUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`Download ${submission.primaryFileName ?? "submission file"}`}
+                          className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <Download className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                        </a>
+                      ) : (
+                        <button
+                          aria-label="No downloadable file for this submission"
+                          disabled
+                          className="p-1.5 rounded-lg text-gray-300 cursor-not-allowed"
+                        >
+                          <Download className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                      )}
+                      <Link
+                        // FIX: "Edit submission" now opens the target assignment page from faculty submissions list.
+                        to={`/faculty/assignment/${submission.assignmentId}`}
+                        aria-label="Open assignment"
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
                         <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                      </button>
+                      </Link>
                       <button aria-label="More submission actions" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
                         <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
                       </button>
@@ -715,7 +804,7 @@ function SubmissionsSection() {
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="px-6 py-6 text-center text-[13px] text-gray-600">
+                <td colSpan={7} className="px-6 py-6 text-center text-[13px] text-gray-600">
                   No submissions found for this class.
                 </td>
               </tr>

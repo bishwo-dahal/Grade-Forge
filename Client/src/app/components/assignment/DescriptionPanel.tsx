@@ -75,26 +75,7 @@ export function DescriptionPanel({ description }: DescriptionPanelProps) {
         </button>
       </div>
 
-      {/* Rubric */}
-      <div className="mb-8">
-        <h3 className="text-[15px] font-semibold text-[#2B2A2A] mb-3">Grading Rubric</h3>
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-          <div className="space-y-3">
-            {description.rubric.map((item, index) => (
-              <div
-                key={`${item.category}-${index}`}
-                className={`flex items-center justify-between py-2 ${index < description.rubric.length - 1 ? 'border-b border-gray-200' : ''}`}
-              >
-                <div>
-                  <div className="text-[13px] font-medium text-[#2B2A2A]">{item.category}</div>
-                  <div className="text-[12px] text-gray-500">{item.description}</div>
-                </div>
-                <div className="text-[14px] font-semibold text-[#2B2A2A]">{item.points}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      {/* CLEANUP: Rubric details live in dedicated Grading Rubric tab to avoid duplicate sections in Description. */}
 
       {/* Constraints */}
       <div className="mb-8">

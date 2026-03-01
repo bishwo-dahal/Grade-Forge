@@ -1,12 +1,23 @@
-import { CheckCircle, XCircle, Lock } from "lucide-react";
+import { CheckCircle, XCircle, Lock, Eye, Loader2 } from "lucide-react";
 import type { AssignmentResult } from "../../../types/grade";
+import type { FacultyAssignmentSubmissionRow } from "../../../types/submission";
 
 interface ResultsPanelProps {
   // NOTE: Results are provided by the page so this panel stays view-only.
   results: AssignmentResult | null;
+  facultySubmissionRows?: FacultyAssignmentSubmissionRow[];
+  onPreviewFacultyFile?: (optionId: string) => void;
+  facultyPreviewLoadingOptionId?: string | null;
+  facultyPreviewErrorMessage?: string | null;
 }
 
-export function ResultsPanel({ results }: ResultsPanelProps) {
+export function ResultsPanel({
+  results,
+  facultySubmissionRows,
+  onPreviewFacultyFile,
+  facultyPreviewLoadingOptionId,
+  facultyPreviewErrorMessage,
+}: ResultsPanelProps) {
   const getStatusMessage = (score: number) => {
     if (score >= 95) return "Excellent Work!";
     if (score >= 85) return "Good Effort!";
@@ -19,6 +30,77 @@ export function ResultsPanel({ results }: ResultsPanelProps) {
     if (score >= 70) return "#FEB05D";
     return "#ef4444";
   };
+
+  if (facultySubmissionRows) {
+    return (
+      <div className="p-6 max-w-3xl mx-auto">
+        <h3 className="text-[16px] font-semibold text-[#2B2A2A] mb-2">Submissions</h3>
+        <p className="text-[12px] text-gray-500 mb-4">Review each uploaded file and open it in the editor.</p>
+        {facultyPreviewErrorMessage ? (
+          <div className="mb-4 rounded-lg border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-[12px] text-[#C23A42]">
+            {facultyPreviewErrorMessage}
+          </div>
+        ) : null}
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          {facultySubmissionRows.length > 0 ? (
+            facultySubmissionRows.map((row, rowIndex) => (
+              <div
+                key={row.submissionId}
+                className={`p-4 ${rowIndex !== facultySubmissionRows.length - 1 ? "border-b border-gray-100" : ""}`}
+              >
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-[13px] font-semibold text-[#2B2A2A]">{row.studentName}</p>
+                  <p className="text-[11px] text-gray-500">{row.submittedAt}</p>
+                </div>
+                {row.files.length > 0 ? (
+                  <div className="space-y-2">
+                    {row.files.map((file) => {
+                      const optionId = `${row.submissionId}:${file.id}`;
+                      const isLoading = facultyPreviewLoadingOptionId === optionId;
+                      return (
+                        <div
+                          key={optionId}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2"
+                        >
+                          <span className="text-[12px] text-[#2B2A2A]">{file.fileName}</span>
+                          <div className="flex items-center gap-2">
+                            {file.downloadUrl ? (
+                              <a
+                                href={file.downloadUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[12px] text-[#5A7ACD] hover:text-[#4a6abd] hover:underline"
+                              >
+                                Download
+                              </a>
+                            ) : null}
+                            <button
+                              type="button"
+                              onClick={() => onPreviewFacultyFile?.(optionId)}
+                              disabled={!onPreviewFacultyFile || isLoading || !file.downloadUrl}
+                              className="px-2.5 py-1.5 rounded-md border border-gray-300 bg-white text-[11px] text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
+                            >
+                              {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={2} /> : <Eye className="w-3.5 h-3.5" strokeWidth={2} />}
+                              <span>{isLoading ? "Loading..." : "See in editor"}</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[12px] text-gray-500">No files uploaded with this submission.</p>
+                )}
+              </div>
+            ))
+          ) : (
+            // NOTE: Faculty submissions tab keeps an explicit empty state when assignment has no uploaded files yet.
+            <p className="p-4 text-[12px] text-gray-500">No student submissions available yet.</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (!results) {
     return null;

@@ -4,14 +4,16 @@ interface TabNavigationProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
   hasResults: boolean;
+  isFacultyView?: boolean;
 }
 
-export function TabNavigation({ activeTab, onTabChange, hasResults }: TabNavigationProps) {
+export function TabNavigation({ activeTab, onTabChange, hasResults, isFacultyView = false }: TabNavigationProps) {
   const tabs = [
     { id: 'description' as TabType, label: 'Description' },
     { id: 'tests' as TabType, label: 'Public Tests' },
     { id: 'rubric' as TabType, label: 'Grading Rubric' },
-    { id: 'results' as TabType, label: 'Results', disabled: !hasResults },
+    // FIX: Faculty uses Submissions tab label and keeps tab accessible even before first submission.
+    { id: 'results' as TabType, label: isFacultyView ? 'Submissions' : 'Results', disabled: isFacultyView ? false : !hasResults },
   ];
 
   return (

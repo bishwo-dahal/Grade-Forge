@@ -3,9 +3,6 @@ import { clearAuthenticated, getToken } from "../app/auth";
 
 const api = axios.create({
   baseURL: import.meta.env.PROD ? "" : "http://localhost:8080",
-  headers: {
-    "Content-Type": "application/json",
-  },
 });
 
 api.interceptors.request.use((config) => {
@@ -13,9 +10,16 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // FIX: Do not force JSON content type globally; FormData uploads must keep browser-managed multipart headers.
+  if (config.data instanceof FormData && config.headers) {
+    delete config.headers["Content-Type"];
+  }
+
   const path = config.url ?? "";
   const method = (config.method ?? "get").toUpperCase();
   console.log(`[API Request] ${method} ${path}`, config.params ? { params: config.params } : "", config.data ? { body: config.data } : "");
+
   return config;
 });
 

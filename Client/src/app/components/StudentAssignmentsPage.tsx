@@ -18,6 +18,7 @@ interface StudentAssignmentsViewProps {
   isLoading: boolean;
   selectedFilter: AssignmentTabFilter;
   onFilterChange: (filter: AssignmentTabFilter) => void;
+  onOpenAssignment: (assignmentId: string) => void;
 }
 
 function buildTabConfigs(assignments: StudentAssignmentListItem[]): SegmentedFilterItem<AssignmentTabFilter>[] {
@@ -76,7 +77,13 @@ function getStatusLabel(status: StudentAssignmentStatus): string {
   }
 }
 
-function StudentAssignmentsView({ assignments, isLoading, selectedFilter, onFilterChange }: StudentAssignmentsViewProps) {
+function StudentAssignmentsView({
+  assignments,
+  isLoading,
+  selectedFilter,
+  onFilterChange,
+  onOpenAssignment,
+}: StudentAssignmentsViewProps) {
   const tabConfigs = useMemo(() => buildTabConfigs(assignments), [assignments]);
   const visibleAssignments = useMemo(
     () => filterAssignments(assignments, selectedFilter),
@@ -154,14 +161,24 @@ function StudentAssignmentsView({ assignments, isLoading, selectedFilter, onFilt
               </div>
 
               <div className="flex w-full items-start justify-end md:w-auto">
-                <div
-                  className={`inline-flex items-center gap-2 rounded-xl px-4 py-1.5 text-[14px] font-medium ${getStatusBadgeClasses(assignment.status)}`}
-                >
-                  {assignment.status === "overdue" && <AlertCircle className="h-4 w-4" strokeWidth={2} />}
-                  {assignment.status === "upcoming" && <CalendarDays className="h-4 w-4" strokeWidth={2} />}
-                  {assignment.status === "active" && <Clock3 className="h-4 w-4" strokeWidth={2} />}
-                  {assignment.status === "completed" && <CalendarDays className="h-4 w-4" strokeWidth={2} />}
-                  {getStatusLabel(assignment.status)}
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-1.5 text-[14px] font-medium ${getStatusBadgeClasses(assignment.status)}`}
+                  >
+                    {assignment.status === "overdue" && <AlertCircle className="h-4 w-4" strokeWidth={2} />}
+                    {assignment.status === "upcoming" && <CalendarDays className="h-4 w-4" strokeWidth={2} />}
+                    {assignment.status === "active" && <Clock3 className="h-4 w-4" strokeWidth={2} />}
+                    {assignment.status === "completed" && <CalendarDays className="h-4 w-4" strokeWidth={2} />}
+                    {getStatusLabel(assignment.status)}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onOpenAssignment(assignment.id)}
+                    // FIX: Student assignments page now provides direct navigation into assignment workspace.
+                    className="inline-flex items-center rounded-xl border border-[#CCD8F9] bg-[#EEF3FF] px-4 py-1.5 text-[13px] font-semibold text-[#4B67C8] hover:bg-[#E4EDFF]"
+                  >
+                    Open Assignment
+                  </button>
                 </div>
                 {/* CLEANUP: Removed completion progress bar and percentage from cards per updated assignments page requirements. */}
               </div>
@@ -218,6 +235,10 @@ export function StudentAssignmentsPage() {
     navigate("/signin", { replace: true });
   };
 
+  const handleOpenAssignment = (assignmentId: string) => {
+    navigate(`/assignment/${assignmentId}`);
+  };
+
   return (
     <AuthShell
       roleView="student"
@@ -236,6 +257,7 @@ export function StudentAssignmentsPage() {
           isLoading={isLoading}
           selectedFilter={selectedFilter}
           onFilterChange={setSelectedFilter}
+          onOpenAssignment={handleOpenAssignment}
         />
       }
     />

@@ -16,6 +16,7 @@ import type { RubricCategory } from "../types/grade";
 import type { PublicTestCase } from "../types/submission";
 import api from "../api/axios";
 import { getAuthenticatedRole } from "../app/auth";
+import { getRubric } from "./rubricService";
 
 // NOTE: This service keeps assignment data access centralized for both live API endpoints and remaining mock-only views.
 // TODO(backend): Migrate remaining mock-only helper sections to backend endpoints while keeping return shapes stable.
@@ -85,9 +86,16 @@ const defaultCreateAssignmentHeader: FacultyAssignmentCreatePageHeader = {
 const defaultCreateAssignmentForm: AssignmentCreateFormData = {
   title: "",
   description: "",
+  availableFromDate: "",
+  availableFromTime: "00:00",
   dueDate: "",
   dueTime: "23:59",
+  lateDueDate: "",
+  lateDueTime: "23:59",
   languageId: "",
+  submissionType: "INDIVIDUAL",
+  starterCodeUrl: "",
+  rubricId: "",
   totalPoints: 100,
 };
 
@@ -102,6 +110,19 @@ interface AssignmentApiResponse {
   totalPoints: number;
   submissionType: string;
   starterCodeUrl: string | null;
+  availableFrom: string | null;
+  dueDate: string | null;
+  lateDueDate: string | null;
+  rubricId?: number | null;
+  rubricName?: string | null;
+}
+
+interface AssignmentBasicApiResponse {
+  id: number;
+  courseId: number;
+  name: string;
+  description: string | null;
+  totalPoints: number;
   availableFrom: string | null;
   dueDate: string | null;
   lateDueDate: string | null;
@@ -132,6 +153,41 @@ interface ProgrammingLanguageApiResponse {
   isActive: boolean;
 }
 
+interface RubricOptionApiResponse {
+  id: number;
+  name: string;
+}
+
+interface RubricCriteriaApiResponse {
+  id: number;
+  title: string;
+  description: string | null;
+  maxScore: number;
+  weight: number | null;
+}
+
+interface RubricApiResponse {
+  id: number;
+  name: string;
+  description: string | null;
+  facultyId: number | null;
+  criteria: RubricCriteriaApiResponse[];
+}
+
+async function listFacultyRubricOptions(): Promise<RubricOptionApiResponse[]> {
+  try {
+    const { data } = await api.get<RubricOptionApiResponse[]>("/api/v1/faculty/rubrics/faculty/me");
+    return data;
+  } catch (error: any) {
+    const status = error?.response?.status as number | undefined;
+    if (status === 404) {
+      // FIX: Backend returns 404 when faculty has no rubrics yet; keep create-assignment page usable with empty options.
+      return [];
+    }
+    throw error;
+  }
+}
+
 interface StudentAssignmentWorkspaceSource {
   course: StudentEnrolledCourseApiResponse;
   assignment: AssignmentApiResponse;
@@ -140,6 +196,23 @@ interface StudentAssignmentWorkspaceSource {
 
 const studentAssignmentWorkspaceCache = new Map<string, Promise<StudentAssignmentWorkspaceSource>>();
 const facultyAssignmentWorkspaceCache = new Map<string, Promise<StudentAssignmentWorkspaceSource>>();
+
+export function invalidateAssignmentWorkspaceCache(assignmentId?: string): void {
+  if (!assignmentId) {
+    // NOTE: Clearing both role caches ensures role-switch scenarios never render stale assignment submission data.
+    studentAssignmentWorkspaceCache.clear();
+    facultyAssignmentWorkspaceCache.clear();
+    return;
+  }
+
+  const trimmedId = assignmentId.trim();
+  if (!trimmedId) {
+    return;
+  }
+
+  studentAssignmentWorkspaceCache.delete(trimmedId);
+  facultyAssignmentWorkspaceCache.delete(trimmedId);
+}
 
 function formatDate(value: string | null): string {
   if (!value) {
@@ -307,7 +380,10 @@ async function loadStudentAssignmentWorkspaceSource(assignmentId: string): Promi
 
     const assignmentsByCourse = await Promise.all(
       enrolledCourses.map(async (course) => {
-        const { data: assignments } = await api.get<AssignmentApiResponse[]>(`/api/v1/student/assignments/course/${course.id}`);
+        // NOTE: Student course-assignment list endpoint returns basic shape; fetch detail endpoint for full assignment fields per selected row.
+        const { data: assignments } = await api.get<AssignmentBasicApiResponse[]>(
+          `/api/v1/student/assignments/course/${course.id}`,
+        );
         return { course, assignments };
       }),
     );
@@ -317,6 +393,9 @@ async function loadStudentAssignmentWorkspaceSource(assignmentId: string): Promi
       if (!matchedAssignment) {
         continue;
       }
+      const { data: assignmentDetail } = await api.get<AssignmentApiResponse>(
+        `/api/v1/student/assignments/course/${group.course.id}/${parsedAssignmentId}`,
+      );
 
       const { data: submissions } = await api.get<SubmissionApiResponse[]>(
         `/api/v1/student/submissions/assignment?assignmentId=${parsedAssignmentId}`,
@@ -324,7 +403,8 @@ async function loadStudentAssignmentWorkspaceSource(assignmentId: string): Promi
 
       return {
         course: group.course,
-        assignment: matchedAssignment,
+        // FIX: Use student assignment detail payload so rubric/language fields are present in assignment workspace tabs.
+        assignment: assignmentDetail,
         submissions,
       } satisfies StudentAssignmentWorkspaceSource;
     }
@@ -391,6 +471,22 @@ function buildDueDateTimePayload(dateValue: string, timeValue: string): string {
     throw new Error("Invalid due date or time.");
   }
   return dueDateTime;
+}
+
+function buildOptionalDateTimePayload(
+  dateValue: string,
+  timeValue: string,
+  fieldLabel: string,
+): string | null {
+  if (!dateValue.trim()) {
+    return null;
+  }
+  const dateTimeValue = `${dateValue}T${timeValue}:00`;
+  const parsedDateTimeValue = new Date(dateTimeValue);
+  if (Number.isNaN(parsedDateTimeValue.getTime())) {
+    throw new Error(`Invalid ${fieldLabel}.`);
+  }
+  return dateTimeValue;
 }
 
 export async function getAssignmentDetailById(id: string): Promise<AssignmentDetail> {
@@ -605,20 +701,38 @@ export async function getAssignmentDescription(assignmentId: string): Promise<As
 }
 
 export async function listRubricCategories(assignmentId: string): Promise<RubricCategory[]> {
-  await loadStudentAssignmentWorkspaceSource(assignmentId);
-  // TODO(backend): Replace this placeholder rubric structure when rubric-by-assignment endpoint is available.
-  return [
-    {
-      name: "placeholder text",
-      points: 0,
-      criteria: [
-        {
-          description: "placeholder text",
-          points: 0,
-        },
-      ],
-    },
-  ];
+  const workspaceSource = await loadStudentAssignmentWorkspaceSource(assignmentId);
+  const rubricId = workspaceSource.assignment.rubricId;
+  if (!rubricId) {
+    return [];
+  }
+
+  try {
+    const authenticatedRole = getAuthenticatedRole();
+    const rubric = authenticatedRole === "FACULTY"
+      ? await getRubric(rubricId)
+      : (
+          await api.get<RubricApiResponse>(
+            `/api/v1/student/assignments/course/${workspaceSource.course.id}/${workspaceSource.assignment.id}/rubric`,
+          )
+        ).data;
+    const totalPoints = rubric.criteria.reduce((sum, criterion) => sum + criterion.maxScore, 0);
+    return [
+      {
+        name: rubric.name,
+        points: totalPoints,
+        criteria: rubric.criteria.map((criterion) => ({
+          description: criterion.description?.trim()
+            ? `${criterion.title}: ${criterion.description}`
+            : criterion.title,
+          points: criterion.maxScore,
+        })),
+      },
+    ];
+  } catch {
+    // FIX: Fallback to empty rubric data when rubric fetch fails so UI never regresses to placeholder text.
+    return [];
+  }
 }
 
 export async function listPublicTestCases(assignmentId: string): Promise<PublicTestCase[]> {
@@ -649,9 +763,11 @@ export async function getEditorCodeExamples(assignmentId: string): Promise<Edito
 export async function getFacultyAssignmentCreatePageData(classId: string): Promise<FacultyAssignmentCreatePageData> {
   // NOTE: Create-assignment page data stays centralized here so the page remains presentation-focused.
   const parsedClassId = parseClassId(classId || defaultCreateAssignmentHeader.classId);
-  const [courseResponse, languagesResponse] = await Promise.all([
+  const [courseResponse, languagesResponse, rubricOptionsResponse] = await Promise.all([
     api.get<FacultyCourseHeaderApiResponse>(`/api/v1/faculty/courses/${parsedClassId}`),
     api.get<ProgrammingLanguageApiResponse[]>("/api/v1/faculty/programming-languages/all"),
+    // NOTE: Assignment creation requires linking previously-created faculty rubrics from the same ownership scope.
+    listFacultyRubricOptions(),
   ]);
 
   const languageOptions: AssignmentCreateOption[] = languagesResponse.data
@@ -661,6 +777,10 @@ export async function getFacultyAssignmentCreatePageData(classId: string): Promi
       id: String(language.id),
       label: language.name,
     }));
+  const rubricOptions: AssignmentCreateOption[] = rubricOptionsResponse.map((rubric) => ({
+    id: String(rubric.id),
+    label: rubric.name,
+  }));
 
   return {
     header: {
@@ -669,6 +789,7 @@ export async function getFacultyAssignmentCreatePageData(classId: string): Promi
       courseName: courseResponse.data.name,
     },
     languageOptions,
+    rubricOptions,
     initialForm: { ...defaultCreateAssignmentForm },
   };
 }
@@ -690,8 +811,12 @@ export async function createFacultyAssignmentDraft(
     name: form.title.trim(),
     description: form.description.trim(),
     totalPoints: form.totalPoints,
-    submissionType: "INDIVIDUAL" as const,
+    submissionType: form.submissionType,
+    starterCodeUrl: form.starterCodeUrl.trim() ? form.starterCodeUrl.trim() : null,
+    availableFrom: buildOptionalDateTimePayload(form.availableFromDate, form.availableFromTime, "available-from date/time"),
     dueDate: buildDueDateTimePayload(form.dueDate, form.dueTime),
+    lateDueDate: buildOptionalDateTimePayload(form.lateDueDate, form.lateDueTime, "late due date/time"),
+    rubricId: form.rubricId.trim() ? Number(form.rubricId) : null,
   };
 
   // NOTE: Creation now calls backend directly so the assignment is persisted and visible to enrolled students.

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CalendarDays, Clock3 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import {
@@ -19,8 +19,11 @@ interface FacultyCreateAssignmentViewProps {
   isLoading: boolean;
   isSaving: boolean;
   errorMessage: string | null;
-  successMessage: string | null;
+  showSuccessModal: boolean;
   onFieldChange: <K extends keyof AssignmentCreateFormData>(field: K, value: AssignmentCreateFormData[K]) => void;
+  onCreateRubric: () => void;
+  onCloseSuccessModal: () => void;
+  onGoBackToClass: () => void;
   onSubmit: () => void;
 }
 
@@ -31,26 +34,18 @@ function FacultyCreateAssignmentView({
   isLoading,
   isSaving,
   errorMessage,
-  successMessage,
+  showSuccessModal,
   onFieldChange,
+  onCreateRubric,
+  onCloseSuccessModal,
+  onGoBackToClass,
   onSubmit,
 }: FacultyCreateAssignmentViewProps) {
   const courseCode = pageData?.header.courseCode ?? "CS 2400";
-  const courseName = pageData?.header.courseName ?? "Class";
 
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-8 py-7">
       <div className="mx-auto w-full max-w-[1160px]">
-        <div className="mb-5">
-          <Link
-            to={`/faculty/class/${classId}`}
-            className="inline-flex items-center gap-2 text-[13px] text-[#5D6A80] transition-colors hover:text-[#2B2A2A]"
-          >
-            <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-            Back to Class
-          </Link>
-        </div>
-
         <div className="mb-5 text-[15px] text-[#6D7B91]">
           <Link to="/faculty/my-classes" className="hover:text-[#2B2A2A]">
             My Classes
@@ -64,136 +59,224 @@ function FacultyCreateAssignmentView({
         </div>
 
         <h1 className="text-[34px] font-semibold leading-tight text-[#1F2430]">Create New Assignment</h1>
-        <p className="mt-3 text-[15px] text-[#5D6A80]">Create a new coding assignment for this class.</p>
-        <p className="mt-2 text-[14px] text-[#7C879A]">
-          {courseCode} - {courseName}
-        </p>
 
         {errorMessage ? (
           <p className="mt-5 rounded-xl border border-[#F3CDD1] bg-[#FDEBEC] px-3 py-2 text-[13px] text-[#C23A42]">
             {errorMessage}
           </p>
         ) : null}
-        {successMessage ? (
-          <p className="mt-5 rounded-xl border border-[#CFE8D5] bg-[#EEF9F1] px-3 py-2 text-[13px] text-[#1C7A41]">
-            {successMessage}
-          </p>
-        ) : null}
 
         <section className="mt-10 rounded-3xl border border-gray-200 bg-white p-6">
-          <h2 className="text-[24px] font-semibold text-[#1F2430]">Basic Information</h2>
+          <h2 className="text-[24px] font-semibold text-[#1F2430]">Assignment Setup</h2>
 
           {isLoading || !form || !pageData ? (
             <div className="mt-5 space-y-4 animate-pulse">
               {/* NOTE: Skeleton form blocks keep assignment-create layout visible while page data loads. */}
               <div className="h-12 w-full rounded-xl bg-gray-100" />
               <div className="h-36 w-full rounded-xl bg-gray-100" />
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <div className="h-12 w-full rounded-xl bg-gray-100" />
-                <div className="h-12 w-full rounded-xl bg-gray-100" />
-              </div>
-              <div className="h-12 w-full max-w-[460px] rounded-xl bg-gray-100" />
+              <div className="h-40 w-full rounded-xl bg-gray-100" />
+              <div className="h-44 w-full rounded-xl bg-gray-100" />
             </div>
           ) : (
             <>
-              <div className="mt-6">
-                <label htmlFor="assignment-title" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                  Assignment Title <span className="text-[#D84E57]">*</span>
-                </label>
-                <input
-                  id="assignment-title"
-                  value={form.title}
-                  onChange={(event) => onFieldChange("title", event.target.value)}
-                  placeholder="e.g., Binary Search Tree Implementation"
-                  className="h-14 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                />
-              </div>
-
-              <div className="mt-5">
-                <label htmlFor="assignment-description" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                  Description <span className="text-[#D84E57]">*</span>
-                </label>
-                <textarea
-                  id="assignment-description"
-                  value={form.description}
-                  onChange={(event) => onFieldChange("description", event.target.value)}
-                  rows={6}
-                  placeholder="Describe the assignment requirements and expected outcomes..."
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                />
-              </div>
-
-              <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                    Due Date & Time <span className="text-[#D84E57]">*</span>
+              {/* REFACTOR: Group related controls by task so the form is easier to scan and complete. */}
+              <section className="mt-6 rounded-2xl border border-[#E5E9F2] bg-[#FAFBFD] p-5">
+                <h3 className="text-[16px] font-semibold text-[#1F2430]">Basics</h3>
+                <p className="mt-1 text-[12px] text-[#6D7B91]">Core assignment identity and language settings.</p>
+                <div className="mt-4">
+                  <label htmlFor="assignment-title" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                    Assignment Title <span className="text-[#D84E57]">*</span>
                   </label>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="relative">
-                      <CalendarDays
-                        className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]"
-                        strokeWidth={2}
+                  <input
+                    id="assignment-title"
+                    value={form.title}
+                    onChange={(event) => onFieldChange("title", event.target.value)}
+                    placeholder="e.g., Binary Search Tree Implementation"
+                    className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+                <div className="mt-4">
+                  <label htmlFor="assignment-description" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                    Description <span className="text-[#D84E57]">*</span>
+                  </label>
+                  <textarea
+                    id="assignment-description"
+                    value={form.description}
+                    onChange={(event) => onFieldChange("description", event.target.value)}
+                    rows={5}
+                    placeholder="Describe the assignment requirements and expected outcomes..."
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div>
+                    <label htmlFor="assignment-language" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                      Programming Language <span className="text-[#D84E57]">*</span>
+                    </label>
+                    <select
+                      id="assignment-language"
+                      value={form.languageId}
+                      onChange={(event) => onFieldChange("languageId", event.target.value)}
+                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    >
+                      <option value="">Select language</option>
+                      {pageData.languageOptions.map((language) => (
+                        <option key={language.id} value={language.id}>
+                          {language.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="assignment-submission-type" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                      Submission Type <span className="text-[#D84E57]">*</span>
+                    </label>
+                    <select
+                      id="assignment-submission-type"
+                      value={form.submissionType}
+                      onChange={(event) => onFieldChange("submissionType", event.target.value as AssignmentCreateFormData["submissionType"])}
+                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    >
+                      <option value="INDIVIDUAL">Individual</option>
+                      <option value="GROUP">Group</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
+
+              <section className="mt-5 rounded-2xl border border-[#E5E9F2] bg-[#FAFBFD] p-5">
+                <h3 className="text-[16px] font-semibold text-[#1F2430]">Schedule</h3>
+                <p className="mt-1 text-[12px] text-[#6D7B91]">Set opening, due, and optional late window.</p>
+                {/* REFACTOR: Keep all schedule date/time controls in one aligned row on desktop for faster scanning. */}
+                <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                  <div>
+                    <label className="mb-2 block text-[14px] font-medium text-[#1F2430]">Available From</label>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <input
+                        type="date"
+                        value={form.availableFromDate}
+                        onChange={(event) => onFieldChange("availableFromDate", event.target.value)}
+                        className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
                       />
+                      <input
+                        type="time"
+                        value={form.availableFromTime}
+                        onChange={(event) => onFieldChange("availableFromTime", event.target.value)}
+                        className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                      Due Date & Time <span className="text-[#D84E57]">*</span>
+                    </label>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <input
                         type="date"
                         value={form.dueDate}
                         onChange={(event) => onFieldChange("dueDate", event.target.value)}
-                        className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                      />
-                    </div>
-                    <div className="relative">
-                      <Clock3
-                        className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D7B91]"
-                        strokeWidth={2}
+                        className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
                       />
                       <input
                         type="time"
                         value={form.dueTime}
                         onChange={(event) => onFieldChange("dueTime", event.target.value)}
-                        className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 pr-10 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                        className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-[14px] font-medium text-[#1F2430]">Late Due Date & Time</label>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <input
+                        type="date"
+                        value={form.lateDueDate}
+                        onChange={(event) => onFieldChange("lateDueDate", event.target.value)}
+                        className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                      />
+                      <input
+                        type="time"
+                        value={form.lateDueTime}
+                        onChange={(event) => onFieldChange("lateDueTime", event.target.value)}
+                        className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
                       />
                     </div>
                   </div>
                 </div>
+              </section>
 
-                <div>
-                  <label htmlFor="assignment-language" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                    Programming Language <span className="text-[#D84E57]">*</span>
-                  </label>
-                  <select
-                    id="assignment-language"
-                    value={form.languageId}
-                    onChange={(event) => onFieldChange("languageId", event.target.value)}
-                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                  >
-                    <option value="">Select language</option>
-                    {pageData.languageOptions.map((language) => (
-                      <option key={language.id} value={language.id}>
-                        {language.label}
-                      </option>
-                    ))}
-                  </select>
+              <section className="mt-5 rounded-2xl border border-[#E5E9F2] bg-[#FAFBFD] p-5">
+                <h3 className="text-[16px] font-semibold text-[#1F2430]">Points, Rubric, and Resources</h3>
+                <p className="mt-1 text-[12px] text-[#6D7B91]">Configure grading weight and optional supporting assets.</p>
+                <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div>
+                    <div className="mb-2 flex min-h-[40px] items-center justify-between">
+                      <label htmlFor="assignment-total-points" className="block text-[14px] font-medium text-[#1F2430]">
+                        Total Points <span className="text-[#D84E57]">*</span>
+                      </label>
+                      {/* FIX: Keep this spacer so Total Points and Rubric controls align to the same vertical baseline. */}
+                      <span className="h-9 w-[112px] opacity-0" aria-hidden="true" />
+                    </div>
+                    <input
+                      id="assignment-total-points"
+                      type="number"
+                      min={1}
+                      value={form.totalPoints}
+                      onChange={(event) => onFieldChange("totalPoints", Number(event.target.value))}
+                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-2 flex min-h-[40px] items-center justify-between gap-2">
+                      <label htmlFor="assignment-rubric" className="block text-[14px] font-medium text-[#1F2430]">
+                        Rubric
+                      </label>
+                      <button
+                        type="button"
+                        onClick={onCreateRubric}
+                        className="inline-flex items-center gap-1 rounded-lg border border-[#D8DFEC] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[#30415F] hover:bg-[#F3F6FB]"
+                      >
+                        <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+                        Add Rubric
+                      </button>
+                    </div>
+                    <select
+                      id="assignment-rubric"
+                      value={form.rubricId}
+                      onChange={(event) => onFieldChange("rubricId", event.target.value)}
+                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    >
+                      <option value="">No rubric</option>
+                      {pageData.rubricOptions.map((rubric) => (
+                        <option key={rubric.id} value={rubric.id}>
+                          {rubric.label}
+                        </option>
+                      ))}
+                    </select>
+                    {pageData.rubricOptions.length === 0 ? (
+                      // NOTE: Explicit empty state guides faculty to create rubric first, then return to assign it.
+                      <p className="mt-2 text-[12px] text-[#6D7B91]">
+                        No rubric found yet. Use Add Rubric to create as many as you need.
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="lg:col-span-2">
+                    <label htmlFor="assignment-starter-code-url" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                      Starter Code URL
+                    </label>
+                    <input
+                      id="assignment-starter-code-url"
+                      type="url"
+                      value={form.starterCodeUrl}
+                      onChange={(event) => onFieldChange("starterCodeUrl", event.target.value)}
+                      placeholder="https://..."
+                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    />
+                  </div>
                 </div>
-              </div>
-
-              <div className="mt-5 max-w-[460px]">
-                <label htmlFor="assignment-total-points" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                  Total Points <span className="text-[#D84E57]">*</span>
-                </label>
-                <input
-                  id="assignment-total-points"
-                  type="number"
-                  min={1}
-                  value={form.totalPoints}
-                  onChange={(event) => onFieldChange("totalPoints", Number(event.target.value))}
-                  className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                />
-              </div>
-
-              {/* CLEANUP: Advanced sections were removed for this phase and will be introduced later. */}
-              <p className="mt-6 rounded-xl border border-[#E1E6EF] bg-[#F7F9FD] px-4 py-3 text-[13px] text-[#54627A]">
-                Rubric, starter files, and test cases will be added in a later step.
-              </p>
+              </section>
 
               <div className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 pt-5">
                 <Link
@@ -214,6 +297,34 @@ function FacultyCreateAssignmentView({
             </>
           )}
         </section>
+
+        {showSuccessModal ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-md rounded-2xl border border-[#DDE4F0] bg-white p-6 shadow-2xl">
+              <h3 className="text-[20px] font-semibold text-[#1F2430]">Assignment Created</h3>
+              {/* NOTE: Success confirmation is modal-based so faculty can clearly confirm completion before navigation. */}
+              <p className="mt-2 text-[14px] text-[#5D6A80]">
+                Your assignment was created successfully.
+              </p>
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={onCloseSuccessModal}
+                  className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50"
+                >
+                  Stay Here
+                </button>
+                <button
+                  type="button"
+                  onClick={onGoBackToClass}
+                  className="rounded-xl bg-[#2B2A2A] px-4 py-2 text-[14px] font-semibold text-white hover:bg-[#3a3939]"
+                >
+                  Go Back to Class
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </main>
   );
@@ -249,7 +360,7 @@ export function FacultyCreateAssignmentPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
     setIsLoading(true);
@@ -270,12 +381,18 @@ export function FacultyCreateAssignmentPage() {
     if (!form) {
       return false;
     }
+    const hasAvailableFromDateOnly = form.availableFromDate.trim().length > 0 && form.availableFromTime.trim().length === 0;
+    const hasLateDueDateOnly = form.lateDueDate.trim().length > 0 && form.lateDueTime.trim().length === 0;
+    if (hasAvailableFromDateOnly || hasLateDueDateOnly) {
+      return false;
+    }
     return (
       form.title.trim().length > 0 &&
       form.description.trim().length > 0 &&
       form.dueDate.trim().length > 0 &&
       form.dueTime.trim().length > 0 &&
       form.languageId.trim().length > 0 &&
+      (form.submissionType === "INDIVIDUAL" || form.submissionType === "GROUP") &&
       Number.isFinite(form.totalPoints) &&
       form.totalPoints > 0
     );
@@ -295,14 +412,54 @@ export function FacultyCreateAssignmentPage() {
       setErrorMessage("Fill all required fields before creating the assignment.");
       return;
     }
+    if (form.availableFromDate.trim() && !form.availableFromTime.trim()) {
+      // FIX: Backend expects complete LocalDateTime values, so date-only optional fields are blocked in UI.
+      setErrorMessage("Choose a time for Available From.");
+      return;
+    }
+    if (form.lateDueDate.trim() && !form.lateDueTime.trim()) {
+      // FIX: Backend expects complete LocalDateTime values, so date-only optional fields are blocked in UI.
+      setErrorMessage("Choose a time for Late Due Date.");
+      return;
+    }
+    const dueAt = new Date(`${form.dueDate}T${form.dueTime}:00`);
+    if (Number.isNaN(dueAt.getTime())) {
+      setErrorMessage("Due date and time are invalid.");
+      return;
+    }
+    if (form.availableFromDate.trim()) {
+      const availableAt = new Date(`${form.availableFromDate}T${form.availableFromTime}:00`);
+      if (Number.isNaN(availableAt.getTime())) {
+        setErrorMessage("Available From date and time are invalid.");
+        return;
+      }
+      if (availableAt.getTime() > dueAt.getTime()) {
+        setErrorMessage("Available From must be before Due Date.");
+        return;
+      }
+    }
+    if (form.lateDueDate.trim()) {
+      const lateDueAt = new Date(`${form.lateDueDate}T${form.lateDueTime}:00`);
+      if (Number.isNaN(lateDueAt.getTime())) {
+        setErrorMessage("Late Due Date and time are invalid.");
+        return;
+      }
+      if (lateDueAt.getTime() < dueAt.getTime()) {
+        setErrorMessage("Late Due Date must be after Due Date.");
+        return;
+      }
+    }
+    if (form.starterCodeUrl.trim() && !/^https?:\/\//i.test(form.starterCodeUrl.trim())) {
+      setErrorMessage("Starter Code URL must start with http:// or https://");
+      return;
+    }
 
     setIsSaving(true);
     setErrorMessage(null);
-    setSuccessMessage(null);
     try {
       await createFacultyAssignmentDraft(resolvedClassId, form);
       // NOTE: Created assignments are persisted in backend and available through enrolled-student assignment queries.
-      setSuccessMessage("Assignment created successfully. Enrolled students can now see it in this class.");
+      setShowSuccessModal(true);
     } catch (error) {
       setErrorMessage(extractErrorMessage(error));
     } finally {
@@ -312,6 +469,19 @@ export function FacultyCreateAssignmentPage() {
 
   const goToSettingsSection = (section: SettingsSection) => {
     navigate(`/settings?section=${section}`);
+  };
+
+  const handleCreateRubric = () => {
+    // NOTE: Create-rubric route lets faculty add multiple rubric templates, then return and select one.
+    navigate("/faculty/rubrics/new");
+  };
+
+  const handleCloseSuccessModal = () => {
+    setShowSuccessModal(false);
+  };
+
+  const handleGoBackToClass = () => {
+    navigate(`/faculty/class/${resolvedClassId}`);
   };
 
   const handleLogout = () => {
@@ -339,8 +509,11 @@ export function FacultyCreateAssignmentPage() {
           isLoading={isLoading}
           isSaving={isSaving}
           errorMessage={errorMessage}
-          successMessage={successMessage}
+          showSuccessModal={showSuccessModal}
           onFieldChange={onFieldChange}
+          onCreateRubric={handleCreateRubric}
+          onCloseSuccessModal={handleCloseSuccessModal}
+          onGoBackToClass={handleGoBackToClass}
           onSubmit={handleSubmit}
         />
       }
