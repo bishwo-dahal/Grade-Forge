@@ -6,9 +6,12 @@ interface ConsoleDrawerProps {
   lastRunTime: string | null;
   language?: string;
   cursorPosition?: { line: number; col: number };
+  /** Shown on the left side of the status bar (e.g. "Submitting editor files (3 files)", submission result, read-only notice) */
+  statusMessage?: string | null;
+  statusMessageType?: 'error' | 'success' | 'info';
 }
 
-export function ConsoleDrawer({ output, lastRunTime, language = "Python", cursorPosition = { line: 1, col: 1 } }: ConsoleDrawerProps) {
+export function ConsoleDrawer({ output, lastRunTime, language = "Python", cursorPosition = { line: 1, col: 1 }, statusMessage, statusMessageType = 'info' }: ConsoleDrawerProps) {
   const [activeTab, setActiveTab] = useState<'output' | 'errors'>('output');
 
   // Count errors in output
@@ -109,11 +112,22 @@ export function ConsoleDrawer({ output, lastRunTime, language = "Python", cursor
         )}
       </div>
 
-      {/* Status Bar */}
-      <div className="flex items-center justify-end gap-4 px-4 py-1.5 bg-[#252526] border-t border-[#2d2d2d] text-[11px] text-gray-500">
-        <span>LINE {cursorPosition.line}, COL {cursorPosition.col}</span>
-        <span>UTF-8</span>
-        <span className="uppercase">{language} 3.10</span>
+      {/* Status Bar - message on left (when present), LINE/UTF-8/language on right */}
+      <div className="flex items-center justify-between gap-4 px-4 py-1.5 bg-[#252526] border-t border-[#2d2d2d] text-[11px] text-gray-500">
+        <div className="min-w-0 flex-1 truncate">
+          {statusMessage ? (
+            <span className={statusMessageType === 'error' ? 'text-red-400' : statusMessageType === 'success' ? 'text-green-400' : 'text-gray-400'}>
+              {statusMessage}
+            </span>
+          ) : (
+            <span>&nbsp;</span>
+          )}
+        </div>
+        <div className="flex items-center gap-4 flex-shrink-0">
+          <span>LINE {cursorPosition.line}, COL {cursorPosition.col}</span>
+          <span>UTF-8</span>
+          <span className="uppercase">{language} 3.10</span>
+        </div>
       </div>
     </div>
   );

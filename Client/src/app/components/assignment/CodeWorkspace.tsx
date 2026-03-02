@@ -712,134 +712,55 @@ export function CodeWorkspace({
   const canSubmitFromEditor = editorSubmissionFiles.length > 0;
   const canSubmit = Boolean(selectedSubmissionFile) || canSubmitFromEditor;
 
+  const workspaceStatus = useMemo(() => {
+    if (showUploadControls && submissionFileError) return { message: submissionFileError, type: 'error' as const };
+    if (showUploadControls && submissionStatusMessage) return { message: submissionStatusMessage, type: 'success' as const };
+    if (showFacultyGradeControls && facultyGradeStatusMessage) return { message: facultyGradeStatusMessage, type: 'success' as const };
+    if (isFacultyEditorReadOnly) return { message: 'Read-only — viewing submission.', type: 'info' as const };
+    if (showUploadControls && !selectedSubmissionFile && canSubmitFromEditor) {
+      const text = editorSubmissionFiles.length === 1
+        ? `Submitting editor file as ${editorSubmissionFiles[0].fileName}`
+        : `Submitting editor files (${editorSubmissionFiles.length} files)`;
+      return { message: text, type: 'info' as const };
+    }
+    return { message: null, type: 'info' as const };
+  }, [
+    showUploadControls,
+    submissionFileError,
+    submissionStatusMessage,
+    showFacultyGradeControls,
+    facultyGradeStatusMessage,
+    isFacultyEditorReadOnly,
+    selectedSubmissionFile,
+    canSubmitFromEditor,
+    editorSubmissionFiles,
+  ]);
+
   return (
     <div className="flex flex-col h-full">
-      {/* Top Bar */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex-shrink-0">
-        <div className="flex items-center justify-between gap-4">
-          {/* Left Side - Language Display */}
-          <div className="flex items-center gap-3">
-            <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-gray-500 font-medium">Language:</span>
-                <span className="text-[13px] text-[#2B2A2A] font-semibold">{assignment.language}</span>
-              </div>
-            </div>
+      {/* Hidden inputs for upload flows */}
+      {!isReviewMode ? (
+        <input
+          ref={addToEditorInputRef}
+          type="file"
+          accept=".py,.java"
+          multiple
+          className="hidden"
+          onChange={handleAddFileToEditor}
+        />
+      ) : null}
+      {showUploadControls ? (
+        <input
+          ref={uploadInputRef}
+          type="file"
+          accept=".py,.java"
+          className="hidden"
+          onChange={handleFileSelection}
+        />
+      ) : null}
 
-            {/* Auto-save Indicator / Save all */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleSaveAll}
-                disabled={!hasAnyDirty}
-                className="flex items-center gap-1.5 text-[12px] text-gray-500 hover:text-[#2B2A2A] disabled:opacity-50 disabled:pointer-events-none"
-              >
-                <Save className="w-3.5 h-3.5" strokeWidth={2} />
-                <span>Save all</span>
-              </button>
-              <span className="text-[11px] text-gray-400">
-                {hasAnyDirty ? "Unsaved changes" : "Saved"}
-              </span>
-            </div>
-          </div>
-
-          {/* Right Side - Action Buttons */}
-          <div className="flex items-center gap-2">
-            {assignment.hasStarterCode && (
-              <button className="px-3 py-1.5 text-[12px] text-gray-600 hover:text-[#2B2A2A] hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-1.5">
-                <RotateCcw className="w-3.5 h-3.5" strokeWidth={2} />
-                <span className="hidden sm:inline">Reset</span>
-              </button>
-            )}
-            
-            <button 
-              onClick={handleRunTests}
-              className="px-4 py-2 bg-[#5A7ACD] hover:bg-[#4a6abd] text-white rounded-lg text-[13px] font-medium transition-colors flex items-center gap-2"
-            >
-              <Play className="w-4 h-4" strokeWidth={2} />
-              <span>Run Tests</span>
-            </button>
-
-            {showFacultyGradeControls ? (
-              <button
-                onClick={openFacultyGradeModal}
-                className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors flex items-center gap-2"
-              >
-                <CheckSquare className="w-4 h-4" strokeWidth={2} />
-                <span>Grade</span>
-              </button>
-            ) : null}
-
-            {showUploadControls ? (
-              <>
-                <input
-                  ref={uploadInputRef}
-                  type="file"
-                  accept=".py,.java"
-                  className="hidden"
-                  onChange={handleFileSelection}
-                />
-                <button
-                  onClick={handleFilePickerOpen}
-                  className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors flex items-center gap-2"
-                >
-                  <Upload className="w-4 h-4" strokeWidth={2} />
-                  <span>Upload from computer</span>
-                </button>
-                {selectedSubmissionFile ? (
-                  <span className="max-w-[220px] truncate text-[12px] text-gray-600" title={selectedSubmissionFile.name}>
-                    {selectedSubmissionFile.name}
-                  </span>
-                ) : null}
-                <button
-                  onClick={handleSubmit}
-                  disabled={!canSubmit || isSubmitting}
-                  className="px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] disabled:bg-[#7E7D7D] disabled:cursor-not-allowed text-white rounded-lg text-[13px] font-medium transition-colors flex items-center gap-2"
-                >
-                  <Send className="w-4 h-4" strokeWidth={2} />
-                  <span>{isSubmitting ? "Submitting..." : "Submit"}</span>
-                </button>
-              </>
-            ) : null}
-          </div>
-        </div>
-        {showUploadControls && !selectedSubmissionFile && canSubmitFromEditor ? (
-          <p className="mt-2 text-[12px] text-[#5D6A80]">
-            {/* NOTE: If no upload is selected, submit sends all .py/.java files from the editor. */}
-            No file uploaded. Your editor {editorSubmissionFiles.length === 1 ? "file" : "files"} will be submitted
-            {editorSubmissionFiles.length === 1
-              ? ` as ${editorSubmissionFiles[0].fileName}`
-              : ` (${editorSubmissionFiles.length} files)`}.
-          </p>
-        ) : null}
-        {showUploadControls && (submissionFileError || submissionStatusMessage) ? (
-          <p className={`mt-2 text-[12px] ${submissionFileError ? "text-[#C23A42]" : "text-[#1E7A3F]"}`}>
-            {submissionFileError ?? submissionStatusMessage}
-          </p>
-        ) : null}
-        {isFacultyEditorReadOnly ? (
-          <p className="mt-2 text-[12px] text-[#5D6A80]">
-            {/* NOTE: Faculty preview opens submissions in read-only mode to prevent accidental edits during review. */}
-            Viewing selected submission in read-only editor mode.
-          </p>
-        ) : null}
-        {showFacultyGradeControls && facultyGradeStatusMessage ? (
-          <p className="mt-2 text-[12px] text-[#1E7A3F]">{facultyGradeStatusMessage}</p>
-        ) : null}
-      </div>
-
-      {/* Resizable Editor and Console */}
+      {/* Resizable Editor and Console - no separate top bar; toolbar lives inside editor */}
       <div className="flex-1 overflow-hidden">
-        {!isReviewMode ? (
-          <input
-            ref={addToEditorInputRef}
-            type="file"
-            accept=".py,.java"
-            multiple
-            className="hidden"
-            onChange={handleAddFileToEditor}
-          />
-        ) : null}
         <PanelGroup direction="horizontal">
           <Panel defaultSize={18} minSize={12} maxSize={35}>
             <FileTree
@@ -861,6 +782,76 @@ export function CodeWorkspace({
               {/* Editor Panel */}
               <Panel defaultSize={70} minSize={30}>
                 <div className="h-full flex flex-col overflow-hidden bg-[#1e1e1e]">
+                  {/* Editor toolbar - language, save, run, actions (dark theme) */}
+                  <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-2 bg-[#252526] border-b border-[#3c3c3c]">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-gray-500 uppercase tracking-wide">Language</span>
+                      <span className="text-[13px] font-medium text-gray-200">
+                        {facultyPreviewLanguage ?? assignment.language}
+                      </span>
+                      <span className="text-gray-600">·</span>
+                      <button
+                        type="button"
+                        onClick={handleSaveAll}
+                        disabled={!hasAnyDirty}
+                        className="flex items-center gap-1.5 text-[12px] text-gray-400 hover:text-gray-200 disabled:opacity-50 disabled:pointer-events-none"
+                      >
+                        <Save className="w-3.5 h-3.5" strokeWidth={2} />
+                        <span>Save all</span>
+                      </button>
+                      <span className="text-[11px] text-gray-500">
+                        {hasAnyDirty ? "Unsaved" : "Saved"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {assignment.hasStarterCode && (
+                        <button className="px-2 py-1.5 text-[12px] text-gray-400 hover:text-gray-200 hover:bg-[#3c3c3c] rounded transition-colors flex items-center gap-1.5">
+                          <RotateCcw className="w-3.5 h-3.5" strokeWidth={2} />
+                          <span className="hidden sm:inline">Reset</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={handleRunTests}
+                        className="px-3 py-1.5 text-[12px] text-gray-300 hover:text-white hover:bg-[#3c3c3c] rounded transition-colors flex items-center gap-1.5 border border-[#3c3c3c]"
+                      >
+                        <Play className="w-3.5 h-3.5" strokeWidth={2} />
+                        <span>Run Tests</span>
+                      </button>
+                      {showFacultyGradeControls && (
+                        <button
+                          onClick={openFacultyGradeModal}
+                          className="px-3 py-1.5 text-[12px] text-gray-300 hover:text-white hover:bg-[#3c3c3c] rounded transition-colors flex items-center gap-1.5 border border-[#3c3c3c]"
+                        >
+                          <CheckSquare className="w-3.5 h-3.5" strokeWidth={2} />
+                          <span>Grade</span>
+                        </button>
+                      )}
+                      {showUploadControls && (
+                        <>
+                          <button
+                            onClick={handleFilePickerOpen}
+                            className="px-3 py-1.5 text-[12px] text-gray-300 hover:text-white hover:bg-[#3c3c3c] rounded transition-colors flex items-center gap-1.5 border border-[#3c3c3c]"
+                          >
+                            <Upload className="w-3.5 h-3.5" strokeWidth={2} />
+                            <span className="hidden sm:inline">Upload</span>
+                          </button>
+                          {selectedSubmissionFile && (
+                            <span className="max-w-[160px] truncate text-[11px] text-gray-500" title={selectedSubmissionFile.name}>
+                              {selectedSubmissionFile.name}
+                            </span>
+                          )}
+                          <button
+                            onClick={handleSubmit}
+                            disabled={!canSubmit || isSubmitting}
+                            className="px-3 py-1.5 bg-[#2B2A2A] hover:bg-[#3a3939] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded text-[12px] font-medium transition-colors flex items-center gap-1.5"
+                          >
+                            <Send className="w-3.5 h-3.5" strokeWidth={2} />
+                            <span>{isSubmitting ? "Submitting…" : "Submit"}</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
                   <EditorTabBar
                     tabs={openTabIds.map((id) => ({
                       id,
@@ -894,11 +885,13 @@ export function CodeWorkspace({
           {/* Console Panel */}
           <Panel defaultSize={30} minSize={15}>
             <div className="h-full overflow-hidden">
-              <ConsoleDrawer 
+              <ConsoleDrawer
                 output={consoleOutput}
                 lastRunTime={lastRunTime}
                 language={assignment.language}
                 cursorPosition={cursorPosition}
+                statusMessage={workspaceStatus.message}
+                statusMessageType={workspaceStatus.type}
               />
             </div>
           </Panel>
