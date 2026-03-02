@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { ChevronLeft, GripVertical, User } from "lucide-react";
+import { ChevronLeft, GripVertical, User, CheckSquare } from "lucide-react";
 import { AssignmentHeader } from "./assignment/AssignmentHeader";
 import { DescriptionPanel } from "./assignment/DescriptionPanel";
 import { PublicTestsPanel } from "./assignment/PublicTestsPanel";
 import { GradingRubricPanel } from "./assignment/GradingRubricPanel";
 import { CircularScorePanel } from "./assignment/CircularScorePanel";
+import { GradeSubmissionDialog } from "./assignment/GradeSubmissionDialog";
 import { CodeWorkspace } from "./assignment/CodeWorkspace";
 import {
   getAssignmentDescription,
@@ -17,10 +18,14 @@ import {
   fetchSubmissionFileText,
   listFacultyAssignmentSubmissionFiles,
   resolvePreviewLanguage,
+  submitFacultySubmissionGrade,
 } from "../../services/submissionService";
 import { getAssignmentByCourse } from "../../services/gradingAssistantAssignmentService";
 import { getRubric } from "../../services/gradingAssistantRubricService";
-import { listSubmissionsByAssignment } from "../../services/gradingAssistantSubmissionService";
+import {
+  listSubmissionsByAssignment,
+  updateSubmissionGrade,
+} from "../../services/gradingAssistantSubmissionService";
 import { clearAuthenticated, getAuthenticatedUser, getAuthenticatedRole } from "../auth";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
@@ -59,20 +64,22 @@ function mapGARubricToCategories(rubric: GradingAssistantRubricResponse | null):
   ];
 }
 
-/** Build minimal AssignmentDetail for header when we only have GA assignment response */
+/** Build minimal AssignmentDetail for header when we only have GA assignment response. */
 function buildAssignmentDetailFromGA(
   name: string,
   courseName: string,
-  dueDate: string
+  dueDate: string,
+  options: { submissionMarks?: number | null; totalPoints?: number | null } = {}
 ): AssignmentDetail {
+  const { submissionMarks = null, totalPoints = 0 } = options;
   return {
     id: "",
     title: name,
     course: courseName,
     courseCode: "",
     dueDate: formatDate(dueDate),
-    status: "submitted",
-    points: { earned: null, total: 0 },
+    status: submissionMarks != null ? "graded" : "submitted",
+    points: { earned: submissionMarks ?? null, total: totalPoints ?? 0 },
     submissionsUsed: 0,
     submissionsAllowed: null,
     language: "Python",
@@ -98,6 +105,10 @@ export function AssignmentGradingPage() {
   const [submittedAt, setSubmittedAt] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submissionMarks, setSubmissionMarks] = useState<number | null>(null);
+  const [submissionFeedback, setSubmissionFeedback] = useState<string>("");
+  const [gradeDialogOpen, setGradeDialogOpen] = useState(false);
+  const [gradeSubmitting, setGradeSubmitting] = useState(false);
 
   const backToAssignmentUrl = isFaculty
     ? `/faculty/class/${classId}/assignment/${assignmentId}`
@@ -125,6 +136,8 @@ export function AssignmentGradingPage() {
     setStudentName(row.studentName);
     setSubmittedAt(formatDate(row.submittedAt));
     setSubmissionLanguage(resolvePreviewLanguage(row.files[0].fileName, assignData.language));
+    setSubmissionMarks(row.marks ?? null);
+    setSubmissionFeedback("");
     const filesWithContent = await Promise.all(
       row.files.map(async (f) => {
         const content = await fetchSubmissionFileText(f.downloadUrl ?? "", f.fileName);
@@ -149,11 +162,23 @@ export function AssignmentGradingPage() {
       setError("Submission not found.");
       return;
     }
+    const rubricId = assignData.rubricId ?? null;
+    let totalPoints = assignData.totalPoints ?? null;
+    if (rubricId != null) {
+      const rubric = await getRubric(rubricId);
+      setRubricCategories(mapGARubricToCategories(rubric));
+      if (totalPoints == null && rubric?.criteria?.length) {
+        totalPoints = rubric.criteria.reduce((sum, c) => sum + (c.maxScore ?? 0), 0);
+      }
+    } else {
+      setRubricCategories([]);
+    }
     setAssignment(
       buildAssignmentDetailFromGA(
         assignData.name,
         assignData.courseName ?? "",
-        sub.submittedAt ?? assignData.dueDate ?? ""
+        sub.submittedAt ?? assignData.dueDate ?? "",
+        { submissionMarks: sub.marks ?? null, totalPoints }
       )
     );
     setDescription({
@@ -168,12 +193,8 @@ export function AssignmentGradingPage() {
     setStudentEmail(sub.studentEmail ?? null);
     setSubmittedAt(formatDate(sub.submittedAt ?? undefined));
     setSubmissionLanguage(assignData.languageName ?? "Python");
-    if (assignData.rubricId != null) {
-      const rubric = await getRubric(assignData.rubricId);
-      setRubricCategories(mapGARubricToCategories(rubric));
-    } else {
-      setRubricCategories([]);
-    }
+    setSubmissionMarks(sub.marks ?? null);
+    setSubmissionFeedback(sub.feedback ?? "");
     const files = sub.files ?? [];
     if (files.length > 0) {
       const filesWithContent = await Promise.all(
@@ -213,6 +234,38 @@ export function AssignmentGradingPage() {
   const handleRunTests = useCallback(() => {
     console.log("Run tests for submission", submissionId);
   }, [submissionId]);
+
+  const handleSaveGrade = useCallback(
+    async (marks: number, feedback: string) => {
+      if (!submissionId) return;
+      setGradeSubmitting(true);
+      try {
+        if (isFaculty) {
+          await submitFacultySubmissionGrade({
+            submissionId,
+            marks,
+            feedback,
+          });
+        } else {
+          await updateSubmissionGrade(Number(submissionId), { marks, feedback });
+        }
+        setSubmissionMarks(marks);
+        setSubmissionFeedback(feedback);
+        setAssignment((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: "graded",
+                points: { ...prev.points, earned: marks },
+              }
+            : prev
+        );
+      } finally {
+        setGradeSubmitting(false);
+      }
+    },
+    [submissionId, isFaculty]
+  );
 
   const codeWorkspaceAssignment = useMemo(
     () =>
@@ -284,7 +337,13 @@ export function AssignmentGradingPage() {
   }
 
   const mainContent = (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#F5F2F2]">
+    <div
+      className={
+        isGA
+          ? "flex flex-1 min-h-0 flex-col overflow-hidden bg-[#F5F2F2]"
+          : "flex h-screen flex-col overflow-hidden bg-[#F5F2F2]"
+      }
+    >
       <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-3">
         <div className="flex items-center gap-2 text-[13px]">
           <Link to={backToAssignmentUrl} className="text-gray-500 hover:text-[#2B2A2A] flex items-center gap-1">
@@ -364,6 +423,17 @@ export function AssignmentGradingPage() {
 
                 {/* Scores - sticky to bottom of left panel so always visible */}
                 <div className="sticky bottom-0 z-10 flex-shrink-0 mt-auto border-t border-gray-200 bg-white">
+                  <div className="px-4 py-3 flex items-center justify-between gap-2 border-b border-gray-100">
+                    <span className="text-[13px] font-medium text-[#2B2A2A]">Grade</span>
+                    <button
+                      type="button"
+                      onClick={() => setGradeDialogOpen(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2B2A2A] hover:bg-[#3a3939] text-white text-[13px] font-medium"
+                    >
+                      <CheckSquare className="w-3.5 h-3.5" strokeWidth={2} />
+                      Grade
+                    </button>
+                  </div>
                   <CircularScorePanel items={scoreItems} title="Scores" />
                 </div>
               </div>
@@ -398,6 +468,18 @@ export function AssignmentGradingPage() {
           </Panel>
         </PanelGroup>
       </div>
+
+      <GradeSubmissionDialog
+        open={gradeDialogOpen}
+        onOpenChange={setGradeDialogOpen}
+        hasRubric={rubricCategories.length > 0}
+        rubricCategories={rubricCategories}
+        maxPoints={assignment.points?.total ?? 100}
+        currentMarks={submissionMarks}
+        currentFeedback={submissionFeedback}
+        onSubmit={handleSaveGrade}
+        isSubmitting={gradeSubmitting}
+      />
     </div>
   );
 
