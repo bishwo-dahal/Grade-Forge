@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import JSZip from "jszip";
 import { Link, useNavigate, useParams } from "react-router";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { ChevronLeft, GripVertical, User, CheckSquare } from "lucide-react";
+import { ChevronLeft, GripVertical, User, CheckSquare, Download } from "lucide-react";
 import { AssignmentHeader } from "./assignment/AssignmentHeader";
 import { DescriptionPanel } from "./assignment/DescriptionPanel";
 import { PublicTestsPanel } from "./assignment/PublicTestsPanel";
@@ -99,6 +100,7 @@ export function AssignmentGradingPage() {
   const [description, setDescription] = useState<AssignmentDescription | null>(null);
   const [rubricCategories, setRubricCategories] = useState<RubricCategory[]>([]);
   const [submissionFiles, setSubmissionFiles] = useState<{ fileName: string; content: string }[]>([]);
+  const [submissionFileLinks, setSubmissionFileLinks] = useState<{ fileName: string; downloadUrl: string | null }[]>([]);
   const [submissionLanguage, setSubmissionLanguage] = useState<string>("Python");
   const [studentName, setStudentName] = useState<string>("");
   const [studentEmail, setStudentEmail] = useState<string | null>(null);
@@ -125,26 +127,37 @@ export function AssignmentGradingPage() {
       listRubricCategories(aId),
       listFacultyAssignmentSubmissionFiles(aId),
     ]);
+    const row = rows.find((r) => r.submissionId === sId) ?? rows.find((r) => String(r.submissionId) === String(sId));
+    if (!row) {
+      setError("Submission not found.");
+      return;
+    }
     setAssignment(assignData);
     setDescription(descData);
     setRubricCategories(rubricData);
-    const row = rows.find((r) => r.submissionId === sId) ?? rows.find((r) => String(r.submissionId) === String(sId));
-    if (!row?.files?.length) {
+    const files = row.files ?? [];
+    if (!files.length) {
       setError("Submission or files not found.");
       return;
     }
     setStudentName(row.studentName);
     setSubmittedAt(formatDate(row.submittedAt));
-    setSubmissionLanguage(resolvePreviewLanguage(row.files[0].fileName, assignData.language));
+    setSubmissionLanguage(resolvePreviewLanguage(files[0].fileName, assignData.language));
     setSubmissionMarks(row.marks ?? null);
     setSubmissionFeedback("");
     const filesWithContent = await Promise.all(
-      row.files.map(async (f) => {
+      files.map(async (f) => {
         const content = await fetchSubmissionFileText(f.downloadUrl ?? "", f.fileName);
         return { fileName: f.fileName, content };
       })
     );
     setSubmissionFiles(filesWithContent);
+    setSubmissionFileLinks(
+      files.map((f) => ({
+        fileName: f.fileName,
+        downloadUrl: f.downloadUrl ?? null,
+      }))
+    );
   }, [assignmentId, submissionId]);
 
   const loadGAData = useCallback(async () => {
@@ -205,6 +218,12 @@ export function AssignmentGradingPage() {
         })
       );
       setSubmissionFiles(filesWithContent);
+      setSubmissionFileLinks(
+        files.map((f) => {
+          const url = f.downloadUrl ?? (f as { url?: string }).url ?? null;
+          return { fileName: f.fileName ?? "file", downloadUrl: url };
+        })
+      );
     } else {
       setSubmissionFiles([]);
     }
@@ -292,6 +311,30 @@ export function AssignmentGradingPage() {
     };
   }, [submissionFiles, submissionLanguage, submissionId]);
 
+  const handleDownloadSubmissionFiles = useCallback(async () => {
+    if (!submissionFileLinks.length) return;
+    try {
+      const zip = new JSZip();
+      for (const file of submissionFileLinks) {
+        if (!file.downloadUrl) continue;
+        const response = await fetch(file.downloadUrl);
+        if (!response.ok) continue;
+        const blob = await response.blob();
+        zip.file(file.fileName, blob);
+      }
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      const safeStudentName = (studentName || "submission").replace(/[\\/:*?"<>|]/g, "_");
+      a.href = url;
+      a.download = `${safeStudentName}-files.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Silent failure; download is a convenience action and should not break grading flow.
+    }
+  }, [submissionFileLinks, studentName]);
+
   if (!isFaculty && !isGA) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#F5F2F2] text-[14px] text-gray-600">
@@ -376,7 +419,19 @@ export function AssignmentGradingPage() {
                       </>
                     )}
                   </div>
-                  <div className="mt-1 text-[12px] text-gray-500">Submitted: {submittedAt}</div>
+                  <div className="mt-1 flex items-center justify-between gap-2 text-[12px] text-gray-500">
+                    <span>Submitted: {submittedAt}</span>
+                    {submissionFileLinks.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleDownloadSubmissionFiles}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-gray-300 bg-white text-[11px] font-medium text-[#2B2A2A] hover:bg-gray-50"
+                      >
+                        <Download className="w-3.5 h-3.5" strokeWidth={2} />
+                        <span>Download files</span>
+                      </button>
+                    )}
+                  </div>
                   <div className="mt-0.5 text-[11px] text-gray-500">
                     {submissionFiles.length <= 1
                       ? `File: ${submissionFiles[0]?.fileName ?? "—"}`
