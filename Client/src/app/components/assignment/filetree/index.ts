@@ -4,6 +4,8 @@ export {
   buildInitialFileTree,
   buildFileTreeFromFiles,
   nextNodeId,
+  nextUntitledFileName,
+  uniqueFileName,
   getDefaultExtension,
 } from "./fileTreeUtils";
 export type { FileTreeNode, FileTreeMetadata } from "./fileTreeUtils";

@@ -6,7 +6,7 @@ import { ConsoleDrawer } from "./ConsoleDrawer";
 import { SubmitConfirmModal } from "./SubmitConfirmModal";
 import { EditorTabBar } from "./EditorTabBar";
 import { UnsavedCloseModal } from "./UnsavedCloseModal";
-import { FileTree, buildInitialFileTree, buildFileTreeFromFiles, nextNodeId, getDefaultExtension } from "./filetree";
+import { FileTree, buildInitialFileTree, buildFileTreeFromFiles, nextNodeId, nextUntitledFileName, uniqueFileName, getDefaultExtension } from "./filetree";
 import {
   getWorkspaceState,
   setWorkspaceState,
@@ -388,6 +388,10 @@ export function CodeWorkspace({
   const onCreateFile = (parentId: string) => {
     const newId = nextNodeId("file", allIds);
     const ext = getDefaultExtension(assignment.language);
+    const existingFileNames = nodes
+      .filter((n) => (n.metadata as { isFolder?: boolean })?.isFolder === false)
+      .map((n) => n.name);
+    const uniqueName = nextUntitledFileName(ext, existingFileNames);
     setNodes((prev) => {
       const next = prev.map((n) =>
         String(n.id) === parentId
@@ -398,7 +402,7 @@ export function CodeWorkspace({
         ...next,
         {
           id: newId,
-          name: `untitled${ext}`,
+          name: uniqueName,
           parent: parentId,
           children: [],
           metadata: { isFolder: false },
@@ -568,9 +572,19 @@ export function CodeWorkspace({
       newIds.push(nextNodeId("file", ids));
       ids = [...ids, newIds[newIds.length - 1]];
     }
+    const existingFileNames = nodes
+      .filter((n) => (n.metadata as { isFolder?: boolean })?.isFolder === false)
+      .map((n) => n.name);
+    const namesToUse: string[] = [];
+    let currentExisting = [...existingFileNames];
+    for (const f of files) {
+      const uniqueName = uniqueFileName(f.name, currentExisting);
+      namesToUse.push(uniqueName);
+      currentExisting.push(uniqueName);
+    }
     const newNodes: FileTreeNode[] = files.map((f, i) => ({
       id: newIds[i],
-      name: f.name,
+      name: namesToUse[i],
       parent: projectId,
       children: [] as string[],
       metadata: { isFolder: false },

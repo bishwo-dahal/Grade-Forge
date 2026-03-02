@@ -62,6 +62,31 @@ export function nextNodeId(prefix: string, existingIds: string[]): string {
   return `${prefix}-${n}`;
 }
 
+/** Return a unique file name for the given extension, e.g. untitled.java, untitled-1.java, untitled-2.java. */
+export function nextUntitledFileName(extension: string, existingFileNames: string[]): string {
+  const base = "untitled";
+  const suffix = extension.startsWith(".") ? extension : `.${extension}`;
+  const existing = new Set(existingFileNames.map((n) => n.toLowerCase()));
+  if (!existing.has(`${base}${suffix}`.toLowerCase())) {
+    return `${base}${suffix}`;
+  }
+  let n = 1;
+  while (existing.has(`${base}-${n}${suffix}`.toLowerCase())) n++;
+  return `${base}-${n}${suffix}`;
+}
+
+/** Return a unique file name when adding a file (e.g. upload). If "main.py" exists, returns "main-1.py". */
+export function uniqueFileName(desiredName: string, existingFileNames: string[]): string {
+  const existing = new Set(existingFileNames.map((n) => n.toLowerCase()));
+  if (!existing.has(desiredName.toLowerCase())) return desiredName;
+  const lastDot = desiredName.lastIndexOf(".");
+  const base = lastDot > 0 ? desiredName.slice(0, lastDot) : desiredName;
+  const ext = lastDot > 0 ? desiredName.slice(lastDot) : "";
+  let n = 1;
+  while (existing.has(`${base}-${n}${ext}`.toLowerCase())) n++;
+  return `${base}-${n}${ext}`;
+}
+
 export function getDefaultExtension(language: string): string {
   const map: Record<string, string> = {
     Python: ".py",
