@@ -125,6 +125,8 @@ export interface FacultyEditorPreviewPayload {
   fileName: string;
   language: string;
   content: string;
+  /** When set, editor shows all submission files (e.g. on AssignmentGradingPage); otherwise single file (fileName + content). */
+  files?: { fileName: string; content: string }[];
 }
 
 // NOTE: Grade modal options are flattened from faculty submission rows to keep grading UI strictly presentational.

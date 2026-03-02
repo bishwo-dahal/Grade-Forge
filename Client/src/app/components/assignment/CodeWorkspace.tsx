@@ -6,7 +6,7 @@ import { ConsoleDrawer } from "./ConsoleDrawer";
 import { SubmitConfirmModal } from "./SubmitConfirmModal";
 import { EditorTabBar } from "./EditorTabBar";
 import { UnsavedCloseModal } from "./UnsavedCloseModal";
-import { FileTree, buildInitialFileTree, nextNodeId, getDefaultExtension } from "./filetree";
+import { FileTree, buildInitialFileTree, buildFileTreeFromFiles, nextNodeId, getDefaultExtension } from "./filetree";
 import {
   getWorkspaceState,
   setWorkspaceState,
@@ -32,7 +32,7 @@ interface CodeWorkspaceProps {
   };
   codeExamples: EditorCodeExamples;
   onRunTests: () => void;
-  onSubmit: (file: File) => Promise<void> | void;
+  onSubmit: (files: File[]) => Promise<void> | void;
   showUploadControls?: boolean;
   showFacultyGradeControls?: boolean;
   facultySubmissionRows?: FacultyAssignmentSubmissionRow[];
@@ -129,12 +129,25 @@ export function CodeWorkspace({
     if (facultyEditorPreviewPayloadRef.current) {
       // Review mode: initialize from payload only, do not read from IndexedDB
       const payload = facultyEditorPreviewPayloadRef.current;
-      const previewTree = buildInitialFileTree(payload.fileName, payload.content);
-      setTreeState(previewTree);
-      setOpenTabIds(["main"]);
-      setSavedContents({ main: payload.content });
-      setSelectedId("main");
-      setCode(payload.content);
+      const files = payload.files && payload.files.length > 0 ? payload.files : null;
+      if (files) {
+        const { nodes: previewNodes, fileContents: previewContents } = buildFileTreeFromFiles(files);
+        const childIds = previewNodes
+          .filter((n) => (n.metadata as { isFolder?: boolean })?.isFolder === false)
+          .map((n) => String(n.id));
+        setTreeState({ nodes: previewNodes, fileContents: previewContents });
+        setOpenTabIds(childIds);
+        setSavedContents(previewContents);
+        setSelectedId(childIds[0] ?? "main");
+        setCode(previewContents[childIds[0] ?? "main"] ?? "");
+      } else {
+        const previewTree = buildInitialFileTree(payload.fileName, payload.content);
+        setTreeState(previewTree);
+        setOpenTabIds(["main"]);
+        setSavedContents({ main: payload.content });
+        setSelectedId("main");
+        setCode(payload.content);
+      }
       setFacultyPreviewLanguage(payload.language);
       setIsFacultyEditorReadOnly(true);
       restoredFromPersistedRef.current = false;
@@ -195,14 +208,27 @@ export function CodeWorkspace({
     if (!facultyEditorPreviewPayload) {
       return;
     }
-    // FIX: Apply page-driven submission preview payload so faculty can open files from Submissions tab actions.
-    const previewTree = buildInitialFileTree(facultyEditorPreviewPayload.fileName, facultyEditorPreviewPayload.content);
-    setTreeState(previewTree);
-    setOpenTabIds(["main"]);
-    setSavedContents({ main: facultyEditorPreviewPayload.content });
-    setSelectedId("main");
-    setCode(facultyEditorPreviewPayload.content);
-    setFacultyPreviewLanguage(facultyEditorPreviewPayload.language);
+    const payload = facultyEditorPreviewPayload;
+    const files = payload.files && payload.files.length > 0 ? payload.files : null;
+    if (files) {
+      const { nodes: previewNodes, fileContents: previewContents } = buildFileTreeFromFiles(files);
+      const childIds = previewNodes
+        .filter((n) => (n.metadata as { isFolder?: boolean })?.isFolder === false)
+        .map((n) => String(n.id));
+      setTreeState({ nodes: previewNodes, fileContents: previewContents });
+      setOpenTabIds(childIds);
+      setSavedContents(previewContents);
+      setSelectedId(childIds[0] ?? "main");
+      setCode(previewContents[childIds[0] ?? "main"] ?? "");
+    } else {
+      const previewTree = buildInitialFileTree(payload.fileName, payload.content);
+      setTreeState(previewTree);
+      setOpenTabIds(["main"]);
+      setSavedContents({ main: payload.content });
+      setSelectedId("main");
+      setCode(payload.content);
+    }
+    setFacultyPreviewLanguage(payload.language);
     setIsFacultyEditorReadOnly(true);
   }, [facultyEditorPreviewPayload]);
 
@@ -521,26 +547,22 @@ export function CodeWorkspace({
     if (isSubmitting) {
       return;
     }
-    const fileToSubmit = selectedSubmissionFile
-      ?? (editorSubmissionCandidate
-        ? new File([editorSubmissionCandidate.content], editorSubmissionCandidate.fileName, {
-            type: getSubmissionMimeType(editorSubmissionCandidate.fileName),
-          })
-        : null);
-    if (!fileToSubmit) {
+    const filesToSubmit: File[] = selectedSubmissionFile
+      ? [selectedSubmissionFile]
+      : editorSubmissionFiles.map(({ fileName, content }) =>
+          new File([content], fileName, { type: getSubmissionMimeType(fileName) })
+        );
+    if (!filesToSubmit.length) {
       setSubmitModalError("Upload a .py/.java file or add code in the editor before submitting.");
       return;
     }
     setSubmitModalError(null);
     setIsSubmitting(true);
     try {
-      // NOTE: Parent page owns API call and status refresh; workspace only forwards upload file or generated editor file.
-      await onSubmit(fileToSubmit);
+      await onSubmit(filesToSubmit);
       setShowSubmitModal(false);
-      // FIX: Success message is shown only after backend confirms persistence.
       setSubmissionStatusMessage("Submitted successfully.");
     } catch (error) {
-      // NOTE: Keep modal open and selected file for retry when API save fails.
       setSubmitModalError(getErrorMessage(error));
     } finally {
       setIsSubmitting(false);
@@ -604,30 +626,29 @@ export function CodeWorkspace({
     }
   };
 
-  const editorSubmissionCandidate = useMemo(() => {
+  const editorSubmissionFiles = useMemo(() => {
+    const list: { fileName: string; content: string }[] = [];
+    const seen = new Set<string>();
     const candidateIds = [
       ...(selectedId ? [selectedId] : []),
       "main",
       ...Object.keys(fileContents),
-    ].filter((value, index, list) => list.indexOf(value) === index);
-
+    ];
     for (const candidateId of candidateIds) {
-      const candidateContent = fileContents[candidateId] ?? "";
-      if (!candidateContent.trim()) {
-        continue;
-      }
-
+      if (seen.has(candidateId)) continue;
+      seen.add(candidateId);
+      const content = fileContents[candidateId] ?? "";
+      if (!content.trim()) continue;
       const rawFileName = getNodeName(candidateId);
-      const hasSupportedExtension = rawFileName.toLowerCase().endsWith(".py") || rawFileName.toLowerCase().endsWith(".java");
-      // NOTE: Editor submissions must still produce backend-compatible source filenames.
+      const hasSupportedExtension =
+        rawFileName.toLowerCase().endsWith(".py") || rawFileName.toLowerCase().endsWith(".java");
       const fileName = hasSupportedExtension ? rawFileName : `main${getDefaultExtension(assignment.language)}`;
-      return { fileName, content: candidateContent };
+      list.push({ fileName, content });
     }
-
-    return null;
+    return list;
   }, [assignment.language, fileContents, nodes, selectedId]);
 
-  const canSubmitFromEditor = Boolean(editorSubmissionCandidate);
+  const canSubmitFromEditor = editorSubmissionFiles.length > 0;
   const canSubmit = Boolean(selectedSubmissionFile) || canSubmitFromEditor;
 
   return (
@@ -723,8 +744,11 @@ export function CodeWorkspace({
         </div>
         {showUploadControls && !selectedSubmissionFile && canSubmitFromEditor ? (
           <p className="mt-2 text-[12px] text-[#5D6A80]">
-            {/* NOTE: If no upload is selected, submit packages the current editor code as a source file. */}
-            No file uploaded. Your editor code will be submitted as {editorSubmissionCandidate?.fileName}.
+            {/* NOTE: If no upload is selected, submit sends all .py/.java files from the editor. */}
+            No file uploaded. Your editor {editorSubmissionFiles.length === 1 ? "file" : "files"} will be submitted
+            {editorSubmissionFiles.length === 1
+              ? ` as ${editorSubmissionFiles[0].fileName}`
+              : ` (${editorSubmissionFiles.length} files)`}.
           </p>
         ) : null}
         {showUploadControls && (submissionFileError || submissionStatusMessage) ? (

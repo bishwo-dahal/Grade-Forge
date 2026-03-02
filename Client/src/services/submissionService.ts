@@ -302,18 +302,20 @@ export function listSubmissionsForAssignment(assignmentId: string): Promise<Subm
   return Promise.resolve(allSubmissions);
 }
 
-export async function submitStudentAssignmentFile(assignmentId: string, file: File): Promise<void> {
-  const parsedAssignmentId = parseAssignmentId(assignmentId);
-  const fileName = file.name.toLowerCase();
-  if (!fileName.endsWith(".py") && !fileName.endsWith(".java")) {
-    throw new Error("Only .py or .java files are allowed.");
+export async function submitStudentAssignmentFiles(assignmentId: string, files: File[]): Promise<void> {
+  if (!files.length) {
+    throw new Error("At least one file is required.");
   }
-
+  const parsedAssignmentId = parseAssignmentId(assignmentId);
   const formData = new FormData();
-  const normalizedUploadFile = normalizeUploadFileType(file);
-  // NOTE: Backend submission endpoint expects multipart files under `files`.
-  formData.append("files", normalizedUploadFile, normalizedUploadFile.name);
-  // FIX: Axios interceptor keeps FormData headers browser-managed so multipart boundary is sent correctly.
+  for (const file of files) {
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith(".py") && !fileName.endsWith(".java")) {
+      throw new Error(`Only .py and .java files are allowed. Invalid: ${file.name}`);
+    }
+    const normalized = normalizeUploadFileType(file);
+    formData.append("files", normalized, normalized.name);
+  }
   await api.post(`/api/v1/student/submissions?assignmentId=${parsedAssignmentId}`, formData);
 }
 

@@ -26,7 +26,7 @@ import {
   listFacultyAssignmentSubmissionFiles,
   resolvePreviewLanguage,
   submitFacultySubmissionGrade,
-  submitStudentAssignmentFile,
+  submitStudentAssignmentFiles,
 } from "../../services/submissionService";
 import { getAuthenticatedRole } from "../auth";
 import React from "react";
@@ -146,18 +146,18 @@ export function AssignmentPage() {
     return () => window.clearInterval(refreshInterval);
   }, [activeTab, assignmentId, isFacultyRole, loadAssignmentWorkspace]);
 
-  const handleStudentSubmit = async (file: File) => {
+  const handleStudentSubmit = async (files: File[]) => {
     const resolvedId = assignmentId || "1";
-    // NOTE: Clear previous banner state so only the latest submission attempt is shown.
     setSubmissionFeedback(null);
     try {
-      await submitStudentAssignmentFile(resolvedId, file);
-      // NOTE: Submission success changes assignment/result payloads, so cached copies must be cleared before reload.
+      await submitStudentAssignmentFiles(resolvedId, files);
       invalidateAssignmentWorkspaceCache(resolvedId);
       invalidateAssignmentResultCache(resolvedId);
-      // FIX: Reload assignment/result sources after submit so attempts and results tab state are immediately accurate.
       await loadAssignmentWorkspace(resolvedId);
-      setSubmissionFeedback({ tone: "success", text: "File submitted successfully." });
+      setSubmissionFeedback({
+        tone: "success",
+        text: files.length === 1 ? "File submitted successfully." : `${files.length} files submitted successfully.`,
+      });
     } catch (error) {
       setSubmissionFeedback({ tone: "error", text: getErrorMessage(error) });
       throw error;

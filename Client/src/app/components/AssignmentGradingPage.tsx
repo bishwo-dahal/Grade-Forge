@@ -91,8 +91,7 @@ export function AssignmentGradingPage() {
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [description, setDescription] = useState<AssignmentDescription | null>(null);
   const [rubricCategories, setRubricCategories] = useState<RubricCategory[]>([]);
-  const [submissionCode, setSubmissionCode] = useState<string>("");
-  const [submissionFileName, setSubmissionFileName] = useState<string>("main.py");
+  const [submissionFiles, setSubmissionFiles] = useState<{ fileName: string; content: string }[]>([]);
   const [submissionLanguage, setSubmissionLanguage] = useState<string>("Python");
   const [studentName, setStudentName] = useState<string>("");
   const [studentEmail, setStudentEmail] = useState<string | null>(null);
@@ -123,13 +122,16 @@ export function AssignmentGradingPage() {
       setError("Submission or files not found.");
       return;
     }
-    const firstFile = row.files[0];
     setStudentName(row.studentName);
     setSubmittedAt(formatDate(row.submittedAt));
-    setSubmissionFileName(firstFile.fileName);
-    setSubmissionLanguage(resolvePreviewLanguage(firstFile.fileName, assignData.language));
-    const content = await fetchSubmissionFileText(firstFile.downloadUrl ?? "", firstFile.fileName);
-    setSubmissionCode(content);
+    setSubmissionLanguage(resolvePreviewLanguage(row.files[0].fileName, assignData.language));
+    const filesWithContent = await Promise.all(
+      row.files.map(async (f) => {
+        const content = await fetchSubmissionFileText(f.downloadUrl ?? "", f.fileName);
+        return { fileName: f.fileName, content };
+      })
+    );
+    setSubmissionFiles(filesWithContent);
   }, [assignmentId, submissionId]);
 
   const loadGAData = useCallback(async () => {
@@ -173,15 +175,17 @@ export function AssignmentGradingPage() {
       setRubricCategories([]);
     }
     const files = sub.files ?? [];
-    const firstFile = files[0];
-    if (firstFile) {
-      const url = firstFile.downloadUrl ?? (firstFile as { url?: string }).url;
-      setSubmissionFileName(firstFile.fileName ?? "file");
-      if (url) {
-        const res = await fetch(url);
-        const text = await res.text();
-        setSubmissionCode(text);
-      }
+    if (files.length > 0) {
+      const filesWithContent = await Promise.all(
+        files.map(async (f) => {
+          const url = f.downloadUrl ?? (f as { url?: string }).url;
+          const content = url ? await (await fetch(url)).text() : "";
+          return { fileName: f.fileName ?? "file", content };
+        })
+      );
+      setSubmissionFiles(filesWithContent);
+    } else {
+      setSubmissionFiles([]);
     }
   }, [classId, assignmentId, submissionId]);
 
@@ -223,18 +227,17 @@ export function AssignmentGradingPage() {
     [assignment]
   );
 
-  const facultyEditorPreviewPayload = useMemo(
-    () =>
-      submissionCode !== undefined && submissionFileName && submissionLanguage
-        ? {
-            optionId: `${submissionId ?? ""}-${submissionFileName}`,
-            fileName: submissionFileName,
-            language: submissionLanguage,
-            content: submissionCode,
-          }
-        : null,
-    [submissionCode, submissionFileName, submissionLanguage, submissionId]
-  );
+  const facultyEditorPreviewPayload = useMemo(() => {
+    if (!submissionLanguage || !submissionFiles.length) return null;
+    const first = submissionFiles[0];
+    return {
+      optionId: `${submissionId ?? ""}-${first.fileName}`,
+      fileName: first.fileName,
+      language: submissionLanguage,
+      content: first.content,
+      files: submissionFiles,
+    };
+  }, [submissionFiles, submissionLanguage, submissionId]);
 
   if (!isFaculty && !isGA) {
     return (
@@ -315,7 +318,11 @@ export function AssignmentGradingPage() {
                     )}
                   </div>
                   <div className="mt-1 text-[12px] text-gray-500">Submitted: {submittedAt}</div>
-                  <div className="mt-0.5 text-[11px] text-gray-500">File: {submissionFileName}</div>
+                  <div className="mt-0.5 text-[11px] text-gray-500">
+                    {submissionFiles.length <= 1
+                      ? `File: ${submissionFiles[0]?.fileName ?? "—"}`
+                      : `Files: ${submissionFiles.length} files`}
+                  </div>
                 </div>
 
                 {/* Tabs */}
