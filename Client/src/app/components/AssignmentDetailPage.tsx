@@ -580,7 +580,18 @@ function mapGARubric(
 function mapGASubmissions(
   list: GradingAssistantSubmissionResponse[]
 ): AssignmentDetailPageSubmissionRow[] {
-  return list.map((s) => {
+  const sorted = [...list].sort((a, b) => {
+    const at = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+    const bt = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+    return bt - at;
+  });
+  const seenStudentIds = new Set<number>();
+  const latestPerStudent = sorted.filter((s) => {
+    if (seenStudentIds.has(s.studentId)) return false;
+    seenStudentIds.add(s.studentId);
+    return true;
+  });
+  return latestPerStudent.map((s) => {
     const files = s.files ?? [];
     const primary = files[0];
     const filesWithUrls = files

@@ -186,7 +186,18 @@ export function FacultyGradingAssignmentDetailPage() {
     [assignment, description]
   );
   const pageRubric = useMemo(() => mapToRubricSection(rubric, rubricLoading), [rubric, rubricLoading]);
-  const pageSubmissions = useMemo(() => mapToSubmissionRows(submissions), [submissions]);
+  const latestSubmissionsPerStudent = useMemo(() => {
+    const seen = new Set<string>();
+    return submissions.filter((row) => {
+      if (seen.has(row.studentName)) return false;
+      seen.add(row.studentName);
+      return true;
+    });
+  }, [submissions]);
+  const pageSubmissions = useMemo(
+    () => mapToSubmissionRows(latestSubmissionsPerStudent),
+    [latestSubmissionsPerStudent]
+  );
 
   return (
     <AuthShell
