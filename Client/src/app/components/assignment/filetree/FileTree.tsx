@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import TreeView, { INodeRendererProps } from "react-accessible-treeview";
-import { Folder, FolderOpen, FileCode, FilePlus, Pencil, Copy, Trash2, MoreHorizontal } from "lucide-react";
+import { Folder, FolderOpen, FileCode, FilePlus, Upload, Pencil, Copy, Trash2, MoreHorizontal } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -42,6 +42,8 @@ export interface FileTreeProps {
   /** File ids that cannot be deleted (e.g. starter code file). */
   protectedFileIds?: string[];
   onCreateFile: (parentId: string) => void;
+  /** When set, shows an "Upload file" button in the tree header (e.g. for edit mode). */
+  onUploadFile?: () => void;
   /** Not shown in UI for now; kept for future folder support. */
   onCreateFolder?: (parentId: string) => void;
   onRename: (id: string, newName: string) => void;
@@ -55,6 +57,7 @@ export function FileTree({
   onSelect,
   protectedFileIds = [],
   onCreateFile,
+  onUploadFile,
   onCreateFolder,
   onRename,
   onDelete,
@@ -324,6 +327,16 @@ export function FileTree({
         >
           <FilePlus className="w-4 h-4" />
         </button>
+        {onUploadFile ? (
+          <button
+            type="button"
+            onClick={onUploadFile}
+            className="p-1.5 rounded hover:bg-[#3c3c3c] text-gray-400 hover:text-gray-200"
+            title="Upload file"
+          >
+            <Upload className="w-4 h-4" />
+          </button>
+        ) : null}
       </div>
       <div className="flex-1 min-h-0 overflow-auto py-1">
         <TreeView

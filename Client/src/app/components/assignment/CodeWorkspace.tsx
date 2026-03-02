@@ -99,6 +99,7 @@ export function CodeWorkspace({
   const [facultyPreviewLanguage, setFacultyPreviewLanguage] = useState<string | null>(null);
   const [isFacultyEditorReadOnly, setIsFacultyEditorReadOnly] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const addToEditorInputRef = useRef<HTMLInputElement | null>(null);
   const initialCode = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
   const [code, setCode] = useState(initialCode);
 
@@ -543,6 +544,52 @@ export function CodeWorkspace({
     setSubmissionStatusMessage(null);
   };
 
+  const handleAddFileToEditor = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = event.target.files;
+    event.target.value = "";
+    if (!fileList?.length) return;
+    const files = Array.from(fileList).filter((f) => !validateSubmissionFile(f));
+    if (!files.length) return;
+    const contents = await Promise.all(
+      files.map(
+        (f) =>
+          new Promise<string>((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(String(r.result ?? ""));
+            r.onerror = () => rej(r.error);
+            r.readAsText(f);
+          })
+      )
+    );
+    const projectId = "project";
+    let ids = [...allIds];
+    const newIds: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      newIds.push(nextNodeId("file", ids));
+      ids = [...ids, newIds[newIds.length - 1]];
+    }
+    const newNodes: FileTreeNode[] = files.map((f, i) => ({
+      id: newIds[i],
+      name: f.name,
+      parent: projectId,
+      children: [] as string[],
+      metadata: { isFolder: false },
+    }));
+    setNodes((prev) => {
+      const next = prev.map((n) =>
+        String(n.id) === projectId
+          ? { ...n, children: [...(n.children || []), ...newIds], isBranch: true }
+          : n
+      );
+      return [...next, ...newNodes];
+    });
+    const newContents = Object.fromEntries(newIds.map((id, i) => [id, contents[i]]));
+    setFileContents((prev) => ({ ...prev, ...newContents }));
+    setSavedContents((prev) => ({ ...prev, ...newContents }));
+    setOpenTabIds((prev) => [...new Set([...prev, ...newIds])]);
+    setSelectedId(newIds[newIds.length - 1] ?? null);
+  };
+
   const confirmSubmit = async () => {
     if (isSubmitting) {
       return;
@@ -769,6 +816,16 @@ export function CodeWorkspace({
 
       {/* Resizable Editor and Console */}
       <div className="flex-1 overflow-hidden">
+        {!isReviewMode ? (
+          <input
+            ref={addToEditorInputRef}
+            type="file"
+            accept=".py,.java"
+            multiple
+            className="hidden"
+            onChange={handleAddFileToEditor}
+          />
+        ) : null}
         <PanelGroup direction="horizontal">
           <Panel defaultSize={18} minSize={12} maxSize={35}>
             <FileTree
@@ -777,6 +834,7 @@ export function CodeWorkspace({
               onSelect={handleSelectFile}
               protectedFileIds={assignment.hasStarterCode ? ["main"] : []}
               onCreateFile={onCreateFile}
+              onUploadFile={!isReviewMode ? () => addToEditorInputRef.current?.click() : undefined}
               onCreateFolder={onCreateFolder}
               onRename={onRename}
               onDelete={onDelete}
