@@ -562,8 +562,7 @@ function AssignmentsSection() {
                         className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
                       />
                       <Link
-                        // FIX: Faculty assignment names now navigate to a faculty-accessible assignment page.
-                        to={`/faculty/assignment/${assignment.id}`}
+                        to={`/faculty/class/${resolvedClassId}/assignment/${assignment.id}`}
                         className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
                       >
                         {assignment.name}
@@ -598,8 +597,8 @@ function AssignmentsSection() {
                     <div className="flex items-center justify-end gap-2">
                       {/* Accessibility: icon-only action buttons need labels for screen readers. */}
                       <Link
-                        aria-label="Edit assignment"
-                        to={`/faculty/assignment/${assignment.id}`}
+                        aria-label="Open assignment detail"
+                        to={`/faculty/class/${resolvedClassId}/assignment/${assignment.id}`}
                         className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
                       >
                         <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />

@@ -18,6 +18,7 @@ import { UniversityLanguagesPage } from "./components/UniversityLanguagesPage";
 import { UniversitySemestersPage } from "./components/UniversitySemestersPage";
 import { FacultyCreateClassPage } from "./components/FacultyCreateClassPage";
 import { FacultyCreateAssignmentPage } from "./components/FacultyCreateAssignmentPage";
+import { FacultyGradingAssignmentDetailPage } from "./components/FacultyGradingAssignmentDetailPage";
 import CompleteStudentRegistrationPage from "./components/CompleteStudentRegistrationPage";
 import {
   FacultyDiscussionsPage,
@@ -38,7 +39,7 @@ import { FacultyRubricDetailPage } from "./components/faculty/rubrics/FacultyRub
 import { FacultyGradingAssistantsPage } from "./components/faculty/gradingAssistants/FacultyGradingAssistantsPage";
 import { GradingAssistantCoursesPage } from "./components/gradingAssistant/GradingAssistantCoursesPage";
 import { GradingAssistantClassPage } from "./components/gradingAssistant/GradingAssistantClassPage";
-import { GradingAssistantAssignmentDetailPage } from "./components/gradingAssistant/GradingAssistantAssignmentDetailPage";
+import { GradingAssistantAssignmentDetailPage } from "./components/AssignmentDetailPage";
 import { GradingAssistantSubmissionDetailPage } from "./components/gradingAssistant/GradingAssistantSubmissionDetailPage";
 
 export const router = createBrowserRouter([
@@ -305,6 +306,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: "/faculty/class/:classId/assignment/:assignmentId",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyGradingAssignmentDetailPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: "/course/:courseId",
     element: (
       <ProtectedRoute allowedRoles={["STUDENT"]}>
@@ -324,6 +333,15 @@ export const router = createBrowserRouter([
     path: "/faculty/assignment/:assignmentId",
     element: (
       // NOTE: Faculty uses this route to open assignment details from class-management Assignments tab.
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <AssignmentPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/assignment/:assignmentId/submission/:submissionId",
+    element: (
+      // NOTE: Faculty uses this route when deep-linking directly to a specific submission.
       <ProtectedRoute allowedRoles={["FACULTY"]}>
         <AssignmentPage />
       </ProtectedRoute>

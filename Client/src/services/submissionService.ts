@@ -374,7 +374,7 @@ export async function listFacultyAssignmentSubmissionFiles(
     .map((submission) => ({
       submissionId: String(submission.id),
       studentName: submission.studentName,
-      submittedAt: formatSubmissionDate(submission.submittedAt),
+      submittedAt: submission.submittedAt,
       marks: typeof submission.marks === "number" ? submission.marks : null,
       files: mapSubmissionFiles(submission.files),
     }));
