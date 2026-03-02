@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { CheckCircle, ChevronLeft, FileText, Save } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import type { AssignmentDetailResponse } from "../../../types/gradingAssistantAssignment";
 import type { GradingAssistantRubricResponse, RubricCriteriaResponse } from "../../../types/gradingAssistantRubric";
 import type { GradingAssistantSubmissionResponse } from "../../../types/gradingAssistantSubmission";
@@ -20,6 +20,7 @@ import { clearAuthenticated, getAuthenticatedUser } from "../../auth";
 import { AuthShell } from "../layout/AuthShell";
 import { AuthTopBar } from "../layout/AuthTopBar";
 import type { SettingsSection } from "../layout/AuthTopBar";
+import { SubmissionGradingPanel } from "../grading/SubmissionGradingPanel";
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -31,64 +32,6 @@ function formatDate(iso: string | null | undefined): string {
   } catch {
     return iso;
   }
-}
-
-function CriterionRow({
-  criterion,
-  awardedScore,
-  feedback,
-  onScoreChange,
-  onFeedbackChange,
-}: {
-  criterion: RubricCriteriaResponse;
-  awardedScore: string;
-  feedback: string;
-  onScoreChange: (v: string) => void;
-  onFeedbackChange: (v: string) => void;
-}) {
-  const maxScore = criterion.maxScore ?? 0;
-  return (
-    <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-      <div>
-        <h4 className="text-[14px] font-medium text-[#2B2A2A]">
-          {criterion.title ?? "Criterion"}
-        </h4>
-        {criterion.description && (
-          <p className="text-[13px] text-gray-600 mt-0.5">{criterion.description}</p>
-        )}
-        {maxScore > 0 && (
-          <p className="text-[12px] text-gray-500 mt-1">Max score: {maxScore}</p>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-4 items-start">
-        <div>
-          <label className="block text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-            Score
-          </label>
-          <input
-            type="number"
-            min={0}
-            max={maxScore}
-            value={awardedScore}
-            onChange={(e) => onScoreChange(e.target.value)}
-            className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]"
-          />
-        </div>
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-            Feedback
-          </label>
-          <textarea
-            rows={2}
-            value={feedback}
-            onChange={(e) => onFeedbackChange(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]"
-            placeholder="Optional"
-          />
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export function GradingAssistantSubmissionDetailPage() {
@@ -112,13 +55,6 @@ export function GradingAssistantSubmissionDetailPage() {
   const [grades, setGrades] = useState<SubmissionGradeResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [marks, setMarks] = useState<string>("");
-  const [feedback, setFeedback] = useState<string>("");
-  /** Per-criterion: criterion id -> { awardedScore, feedback } for controlled inputs */
-  const [criteriaScores, setCriteriaScores] = useState<Record<number, { awardedScore: string; feedback: string }>>({});
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (!classId || !assignmentId || !submissionId) {
@@ -145,14 +81,18 @@ export function GradingAssistantSubmissionDetailPage() {
         const found = list.find((s) => s.id === sId);
         setSubmission(found ?? null);
         setGrades(gradeList);
-        if (found) {
-          setMarks(found.marks != null ? String(found.marks) : "");
-          setFeedback(found.feedback ?? "");
-        }
       })
       .catch(() => setError("Failed to load submission."))
       .finally(() => setLoading(false));
   }, [classId, assignmentId, submissionId]);
+
+  const gradesByCriteriaId = useMemo(() => {
+    const map: Record<number, SubmissionGradeResponse> = {};
+    for (const g of grades) {
+      map[g.rubricCriteriaId] = g;
+    }
+    return map;
+  }, [grades]);
 
   useEffect(() => {
     if (!assignment?.rubricId) {
@@ -164,27 +104,6 @@ export function GradingAssistantSubmissionDetailPage() {
       .catch(() => setRubric(null));
   }, [assignment?.rubricId]);
 
-  const gradesByCriteriaId = useMemo(() => {
-    const map: Record<number, SubmissionGradeResponse> = {};
-    for (const g of grades) {
-      map[g.rubricCriteriaId] = g;
-    }
-    return map;
-  }, [grades]);
-
-  useEffect(() => {
-    if (!rubric?.criteria?.length) return;
-    const next: Record<number, { awardedScore: string; feedback: string }> = {};
-    for (const c of rubric.criteria) {
-      const g = gradesByCriteriaId[c.id];
-      next[c.id] = {
-        awardedScore: g != null ? String(g.awardedScore) : "",
-        feedback: g?.feedback ?? "",
-      };
-    }
-    setCriteriaScores(next);
-  }, [rubric?.criteria, gradesByCriteriaId]);
-
   const goToSettingsSection = (section: SettingsSection) => {
     navigate(`/settings?section=${section}`);
   };
@@ -194,91 +113,39 @@ export function GradingAssistantSubmissionDetailPage() {
     navigate("/signin", { replace: true });
   };
 
-  const handleSaveGrade = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveOverall = async (data: { marks: number; feedback: string }) => {
     if (!submissionId || submission == null) return;
-    const numMarks = marks.trim() === "" ? NaN : parseFloat(marks);
-    if (Number.isNaN(numMarks) || numMarks < 0) {
-      setSaveError("Enter a valid marks value (number ≥ 0).");
-      return;
-    }
-    setSaving(true);
-    setSaveError(null);
-    setSaveSuccess(null);
-    updateSubmissionGrade(submissionId, {
-      marks: numMarks,
-      feedback: feedback.trim() || undefined,
-    })
-      .then((updated) => {
-        setSubmission(updated);
-        setMarks(updated.marks != null ? String(updated.marks) : "");
-        setFeedback(updated.feedback ?? "");
-        setSaveError(null);
-        setSaveSuccess("Grade saved.");
-        setTimeout(() => setSaveSuccess(null), 4000);
-      })
-      .catch(() => setSaveError("Failed to save grade."))
-      .finally(() => setSaving(false));
+    const payload = {
+      marks: data.marks,
+      feedback: data.feedback.trim() || undefined,
+    };
+    const updated = await updateSubmissionGrade(submissionId, payload);
+    setSubmission(updated);
   };
 
-  const handleSaveRubricGrades = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!submission || !rubric?.criteria?.length) return;
+  const handleSaveRubric = async (
+    items: Array<{ criterionId: number; awardedScore: number; feedback: string }>,
+  ) => {
+    if (!submission) return;
     const subId = submission.id;
-    setSaving(true);
-    setSaveError(null);
-    setSaveSuccess(null);
-    try {
-      const promises: Promise<SubmissionGradeResponse>[] = [];
-      for (const c of rubric.criteria) {
-        const state = criteriaScores[c.id];
-        const rawScore = state?.awardedScore?.trim();
-        const awardedScore = rawScore === "" ? 0 : Math.max(0, Math.min(c.maxScore ?? 0, parseInt(rawScore ?? "0", 10) || 0));
-        const feedbackVal = state?.feedback?.trim() ?? "";
-        const payload = {
-          submissionId: subId,
-          rubricCriteriaId: c.id,
-          awardedScore,
-          feedback: feedbackVal || undefined,
-        };
-        const existing = gradesByCriteriaId[c.id];
-        if (existing) {
-          promises.push(updateGrade(existing.id, payload));
-        } else {
-          promises.push(createGrade(payload));
-        }
+    const promises: Promise<SubmissionGradeResponse>[] = [];
+    for (const item of items) {
+      const payload = {
+        submissionId: subId,
+        rubricCriteriaId: item.criterionId,
+        awardedScore: item.awardedScore,
+        feedback: item.feedback.trim() || undefined,
+      };
+      const existing = gradesByCriteriaId[item.criterionId];
+      if (existing) {
+        promises.push(updateGrade(existing.id, payload));
+      } else {
+        promises.push(createGrade(payload));
       }
-      await Promise.all(promises);
-      const updated = await getGradesBySubmission(subId);
-      setGrades(updated);
-      setCriteriaScores((prev) => {
-        const next = { ...prev };
-        for (const g of updated) {
-          next[g.rubricCriteriaId] = {
-            awardedScore: String(g.awardedScore),
-            feedback: g.feedback ?? "",
-          };
-        }
-        return next;
-      });
-      setSaveError(null);
-      setSaveSuccess("Rubric grades saved.");
-      setTimeout(() => setSaveSuccess(null), 4000);
-    } catch {
-      setSaveError("Failed to save rubric grades.");
-    } finally {
-      setSaving(false);
     }
-  };
-
-  const setCriterionScore = (criterionId: number, field: "awardedScore" | "feedback", value: string) => {
-    setCriteriaScores((prev) => ({
-      ...prev,
-      [criterionId]: {
-        ...prev[criterionId],
-        [field]: value,
-      },
-    }));
+    await Promise.all(promises);
+    const updated = await getGradesBySubmission(subId);
+    setGrades(updated);
   };
 
   return (
@@ -299,7 +166,7 @@ export function GradingAssistantSubmissionDetailPage() {
       }
       mainContent={
         <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
-          <div className="max-w-3xl mx-auto px-8 py-6">
+          <div className="max-w-7xl mx-auto px-8 py-6">
             <Link
               to={`/grading-assistant/class/${classId}/assignment/${assignmentId}`}
               className="inline-flex items-center gap-1.5 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors mb-4"
@@ -323,209 +190,253 @@ export function GradingAssistantSubmissionDetailPage() {
               </div>
             )}
             {!loading && submission && (
-              <>
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6">
-                  <div className="px-6 py-5 border-b border-gray-200">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#EEF3FF] flex items-center justify-center flex-shrink-0">
-                        <FileText
-                          className="w-5 h-5 text-[#5A7ACD]"
-                          strokeWidth={2}
-                        />
-                      </div>
-                      <div>
-                        <h1 className="text-[22px] font-semibold text-[#2B2A2A]">
-                          Submission #{submission.id}
-                        </h1>
-                        <p className="text-[13px] text-gray-600 mt-0.5">
-                          {submission.assignmentName ?? "Assignment"} ·{" "}
-                          {submission.courseName ?? "Course"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="px-6 py-5 space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                          Student
-                        </h3>
-                        <p className="text-[14px] text-[#2B2A2A]">
-                          {submission.studentName ?? "—"}
-                        </p>
-                        {submission.studentEmail && (
-                          <p className="text-[13px] text-gray-600">
-                            {submission.studentEmail}
+              <div className="mt-2 grid grid-cols-1 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-6">
+                {/* Left: assignment + code context */}
+                <div className="space-y-6">
+                  {assignment && (
+                    <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                      <div className="px-6 py-5 border-b border-gray-200">
+                        <h2 className="text-[16px] font-semibold text-[#2B2A2A]">
+                          {assignment.name}
+                        </h2>
+                        {assignment.courseName && (
+                          <p className="mt-1 text-[13px] text-gray-600">
+                            {assignment.courseName}
                           </p>
                         )}
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-[12px] text-gray-600">
+                          <div>
+                            <span className="font-semibold block text-gray-500 mb-0.5">
+                              Available from
+                            </span>
+                            <span>{formatDate(assignment.availableFrom)}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold block text-gray-500 mb-0.5">
+                              Due date
+                            </span>
+                            <span>{formatDate(assignment.dueDate)}</span>
+                          </div>
+                          <div>
+                            <span className="font-semibold block text-gray-500 mb-0.5">
+                              Late due
+                            </span>
+                            <span>{formatDate(assignment.lateDueDate)}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                          Submitted at
-                        </h3>
-                        <p className="text-[14px] text-[#2B2A2A]">
-                          {formatDate(submission.submittedAt)}
-                        </p>
-                      </div>
-                      <div>
-                        <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                          Status
-                        </h3>
-                        <p className="text-[14px] text-[#2B2A2A]">
-                          {submission.status ?? "—"}
-                        </p>
-                      </div>
-                      <div>
-                        <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                          Marks
-                        </h3>
-                        <p className="text-[14px] text-[#2B2A2A]">
-                          {submission.marks != null
-                            ? String(submission.marks)
-                            : "—"}
-                        </p>
-                      </div>
-                    </div>
-                    {submission.feedback && (
-                      <div>
-                        <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                          Feedback
-                        </h3>
-                        <p className="text-[14px] text-[#2B2A2A] whitespace-pre-wrap">
-                          {submission.feedback}
-                        </p>
-                      </div>
-                    )}
-                    {submission.files && submission.files.length > 0 && (
-                      <div>
-                        <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                          Files
-                        </h3>
-                        <ul className="space-y-1">
-                          {submission.files.map((f, i) => (
-                            <li key={f.id ?? i}>
-                              {f.url ? (
-                                <a
-                                  href={f.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-[14px] text-[#5A7ACD] hover:underline"
+                      <div className="px-6 py-5 space-y-4 max-h-[260px] overflow-y-auto">
+                        {assignment.description && (
+                          <div>
+                            <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                              Description
+                            </h3>
+                            <p className="text-[13px] text-[#2B2A2A] whitespace-pre-wrap">
+                              {assignment.description}
+                            </p>
+                          </div>
+                        )}
+                        {rubric?.criteria && rubric.criteria.length > 0 && (
+                          <div>
+                            <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                              Rubric overview
+                            </h3>
+                            <ul className="space-y-1.5">
+                              {rubric.criteria.map((c) => (
+                                <li
+                                  key={c.id}
+                                  className="text-[13px] text-[#2B2A2A] flex items-baseline gap-1.5"
                                 >
-                                  {f.fileName ?? "File"}
-                                </a>
-                              ) : (
-                                <span className="text-[14px] text-[#2B2A2A]">
-                                  {f.fileName ?? "File"}
-                                </span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
+                                  <span className="h-1.5 w-1.5 rounded-full bg-[#5A7ACD] mt-1" />
+                                  <span>
+                                    <span className="font-medium">
+                                      {c.title ?? "Criterion"}
+                                    </span>
+                                    {c.maxScore != null && (
+                                      <span className="text-gray-500">
+                                        {` — max ${c.maxScore} pts`}
+                                      </span>
+                                    )}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    </section>
+                  )}
+
+                  {/* Simple code viewer from submission files */}
+                  {submission.files && submission.files.length > 0 && (
+                    <section className="bg-[#1e1e1e] rounded-2xl border border-[#2d2d2d] overflow-hidden">
+                      <GradingAssistantCodeViewer
+                        files={submission.files}
+                        language={assignment?.languageName ?? "Code"}
+                      />
+                    </section>
+                  )}
                 </div>
 
-                {saveSuccess && (
-                  <div className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[14px] text-emerald-800">
-                    <CheckCircle className="h-5 w-5 flex-shrink-0 text-emerald-600" strokeWidth={2} />
-                    <span>{saveSuccess}</span>
-                  </div>
-                )}
-
-                {/* Plain grade (marks + feedback) — always shown */}
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6">
-                  <div className="px-6 py-4 border-b border-gray-200">
-                    <h2 className="text-[16px] font-semibold text-[#2B2A2A]">
-                      Grade (overall)
-                    </h2>
-                  </div>
-                  <form onSubmit={handleSaveGrade} className="px-6 py-5 space-y-4">
-                    {saveError && (
-                      <p className="text-[14px] text-red-600">{saveError}</p>
-                    )}
-                    <div>
-                      <label
-                        htmlFor="ga-marks"
-                        className="block text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1"
-                      >
-                        Marks
-                      </label>
-                      <input
-                        id="ga-marks"
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={marks}
-                        onChange={(e) => setMarks(e.target.value)}
-                        className="w-full max-w-[200px] rounded-lg border border-gray-300 px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]"
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="ga-feedback"
-                        className="block text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1"
-                      >
-                        Feedback
-                      </label>
-                      <textarea
-                        id="ga-feedback"
-                        rows={4}
-                        value={feedback}
-                        onChange={(e) => setFeedback(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]"
-                        placeholder="Optional feedback for the student"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={saving}
-                      className="inline-flex items-center gap-2 rounded-lg bg-[#5A7ACD] px-4 py-2 text-[14px] font-medium text-white hover:bg-[#4a6abd] disabled:opacity-60 transition-colors"
-                    >
-                      <Save className="w-4 h-4" strokeWidth={2} />
-                      {saving ? "Saving…" : "Save grade"}
-                    </button>
-                  </form>
+                {/* Right: shared grading panel */}
+                <div>
+                  <SubmissionGradingPanel
+                    header={{
+                      studentName: submission.studentName,
+                      studentEmail: submission.studentEmail,
+                      assignmentName: submission.assignmentName,
+                      courseName: submission.courseName,
+                      submittedAt: submission.submittedAt,
+                      status: submission.status,
+                      currentMarks: submission.marks ?? null,
+                      currentFeedback: submission.feedback ?? null,
+                    }}
+                    files={submission.files}
+                    rubric={
+                      rubric && rubric.criteria
+                        ? {
+                            name: rubric.name ?? assignment?.rubricName ?? null,
+                            criteria: rubric.criteria as RubricCriteriaResponse[],
+                            existingGrades: Object.fromEntries(
+                              Object.entries(gradesByCriteriaId).map(
+                                ([id, g]) => [
+                                  Number(id),
+                                  {
+                                    awardedScore: g.awardedScore,
+                                    feedback: g.feedback ?? null,
+                                  },
+                                ],
+                              ),
+                            ),
+                          }
+                        : null
+                    }
+                    onSaveOverall={handleSaveOverall}
+                    onSaveRubric={
+                      rubric && rubric.criteria && rubric.criteria.length > 0
+                        ? handleSaveRubric
+                        : undefined
+                    }
+                  />
                 </div>
-
-                {/* Rubric criteria grading — when assignment has a rubric */}
-                {rubric?.criteria && rubric.criteria.length > 0 && (
-                  <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-200">
-                      <h2 className="text-[16px] font-semibold text-[#2B2A2A]">
-                        Grade by rubric — {rubric.name ?? "Rubric"}
-                      </h2>
-                    </div>
-                    <form onSubmit={handleSaveRubricGrades} className="px-6 py-5 space-y-5">
-                      {saveError && (
-                        <p className="text-[14px] text-red-600">{saveError}</p>
-                      )}
-                      {rubric.criteria.map((c) => (
-                        <CriterionRow
-                          key={c.id}
-                          criterion={c}
-                          awardedScore={criteriaScores[c.id]?.awardedScore ?? ""}
-                          feedback={criteriaScores[c.id]?.feedback ?? ""}
-                          onScoreChange={(v) => setCriterionScore(c.id, "awardedScore", v)}
-                          onFeedbackChange={(v) => setCriterionScore(c.id, "feedback", v)}
-                        />
-                      ))}
-                      <button
-                        type="submit"
-                        disabled={saving}
-                        className="inline-flex items-center gap-2 rounded-lg bg-[#5A7ACD] px-4 py-2 text-[14px] font-medium text-white hover:bg-[#4a6abd] disabled:opacity-60 transition-colors"
-                      >
-                        <Save className="w-4 h-4" strokeWidth={2} />
-                        {saving ? "Saving…" : "Save rubric grades"}
-                      </button>
-                    </form>
-                  </div>
-                )}
-              </>
+              </div>
             )}
           </div>
         </main>
       }
     />
+  );
+}
+
+interface GradingAssistantCodeViewerProps {
+  files: GradingAssistantSubmissionResponse["files"];
+  language: string;
+}
+
+function GradingAssistantCodeViewer({ files, language }: GradingAssistantCodeViewerProps) {
+  const safeFiles = files ?? [];
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [code, setCode] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const activeFile = safeFiles[selectedIndex];
+
+  useEffect(() => {
+    if (!activeFile?.url) {
+      setCode("");
+      setError(null);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetch(activeFile.url)
+      .then((res) => res.text())
+      .then((text) => {
+        if (!cancelled) {
+          setCode(text);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError("Unable to load file contents.");
+          setCode("");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeFile?.url]);
+
+  const lines = (code || "").split("\n");
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Top bar with language and file selector */}
+      <div className="bg-[#252526] border-b border-[#2d2d2d] px-4 py-2 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <span className="text-[12px] font-medium text-gray-300">
+            {language}
+          </span>
+          {safeFiles.length > 1 && (
+            <select
+              value={String(selectedIndex)}
+              onChange={(e) => setSelectedIndex(Number(e.target.value))}
+              className="bg-[#1e1e1e] border border-[#3a3a3a] rounded px-2 py-1 text-[12px] text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]"
+            >
+              {safeFiles.map((f, index) => (
+                <option key={f.id ?? index} value={index}>
+                  {f.fileName ?? `File ${index + 1}`}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+        <div className="text-[11px] text-gray-500">
+          {loading
+            ? "Loading…"
+            : error
+              ? "Error"
+              : `${lines.length} line${lines.length === 1 ? "" : "s"}`}
+        </div>
+      </div>
+
+      {/* Code area */}
+      <div className="flex-1 overflow-auto">
+        {error ? (
+          <div className="p-4 text-[12px] text-red-400">{error}</div>
+        ) : (
+          <div className="flex">
+            {/* Line numbers */}
+            <div className="bg-[#1e1e1e] text-right pr-4 pl-4 py-4 select-none flex-shrink-0 border-r border-[#2d2d2d]">
+              {lines.map((_, index) => (
+                <div
+                  key={index}
+                  className="text-[13px] leading-[1.6] font-mono text-gray-600"
+                >
+                  {index + 1}
+                </div>
+              ))}
+            </div>
+            {/* Code content */}
+            <div className="flex-1 px-4 py-4">
+              <pre className="text-[13px] leading-[1.6] font-mono text-gray-300">
+                {lines.map((line, index) => (
+                  <div key={index} className="min-h-[1.6em]">
+                    {line || " "}
+                  </div>
+                ))}
+              </pre>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

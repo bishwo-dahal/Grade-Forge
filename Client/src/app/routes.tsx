@@ -18,6 +18,7 @@ import { UniversityLanguagesPage } from "./components/UniversityLanguagesPage";
 import { UniversitySemestersPage } from "./components/UniversitySemestersPage";
 import { FacultyCreateClassPage } from "./components/FacultyCreateClassPage";
 import { FacultyCreateAssignmentPage } from "./components/FacultyCreateAssignmentPage";
+import { FacultyGradingAssignmentDetailPage } from "./components/FacultyGradingAssignmentDetailPage";
 import CompleteStudentRegistrationPage from "./components/CompleteStudentRegistrationPage";
 import {
   FacultyDiscussionsPage,
@@ -38,8 +39,8 @@ import { FacultyRubricDetailPage } from "./components/faculty/rubrics/FacultyRub
 import { FacultyGradingAssistantsPage } from "./components/faculty/gradingAssistants/FacultyGradingAssistantsPage";
 import { GradingAssistantCoursesPage } from "./components/gradingAssistant/GradingAssistantCoursesPage";
 import { GradingAssistantClassPage } from "./components/gradingAssistant/GradingAssistantClassPage";
-import { GradingAssistantAssignmentDetailPage } from "./components/gradingAssistant/GradingAssistantAssignmentDetailPage";
-import { GradingAssistantSubmissionDetailPage } from "./components/gradingAssistant/GradingAssistantSubmissionDetailPage";
+import { GradingAssistantAssignmentDetailPage } from "./components/AssignmentDetailPage";
+import { AssignmentGradingPage } from "./components/AssignmentGradingPage";
 
 export const router = createBrowserRouter([
   {
@@ -92,7 +93,7 @@ export const router = createBrowserRouter([
     path: "/grading-assistant/class/:classId/assignment/:assignmentId/submission/:submissionId",
     element: (
       <ProtectedRoute allowedRoles={["GRADING_ASSISTANT"]}>
-        <GradingAssistantSubmissionDetailPage />
+        <AssignmentGradingPage />
       </ProtectedRoute>
     ),
   },
@@ -284,7 +285,31 @@ export const router = createBrowserRouter([
     path: "/faculty/class/:classId",
     element: (
       <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <Navigate to="./dashboard" replace />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/class/:classId/:section",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
         <FacultyClassPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/class/:classId/assignment/:assignmentId/submission/:submissionId",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <AssignmentGradingPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/class/:classId/assignment/:assignmentId",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyGradingAssignmentDetailPage />
       </ProtectedRoute>
     ),
   },
@@ -308,6 +333,15 @@ export const router = createBrowserRouter([
     path: "/faculty/assignment/:assignmentId",
     element: (
       // NOTE: Faculty uses this route to open assignment details from class-management Assignments tab.
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <AssignmentPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/assignment/:assignmentId/submission/:submissionId",
+    element: (
+      // NOTE: Faculty uses this route when deep-linking directly to a specific submission.
       <ProtectedRoute allowedRoles={["FACULTY"]}>
         <AssignmentPage />
       </ProtectedRoute>

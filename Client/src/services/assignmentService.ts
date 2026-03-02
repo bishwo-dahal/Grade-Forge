@@ -501,6 +501,12 @@ export async function getAssignmentDetailById(id: string): Promise<AssignmentDet
     course: workspaceSource.course.name || workspaceSource.assignment.courseName || "placeholder text",
     courseCode: workspaceSource.course.courseCode || "placeholder text",
     dueDate: formatDueDateTime(workspaceSource.assignment.dueDate),
+    availableFrom: workspaceSource.assignment.availableFrom
+      ? formatDueDateTime(workspaceSource.assignment.availableFrom)
+      : null,
+    lateDueDate: workspaceSource.assignment.lateDueDate
+      ? formatDueDateTime(workspaceSource.assignment.lateDueDate)
+      : null,
     status,
     points: {
       earned: earnedPoints,
@@ -511,6 +517,10 @@ export async function getAssignmentDetailById(id: string): Promise<AssignmentDet
     submissionsAllowed: null,
     language: workspaceSource.assignment.languageName || "placeholder text",
     hasStarterCode: Boolean(workspaceSource.assignment.starterCodeUrl),
+    submissionType: workspaceSource.assignment.submissionType ?? undefined,
+    starterCodeUrl: workspaceSource.assignment.starterCodeUrl ?? undefined,
+    rubricName: workspaceSource.assignment.rubricName ?? undefined,
+    rubricId: workspaceSource.assignment.rubricId ?? undefined,
   };
 }
 

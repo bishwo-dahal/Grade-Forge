@@ -26,7 +26,7 @@ import {
   listFacultyAssignmentSubmissionFiles,
   resolvePreviewLanguage,
   submitFacultySubmissionGrade,
-  submitStudentAssignmentFile,
+  submitStudentAssignmentFiles,
 } from "../../services/submissionService";
 import { getAuthenticatedRole } from "../auth";
 import React from "react";
@@ -50,8 +50,14 @@ function getErrorMessage(error: unknown): string {
 }
 
 export function AssignmentPage() {
-  const { assignmentId } = useParams();
-  const [activeTab, setActiveTab] = useState<TabType>('description');
+  const { assignmentId, submissionId } = useParams();
+  const authenticatedRole = getAuthenticatedRole();
+  const isStudentRole = authenticatedRole === "STUDENT";
+  const isFacultyRole = authenticatedRole === "FACULTY";
+
+  const [activeTab, setActiveTab] = useState<TabType>(
+    isFacultyRole && submissionId ? "results" : "description",
+  );
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submissionFeedback, setSubmissionFeedback] = useState<{ tone: "success" | "error"; text: string } | null>(null);
@@ -67,9 +73,6 @@ export function AssignmentPage() {
   const [facultyPreviewErrorMessage, setFacultyPreviewErrorMessage] = useState<string | null>(null);
   const [editorCodeExamples, setEditorCodeExamples] = useState<EditorCodeExamples>({});
   const [isLoading, setIsLoading] = useState(true);
-  const authenticatedRole = getAuthenticatedRole();
-  const isStudentRole = authenticatedRole === "STUDENT";
-  const isFacultyRole = authenticatedRole === "FACULTY";
 
   const facultySubmissionFileOptions = useMemo(() => {
     if (!isFacultyRole) {
@@ -143,18 +146,18 @@ export function AssignmentPage() {
     return () => window.clearInterval(refreshInterval);
   }, [activeTab, assignmentId, isFacultyRole, loadAssignmentWorkspace]);
 
-  const handleStudentSubmit = async (file: File) => {
+  const handleStudentSubmit = async (files: File[]) => {
     const resolvedId = assignmentId || "1";
-    // NOTE: Clear previous banner state so only the latest submission attempt is shown.
     setSubmissionFeedback(null);
     try {
-      await submitStudentAssignmentFile(resolvedId, file);
-      // NOTE: Submission success changes assignment/result payloads, so cached copies must be cleared before reload.
+      await submitStudentAssignmentFiles(resolvedId, files);
       invalidateAssignmentWorkspaceCache(resolvedId);
       invalidateAssignmentResultCache(resolvedId);
-      // FIX: Reload assignment/result sources after submit so attempts and results tab state are immediately accurate.
       await loadAssignmentWorkspace(resolvedId);
-      setSubmissionFeedback({ tone: "success", text: "File submitted successfully." });
+      setSubmissionFeedback({
+        tone: "success",
+        text: files.length === 1 ? "File submitted successfully." : `${files.length} files submitted successfully.`,
+      });
     } catch (error) {
       setSubmissionFeedback({ tone: "error", text: getErrorMessage(error) });
       throw error;
@@ -179,6 +182,36 @@ export function AssignmentPage() {
     [facultySubmissionFileOptions, assignment?.language],
   );
 
+  const handleFacultyPreviewFromSubmissions = useCallback(
+    async (optionId: string) => {
+      // NOTE: Preview fetching is coordinated by the page container so left/right panes stay loosely coupled.
+      setFacultyPreviewErrorMessage(null);
+      setFacultyPreviewLoadingOptionId(optionId);
+      try {
+        const previewPayload = await requestFacultyEditorPreview(optionId);
+        setFacultyEditorPreviewPayload(previewPayload);
+      } catch (error) {
+        setFacultyPreviewErrorMessage(getErrorMessage(error));
+      } finally {
+        setFacultyPreviewLoadingOptionId(null);
+      }
+    },
+    [requestFacultyEditorPreview],
+  );
+
+  useEffect(() => {
+    if (!isFacultyRole || !submissionId || facultySubmissionFileOptions.length === 0) {
+      return;
+    }
+    const match = facultySubmissionFileOptions.find(
+      (opt) => String(opt.submissionId) === String(submissionId),
+    );
+    if (!match) {
+      return;
+    }
+    void handleFacultyPreviewFromSubmissions(match.optionId);
+  }, [isFacultyRole, submissionId, facultySubmissionFileOptions, handleFacultyPreviewFromSubmissions]);
+
   const handleFacultySubmissionGrade = async (payload: FacultySubmissionGradePayload) => {
     const resolvedId = assignmentId || "1";
     setSubmissionFeedback(null);
@@ -192,20 +225,6 @@ export function AssignmentPage() {
     } catch (error) {
       setSubmissionFeedback({ tone: "error", text: getErrorMessage(error) });
       throw error;
-    }
-  };
-
-  const handleFacultyPreviewFromSubmissions = async (optionId: string) => {
-    // NOTE: Preview fetching is coordinated by the page container so left/right panes stay loosely coupled.
-    setFacultyPreviewErrorMessage(null);
-    setFacultyPreviewLoadingOptionId(optionId);
-    try {
-      const previewPayload = await requestFacultyEditorPreview(optionId);
-      setFacultyEditorPreviewPayload(previewPayload);
-    } catch (error) {
-      setFacultyPreviewErrorMessage(getErrorMessage(error));
-    } finally {
-      setFacultyPreviewLoadingOptionId(null);
     }
   };
 

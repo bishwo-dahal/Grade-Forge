@@ -6,7 +6,7 @@ import { ConsoleDrawer } from "./ConsoleDrawer";
 import { SubmitConfirmModal } from "./SubmitConfirmModal";
 import { EditorTabBar } from "./EditorTabBar";
 import { UnsavedCloseModal } from "./UnsavedCloseModal";
-import { FileTree, buildInitialFileTree, nextNodeId, getDefaultExtension } from "./filetree";
+import { FileTree, buildInitialFileTree, buildFileTreeFromFiles, nextNodeId, nextUntitledFileName, uniqueFileName, getDefaultExtension } from "./filetree";
 import {
   getWorkspaceState,
   setWorkspaceState,
@@ -32,7 +32,7 @@ interface CodeWorkspaceProps {
   };
   codeExamples: EditorCodeExamples;
   onRunTests: () => void;
-  onSubmit: (file: File) => Promise<void> | void;
+  onSubmit: (files: File[]) => Promise<void> | void;
   showUploadControls?: boolean;
   showFacultyGradeControls?: boolean;
   facultySubmissionRows?: FacultyAssignmentSubmissionRow[];
@@ -99,6 +99,7 @@ export function CodeWorkspace({
   const [facultyPreviewLanguage, setFacultyPreviewLanguage] = useState<string | null>(null);
   const [isFacultyEditorReadOnly, setIsFacultyEditorReadOnly] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const addToEditorInputRef = useRef<HTMLInputElement | null>(null);
   const initialCode = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
   const [code, setCode] = useState(initialCode);
 
@@ -114,12 +115,46 @@ export function CodeWorkspace({
   const [hasLoadedPersisted, setHasLoadedPersisted] = useState(false);
   const restoredFromPersistedRef = useRef(false);
   const selectionLockRef = useRef<string | null>(null);
+  const facultyEditorPreviewPayloadRef = useRef(facultyEditorPreviewPayload);
+  facultyEditorPreviewPayloadRef.current = facultyEditorPreviewPayload;
 
-  // Load persisted state for this assignment when assignmentId (or assignment/codeExamples) changes
+  /** Review mode = viewing a submission (faculty/GA). No load/save from IndexedDB. Edit mode = student or editing; use persistence. */
+  const isReviewMode = facultyEditorPreviewPayload != null;
+
+  // Load persisted state for this assignment (edit mode only; review mode never touches IndexedDB)
   useEffect(() => {
     let cancelled = false;
     const starterFileName = `main${getDefaultExtension(assignment.language)}`;
     const initialCode = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
+
+    if (facultyEditorPreviewPayloadRef.current) {
+      // Review mode: initialize from payload only, do not read from IndexedDB
+      const payload = facultyEditorPreviewPayloadRef.current;
+      const files = payload.files && payload.files.length > 0 ? payload.files : null;
+      if (files) {
+        const { nodes: previewNodes, fileContents: previewContents } = buildFileTreeFromFiles(files);
+        const childIds = previewNodes
+          .filter((n) => (n.metadata as { isFolder?: boolean })?.isFolder === false)
+          .map((n) => String(n.id));
+        setTreeState({ nodes: previewNodes, fileContents: previewContents });
+        setOpenTabIds(childIds);
+        setSavedContents(previewContents);
+        setSelectedId(childIds[0] ?? "main");
+        setCode(previewContents[childIds[0] ?? "main"] ?? "");
+      } else {
+        const previewTree = buildInitialFileTree(payload.fileName, payload.content);
+        setTreeState(previewTree);
+        setOpenTabIds(["main"]);
+        setSavedContents({ main: payload.content });
+        setSelectedId("main");
+        setCode(payload.content);
+      }
+      setFacultyPreviewLanguage(payload.language);
+      setIsFacultyEditorReadOnly(true);
+      restoredFromPersistedRef.current = false;
+      setHasLoadedPersisted(true);
+      return;
+    }
 
     getWorkspaceState(assignmentId).then((persisted) => {
       if (cancelled) return;
@@ -136,6 +171,7 @@ export function CodeWorkspace({
         setOpenTabIds(["main"]);
         setSavedContents({ main: initialCode });
         setSelectedId("main");
+        setCode(initialCode);
         restoredFromPersistedRef.current = false;
       }
       setHasLoadedPersisted(true);
@@ -143,11 +179,11 @@ export function CodeWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [assignmentId, assignment.language, codeExamples]);
+  }, [assignmentId, assignment.language, codeExamples, facultyEditorPreviewPayload]);
 
-  // Sync server starter code into main only when we did not restore from persistence
+  // Sync server starter code into main only when we did not restore from persistence and we're not showing faculty preview
   useEffect(() => {
-    if (!hasLoadedPersisted || restoredFromPersistedRef.current) return;
+    if (!hasLoadedPersisted || restoredFromPersistedRef.current || facultyEditorPreviewPayload) return;
     const next = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
     setCode(next);
     setTreeState((prev) => ({
@@ -155,7 +191,7 @@ export function CodeWorkspace({
       fileContents: { ...prev.fileContents, main: next },
     }));
     setSavedContents((prev) => ({ ...prev, main: next }));
-  }, [assignment.language, codeExamples, hasLoadedPersisted]);
+  }, [assignment.language, codeExamples, hasLoadedPersisted, facultyEditorPreviewPayload]);
 
   useEffect(() => {
     // NOTE: Reset faculty preview state when assignment context changes.
@@ -173,14 +209,27 @@ export function CodeWorkspace({
     if (!facultyEditorPreviewPayload) {
       return;
     }
-    // FIX: Apply page-driven submission preview payload so faculty can open files from Submissions tab actions.
-    const previewTree = buildInitialFileTree(facultyEditorPreviewPayload.fileName, facultyEditorPreviewPayload.content);
-    setTreeState(previewTree);
-    setOpenTabIds(["main"]);
-    setSavedContents({ main: facultyEditorPreviewPayload.content });
-    setSelectedId("main");
-    setCode(facultyEditorPreviewPayload.content);
-    setFacultyPreviewLanguage(facultyEditorPreviewPayload.language);
+    const payload = facultyEditorPreviewPayload;
+    const files = payload.files && payload.files.length > 0 ? payload.files : null;
+    if (files) {
+      const { nodes: previewNodes, fileContents: previewContents } = buildFileTreeFromFiles(files);
+      const childIds = previewNodes
+        .filter((n) => (n.metadata as { isFolder?: boolean })?.isFolder === false)
+        .map((n) => String(n.id));
+      setTreeState({ nodes: previewNodes, fileContents: previewContents });
+      setOpenTabIds(childIds);
+      setSavedContents(previewContents);
+      setSelectedId(childIds[0] ?? "main");
+      setCode(previewContents[childIds[0] ?? "main"] ?? "");
+    } else {
+      const previewTree = buildInitialFileTree(payload.fileName, payload.content);
+      setTreeState(previewTree);
+      setOpenTabIds(["main"]);
+      setSavedContents({ main: payload.content });
+      setSelectedId("main");
+      setCode(payload.content);
+    }
+    setFacultyPreviewLanguage(payload.language);
     setIsFacultyEditorReadOnly(true);
   }, [facultyEditorPreviewPayload]);
 
@@ -239,6 +288,7 @@ export function CodeWorkspace({
   };
 
   useEffect(() => {
+    if (isReviewMode) return;
     const next = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
     setCode(next);
     setTreeState((prev) => ({
@@ -246,12 +296,12 @@ export function CodeWorkspace({
       fileContents: { ...prev.fileContents, main: next },
     }));
     setSavedContents((prev) => ({ ...prev, main: next }));
-  }, [assignment.language, codeExamples, hasLoadedPersisted]);
+  }, [assignment.language, codeExamples, hasLoadedPersisted, isReviewMode]);
 
-  // Persist workspace state (debounced)
+  // Persist workspace state (debounced) — edit mode only; review mode never writes to IndexedDB
   const savePayloadRef = useRef<PersistedWorkspaceState | null>(null);
   useEffect(() => {
-    if (!hasLoadedPersisted) return;
+    if (!hasLoadedPersisted || isReviewMode) return;
     const payload: PersistedWorkspaceState = {
       nodes: nodes.map((n) => ({
         id: String(n.id),
@@ -271,7 +321,7 @@ export function CodeWorkspace({
       setWorkspaceState(assignmentId, payload).catch(() => {});
     }, 600);
     return () => clearTimeout(t);
-  }, [assignmentId, hasLoadedPersisted, nodes, fileContents, openTabIds, savedContents, selectedId]);
+  }, [assignmentId, hasLoadedPersisted, isReviewMode, nodes, fileContents, openTabIds, savedContents, selectedId]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -279,12 +329,13 @@ export function CodeWorkspace({
         e.preventDefault();
         e.returnValue = "";
       }
+      if (isReviewMode) return;
       const payload = savePayloadRef.current;
       if (payload) setWorkspaceState(assignmentId, payload).catch(() => {});
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasAnyDirty, assignmentId]);
+  }, [hasAnyDirty, assignmentId, isReviewMode]);
 
   const closeTab = (id: string, dirty?: boolean) => {
     const needConfirm = dirty === undefined ? isDirty(id) : dirty;
@@ -337,6 +388,10 @@ export function CodeWorkspace({
   const onCreateFile = (parentId: string) => {
     const newId = nextNodeId("file", allIds);
     const ext = getDefaultExtension(assignment.language);
+    const existingFileNames = nodes
+      .filter((n) => (n.metadata as { isFolder?: boolean })?.isFolder === false)
+      .map((n) => n.name);
+    const uniqueName = nextUntitledFileName(ext, existingFileNames);
     setNodes((prev) => {
       const next = prev.map((n) =>
         String(n.id) === parentId
@@ -347,7 +402,7 @@ export function CodeWorkspace({
         ...next,
         {
           id: newId,
-          name: `untitled${ext}`,
+          name: uniqueName,
           parent: parentId,
           children: [],
           metadata: { isFolder: false },
@@ -493,30 +548,82 @@ export function CodeWorkspace({
     setSubmissionStatusMessage(null);
   };
 
+  const handleAddFileToEditor = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = event.target.files;
+    event.target.value = "";
+    if (!fileList?.length) return;
+    const files = Array.from(fileList).filter((f) => !validateSubmissionFile(f));
+    if (!files.length) return;
+    const contents = await Promise.all(
+      files.map(
+        (f) =>
+          new Promise<string>((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(String(r.result ?? ""));
+            r.onerror = () => rej(r.error);
+            r.readAsText(f);
+          })
+      )
+    );
+    const projectId = "project";
+    let ids = [...allIds];
+    const newIds: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      newIds.push(nextNodeId("file", ids));
+      ids = [...ids, newIds[newIds.length - 1]];
+    }
+    const existingFileNames = nodes
+      .filter((n) => (n.metadata as { isFolder?: boolean })?.isFolder === false)
+      .map((n) => n.name);
+    const namesToUse: string[] = [];
+    let currentExisting = [...existingFileNames];
+    for (const f of files) {
+      const uniqueName = uniqueFileName(f.name, currentExisting);
+      namesToUse.push(uniqueName);
+      currentExisting.push(uniqueName);
+    }
+    const newNodes: FileTreeNode[] = files.map((f, i) => ({
+      id: newIds[i],
+      name: namesToUse[i],
+      parent: projectId,
+      children: [] as string[],
+      metadata: { isFolder: false },
+    }));
+    setNodes((prev) => {
+      const next = prev.map((n) =>
+        String(n.id) === projectId
+          ? { ...n, children: [...(n.children || []), ...newIds], isBranch: true }
+          : n
+      );
+      return [...next, ...newNodes];
+    });
+    const newContents = Object.fromEntries(newIds.map((id, i) => [id, contents[i]]));
+    setFileContents((prev) => ({ ...prev, ...newContents }));
+    setSavedContents((prev) => ({ ...prev, ...newContents }));
+    setOpenTabIds((prev) => [...new Set([...prev, ...newIds])]);
+    setSelectedId(newIds[newIds.length - 1] ?? null);
+  };
+
   const confirmSubmit = async () => {
     if (isSubmitting) {
       return;
     }
-    const fileToSubmit = selectedSubmissionFile
-      ?? (editorSubmissionCandidate
-        ? new File([editorSubmissionCandidate.content], editorSubmissionCandidate.fileName, {
-            type: getSubmissionMimeType(editorSubmissionCandidate.fileName),
-          })
-        : null);
-    if (!fileToSubmit) {
+    const filesToSubmit: File[] = selectedSubmissionFile
+      ? [selectedSubmissionFile]
+      : editorSubmissionFiles.map(({ fileName, content }) =>
+          new File([content], fileName, { type: getSubmissionMimeType(fileName) })
+        );
+    if (!filesToSubmit.length) {
       setSubmitModalError("Upload a .py/.java file or add code in the editor before submitting.");
       return;
     }
     setSubmitModalError(null);
     setIsSubmitting(true);
     try {
-      // NOTE: Parent page owns API call and status refresh; workspace only forwards upload file or generated editor file.
-      await onSubmit(fileToSubmit);
+      await onSubmit(filesToSubmit);
       setShowSubmitModal(false);
-      // FIX: Success message is shown only after backend confirms persistence.
       setSubmissionStatusMessage("Submitted successfully.");
     } catch (error) {
-      // NOTE: Keep modal open and selected file for retry when API save fails.
       setSubmitModalError(getErrorMessage(error));
     } finally {
       setIsSubmitting(false);
@@ -580,146 +687,79 @@ export function CodeWorkspace({
     }
   };
 
-  const editorSubmissionCandidate = useMemo(() => {
+  const editorSubmissionFiles = useMemo(() => {
+    const list: { fileName: string; content: string }[] = [];
+    const seen = new Set<string>();
     const candidateIds = [
       ...(selectedId ? [selectedId] : []),
       "main",
       ...Object.keys(fileContents),
-    ].filter((value, index, list) => list.indexOf(value) === index);
-
+    ];
     for (const candidateId of candidateIds) {
-      const candidateContent = fileContents[candidateId] ?? "";
-      if (!candidateContent.trim()) {
-        continue;
-      }
-
+      if (seen.has(candidateId)) continue;
+      seen.add(candidateId);
+      const content = fileContents[candidateId] ?? "";
+      if (!content.trim()) continue;
       const rawFileName = getNodeName(candidateId);
-      const hasSupportedExtension = rawFileName.toLowerCase().endsWith(".py") || rawFileName.toLowerCase().endsWith(".java");
-      // NOTE: Editor submissions must still produce backend-compatible source filenames.
+      const hasSupportedExtension =
+        rawFileName.toLowerCase().endsWith(".py") || rawFileName.toLowerCase().endsWith(".java");
       const fileName = hasSupportedExtension ? rawFileName : `main${getDefaultExtension(assignment.language)}`;
-      return { fileName, content: candidateContent };
+      list.push({ fileName, content });
     }
-
-    return null;
+    return list;
   }, [assignment.language, fileContents, nodes, selectedId]);
 
-  const canSubmitFromEditor = Boolean(editorSubmissionCandidate);
+  const canSubmitFromEditor = editorSubmissionFiles.length > 0;
   const canSubmit = Boolean(selectedSubmissionFile) || canSubmitFromEditor;
+
+  const workspaceStatus = useMemo(() => {
+    if (showUploadControls && submissionFileError) return { message: submissionFileError, type: 'error' as const };
+    if (showUploadControls && submissionStatusMessage) return { message: submissionStatusMessage, type: 'success' as const };
+    if (showFacultyGradeControls && facultyGradeStatusMessage) return { message: facultyGradeStatusMessage, type: 'success' as const };
+    if (isFacultyEditorReadOnly) return { message: 'Read-only — viewing submission.', type: 'info' as const };
+    if (showUploadControls && !selectedSubmissionFile && canSubmitFromEditor) {
+      const text = editorSubmissionFiles.length === 1
+        ? `Submitting editor file as ${editorSubmissionFiles[0].fileName}`
+        : `Submitting editor files (${editorSubmissionFiles.length} files)`;
+      return { message: text, type: 'info' as const };
+    }
+    return { message: null, type: 'info' as const };
+  }, [
+    showUploadControls,
+    submissionFileError,
+    submissionStatusMessage,
+    showFacultyGradeControls,
+    facultyGradeStatusMessage,
+    isFacultyEditorReadOnly,
+    selectedSubmissionFile,
+    canSubmitFromEditor,
+    editorSubmissionFiles,
+  ]);
 
   return (
     <div className="flex flex-col h-full">
-      {/* Top Bar */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex-shrink-0">
-        <div className="flex items-center justify-between gap-4">
-          {/* Left Side - Language Display */}
-          <div className="flex items-center gap-3">
-            <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-gray-500 font-medium">Language:</span>
-                <span className="text-[13px] text-[#2B2A2A] font-semibold">{assignment.language}</span>
-              </div>
-            </div>
+      {/* Hidden inputs for upload flows */}
+      {!isReviewMode ? (
+        <input
+          ref={addToEditorInputRef}
+          type="file"
+          accept=".py,.java"
+          multiple
+          className="hidden"
+          onChange={handleAddFileToEditor}
+        />
+      ) : null}
+      {showUploadControls ? (
+        <input
+          ref={uploadInputRef}
+          type="file"
+          accept=".py,.java"
+          className="hidden"
+          onChange={handleFileSelection}
+        />
+      ) : null}
 
-            {/* Auto-save Indicator / Save all */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleSaveAll}
-                disabled={!hasAnyDirty}
-                className="flex items-center gap-1.5 text-[12px] text-gray-500 hover:text-[#2B2A2A] disabled:opacity-50 disabled:pointer-events-none"
-              >
-                <Save className="w-3.5 h-3.5" strokeWidth={2} />
-                <span>Save all</span>
-              </button>
-              <span className="text-[11px] text-gray-400">
-                {hasAnyDirty ? "Unsaved changes" : "Saved"}
-              </span>
-            </div>
-          </div>
-
-          {/* Right Side - Action Buttons */}
-          <div className="flex items-center gap-2">
-            {assignment.hasStarterCode && (
-              <button className="px-3 py-1.5 text-[12px] text-gray-600 hover:text-[#2B2A2A] hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-1.5">
-                <RotateCcw className="w-3.5 h-3.5" strokeWidth={2} />
-                <span className="hidden sm:inline">Reset</span>
-              </button>
-            )}
-            
-            <button 
-              onClick={handleRunTests}
-              className="px-4 py-2 bg-[#5A7ACD] hover:bg-[#4a6abd] text-white rounded-lg text-[13px] font-medium transition-colors flex items-center gap-2"
-            >
-              <Play className="w-4 h-4" strokeWidth={2} />
-              <span>Run Tests</span>
-            </button>
-
-            {showFacultyGradeControls ? (
-              <button
-                onClick={openFacultyGradeModal}
-                className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors flex items-center gap-2"
-              >
-                <CheckSquare className="w-4 h-4" strokeWidth={2} />
-                <span>Grade</span>
-              </button>
-            ) : null}
-
-            {showUploadControls ? (
-              <>
-                <input
-                  ref={uploadInputRef}
-                  type="file"
-                  accept=".py,.java"
-                  className="hidden"
-                  onChange={handleFileSelection}
-                />
-                <button
-                  onClick={handleFilePickerOpen}
-                  className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors flex items-center gap-2"
-                >
-                  <Upload className="w-4 h-4" strokeWidth={2} />
-                  <span>Upload from computer</span>
-                </button>
-                {selectedSubmissionFile ? (
-                  <span className="max-w-[220px] truncate text-[12px] text-gray-600" title={selectedSubmissionFile.name}>
-                    {selectedSubmissionFile.name}
-                  </span>
-                ) : null}
-                <button
-                  onClick={handleSubmit}
-                  disabled={!canSubmit || isSubmitting}
-                  className="px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] disabled:bg-[#7E7D7D] disabled:cursor-not-allowed text-white rounded-lg text-[13px] font-medium transition-colors flex items-center gap-2"
-                >
-                  <Send className="w-4 h-4" strokeWidth={2} />
-                  <span>{isSubmitting ? "Submitting..." : "Submit"}</span>
-                </button>
-              </>
-            ) : null}
-          </div>
-        </div>
-        {showUploadControls && !selectedSubmissionFile && canSubmitFromEditor ? (
-          <p className="mt-2 text-[12px] text-[#5D6A80]">
-            {/* NOTE: If no upload is selected, submit packages the current editor code as a source file. */}
-            No file uploaded. Your editor code will be submitted as {editorSubmissionCandidate?.fileName}.
-          </p>
-        ) : null}
-        {showUploadControls && (submissionFileError || submissionStatusMessage) ? (
-          <p className={`mt-2 text-[12px] ${submissionFileError ? "text-[#C23A42]" : "text-[#1E7A3F]"}`}>
-            {submissionFileError ?? submissionStatusMessage}
-          </p>
-        ) : null}
-        {isFacultyEditorReadOnly ? (
-          <p className="mt-2 text-[12px] text-[#5D6A80]">
-            {/* NOTE: Faculty preview opens submissions in read-only mode to prevent accidental edits during review. */}
-            Viewing selected submission in read-only editor mode.
-          </p>
-        ) : null}
-        {showFacultyGradeControls && facultyGradeStatusMessage ? (
-          <p className="mt-2 text-[12px] text-[#1E7A3F]">{facultyGradeStatusMessage}</p>
-        ) : null}
-      </div>
-
-      {/* Resizable Editor and Console */}
+      {/* Resizable Editor and Console - no separate top bar; toolbar lives inside editor */}
       <div className="flex-1 overflow-hidden">
         <PanelGroup direction="horizontal">
           <Panel defaultSize={18} minSize={12} maxSize={35}>
@@ -729,6 +769,7 @@ export function CodeWorkspace({
               onSelect={handleSelectFile}
               protectedFileIds={assignment.hasStarterCode ? ["main"] : []}
               onCreateFile={onCreateFile}
+              onUploadFile={!isReviewMode ? () => addToEditorInputRef.current?.click() : undefined}
               onCreateFolder={onCreateFolder}
               onRename={onRename}
               onDelete={onDelete}
@@ -741,6 +782,76 @@ export function CodeWorkspace({
               {/* Editor Panel */}
               <Panel defaultSize={70} minSize={30}>
                 <div className="h-full flex flex-col overflow-hidden bg-[#1e1e1e]">
+                  {/* Editor toolbar - language, save, run, actions (dark theme) */}
+                  <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-2 bg-[#252526] border-b border-[#3c3c3c]">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-gray-500 uppercase tracking-wide">Language</span>
+                      <span className="text-[13px] font-medium text-gray-200">
+                        {facultyPreviewLanguage ?? assignment.language}
+                      </span>
+                      <span className="text-gray-600">·</span>
+                      <button
+                        type="button"
+                        onClick={handleSaveAll}
+                        disabled={!hasAnyDirty}
+                        className="flex items-center gap-1.5 text-[12px] text-gray-400 hover:text-gray-200 disabled:opacity-50 disabled:pointer-events-none"
+                      >
+                        <Save className="w-3.5 h-3.5" strokeWidth={2} />
+                        <span>Save all</span>
+                      </button>
+                      <span className="text-[11px] text-gray-500">
+                        {hasAnyDirty ? "Unsaved" : "Saved"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {assignment.hasStarterCode && (
+                        <button className="px-2 py-1.5 text-[12px] text-gray-400 hover:text-gray-200 hover:bg-[#3c3c3c] rounded transition-colors flex items-center gap-1.5">
+                          <RotateCcw className="w-3.5 h-3.5" strokeWidth={2} />
+                          <span className="hidden sm:inline">Reset</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={handleRunTests}
+                        className="px-3 py-1.5 text-[12px] text-gray-300 hover:text-white hover:bg-[#3c3c3c] rounded transition-colors flex items-center gap-1.5 border border-[#3c3c3c]"
+                      >
+                        <Play className="w-3.5 h-3.5" strokeWidth={2} />
+                        <span>Run Tests</span>
+                      </button>
+                      {showFacultyGradeControls && (
+                        <button
+                          onClick={openFacultyGradeModal}
+                          className="px-3 py-1.5 text-[12px] text-gray-300 hover:text-white hover:bg-[#3c3c3c] rounded transition-colors flex items-center gap-1.5 border border-[#3c3c3c]"
+                        >
+                          <CheckSquare className="w-3.5 h-3.5" strokeWidth={2} />
+                          <span>Grade</span>
+                        </button>
+                      )}
+                      {showUploadControls && (
+                        <>
+                          <button
+                            onClick={handleFilePickerOpen}
+                            className="px-3 py-1.5 text-[12px] text-gray-300 hover:text-white hover:bg-[#3c3c3c] rounded transition-colors flex items-center gap-1.5 border border-[#3c3c3c]"
+                          >
+                            <Upload className="w-3.5 h-3.5" strokeWidth={2} />
+                            <span className="hidden sm:inline">Upload</span>
+                          </button>
+                          {selectedSubmissionFile && (
+                            <span className="max-w-[160px] truncate text-[11px] text-gray-500" title={selectedSubmissionFile.name}>
+                              {selectedSubmissionFile.name}
+                            </span>
+                          )}
+                          <button
+                            onClick={handleSubmit}
+                            disabled={!canSubmit || isSubmitting}
+                            className="px-3 py-1.5 bg-[#2B2A2A] hover:bg-[#3a3939] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded text-[12px] font-medium transition-colors flex items-center gap-1.5"
+                          >
+                            <Send className="w-3.5 h-3.5" strokeWidth={2} />
+                            <span>{isSubmitting ? "Submitting…" : "Submit"}</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
                   <EditorTabBar
                     tabs={openTabIds.map((id) => ({
                       id,
@@ -774,11 +885,13 @@ export function CodeWorkspace({
           {/* Console Panel */}
           <Panel defaultSize={30} minSize={15}>
             <div className="h-full overflow-hidden">
-              <ConsoleDrawer 
+              <ConsoleDrawer
                 output={consoleOutput}
                 lastRunTime={lastRunTime}
                 language={assignment.language}
                 cursorPosition={cursorPosition}
+                statusMessage={workspaceStatus.message}
+                statusMessageType={workspaceStatus.type}
               />
             </div>
           </Panel>

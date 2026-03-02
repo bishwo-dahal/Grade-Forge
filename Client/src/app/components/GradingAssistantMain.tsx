@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router";
 import type { GradingAssistantCourseResponse } from "../../types/gradingAssistantCourse";
 import { listGradingAssistantCourses } from "../../services/gradingAssistantCourseService";
+import { GradingAssistantCourseCard } from "./gradingAssistant/GradingAssistantCourseCard";
 
 export function GradingAssistantMain() {
   const [courses, setCourses] = useState<GradingAssistantCourseResponse[]>([]);
@@ -16,7 +17,7 @@ export function GradingAssistantMain() {
 
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
-      <div className="p-8">
+      <div className="max-w-7xl mx-auto px-8 py-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-[#2B2A2A]">My Assigned Courses</h2>
           <Link
@@ -27,7 +28,7 @@ export function GradingAssistantMain() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {isLoading
             ? Array.from({ length: 3 }).map((_, index) => (
                 <div
@@ -49,39 +50,7 @@ export function GradingAssistantMain() {
                 </div>
               ))
             : courses.slice(0, 6).map((course) => (
-                <Link
-                  key={course.id}
-                  to={`/grading-assistant/class/${course.id}`}
-                  className="block bg-white rounded-2xl p-6 border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all"
-                >
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 bg-[#EEF3FF] rounded-xl flex items-center justify-center text-[#5A7ACD] flex-shrink-0">
-                      <span className="text-lg font-semibold">
-                        {(course.courseCode || course.name).slice(0, 2).toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[11px] text-gray-500 uppercase tracking-wide mb-1">
-                        {course.courseCode}
-                        {course.section ? ` · ${course.section}` : ""}
-                      </div>
-                      <h3 className="text-[14px] font-semibold text-[#2B2A2A] leading-snug line-clamp-2">
-                        {course.name}
-                      </h3>
-                    </div>
-                  </div>
-                  {course.faculty && (
-                    <p className="text-[12px] text-gray-600">
-                      Instructor: {course.faculty.name}
-                    </p>
-                  )}
-                  {course.semester && (
-                    <p className="text-[12px] text-gray-500 mt-0.5">{course.semester.name}</p>
-                  )}
-                  <div className="mt-5 w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors text-center">
-                    View Course
-                  </div>
-                </Link>
+                <GradingAssistantCourseCard key={course.id} course={course} />
               ))}
         </div>
         {!isLoading && courses.length === 0 && (

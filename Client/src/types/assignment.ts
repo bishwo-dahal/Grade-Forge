@@ -8,6 +8,10 @@ export interface AssignmentDetail {
   course: string;
   courseCode: string;
   dueDate: string;
+  /** Formatted available-from datetime, or null if not set. */
+  availableFrom?: string | null;
+  /** Formatted late-due datetime, or null if not set. */
+  lateDueDate?: string | null;
   status: AssignmentStatus;
   points: {
     earned: number | null;
@@ -17,6 +21,10 @@ export interface AssignmentDetail {
   submissionsAllowed: number | null;
   language: string;
   hasStarterCode: boolean;
+  submissionType?: string;
+  starterCodeUrl?: string | null;
+  rubricName?: string | null;
+  rubricId?: number | null;
 }
 
 export interface AssignmentSummary {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useNavigate } from "react-router";
 import { 
   Settings, 
   ChevronLeft, 
@@ -62,8 +62,23 @@ import type { GradingAssistantResponse } from "../../types/gradingAssistant";
 import type { CourseAssistantResponse } from "../../types/courseAssistant";
 import { SegmentedFilter } from "./ui/SegmentedFilter";
 
-type SectionType = 'dashboard' | 'assignments' | 'submissions' | 'grades' | 'students' | 'assistants' | 'groups' | 'settings';
+const SECTION_PATH_SEGMENTS = [
+  "dashboard",
+  "assignments",
+  "submissions",
+  "grades",
+  "students",
+  "assistants",
+  "groups",
+  "settings",
+] as const;
+
+type SectionType = (typeof SECTION_PATH_SEGMENTS)[number];
 type RosterFilter = "all" | "active" | "inactive" | "unassigned";
+
+function isValidSection(segment: string | undefined): segment is SectionType {
+  return segment != null && SECTION_PATH_SEGMENTS.includes(segment as SectionType);
+}
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
@@ -79,10 +94,19 @@ function getErrorMessage(error: unknown): string {
 }
 
 export function FacultyClassPage() {
-  const { classId } = useParams();
-  const [activeSection, setActiveSection] = useState<SectionType>('dashboard');
+  const { classId, section: sectionParam } = useParams();
+  const navigate = useNavigate();
+  const resolvedClassId = classId ?? "1";
+  const activeSection: SectionType = isValidSection(sectionParam) ? sectionParam : "dashboard";
   const [submissionBadgeCount, setSubmissionBadgeCount] = useState(0);
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+
+  // Redirect invalid section to dashboard
+  useEffect(() => {
+    if (sectionParam != null && !isValidSection(sectionParam)) {
+      navigate(`/faculty/class/${resolvedClassId}/dashboard`, { replace: true });
+    }
+  }, [sectionParam, resolvedClassId, navigate]);
 
   // NOTE: Class header data now comes from backend-driven service mapping.
   const [classHeader, setClassHeader] = useState<ClassHeader | null>(null);
@@ -135,58 +159,57 @@ export function FacultyClassPage() {
             </Link>
           </div>
 
-          {/* Navigation Menu */}
+          {/* Navigation Menu - each item has its own route */}
           <nav className="flex-1 px-3 py-4 overflow-y-auto">
             <ul className="space-y-1">
               <NavItem
                 icon={<LayoutDashboard className="w-4 h-4" strokeWidth={2} />}
                 label="Dashboard"
-                active={activeSection === 'dashboard'}
-                onClick={() => setActiveSection('dashboard')}
+                active={activeSection === "dashboard"}
+                to={`/faculty/class/${resolvedClassId}/dashboard`}
               />
               <NavItem
                 icon={<FileText className="w-4 h-4" strokeWidth={2} />}
                 label="Assignments"
-                active={activeSection === 'assignments'}
-                onClick={() => setActiveSection('assignments')}
+                active={activeSection === "assignments"}
+                to={`/faculty/class/${resolvedClassId}/assignments`}
               />
               <NavItem
                 icon={<Send className="w-4 h-4" strokeWidth={2} />}
                 label="Submissions"
-                active={activeSection === 'submissions'}
-                onClick={() => setActiveSection('submissions')}
+                active={activeSection === "submissions"}
+                to={`/faculty/class/${resolvedClassId}/submissions`}
                 badge={submissionBadgeCount > 0 ? submissionBadgeCount : undefined}
               />
               <NavItem
                 icon={<BarChart3 className="w-4 h-4" strokeWidth={2} />}
                 label="Grades"
-                active={activeSection === 'grades'}
-                onClick={() => setActiveSection('grades')}
+                active={activeSection === "grades"}
+                to={`/faculty/class/${resolvedClassId}/grades`}
               />
               <NavItem
                 icon={<Users className="w-4 h-4" strokeWidth={2} />}
                 label="Students"
-                active={activeSection === 'students'}
-                onClick={() => setActiveSection('students')}
+                active={activeSection === "students"}
+                to={`/faculty/class/${resolvedClassId}/students`}
               />
               <NavItem
                 icon={<UserPlus className="w-4 h-4" strokeWidth={2} />}
                 label="Grading Assistants"
-                active={activeSection === 'assistants'}
-                onClick={() => setActiveSection('assistants')}
+                active={activeSection === "assistants"}
+                to={`/faculty/class/${resolvedClassId}/assistants`}
               />
               <NavItem
                 icon={<UsersRound className="w-4 h-4" strokeWidth={2} />}
                 label="Groups"
-                active={activeSection === 'groups'}
-                onClick={() => setActiveSection('groups')}
+                active={activeSection === "groups"}
+                to={`/faculty/class/${resolvedClassId}/groups`}
               />
-              {/* CLEANUP: Removed Rubrics/Tests/Integrity/Announcements tabs from faculty class navigation per scope update. */}
               <NavItem
                 icon={<Settings className="w-4 h-4" strokeWidth={2} />}
                 label="Settings"
-                active={activeSection === 'settings'}
-                onClick={() => setActiveSection('settings')}
+                active={activeSection === "settings"}
+                to={`/faculty/class/${resolvedClassId}/settings`}
               />
             </ul>
           </nav>
@@ -260,28 +283,28 @@ export function FacultyClassPage() {
   );
 }
 
-// Navigation Item Component
-function NavItem({ 
-  icon, 
-  label, 
-  active, 
-  onClick,
-  badge 
-}: { 
-  icon: React.ReactNode; 
-  label: string; 
-  active: boolean; 
-  onClick: () => void;
+// Navigation Item Component - links to section route
+function NavItem({
+  icon,
+  label,
+  active,
+  to,
+  badge,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  to: string;
   badge?: number;
 }) {
   return (
     <li>
-      <button
-        onClick={onClick}
+      <Link
+        to={to}
         className={`
           w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors
-          ${active 
-            ? 'bg-[#5A7ACD] text-white' 
+          ${active
+            ? 'bg-[#5A7ACD] text-white'
             : 'text-gray-700 hover:bg-gray-100'
           }
         `}
@@ -298,7 +321,7 @@ function NavItem({
             {badge}
           </span>
         )}
-      </button>
+      </Link>
     </li>
   );
 }
@@ -539,8 +562,7 @@ function AssignmentsSection() {
                         className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
                       />
                       <Link
-                        // FIX: Faculty assignment names now navigate to a faculty-accessible assignment page.
-                        to={`/faculty/assignment/${assignment.id}`}
+                        to={`/faculty/class/${resolvedClassId}/assignment/${assignment.id}`}
                         className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
                       >
                         {assignment.name}
@@ -575,8 +597,8 @@ function AssignmentsSection() {
                     <div className="flex items-center justify-end gap-2">
                       {/* Accessibility: icon-only action buttons need labels for screen readers. */}
                       <Link
-                        aria-label="Edit assignment"
-                        to={`/faculty/assignment/${assignment.id}`}
+                        aria-label="Open assignment detail"
+                        to={`/faculty/class/${resolvedClassId}/assignment/${assignment.id}`}
                         className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
                       >
                         <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
@@ -714,8 +736,7 @@ function SubmissionsSection() {
                 >
                   <td className="px-6 py-4">
                     <Link
-                      // NOTE: Student name also links to assignment so clicking a submission row detail opens the workspace.
-                      to={`/faculty/assignment/${submission.assignmentId}`}
+                      to={`/faculty/class/${classId || "1"}/assignment/${submission.assignmentId}/submission/${submission.id}`}
                       className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
                     >
                       {submission.student}
@@ -723,8 +744,7 @@ function SubmissionsSection() {
                   </td>
                   <td className="px-6 py-4">
                     <Link
-                      // FIX: Faculty can now open assignment workspace directly from each submissions-table row.
-                      to={`/faculty/assignment/${submission.assignmentId}`}
+                      to={`/faculty/class/${classId || "1"}/assignment/${submission.assignmentId}/submission/${submission.id}`}
                       className="text-[13px] text-gray-600 hover:text-[#5A7ACD] transition-colors"
                     >
                       {submission.assignment}
@@ -788,9 +808,8 @@ function SubmissionsSection() {
                         </button>
                       )}
                       <Link
-                        // FIX: "Edit submission" now opens the target assignment page from faculty submissions list.
-                        to={`/faculty/assignment/${submission.assignmentId}`}
-                        aria-label="Open assignment"
+                        to={`/faculty/class/${classId || "1"}/assignment/${submission.assignmentId}/submission/${submission.id}`}
+                        aria-label="Open submission in workspace"
                         className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
                       >
                         <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
