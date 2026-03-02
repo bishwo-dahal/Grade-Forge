@@ -18,6 +18,9 @@ export interface GradingAssistantSubmissionResponse {
 export interface SubmissionFileResponse {
   id?: number;
   fileName?: string;
+  /** Backend sends downloadUrl; we map it for the table. */
+  downloadUrl?: string | null;
+  /** Legacy/alternate key; prefer downloadUrl. */
   url?: string;
   [key: string]: unknown;
 }

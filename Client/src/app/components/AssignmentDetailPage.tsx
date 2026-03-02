@@ -531,7 +531,7 @@ function mapGASubmissions(
       marks: s.marks ?? null,
       primaryFileName: primary?.fileName ?? null,
       additionalFileCount: Math.max(0, files.length - 1),
-      primaryDownloadUrl: primary?.url ?? null,
+      primaryDownloadUrl: primary?.downloadUrl ?? primary?.url ?? null,
     };
   });
 }
