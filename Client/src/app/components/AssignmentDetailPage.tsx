@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import JSZip from "jszip";
 import {
   ChevronLeft,
   Download,
+  DownloadCloud,
   FileText,
   Filter,
   Inbox,
@@ -63,6 +65,8 @@ export interface AssignmentDetailPageSubmissionRow {
   primaryFileName: string | null;
   additionalFileCount: number;
   primaryDownloadUrl: string | null;
+  /** All files for this submission; used for "Download all" (zip by student). */
+  files?: { fileName: string; downloadUrl: string }[];
 }
 
 export interface AssignmentDetailPageProps {
@@ -91,6 +95,53 @@ export function AssignmentDetailPage({
   onRefreshSubmissions,
   submissionsSectionSubtitle = "Review and grade student submissions for this assignment.",
 }: AssignmentDetailPageProps) {
+  const [downloadAllLoading, setDownloadAllLoading] = useState(false);
+
+  const canDownloadAll = useMemo(() => {
+    if (!submissions.length) return false;
+    return submissions.some((row) => row.files && row.files.length > 0);
+  }, [submissions]);
+
+  const sanitizeFolderName = useCallback((name: string, submissionId: string): string => {
+    const sanitized = name
+      .replace(/[/\\:*?"<>|]/g, "_")
+      .replace(/\s+/g, " ")
+      .trim();
+    return sanitized || `Student_${submissionId}`;
+  }, []);
+
+  const handleDownloadAll = useCallback(async () => {
+    if (!canDownloadAll || downloadAllLoading) return;
+    const rowsWithFiles = submissions.filter((row) => row.files && row.files.length > 0);
+    if (!rowsWithFiles.length) return;
+    setDownloadAllLoading(true);
+    try {
+      const zip = new JSZip();
+      for (const row of rowsWithFiles) {
+        const folderName = sanitizeFolderName(row.studentName, row.submissionId);
+        for (const file of row.files!) {
+          try {
+            const res = await fetch(file.downloadUrl);
+            if (!res.ok) continue;
+            const blob = await res.blob();
+            zip.file(`${folderName}/${file.fileName}`, blob);
+          } catch {
+            // Skip file on fetch error
+          }
+        }
+      }
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = assignment?.title ? `submissions-${assignment.title.replace(/[/\\:*?"<>|]/g, "_")}.zip` : "submissions.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloadAllLoading(false);
+    }
+  }, [canDownloadAll, downloadAllLoading, submissions, sanitizeFolderName, assignment?.title]);
+
   if (loading) {
     return (
       <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
@@ -285,6 +336,16 @@ export function AssignmentDetailPage({
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadAll}
+                disabled={!canDownloadAll || downloadAllLoading || submissionsLoading}
+                title={canDownloadAll ? "Download all submissions as a ZIP (one folder per student)" : "No submissions with files to download"}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#5A7ACD] text-white rounded-lg text-[12px] font-medium hover:bg-[#4a6abd] disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <DownloadCloud className={`w-4 h-4 ${downloadAllLoading ? "animate-pulse" : ""}`} strokeWidth={2} />
+                <span>{downloadAllLoading ? "Preparing…" : "Download all"}</span>
+              </button>
               <button
                 type="button"
                 onClick={onRefreshSubmissions}
@@ -522,6 +583,12 @@ function mapGASubmissions(
   return list.map((s) => {
     const files = s.files ?? [];
     const primary = files[0];
+    const filesWithUrls = files
+      .map((f) => ({
+        fileName: f.fileName ?? "file",
+        downloadUrl: f.downloadUrl ?? f.url ?? "",
+      }))
+      .filter((f) => Boolean(f.downloadUrl));
     const status = s.marks == null ? "Ungraded" : "Graded";
     return {
       submissionId: String(s.id),
@@ -532,6 +599,7 @@ function mapGASubmissions(
       primaryFileName: primary?.fileName ?? null,
       additionalFileCount: Math.max(0, files.length - 1),
       primaryDownloadUrl: primary?.downloadUrl ?? primary?.url ?? null,
+      files: filesWithUrls.length > 0 ? filesWithUrls : undefined,
     };
   });
 }

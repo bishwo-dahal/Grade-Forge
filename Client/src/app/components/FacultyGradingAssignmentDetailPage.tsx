@@ -71,6 +71,9 @@ function mapToSubmissionRows(rows: FacultyAssignmentSubmissionRow[]): Assignment
   return rows.map((row) => {
     const files = row.files ?? [];
     const primary = files[0];
+    const filesWithUrls = files
+      .filter((f): f is typeof f & { downloadUrl: string } => Boolean(f.downloadUrl))
+      .map((f) => ({ fileName: f.fileName, downloadUrl: f.downloadUrl }));
     return {
       submissionId: row.submissionId,
       studentName: row.studentName,
@@ -80,6 +83,7 @@ function mapToSubmissionRows(rows: FacultyAssignmentSubmissionRow[]): Assignment
       primaryFileName: primary?.fileName ?? null,
       additionalFileCount: Math.max(0, files.length - 1),
       primaryDownloadUrl: primary?.downloadUrl ?? null,
+      files: filesWithUrls.length > 0 ? filesWithUrls : undefined,
     };
   });
 }
