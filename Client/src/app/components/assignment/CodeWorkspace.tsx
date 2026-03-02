@@ -114,12 +114,33 @@ export function CodeWorkspace({
   const [hasLoadedPersisted, setHasLoadedPersisted] = useState(false);
   const restoredFromPersistedRef = useRef(false);
   const selectionLockRef = useRef<string | null>(null);
+  const facultyEditorPreviewPayloadRef = useRef(facultyEditorPreviewPayload);
+  facultyEditorPreviewPayloadRef.current = facultyEditorPreviewPayload;
 
-  // Load persisted state for this assignment when assignmentId (or assignment/codeExamples) changes
+  /** Review mode = viewing a submission (faculty/GA). No load/save from IndexedDB. Edit mode = student or editing; use persistence. */
+  const isReviewMode = facultyEditorPreviewPayload != null;
+
+  // Load persisted state for this assignment (edit mode only; review mode never touches IndexedDB)
   useEffect(() => {
     let cancelled = false;
     const starterFileName = `main${getDefaultExtension(assignment.language)}`;
     const initialCode = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
+
+    if (facultyEditorPreviewPayloadRef.current) {
+      // Review mode: initialize from payload only, do not read from IndexedDB
+      const payload = facultyEditorPreviewPayloadRef.current;
+      const previewTree = buildInitialFileTree(payload.fileName, payload.content);
+      setTreeState(previewTree);
+      setOpenTabIds(["main"]);
+      setSavedContents({ main: payload.content });
+      setSelectedId("main");
+      setCode(payload.content);
+      setFacultyPreviewLanguage(payload.language);
+      setIsFacultyEditorReadOnly(true);
+      restoredFromPersistedRef.current = false;
+      setHasLoadedPersisted(true);
+      return;
+    }
 
     getWorkspaceState(assignmentId).then((persisted) => {
       if (cancelled) return;
@@ -136,6 +157,7 @@ export function CodeWorkspace({
         setOpenTabIds(["main"]);
         setSavedContents({ main: initialCode });
         setSelectedId("main");
+        setCode(initialCode);
         restoredFromPersistedRef.current = false;
       }
       setHasLoadedPersisted(true);
@@ -143,11 +165,11 @@ export function CodeWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [assignmentId, assignment.language, codeExamples]);
+  }, [assignmentId, assignment.language, codeExamples, facultyEditorPreviewPayload]);
 
-  // Sync server starter code into main only when we did not restore from persistence
+  // Sync server starter code into main only when we did not restore from persistence and we're not showing faculty preview
   useEffect(() => {
-    if (!hasLoadedPersisted || restoredFromPersistedRef.current) return;
+    if (!hasLoadedPersisted || restoredFromPersistedRef.current || facultyEditorPreviewPayload) return;
     const next = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
     setCode(next);
     setTreeState((prev) => ({
@@ -155,7 +177,7 @@ export function CodeWorkspace({
       fileContents: { ...prev.fileContents, main: next },
     }));
     setSavedContents((prev) => ({ ...prev, main: next }));
-  }, [assignment.language, codeExamples, hasLoadedPersisted]);
+  }, [assignment.language, codeExamples, hasLoadedPersisted, facultyEditorPreviewPayload]);
 
   useEffect(() => {
     // NOTE: Reset faculty preview state when assignment context changes.
@@ -239,6 +261,7 @@ export function CodeWorkspace({
   };
 
   useEffect(() => {
+    if (isReviewMode) return;
     const next = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
     setCode(next);
     setTreeState((prev) => ({
@@ -246,12 +269,12 @@ export function CodeWorkspace({
       fileContents: { ...prev.fileContents, main: next },
     }));
     setSavedContents((prev) => ({ ...prev, main: next }));
-  }, [assignment.language, codeExamples, hasLoadedPersisted]);
+  }, [assignment.language, codeExamples, hasLoadedPersisted, isReviewMode]);
 
-  // Persist workspace state (debounced)
+  // Persist workspace state (debounced) — edit mode only; review mode never writes to IndexedDB
   const savePayloadRef = useRef<PersistedWorkspaceState | null>(null);
   useEffect(() => {
-    if (!hasLoadedPersisted) return;
+    if (!hasLoadedPersisted || isReviewMode) return;
     const payload: PersistedWorkspaceState = {
       nodes: nodes.map((n) => ({
         id: String(n.id),
@@ -271,7 +294,7 @@ export function CodeWorkspace({
       setWorkspaceState(assignmentId, payload).catch(() => {});
     }, 600);
     return () => clearTimeout(t);
-  }, [assignmentId, hasLoadedPersisted, nodes, fileContents, openTabIds, savedContents, selectedId]);
+  }, [assignmentId, hasLoadedPersisted, isReviewMode, nodes, fileContents, openTabIds, savedContents, selectedId]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -279,12 +302,13 @@ export function CodeWorkspace({
         e.preventDefault();
         e.returnValue = "";
       }
+      if (isReviewMode) return;
       const payload = savePayloadRef.current;
       if (payload) setWorkspaceState(assignmentId, payload).catch(() => {});
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasAnyDirty, assignmentId]);
+  }, [hasAnyDirty, assignmentId, isReviewMode]);
 
   const closeTab = (id: string, dirty?: boolean) => {
     const needConfirm = dirty === undefined ? isDirty(id) : dirty;
