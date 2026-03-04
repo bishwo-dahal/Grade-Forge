@@ -5,6 +5,7 @@ import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.programminglanguage.entity.ProgrammingLanguage;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.rubric.entity.Rubric;
+import com.grade.forge.testsuite.entity.TestSuite;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -65,5 +66,8 @@ public class Assignment {
     @ManyToOne
     @JoinColumn(name = "rubric_id")
     private Rubric rubric;
+
+    @OneToOne(mappedBy = "assignment", cascade = CascadeType.ALL, orphanRemoval = true)
+    private TestSuite testSuite;
 
 }
