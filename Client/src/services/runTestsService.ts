@@ -26,6 +26,45 @@ export async function requestRunTests(submissionId: number | string): Promise<Ru
   return data;
 }
 
+/** Default timeout for sync run-tests (files uploaded, result returned). */
+const RUN_TESTS_SYNC_TIMEOUT_MS = 120_000;
+
+function getRunTestsWithFilesPath(): string {
+  const role = getAuthenticatedRole();
+  switch (role) {
+    case "FACULTY":
+      return "/api/v1/faculty/assignments";
+    case "GRADING_ASSISTANT":
+      return "/api/v1/grading-assistant/assignments";
+    case "STUDENT":
+    default:
+      return "/api/v1/student/assignments";
+  }
+}
+
+/**
+ * Run tests on the provided files (current workspace). No submission, no S3.
+ * Backend keeps files temporarily, runs tests, returns result in the response.
+ * Works for student, faculty, and GA. Use long timeout; request may take 30–120s.
+ */
+export async function runTestsWithFiles(
+  assignmentId: number | string,
+  files: File[]
+): Promise<TestRunJobStatusResponse> {
+  const base = getRunTestsWithFilesPath();
+  const formData = new FormData();
+  files.forEach((file) => formData.append("files", file));
+  const { data } = await api.post<TestRunJobStatusResponse>(
+    `${base}/${assignmentId}/run-tests`,
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: RUN_TESTS_SYNC_TIMEOUT_MS,
+    }
+  );
+  return data;
+}
+
 /**
  * Get the latest test run for a submission (for polling).
  */
@@ -77,3 +116,4 @@ export async function pollRunTestsUntilDone(
   }
   throw new Error("Run tests timed out.");
 }
+

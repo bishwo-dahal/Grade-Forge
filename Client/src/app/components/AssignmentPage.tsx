@@ -34,7 +34,7 @@ import {
   getTestSuiteByAssignment,
   getTestSuiteByCourseAndAssignment,
 } from "../../services/testSuiteService";
-import { requestRunTests, pollRunTestsUntilDone } from "../../services/runTestsService";
+import { requestRunTests, runTestsWithFiles, pollRunTestsUntilDone } from "../../services/runTestsService";
 import { getAuthenticatedRole } from "../auth";
 import React from "react";
 import type {
@@ -258,28 +258,52 @@ export function AssignmentPage() {
     }
   };
 
-  const handleRunTests = useCallback(async () => {
-    const submissionIdForRun = results?.latestSubmissionId ?? null;
-    if (submissionIdForRun == null) {
-      setRunError("Submit your work first before running tests.");
+  const handleRunTests = useCallback(
+    async (files?: File[]) => {
+      const assignmentIdForRun = assignmentId ?? assignment?.id;
+      const hasFiles = files != null && files.length > 0;
+      const submissionIdForRun = results?.latestSubmissionId ?? null;
+
+      if (hasFiles && assignmentIdForRun) {
+        setRunLoading(true);
+        setRunError(null);
+        try {
+          const result = await runTestsWithFiles(assignmentIdForRun, files);
+          setRunResult(result);
+          setActiveTab("tests");
+        } catch (e) {
+          const message = e instanceof Error ? e.message : "Run tests failed.";
+          setRunError(message);
+          setRunResult(null);
+        } finally {
+          setRunLoading(false);
+        }
+        return;
+      }
+
+      if (submissionIdForRun != null) {
+        setRunLoading(true);
+        setRunError(null);
+        try {
+          await requestRunTests(submissionIdForRun);
+          const job = await pollRunTestsUntilDone(submissionIdForRun);
+          setRunResult(job);
+          setActiveTab("tests");
+        } catch (e) {
+          const message = e instanceof Error ? e.message : "Run tests failed.";
+          setRunError(message);
+          setRunResult(null);
+        } finally {
+          setRunLoading(false);
+        }
+        return;
+      }
+
+      setRunError("Add code or upload a file, then run tests.");
       setActiveTab("tests");
-      return;
-    }
-    setRunLoading(true);
-    setRunError(null);
-    try {
-      await requestRunTests(submissionIdForRun);
-      const job = await pollRunTestsUntilDone(submissionIdForRun);
-      setRunResult(job);
-      setActiveTab("tests");
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Run tests failed.";
-      setRunError(message);
-      setRunResult(null);
-    } finally {
-      setRunLoading(false);
-    }
-  }, [results?.latestSubmissionId]);
+    },
+    [assignmentId, assignment?.id, results?.latestSubmissionId]
+  );
 
   if (isLoading) {
     return (

@@ -56,3 +56,4 @@ public class RunTestsFacultyController {
         return ResponseEntity.ok(testRunJobService.toStatusResponse(job));
     }
 }
+

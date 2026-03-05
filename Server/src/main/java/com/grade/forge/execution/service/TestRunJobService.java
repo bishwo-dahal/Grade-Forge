@@ -55,6 +55,8 @@ public class TestRunJobService {
                 .forEach(testRunJobRepository::delete);
 
         TestRunJob job = new TestRunJob();
+        job.setAssignment(submission.getAssignment());
+        job.setStudent(submission.getStudent());
         job.setSubmission(submission);
         job.setStatus(TestRunJobStatus.QUEUED);
         job = testRunJobRepository.save(job);

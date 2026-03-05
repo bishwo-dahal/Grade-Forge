@@ -32,7 +32,8 @@ interface CodeWorkspaceProps {
     submissionsAllowed: number | null;
   };
   codeExamples: EditorCodeExamples;
-  onRunTests: () => void;
+  /** Called when Run Tests is clicked. Receives current workspace files (empty if none) so student can run without submitting. */
+  onRunTests: (files?: File[]) => void;
   onSubmit: (files: File[]) => Promise<void> | void;
   showUploadControls?: boolean;
   showFacultyGradeControls?: boolean;
@@ -542,7 +543,9 @@ export function CodeWorkspace({
   const handleRunTests = () => {
     setLastRunTime(new Date().toLocaleTimeString());
     setConsoleOutput("Running tests...\n");
-    onRunTests();
+    const fileNodes = nodes.filter((n) => !(n.metadata as { isFolder?: boolean })?.isFolder);
+    const files = fileNodes.map((n) => new File([fileContents[String(n.id)] ?? ""], n.name));
+    onRunTests(files);
   };
 
   const handleSubmit = () => {

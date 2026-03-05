@@ -1,6 +1,8 @@
 package com.grade.forge.execution.entity;
 
+import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.execution.enums.TestRunJobStatus;
+import com.grade.forge.student.entity.Student;
 import com.grade.forge.submission.entity.Submission;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -24,6 +26,17 @@ public class TestRunJob {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Assignment this run is for; ties the job to student + assignment. */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "assignment_id", nullable = false)
+    private Assignment assignment;
+
+    /** Student this run is for. */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "student_id", nullable = false)
+    private Student student;
+
+    /** Submission whose files are run (required for runner to load code). May be a DRAFT for "run without submit". */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "submission_id", nullable = false)
     private Submission submission;

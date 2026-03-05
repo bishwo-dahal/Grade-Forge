@@ -12,10 +12,14 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -109,5 +113,18 @@ public class FileStorageService {
         log.info("Presign key: [{}]", key);
         log.info("Generated presigned URL: {}", url);
         return url;
+    }
+
+    /**
+     * Download file content from S3 (for test runner to execute submission).
+     */
+    public byte[] getFileContent(String key) throws IOException {
+        GetObjectRequest getRequest = GetObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .build();
+        try (ResponseInputStream<GetObjectResponse> response = getClient().getObject(getRequest)) {
+            return response.readAllBytes();
+        }
     }
 }

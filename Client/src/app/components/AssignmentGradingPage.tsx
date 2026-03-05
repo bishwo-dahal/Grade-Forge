@@ -21,7 +21,7 @@ import {
   resolvePreviewLanguage,
   submitFacultySubmissionGrade,
 } from "../../services/submissionService";
-import { requestRunTests, pollRunTestsUntilDone } from "../../services/runTestsService";
+import { requestRunTests, runTestsWithFiles, pollRunTestsUntilDone } from "../../services/runTestsService";
 import { getAssignmentByCourse } from "../../services/gradingAssistantAssignmentService";
 import { getRubric } from "../../services/gradingAssistantRubricService";
 import {
@@ -256,23 +256,43 @@ export function AssignmentGradingPage() {
     []
   );
 
-  const handleRunTests = useCallback(async () => {
-    if (!submissionId) return;
-    setRunLoading(true);
-    setRunError(null);
-    try {
-      await requestRunTests(submissionId);
-      const job = await pollRunTestsUntilDone(submissionId);
-      setRunResult(job);
-      setActiveTab("tests");
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Run tests failed.";
-      setRunError(message);
-      setRunResult(null);
-    } finally {
-      setRunLoading(false);
-    }
-  }, [submissionId]);
+  const handleRunTests = useCallback(
+    async (files?: File[]) => {
+      const hasFiles = files != null && files.length > 0;
+      if (hasFiles && assignmentId) {
+        setRunLoading(true);
+        setRunError(null);
+        try {
+          const result = await runTestsWithFiles(assignmentId, files);
+          setRunResult(result);
+          setActiveTab("tests");
+        } catch (e) {
+          const message = e instanceof Error ? e.message : "Run tests failed.";
+          setRunError(message);
+          setRunResult(null);
+        } finally {
+          setRunLoading(false);
+        }
+        return;
+      }
+      if (!submissionId) return;
+      setRunLoading(true);
+      setRunError(null);
+      try {
+        await requestRunTests(submissionId);
+        const job = await pollRunTestsUntilDone(submissionId);
+        setRunResult(job);
+        setActiveTab("tests");
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Run tests failed.";
+        setRunError(message);
+        setRunResult(null);
+      } finally {
+        setRunLoading(false);
+      }
+    },
+    [assignmentId, submissionId]
+  );
 
   const handleSaveGrade = useCallback(
     async (marks: number, feedback: string) => {
