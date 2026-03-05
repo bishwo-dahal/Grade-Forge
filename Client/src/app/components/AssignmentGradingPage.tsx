@@ -21,6 +21,7 @@ import {
   resolvePreviewLanguage,
   submitFacultySubmissionGrade,
 } from "../../services/submissionService";
+import { requestRunTests, pollRunTestsUntilDone } from "../../services/runTestsService";
 import { getAssignmentByCourse } from "../../services/gradingAssistantAssignmentService";
 import { getRubric } from "../../services/gradingAssistantRubricService";
 import {
@@ -34,6 +35,8 @@ import type { SettingsSection } from "./layout/AuthTopBar";
 import type { AssignmentDetail, AssignmentDescription } from "../../types/assignment";
 import type { RubricCategory } from "../../types/grade";
 import type { GradingAssistantRubricResponse } from "../../types/gradingAssistantRubric";
+import type { TestRunJobStatusResponse } from "../../types/runTests";
+import type { PublicTestCase } from "../../types/submission";
 
 type GradingTabType = "description" | "tests" | "plagiarism" | "rubric";
 
@@ -111,6 +114,9 @@ export function AssignmentGradingPage() {
   const [submissionFeedback, setSubmissionFeedback] = useState<string>("");
   const [gradeDialogOpen, setGradeDialogOpen] = useState(false);
   const [gradeSubmitting, setGradeSubmitting] = useState(false);
+  const [runLoading, setRunLoading] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [runResult, setRunResult] = useState<TestRunJobStatusResponse | null>(null);
 
   const backToAssignmentUrl = isFaculty
     ? `/faculty/class/${classId}/assignment/${assignmentId}`
@@ -250,8 +256,22 @@ export function AssignmentGradingPage() {
     []
   );
 
-  const handleRunTests = useCallback(() => {
-    console.log("Run tests for submission", submissionId);
+  const handleRunTests = useCallback(async () => {
+    if (!submissionId) return;
+    setRunLoading(true);
+    setRunError(null);
+    try {
+      await requestRunTests(submissionId);
+      const job = await pollRunTestsUntilDone(submissionId);
+      setRunResult(job);
+      setActiveTab("tests");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Run tests failed.";
+      setRunError(message);
+      setRunResult(null);
+    } finally {
+      setRunLoading(false);
+    }
   }, [submissionId]);
 
   const handleSaveGrade = useCallback(
@@ -469,7 +489,33 @@ export function AssignmentGradingPage() {
                 {/* Tab content - grows with content, panel scrolls */}
                 <div className="flex-1 min-h-0">
                   {activeTab === "description" && <DescriptionPanel description={description} />}
-                  {activeTab === "tests" && <PublicTestsPanel testCases={[]} />}
+                  {activeTab === "tests" && (
+                    <PublicTestsPanel
+                      testCases={[]}
+                      onRunTests={handleRunTests}
+                      isRunning={runLoading}
+                      runError={runError}
+                      runResult={
+                        runResult
+                          ? {
+                              passedCount: runResult.passedCount,
+                              totalCount: runResult.totalCount,
+                              results: runResult.results.map(
+                                (r, i): PublicTestCase => ({
+                                  id: r.testCaseId ?? i,
+                                  name: r.testCaseTitle,
+                                  passed: r.passed,
+                                  input: "",
+                                  expectedOutput: r.expectedOutput ?? "",
+                                  actualOutput: r.actualOutput ?? r.errorMessage ?? "",
+                                  executionTime: r.runtimeMs != null ? `${r.runtimeMs}ms` : undefined,
+                                })
+                              ),
+                            }
+                          : null
+                      }
+                    />
+                  )}
                   {activeTab === "plagiarism" && (
                     <div className="p-6 text-[14px] text-gray-500">Plagiarism report will appear here.</div>
                   )}
@@ -514,6 +560,9 @@ export function AssignmentGradingPage() {
                 showUploadControls={false}
                 showFacultyGradeControls={false}
                 facultyEditorPreviewPayload={facultyEditorPreviewPayload}
+                runLoading={runLoading}
+                runError={runError}
+                runResult={runResult}
               />
             ) : (
               <div className="h-full flex items-center justify-center bg-[#1e1e1e] text-gray-400 text-[14px]">

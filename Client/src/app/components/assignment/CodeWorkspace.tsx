@@ -21,6 +21,7 @@ import type {
   FacultySubmissionGradeOption,
   FacultyAssignmentSubmissionRow,
 } from "../../../types/submission";
+import type { TestRunJobStatusResponse } from "../../../types/runTests";
 
 interface CodeWorkspaceProps {
   assignmentId: string;
@@ -40,6 +41,10 @@ interface CodeWorkspaceProps {
   maxGradePoints?: number;
   facultyEditorPreviewPayload?: FacultyEditorPreviewPayload | null;
   isMobile?: boolean;
+  /** When provided, console shows live run state and results instead of mock output */
+  runLoading?: boolean;
+  runError?: string | null;
+  runResult?: TestRunJobStatusResponse | null;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -78,6 +83,9 @@ export function CodeWorkspace({
   maxGradePoints,
   facultyEditorPreviewPayload = null,
   isMobile = false,
+  runLoading = false,
+  runError = null,
+  runResult = null,
 }: CodeWorkspaceProps) {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [consoleOutput, setConsoleOutput] = useState<string>("");
@@ -377,6 +385,33 @@ export function CodeWorkspace({
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [fileContents, openTabIds]);
 
+  // Sync run-tests state from parent to console (student/faculty run tests)
+  useEffect(() => {
+    if (runLoading) {
+      setConsoleOutput("Running tests...\n");
+      return;
+    }
+    if (runError) {
+      setConsoleOutput(`Running tests...\n\nError: ${runError}`);
+      return;
+    }
+    if (runResult) {
+      const lines: string[] = ["Running tests...\n"];
+      runResult.results.forEach((r, i) => {
+        const status = r.passed ? "PASSED \u2713" : "FAILED \u2717";
+        lines.push(`Test ${i + 1}: ${r.testCaseTitle} - ${status}`);
+        if (!r.passed) {
+          if (r.expectedOutput != null) lines.push(`  Expected: ${r.expectedOutput}`);
+          if (r.actualOutput != null) lines.push(`  Got: ${r.actualOutput}`);
+          if (r.errorMessage) lines.push(`  Error: ${r.errorMessage}`);
+        }
+        if (r.runtimeMs != null) lines.push(`  (${r.runtimeMs}ms)`);
+      });
+      lines.push("", `${runResult.passedCount}/${runResult.totalCount} tests passed`);
+      setConsoleOutput(lines.join("\n"));
+    }
+  }, [runLoading, runError, runResult]);
+
   const allIds = useMemo(() => nodes.map((n) => String(n.id)), [nodes]);
   const getDescendantIds = (id: string): string[] => {
     const node = nodes.find((n) => String(n.id) === id);
@@ -506,8 +541,7 @@ export function CodeWorkspace({
 
   const handleRunTests = () => {
     setLastRunTime(new Date().toLocaleTimeString());
-    // NOTE: Use Unicode escapes to avoid mojibake in non-UTF8 environments.
-    setConsoleOutput("Running public tests...\n\nTest 1: Basic Insert and In-order Traversal - PASSED \u2713\nTest 2: Search Existing Node - PASSED \u2713\nTest 3: Delete Node with Two Children - FAILED \u2717\n  Expected: [20, 40, 50, 70]\n  Got: [20, 30, 50, 70]\nTest 4: Pre-order Traversal - PASSED \u2713\nTest 5: Search Non-existing Node - PASSED \u2713\n\n4/5 tests passed");
+    setConsoleOutput("Running tests...\n");
     onRunTests();
   };
 

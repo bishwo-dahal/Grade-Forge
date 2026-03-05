@@ -34,6 +34,7 @@ import {
   getTestSuiteByAssignment,
   getTestSuiteByCourseAndAssignment,
 } from "../../services/testSuiteService";
+import { requestRunTests, pollRunTestsUntilDone } from "../../services/runTestsService";
 import { getAuthenticatedRole } from "../auth";
 import React from "react";
 import type {
@@ -42,6 +43,7 @@ import type {
   FacultySubmissionGradePayload,
 } from "../../types/submission";
 import type { TestSuiteDetail } from "../../types/testSuite";
+import type { TestRunJobStatusResponse } from "../../types/runTests";
 
 type TabType = 'description' | 'tests' | 'rubric' | 'results';
 
@@ -86,6 +88,9 @@ export function AssignmentPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [testSuite, setTestSuite] = useState<TestSuiteDetail | null>(null);
   const [testSuiteSaveInProgress, setTestSuiteSaveInProgress] = useState(false);
+  const [runLoading, setRunLoading] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [runResult, setRunResult] = useState<TestRunJobStatusResponse | null>(null);
 
   const facultySubmissionFileOptions = useMemo(() => {
     if (!isFacultyRole) {
@@ -253,6 +258,29 @@ export function AssignmentPage() {
     }
   };
 
+  const handleRunTests = useCallback(async () => {
+    const submissionIdForRun = results?.latestSubmissionId ?? null;
+    if (submissionIdForRun == null) {
+      setRunError("Submit your work first before running tests.");
+      setActiveTab("tests");
+      return;
+    }
+    setRunLoading(true);
+    setRunError(null);
+    try {
+      await requestRunTests(submissionIdForRun);
+      const job = await pollRunTestsUntilDone(submissionIdForRun);
+      setRunResult(job);
+      setActiveTab("tests");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Run tests failed.";
+      setRunError(message);
+      setRunResult(null);
+    } finally {
+      setRunLoading(false);
+    }
+  }, [results?.latestSubmissionId]);
+
   if (isLoading) {
     return (
       <div className="flex flex-col h-screen bg-[#F5F2F2]">
@@ -357,15 +385,39 @@ export function AssignmentPage() {
                       isSubmitting={testSuiteSaveInProgress}
                       errorMessage={null}
                     />
-                  ) : testSuite ? (
-                    <TestSuiteViewPanel testSuite={testSuite} />
                   ) : (
-                    <div className="p-6">
-                      <h2 className="text-lg font-semibold text-[#2B2A2A]">Test Cases</h2>
-                      <p className="mt-2 text-[13px] text-gray-600">
-                        No test cases have been defined for this assignment yet.
-                      </p>
-                    </div>
+                    <>
+                      <PublicTestsPanel
+                        testCases={publicTests}
+                        onRunTests={handleRunTests}
+                        isRunning={runLoading}
+                        runError={runError}
+                        runResult={
+                          runResult
+                            ? {
+                                passedCount: runResult.passedCount,
+                                totalCount: runResult.totalCount,
+                                results: runResult.results.map(
+                                  (r, i): PublicTestCase => ({
+                                    id: r.testCaseId ?? i,
+                                    name: r.testCaseTitle,
+                                    passed: r.passed,
+                                    input: "",
+                                    expectedOutput: r.expectedOutput ?? "",
+                                    actualOutput: r.actualOutput ?? r.errorMessage ?? "",
+                                    executionTime: r.runtimeMs != null ? `${r.runtimeMs}ms` : undefined,
+                                  })
+                                ),
+                              }
+                            : null
+                        }
+                      />
+                      {testSuite ? (
+                        <div className="border-t border-gray-200 mt-4">
+                          <TestSuiteViewPanel testSuite={testSuite} />
+                        </div>
+                      ) : null}
+                    </>
                   )
                 )}
                 {activeTab === 'rubric' && <GradingRubricPanel rubricCategories={rubricCategories} />}
@@ -397,15 +449,17 @@ export function AssignmentPage() {
               assignmentId={assignmentId ?? assignment.id}
               assignment={assignment}
               codeExamples={editorCodeExamples}
-              onRunTests={() => console.log("Run tests")}
+              onRunTests={handleRunTests}
               onSubmit={handleStudentSubmit}
-              // NOTE: Faculty assignment pages stay read-only for local file upload controls.
               showUploadControls={isStudentRole}
               showFacultyGradeControls={isFacultyRole}
               facultySubmissionRows={isFacultyRole ? facultySubmissionRows : undefined}
               onSubmitFacultyGrade={isFacultyRole ? handleFacultySubmissionGrade : undefined}
               maxGradePoints={assignment.points.total}
               facultyEditorPreviewPayload={isFacultyRole ? facultyEditorPreviewPayload : null}
+              runLoading={runLoading}
+              runError={runError}
+              runResult={runResult}
             />
           </Panel>
         </PanelGroup>
