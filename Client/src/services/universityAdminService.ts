@@ -18,6 +18,7 @@ type ProgrammingLanguageApiResponse = {
   id: number;
   name: string;
   dockerImage: string | null;
+  compileCommand: string | null;
   executionCode: string | null;
   isActive: boolean | null;
 };
@@ -114,6 +115,7 @@ function mapProgrammingLanguageToUiModel(language: ProgrammingLanguageApiRespons
     id: language.id,
     name: language.name,
     dockerImage: language.dockerImage ?? "",
+    compileCommand: language.compileCommand ?? undefined,
     executionCode: language.executionCode ?? "",
     isActive: language.isActive ?? true,
   };
@@ -125,9 +127,33 @@ export async function listSupportedLanguages(): Promise<SupportedLanguage[]> {
   return data.map(mapProgrammingLanguageToUiModel);
 }
 
+function toUpdatePayload(payload: LanguageCreatePayload) {
+  return {
+    name: payload.name,
+    dockerImage: payload.dockerImage,
+    compileCommand: payload.compileCommand?.trim() || null,
+    executionCode: payload.executionCode,
+    isActive: payload.isActive,
+  };
+}
+
 export async function createSupportedLanguage(payload: LanguageCreatePayload): Promise<SupportedLanguage> {
   // TODO(backend): Keep payload fields aligned with ProgrammingLanguageRequest in backend when evolving language model.
-  const { data } = await api.post<ProgrammingLanguageApiResponse>("/api/v1/university_admin/programming-languages", payload);
+  const { data } = await api.post<ProgrammingLanguageApiResponse>(
+    "/api/v1/university_admin/programming-languages",
+    toUpdatePayload(payload)
+  );
+  return mapProgrammingLanguageToUiModel(data);
+}
+
+export async function updateSupportedLanguage(
+  languageId: number,
+  payload: LanguageCreatePayload
+): Promise<SupportedLanguage> {
+  const { data } = await api.put<ProgrammingLanguageApiResponse>(
+    `/api/v1/university_admin/programming-languages/${languageId}`,
+    toUpdatePayload(payload)
+  );
   return mapProgrammingLanguageToUiModel(data);
 }
 

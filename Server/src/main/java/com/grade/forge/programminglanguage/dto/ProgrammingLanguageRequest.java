@@ -14,6 +14,8 @@ import lombok.Setter;
 public class ProgrammingLanguageRequest {
     private String name;
     private String dockerImage;
+    /** Optional. Template may use {{main_file}} and {{main_class}} (runner substitutes at execution). */
+    private String compileCommand;
     private String executionCode;
     private Boolean isActive;
 }

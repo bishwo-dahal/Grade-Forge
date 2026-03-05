@@ -81,6 +81,8 @@ export interface SupportedLanguage {
   id: number;
   name: string;
   dockerImage: string;
+  /** Optional compile command template; may use {{main_file}} and {{main_class}}. */
+  compileCommand?: string;
   executionCode: string;
   isActive: boolean;
   // NOTE: Legacy optional UI fields are kept temporarily for compatibility with older, non-routed dashboard code.
@@ -93,6 +95,8 @@ export interface SupportedLanguage {
 export interface LanguageCreatePayload {
   name: string;
   dockerImage: string;
+  /** Optional. Template may use {{main_file}} and {{main_class}}. */
+  compileCommand?: string;
   executionCode: string;
   isActive: boolean;
 }

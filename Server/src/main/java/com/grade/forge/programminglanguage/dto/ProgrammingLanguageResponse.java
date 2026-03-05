@@ -15,6 +15,7 @@ public class ProgrammingLanguageResponse {
     private Long id;
     private String name;
     private String dockerImage;
+    private String compileCommand;
     private String executionCode;
     private Boolean isActive;
 }
