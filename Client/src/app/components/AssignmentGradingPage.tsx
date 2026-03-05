@@ -526,6 +526,7 @@ export function AssignmentGradingPage() {
                                   name: r.testCaseTitle,
                                   passed: r.passed,
                                   input: "",
+                                  inputFileName: null,
                                   expectedOutput: r.expectedOutput ?? "",
                                   actualOutput: r.actualOutput ?? r.errorMessage ?? "",
                                   executionTime: r.runtimeMs != null ? `${r.runtimeMs}ms` : undefined,

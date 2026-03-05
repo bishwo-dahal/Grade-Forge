@@ -21,6 +21,8 @@ export interface PublicTestCase {
   name: string;
   passed: boolean;
   input: string;
+  /** If set, input is provided as a file with this name (not stdin). */
+  inputFileName?: string | null;
   expectedOutput: string;
   actualOutput: string;
   executionTime?: string;

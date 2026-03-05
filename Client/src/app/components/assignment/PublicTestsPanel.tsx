@@ -1,4 +1,4 @@
-import { CheckCircle, Loader2, Play, XCircle, ChevronDown, ChevronRight } from "lucide-react";
+import { CheckCircle, XCircle, ChevronDown, ChevronRight, FileText, Terminal } from "lucide-react";
 import { useState } from "react";
 import type { PublicTestCase } from "../../../types/submission";
 
@@ -36,30 +36,10 @@ export function PublicTestsPanel({
 
   return (
     <div className="p-6">
-      {/* Summary + Run button */}
+      {/* Summary */}
       <div className="mb-6">
         <div className="flex items-center justify-between gap-3 mb-2">
-          <h2 className="text-lg font-semibold text-[#2B2A2A]">Public Test Cases</h2>
-          {onRunTests && (
-            <button
-              type="button"
-              onClick={onRunTests}
-              disabled={isRunning}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#5A7ACD] hover:bg-[#4456A0] disabled:opacity-60 text-white text-[13px] font-medium"
-            >
-              {isRunning ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} />
-                  Running…
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4" strokeWidth={2} />
-                  Run tests
-                </>
-              )}
-            </button>
-          )}
+          <h2 className="text-lg font-semibold text-[#2B2A2A]">Test Cases</h2>
         </div>
         {(runResult != null || totalCount > 0) && (
           <div className="text-[14px] font-semibold mb-1">
@@ -69,9 +49,7 @@ export function PublicTestsPanel({
           </div>
         )}
         <p className="text-[13px] text-gray-600">
-          {onRunTests
-            ? "Run tests to execute the submission against the assignment test cases. Results appear below."
-            : "Run your code to see results for these test cases. Private tests will run on final submission."}
+          Run tests from the code workspace to see results here.
         </p>
         {runError && (
           <p className="mt-2 text-[13px] text-red-600" role="alert">
@@ -98,6 +76,13 @@ export function PublicTestsPanel({
                 <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" strokeWidth={2} />
               )}
 
+              {/* Input source: file or console */}
+              {test.inputFileName ? (
+                <FileText className="w-5 h-5 text-gray-500 flex-shrink-0" strokeWidth={2} title={`Input from file: ${test.inputFileName}`} />
+              ) : (
+                <Terminal className="w-5 h-5 text-gray-500 flex-shrink-0" strokeWidth={2} title="Input from stdin/console" />
+              )}
+
               {/* Test Name */}
               <div className="flex-1 text-left">
                 <div className="text-[14px] font-medium text-[#2B2A2A]">{test.name}</div>
@@ -121,10 +106,14 @@ export function PublicTestsPanel({
                 {/* Input */}
                 <div>
                   <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Input
+                    {test.inputFileName
+                      ? `Input (file: ${test.inputFileName})`
+                      : "Input (stdin)"}
                   </div>
                   <div className="bg-white rounded-lg p-3 border border-gray-200">
-                    <code className="text-[13px] text-[#2B2A2A] font-mono">{test.input}</code>
+                    <code className="text-[13px] text-[#2B2A2A] font-mono whitespace-pre-wrap break-words">
+                      {test.input && test.input.trim() ? test.input : "(no input)"}
+                    </code>
                   </div>
                 </div>
 

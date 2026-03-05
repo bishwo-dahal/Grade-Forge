@@ -5,7 +5,6 @@ import { AssignmentHeader } from "./assignment/AssignmentHeader";
 import { TabNavigation } from "./assignment/TabNavigation";
 import { DescriptionPanel } from "./assignment/DescriptionPanel";
 import { PublicTestsPanel } from "./assignment/PublicTestsPanel";
-import { TestSuiteViewPanel } from "./assignment/TestSuiteViewPanel";
 import { TestSuiteFormPanel } from "./assignment/TestSuiteFormPanel";
 import { GradingRubricPanel } from "./assignment/GradingRubricPanel";
 import { ResultsPanel } from "./assignment/ResultsPanel";
@@ -19,7 +18,6 @@ import {
   getAssignmentDetailById,
   getEditorCodeExamples,
   invalidateAssignmentWorkspaceCache,
-  listPublicTestCases,
   listRubricCategories,
 } from "../../services/assignmentService";
 import { getAssignmentResult, invalidateAssignmentResultCache } from "../../services/resultService";
@@ -77,7 +75,6 @@ export function AssignmentPage() {
   // NOTE: Load all assignment-related data here so child panels remain presentation-only.
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [description, setDescription] = useState<AssignmentDescription | null>(null);
-  const [publicTests, setPublicTests] = useState<PublicTestCase[]>([]);
   const [rubricCategories, setRubricCategories] = useState<RubricCategory[]>([]);
   const [results, setResults] = useState<AssignmentResult | null>(null);
   const [facultySubmissionRows, setFacultySubmissionRows] = useState<FacultyAssignmentSubmissionRow[]>([]);
@@ -114,10 +111,9 @@ export function AssignmentPage() {
     // FIX: Invalidate assignment/result caches before loading so newly submitted files appear immediately in faculty/student views.
     invalidateAssignmentWorkspaceCache(resolvedId);
     invalidateAssignmentResultCache(resolvedId);
-    const [assignmentData, descriptionData, publicTestsData, rubricData, resultsData, codeExamplesData, facultyRows] = await Promise.all([
+    const [assignmentData, descriptionData, rubricData, resultsData, codeExamplesData, facultyRows] = await Promise.all([
       getAssignmentDetailById(resolvedId),
       getAssignmentDescription(resolvedId),
-      listPublicTestCases(resolvedId),
       listRubricCategories(resolvedId),
       getAssignmentResult(resolvedId),
       getEditorCodeExamples(resolvedId),
@@ -126,7 +122,6 @@ export function AssignmentPage() {
 
     setAssignment(assignmentData);
     setDescription(descriptionData);
-    setPublicTests(publicTestsData);
     setRubricCategories(rubricData);
     setResults(resultsData);
     setEditorCodeExamples(codeExamplesData);
@@ -409,39 +404,60 @@ export function AssignmentPage() {
                       isSubmitting={testSuiteSaveInProgress}
                       errorMessage={null}
                     />
-                  ) : (
-                    <>
-                      <PublicTestsPanel
-                        testCases={publicTests}
-                        onRunTests={handleRunTests}
-                        isRunning={runLoading}
-                        runError={runError}
-                        runResult={
-                          runResult
-                            ? {
+                  ) : testSuite ? (
+                    <PublicTestsPanel
+                      testCases={testSuite.testCases
+                        .filter((tc) => !tc.isPrivate)
+                        .map(
+                          (tc, i): PublicTestCase => ({
+                            id: tc.id ?? i,
+                            name: tc.title,
+                            passed: false,
+                            input: tc.input ?? "",
+                            inputFileName: tc.fileName ?? null,
+                            expectedOutput: tc.output ?? "",
+                            actualOutput: "",
+                          })
+                        )}
+                      onRunTests={handleRunTests}
+                      isRunning={runLoading}
+                      runError={runError}
+                      runResult={
+                        runResult
+                          ? (() => {
+                              const suiteCases = testSuite.testCases.filter((tc) => !tc.isPrivate);
+                              return {
                                 passedCount: runResult.passedCount,
                                 totalCount: runResult.totalCount,
                                 results: runResult.results.map(
-                                  (r, i): PublicTestCase => ({
-                                    id: r.testCaseId ?? i,
-                                    name: r.testCaseTitle,
-                                    passed: r.passed,
-                                    input: "",
-                                    expectedOutput: r.expectedOutput ?? "",
-                                    actualOutput: r.actualOutput ?? r.errorMessage ?? "",
-                                    executionTime: r.runtimeMs != null ? `${r.runtimeMs}ms` : undefined,
-                                  })
+                                  (r, i): PublicTestCase => {
+                                    const suiteCase = suiteCases.find(
+                                      (tc) => tc.id === r.testCaseId || Number(tc.id) === Number(r.testCaseId)
+                                    );
+                                    return {
+                                      id: r.testCaseId ?? i,
+                                      name: r.testCaseTitle,
+                                      passed: r.passed,
+                                      input: suiteCase?.input ?? "",
+                                      inputFileName: suiteCase?.fileName ?? null,
+                                      expectedOutput: r.expectedOutput ?? suiteCase?.output ?? "",
+                                      actualOutput: r.actualOutput ?? r.errorMessage ?? "",
+                                      executionTime: r.runtimeMs != null ? `${r.runtimeMs}ms` : undefined,
+                                    };
+                                  }
                                 ),
-                              }
-                            : null
-                        }
-                      />
-                      {testSuite ? (
-                        <div className="border-t border-gray-200 mt-4">
-                          <TestSuiteViewPanel testSuite={testSuite} />
-                        </div>
-                      ) : null}
-                    </>
+                              };
+                            })()
+                          : null
+                      }
+                    />
+                  ) : (
+                    <div className="p-6">
+                      <h2 className="text-lg font-semibold text-[#2B2A2A]">Test Cases</h2>
+                      <p className="mt-2 text-[13px] text-gray-600">
+                        No test cases have been defined for this assignment yet.
+                      </p>
+                    </div>
                   )
                 )}
                 {activeTab === 'rubric' && <GradingRubricPanel rubricCategories={rubricCategories} />}
