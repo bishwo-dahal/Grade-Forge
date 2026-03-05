@@ -241,4 +241,32 @@ public class SubmissionService {
             throw new IllegalArgumentException("You are not allowed to access submissions for this assignment");
         }
     }
+
+    /** Ensures the student (by email) can access the submission; throws if not. For run-tests. */
+    @Transactional(readOnly = true)
+    public void ensureStudentCanAccessSubmission(String userEmail, Long submissionId) {
+        getSubmissionForCurrentStudent(userEmail, submissionId);
+    }
+
+    /** Ensures the faculty (by email) can access the submission; throws if not. For run-tests. */
+    @Transactional(readOnly = true)
+    public void ensureFacultyCanAccessSubmission(String facultyEmail, Long submissionId) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
+        Faculty faculty = facultyRepository.findByEmail(facultyEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with email: " + facultyEmail));
+        if (!submission.getAssignment().getCourse().getFaculty().getId().equals(faculty.getId())) {
+            throw new IllegalArgumentException("You are not allowed to access this submission");
+        }
+    }
+
+    /** Ensures the grading assistant (by user id) can access the submission; throws if not. For run-tests. */
+    @Transactional(readOnly = true)
+    public void ensureGradingAssistantCanAccessSubmission(Long userId, Long submissionId) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
+        GradingAssistant gradingAssistant = gradingAssistantRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Grading assistant not found for user id: " + userId));
+        validateGradingAssistantCourseAccess(gradingAssistant.getId(), submission.getAssignment().getCourse().getId());
+    }
 }
