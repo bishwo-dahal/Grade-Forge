@@ -174,8 +174,8 @@ public class DatabaseSeeder implements CommandLineRunner {
                     ProgrammingLanguage lang = new ProgrammingLanguage();
                     lang.setName("Java");
                     lang.setDockerImage("eclipse-temurin:17-jdk-alpine");
-                    lang.setCompileCommand("javac Main.java");
-                    lang.setExecutionCode("java Main");
+                    lang.setCompileCommand("javac {{main_file}}");
+                    lang.setExecutionCode("java {{main_class}}");
                     lang.setAllowedExtensions(".java,.txt,.csv");
                     lang.setIsActive(true);
                     return programmingLanguageRepository.save(lang);
@@ -187,7 +187,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                     lang.setName("Python");
                     lang.setDockerImage("python:3.11-slim");
                     lang.setCompileCommand(null);
-                    lang.setExecutionCode("python main.py");
+                    lang.setExecutionCode("python3 {{main_file}}");
                     lang.setAllowedExtensions(".py,.txt,.csv");
                     lang.setIsActive(true);
                     return programmingLanguageRepository.save(lang);
