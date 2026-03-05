@@ -22,15 +22,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
- * Runs tests synchronously using the assignment's programming language from the language table.
- * Files are written to a temp dir; compile (if any) and execution commands are taken from
- * the language's compileCommand and executionCode (with {{main_file}} / {{main_class}} substituted).
- * Supports any language configured in the language table (Python, Java, C++, etc.).
+ * Runs tests only inside Docker containers. Uses the assignment's programming language
+ * (docker_image, compile_command, execution_code from the language table). Code never runs on the host.
+ * Language must have a non-blank docker_image; images are pre-pulled at startup.
  */
 @Slf4j
 @Service
@@ -40,6 +38,9 @@ public class RunTestsSyncService {
     private static final int RUN_TIMEOUT_SECONDS = 15;
     private static final String PLACEHOLDER_MAIN_FILE = "{{main_file}}";
     private static final String PLACEHOLDER_MAIN_CLASS = "{{main_class}}";
+    private static final String DOCKER_STDIN_FILE = "stdin.txt";
+    private static final String DOCKER_SCRIPT_FILE = "run.sh";
+    private static final String DOCKER_WORK_MOUNT = "/work";
 
     private final AssignmentRepository assignmentRepository;
     private final TestCaseRepository testCaseRepository;
@@ -64,6 +65,10 @@ public class RunTestsSyncService {
         ProgrammingLanguage language = assignment.getProgrammingLanguage();
         if (language == null) {
             throw new IllegalArgumentException("Assignment has no programming language; cannot run tests.");
+        }
+        String dockerImage = language.getDockerImage();
+        if (dockerImage == null || dockerImage.isBlank()) {
+            throw new IllegalArgumentException("Language '" + language.getName() + "' has no Docker image configured; execution is only allowed in containers.");
         }
         String executionCode = language.getExecutionCode();
         if (executionCode == null || executionCode.isBlank()) {
@@ -142,114 +147,54 @@ public class RunTestsSyncService {
     private TestCaseResultItem runOneTest(Path workDir, ProgrammingLanguage language, String mainFile, String mainClass, TestCase tc) {
         String input = tc.getInput() != null ? tc.getInput() : "";
         long start = System.currentTimeMillis();
+        return runOneTestInDocker(workDir, language, mainFile, mainClass, input, tc, start);
+    }
 
+    /**
+     * Run compile + execution inside the language's Docker image. Writes stdin to a file and runs a script in the container.
+     */
+    private TestCaseResultItem runOneTestInDocker(Path workDir, ProgrammingLanguage language, String mainFile, String mainClass, String input, TestCase tc, long start) {
         String compileCommand = language.getCompileCommand();
-        if (compileCommand != null && !compileCommand.isBlank()) {
-            String compileCmd = substitute(compileCommand, mainFile, mainClass);
-            TestCaseResultItem compileResult = runCompile(workDir, compileCmd, tc, start);
-            if (compileResult != null) {
-                return compileResult;
-            }
-        }
-
         String executionCode = language.getExecutionCode();
         if (executionCode == null || executionCode.isBlank()) {
-            return TestCaseResultItem.builder()
-                    .testCaseId(tc.getId())
-                    .testCaseTitle(tc.getTitle())
-                    .passed(false)
-                    .actualOutput(null)
-                    .expectedOutput(tc.getOutput())
-                    .timedOut(false)
-                    .errorMessage("Language has no execution code configured.")
-                    .runtimeMs(System.currentTimeMillis() - start)
-                    .build();
+            return failResult(tc, start, "Language has no execution code configured.");
         }
-
+        String compileCmd = (compileCommand != null && !compileCommand.isBlank())
+                ? substitute(compileCommand, mainFile, mainClass)
+                : null;
         String execCmd = substitute(executionCode, mainFile, mainClass);
-        return runExecution(workDir, execCmd, input, tc, start);
-    }
 
-    private static String substitute(String template, String mainFile, String mainClass) {
-        if (template == null) return "";
-        return template
-                .replace(PLACEHOLDER_MAIN_FILE, mainFile)
-                .replace(PLACEHOLDER_MAIN_CLASS, mainClass);
-    }
-
-    private static boolean isWindows() {
-        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-        return os.contains("win");
-    }
-
-    /**
-     * Run compile command in workDir. Returns a failed result if compile fails or times out; returns null if compile succeeded.
-     */
-    private TestCaseResultItem runCompile(Path workDir, String compileCmd, TestCase tc, long start) {
-        ProcessBuilder pb = isWindows()
-                ? new ProcessBuilder("cmd.exe", "/c", compileCmd)
-                : new ProcessBuilder("/bin/sh", "-c", compileCmd);
-        pb.redirectErrorStream(true);
-        pb.directory(workDir.toFile());
         try {
-            Process process = pb.start();
-            boolean finished = process.waitFor(RUN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            long runtime = System.currentTimeMillis() - start;
-
-            if (!finished) {
-                process.destroyForcibly();
-                return TestCaseResultItem.builder()
-                        .testCaseId(tc.getId())
-                        .testCaseTitle(tc.getTitle())
-                        .passed(false)
-                        .actualOutput(null)
-                        .expectedOutput(tc.getOutput())
-                        .timedOut(true)
-                        .errorMessage("Compilation timed out after " + RUN_TIMEOUT_SECONDS + "s")
-                        .runtimeMs(runtime)
-                        .build();
-            }
-            if (process.exitValue() != 0) {
-                String err = readStream(process.getInputStream());
-                return TestCaseResultItem.builder()
-                        .testCaseId(tc.getId())
-                        .testCaseTitle(tc.getTitle())
-                        .passed(false)
-                        .actualOutput(null)
-                        .expectedOutput(tc.getOutput())
-                        .timedOut(false)
-                        .errorMessage("Compilation failed: " + (err != null && !err.isBlank() ? err.trim() : "exit " + process.exitValue()))
-                        .runtimeMs(runtime)
-                        .build();
-            }
-            return null; // success, caller continues to execution
+            Files.writeString(workDir.resolve(DOCKER_STDIN_FILE), input, StandardCharsets.UTF_8);
         } catch (Exception e) {
-            return TestCaseResultItem.builder()
-                    .testCaseId(tc.getId())
-                    .testCaseTitle(tc.getTitle())
-                    .passed(false)
-                    .actualOutput(null)
-                    .expectedOutput(tc.getOutput())
-                    .timedOut(false)
-                    .errorMessage(e.getMessage())
-                    .runtimeMs(System.currentTimeMillis() - start)
-                    .build();
+            return failResult(tc, start, "Failed to write stdin: " + e.getMessage());
         }
-    }
 
-    /**
-     * Run execution command in workDir with input on stdin; compare stdout to expected output.
-     */
-    private TestCaseResultItem runExecution(Path workDir, String execCmd, String input, TestCase tc, long start) {
-        ProcessBuilder pb = isWindows()
-                ? new ProcessBuilder("cmd.exe", "/c", execCmd)
-                : new ProcessBuilder("/bin/sh", "-c", execCmd);
+        // Script: compile (if any) then run with stdin; inside container /work is the mounted workDir
+        StringBuilder script = new StringBuilder("set -e\n");
+        if (compileCmd != null) {
+            script.append(compileCmd).append("\n");
+        }
+        script.append(execCmd).append(" < ").append(DOCKER_STDIN_FILE).append("\n");
+        try {
+            Files.writeString(workDir.resolve(DOCKER_SCRIPT_FILE), script.toString(), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return failResult(tc, start, "Failed to write run script: " + e.getMessage());
+        }
+
+        String workDirAbs = workDir.toAbsolutePath().normalize().toString();
+        // On Windows, Docker Desktop accepts backslashes; for Docker Toolbox/WSL we might need conversion - use as-is for now
+        ProcessBuilder pb = new ProcessBuilder(
+                "docker", "run", "--rm",
+                "--network", "none",
+                "-v", workDirAbs + ":" + DOCKER_WORK_MOUNT,
+                "-w", DOCKER_WORK_MOUNT,
+                language.getDockerImage().trim(),
+                "sh", DOCKER_SCRIPT_FILE
+        );
         pb.redirectErrorStream(true);
-        pb.directory(workDir.toFile());
         try {
             Process process = pb.start();
-            process.getOutputStream().write(input.getBytes(StandardCharsets.UTF_8));
-            process.getOutputStream().close();
             boolean finished = process.waitFor(RUN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             long runtime = System.currentTimeMillis() - start;
 
@@ -269,28 +214,40 @@ public class RunTestsSyncService {
             String output = readStream(process.getInputStream());
             String actual = output != null ? output.trim() : "";
             String expected = (tc.getOutput() != null ? tc.getOutput() : "").trim();
+            int exit = process.exitValue();
             return TestCaseResultItem.builder()
                     .testCaseId(tc.getId())
                     .testCaseTitle(tc.getTitle())
-                    .passed(actual.equals(expected))
+                    .passed(exit == 0 && actual.equals(expected))
                     .actualOutput(actual)
                     .expectedOutput(tc.getOutput())
                     .timedOut(false)
-                    .errorMessage(process.exitValue() != 0 ? "Process exited with code " + process.exitValue() : null)
+                    .errorMessage(exit != 0 ? "Container exited with code " + exit + (output != null && !output.isBlank() ? ": " + output.trim() : "") : null)
                     .runtimeMs(runtime)
                     .build();
         } catch (Exception e) {
-            return TestCaseResultItem.builder()
-                    .testCaseId(tc.getId())
-                    .testCaseTitle(tc.getTitle())
-                    .passed(false)
-                    .actualOutput(null)
-                    .expectedOutput(tc.getOutput())
-                    .timedOut(false)
-                    .errorMessage(e.getMessage())
-                    .runtimeMs(System.currentTimeMillis() - start)
-                    .build();
+            return failResult(tc, start, "Docker execution failed: " + e.getMessage());
         }
+    }
+
+    private static TestCaseResultItem failResult(TestCase tc, long start, String errorMessage) {
+        return TestCaseResultItem.builder()
+                .testCaseId(tc.getId())
+                .testCaseTitle(tc.getTitle())
+                .passed(false)
+                .actualOutput(null)
+                .expectedOutput(tc.getOutput())
+                .timedOut(false)
+                .errorMessage(errorMessage)
+                .runtimeMs(System.currentTimeMillis() - start)
+                .build();
+    }
+
+    private static String substitute(String template, String mainFile, String mainClass) {
+        if (template == null) return "";
+        return template
+                .replace(PLACEHOLDER_MAIN_FILE, mainFile)
+                .replace(PLACEHOLDER_MAIN_CLASS, mainClass);
     }
 
     private static String readStream(InputStream in) throws java.io.IOException {
