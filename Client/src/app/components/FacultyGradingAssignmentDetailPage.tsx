@@ -225,6 +225,10 @@ export function FacultyGradingAssignmentDetailPage() {
           error={errorMessage}
           onRefreshSubmissions={reloadSubmissions}
           submissionsSectionSubtitle="Open a submission to review code and submit a grade."
+          testCasesLink={{
+            to: `/faculty/assignment/${resolvedAssignmentId}?tab=tests`,
+            label: "Edit test cases",
+          }}
         />
       }
     />

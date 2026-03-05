@@ -7,6 +7,8 @@ export interface AssignmentDetail {
   title: string;
   course: string;
   courseCode: string;
+  /** Course id for API calls (e.g. test suite by course + assignment). */
+  courseId?: number;
   dueDate: string;
   /** Formatted available-from datetime, or null if not set. */
   availableFrom?: string | null;

@@ -24,11 +24,13 @@ public class TestCase {
     @Column(name = "is_private", nullable = false)
     private Boolean isPrivate = false;
 
-    @Column(name = "console_input", columnDefinition = "TEXT")
-    private String consoleInput;
+    /** Input content: stdin if file_name is null, else file content. */
+    @Column(name = "input", columnDefinition = "TEXT")
+    private String input;
 
-    @Column(name = "file_input", columnDefinition = "TEXT")
-    private String fileInput;
+    /** If set, input is file content (create file with this name when running). If null, input is console/stdin. */
+    @Column(name = "file_name")
+    private String fileName;
 
     @Column(columnDefinition = "TEXT", nullable = false)
     private String output;

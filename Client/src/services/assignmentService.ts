@@ -500,6 +500,7 @@ export async function getAssignmentDetailById(id: string): Promise<AssignmentDet
     title: workspaceSource.assignment.name,
     course: workspaceSource.course.name || workspaceSource.assignment.courseName || "placeholder text",
     courseCode: workspaceSource.course.courseCode || "placeholder text",
+    courseId: workspaceSource.course.id,
     dueDate: formatDueDateTime(workspaceSource.assignment.dueDate),
     availableFrom: workspaceSource.assignment.availableFrom
       ? formatDueDateTime(workspaceSource.assignment.availableFrom)

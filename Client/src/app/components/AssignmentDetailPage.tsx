@@ -8,6 +8,7 @@ import {
   FileText,
   Filter,
   Inbox,
+  ListChecks,
   MoreVertical,
   RefreshCcw,
 } from "lucide-react";
@@ -81,6 +82,8 @@ export interface AssignmentDetailPageProps {
   onRefreshSubmissions: () => void;
   /** Optional subtitle under "Submissions" heading. */
   submissionsSectionSubtitle?: string;
+  /** Optional link for faculty to manage test cases (opens assignment workspace). */
+  testCasesLink?: { to: string; label: string };
 }
 
 export function AssignmentDetailPage({
@@ -94,6 +97,7 @@ export function AssignmentDetailPage({
   error,
   onRefreshSubmissions,
   submissionsSectionSubtitle = "Review and grade student submissions for this assignment.",
+  testCasesLink,
 }: AssignmentDetailPageProps) {
   const [downloadAllLoading, setDownloadAllLoading] = useState(false);
 
@@ -168,6 +172,15 @@ export function AssignmentDetailPage({
           <ChevronLeft className="w-4 h-4" strokeWidth={2} />
           {backLink.label}
         </Link>
+        {testCasesLink && assignment?.id ? (
+          <Link
+            to={testCasesLink.to}
+            className="inline-flex items-center gap-1.5 text-[13px] text-[#5A7ACD] hover:text-[#4a6abb] transition-colors mb-4 ml-4"
+          >
+            <ListChecks className="w-4 h-4" strokeWidth={2} />
+            {testCasesLink.label}
+          </Link>
+        ) : null}
 
         {error ? (
           <div className="rounded-2xl border border-gray-200 bg-white p-6">

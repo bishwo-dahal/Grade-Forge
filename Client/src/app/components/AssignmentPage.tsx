@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router";
+import { useParams, Link, useSearchParams } from "react-router";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { AssignmentHeader } from "./assignment/AssignmentHeader";
 import { TabNavigation } from "./assignment/TabNavigation";
 import { DescriptionPanel } from "./assignment/DescriptionPanel";
 import { PublicTestsPanel } from "./assignment/PublicTestsPanel";
+import { TestSuiteViewPanel } from "./assignment/TestSuiteViewPanel";
+import { TestSuiteFormPanel } from "./assignment/TestSuiteFormPanel";
 import { GradingRubricPanel } from "./assignment/GradingRubricPanel";
 import { ResultsPanel } from "./assignment/ResultsPanel";
 import { CodeWorkspace } from "./assignment/CodeWorkspace";
@@ -28,6 +30,10 @@ import {
   submitFacultySubmissionGrade,
   submitStudentAssignmentFiles,
 } from "../../services/submissionService";
+import {
+  getTestSuiteByAssignment,
+  getTestSuiteByCourseAndAssignment,
+} from "../../services/testSuiteService";
 import { getAuthenticatedRole } from "../auth";
 import React from "react";
 import type {
@@ -35,6 +41,7 @@ import type {
   FacultyEditorPreviewPayload,
   FacultySubmissionGradePayload,
 } from "../../types/submission";
+import type { TestSuiteDetail } from "../../types/testSuite";
 
 type TabType = 'description' | 'tests' | 'rubric' | 'results';
 
@@ -51,13 +58,17 @@ function getErrorMessage(error: unknown): string {
 
 export function AssignmentPage() {
   const { assignmentId, submissionId } = useParams();
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
   const authenticatedRole = getAuthenticatedRole();
   const isStudentRole = authenticatedRole === "STUDENT";
   const isFacultyRole = authenticatedRole === "FACULTY";
 
-  const [activeTab, setActiveTab] = useState<TabType>(
-    isFacultyRole && submissionId ? "results" : "description",
-  );
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    if (tabParam === "tests") return "tests";
+    if (isFacultyRole && submissionId) return "results";
+    return "description";
+  });
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submissionFeedback, setSubmissionFeedback] = useState<{ tone: "success" | "error"; text: string } | null>(null);
@@ -73,6 +84,8 @@ export function AssignmentPage() {
   const [facultyPreviewErrorMessage, setFacultyPreviewErrorMessage] = useState<string | null>(null);
   const [editorCodeExamples, setEditorCodeExamples] = useState<EditorCodeExamples>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [testSuite, setTestSuite] = useState<TestSuiteDetail | null>(null);
+  const [testSuiteSaveInProgress, setTestSuiteSaveInProgress] = useState(false);
 
   const facultySubmissionFileOptions = useMemo(() => {
     if (!isFacultyRole) {
@@ -116,6 +129,18 @@ export function AssignmentPage() {
     setFacultySubmissionRows(facultyRows);
     // FIX: Results tab now reflects whether at least one real submission exists for this assignment.
     setHasSubmitted(assignmentData.submissionsUsed > 0);
+    // Load test suite: faculty by assignment id, student by course + assignment (student needs courseId from assignment).
+    try {
+      const suite = isFacultyRole
+        ? await getTestSuiteByAssignment(resolvedId)
+        : await getTestSuiteByCourseAndAssignment(
+            String(assignmentData.courseId ?? ""),
+            resolvedId,
+          );
+      setTestSuite(suite ?? null);
+    } catch {
+      setTestSuite(null);
+    }
   }, [isFacultyRole]);
 
   useEffect(() => {
@@ -315,7 +340,34 @@ export function AssignmentPage() {
               {/* Tab Content */}
               <div className="flex-1 overflow-y-auto">
                 {activeTab === 'description' && <DescriptionPanel description={description} />}
-                {activeTab === 'tests' && <PublicTestsPanel testCases={publicTests} />}
+                {activeTab === 'tests' && (
+                  isFacultyRole ? (
+                    <TestSuiteFormPanel
+                      assignmentId={assignmentId ?? assignment.id}
+                      existingSuite={testSuite}
+                      onSaved={async () => {
+                        setTestSuiteSaveInProgress(true);
+                        try {
+                          const suite = await getTestSuiteByAssignment(assignmentId ?? assignment.id);
+                          setTestSuite(suite ?? null);
+                        } finally {
+                          setTestSuiteSaveInProgress(false);
+                        }
+                      }}
+                      isSubmitting={testSuiteSaveInProgress}
+                      errorMessage={null}
+                    />
+                  ) : testSuite ? (
+                    <TestSuiteViewPanel testSuite={testSuite} />
+                  ) : (
+                    <div className="p-6">
+                      <h2 className="text-lg font-semibold text-[#2B2A2A]">Test Cases</h2>
+                      <p className="mt-2 text-[13px] text-gray-600">
+                        No test cases have been defined for this assignment yet.
+                      </p>
+                    </div>
+                  )
+                )}
                 {activeTab === 'rubric' && <GradingRubricPanel rubricCategories={rubricCategories} />}
                 {activeTab === 'results' && (
                   <ResultsPanel
