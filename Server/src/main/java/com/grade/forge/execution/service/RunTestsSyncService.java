@@ -11,6 +11,7 @@ import com.grade.forge.testsuite.entity.TestCase;
 import com.grade.forge.testsuite.repository.TestCaseRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -22,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -41,6 +43,22 @@ public class RunTestsSyncService {
     private static final String DOCKER_STDIN_FILE = "stdin.txt";
     private static final String DOCKER_SCRIPT_FILE = "run.sh";
     private static final String DOCKER_WORK_MOUNT = "/work";
+
+    /** Run container as this user:group (e.g. 1000:1000). Use same UID as the app process so the mounted work dir is writable. */
+    @Value("${run.tests.docker.user:1000:1000}")
+    private String dockerRunUser;
+
+    /** Max memory for each run container (e.g. 256m). */
+    @Value("${run.tests.docker.memory-mb:256}")
+    private int dockerMemoryMb;
+
+    /** Max CPUs (e.g. 1 or 0.5). */
+    @Value("${run.tests.docker.cpus:1}")
+    private String dockerCpus;
+
+    /** Max number of processes (pids) in the container. */
+    @Value("${run.tests.docker.pids-limit:50}")
+    private int dockerPidsLimit;
 
     private final AssignmentRepository assignmentRepository;
     private final TestCaseRepository testCaseRepository;
@@ -183,15 +201,42 @@ public class RunTestsSyncService {
         }
 
         String workDirAbs = workDir.toAbsolutePath().normalize().toString();
-        // On Windows, Docker Desktop accepts backslashes; for Docker Toolbox/WSL we might need conversion - use as-is for now
-        ProcessBuilder pb = new ProcessBuilder(
-                "docker", "run", "--rm",
-                "--network", "none",
-                "-v", workDirAbs + ":" + DOCKER_WORK_MOUNT,
-                "-w", DOCKER_WORK_MOUNT,
-                language.getDockerImage().trim(),
-                "sh", DOCKER_SCRIPT_FILE
-        );
+        String memoryLimit = dockerMemoryMb + "m";
+        String containerName = "run-tests-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        // Lowest privilege: non-root user, no new privileges, drop all caps, read-only root, resource limits
+        List<String> cmd = new ArrayList<>();
+        cmd.add("docker");
+        cmd.add("run");
+        cmd.add("--rm");
+        cmd.add("--name");
+        cmd.add(containerName);
+        cmd.add("--network");
+        cmd.add("none");
+        cmd.add("--user");
+        cmd.add(dockerRunUser.trim());
+        cmd.add("--memory");
+        cmd.add(memoryLimit);
+        cmd.add("--memory-swap");
+        cmd.add(memoryLimit);
+        cmd.add("--cpus");
+        cmd.add(dockerCpus.trim());
+        cmd.add("--pids-limit");
+        cmd.add(String.valueOf(dockerPidsLimit));
+        cmd.add("--security-opt");
+        cmd.add("no-new-privileges:true");
+        cmd.add("--cap-drop");
+        cmd.add("ALL");
+        cmd.add("--read-only");
+        cmd.add("--tmpfs");
+        cmd.add("/tmp:size=64M,mode=1777");
+        cmd.add("-v");
+        cmd.add(workDirAbs + ":" + DOCKER_WORK_MOUNT);
+        cmd.add("-w");
+        cmd.add(DOCKER_WORK_MOUNT);
+        cmd.add(language.getDockerImage().trim());
+        cmd.add("sh");
+        cmd.add(DOCKER_SCRIPT_FILE);
+        ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.redirectErrorStream(true);
         try {
             Process process = pb.start();
@@ -200,6 +245,7 @@ public class RunTestsSyncService {
 
             if (!finished) {
                 process.destroyForcibly();
+                killContainer(containerName);
                 return TestCaseResultItem.builder()
                         .testCaseId(tc.getId())
                         .testCaseTitle(tc.getTitle())
@@ -226,7 +272,23 @@ public class RunTestsSyncService {
                     .runtimeMs(runtime)
                     .build();
         } catch (Exception e) {
+            killContainer(containerName);
             return failResult(tc, start, "Docker execution failed: " + e.getMessage());
+        }
+    }
+
+    /** Stop the container so it does not keep running after we time out or fail. */
+    private void killContainer(String containerName) {
+        try {
+            ProcessBuilder killPb = new ProcessBuilder("docker", "kill", containerName);
+            killPb.redirectErrorStream(true);
+            Process killProcess = killPb.start();
+            killProcess.waitFor(5, TimeUnit.SECONDS);
+            if (!killProcess.isAlive() && killProcess.exitValue() != 0) {
+                log.debug("docker kill {} exited with {} (container may already have stopped)", containerName, killProcess.exitValue());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to kill container {}: {}", containerName, e.getMessage());
         }
     }
 
