@@ -1,6 +1,9 @@
 package com.grade.forge.storage.service;
 
 import com.grade.forge.exceptionhandler.IncorrectFileException;
+import com.grade.forge.assignment.entity.Assignment;
+import com.grade.forge.assignment.repository.AssignmentRepository;
+import com.grade.forge.programminglanguage.entity.ProgrammingLanguage;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.entity.SubmissionFile;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +22,6 @@ import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -42,6 +44,7 @@ public class FileStorageService {
     private String secretKey;
 
     private S3Client s3Client;
+    private final AssignmentRepository assignmentRepository;
     private final S3PresignedUrl s3PresignedUrl;
 
     private S3Client getClient() {
@@ -73,10 +76,32 @@ public class FileStorageService {
         String fileId = UUID.randomUUID().toString();
         String originalName = multipartFile.getOriginalFilename();
 
-        if (originalName == null ||
-                !(originalName.toLowerCase().endsWith(".java") ||
-                        originalName.toLowerCase().endsWith(".py"))) {
+        if (originalName == null) {
+            throw new IncorrectFileException("Incorrect File Type");
+        }
 
+        String lower = originalName.toLowerCase();
+        int dotIndex = lower.lastIndexOf('.');
+        String ext = dotIndex >= 0 ? lower.substring(dotIndex) : "";
+
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new IncorrectFileException("Assignment not found for file upload."));
+        ProgrammingLanguage language = assignment.getProgrammingLanguage();
+
+        boolean allowedByLanguage = false;
+        if (language != null && language.getAllowedExtensions() != null && !language.getAllowedExtensions().isBlank()) {
+            String[] parts = language.getAllowedExtensions().split(",");
+            for (String part : parts) {
+                String trimmed = part.trim().toLowerCase();
+                if (!trimmed.isEmpty() && trimmed.equals(ext)) {
+                    allowedByLanguage = true;
+                    break;
+                }
+            }
+        }
+
+        boolean isTextOrCsv = ".txt".equals(ext) || ".csv".equals(ext);
+        if (!allowedByLanguage && !isTextOrCsv) {
             throw new IncorrectFileException("Incorrect File Type");
         }
 

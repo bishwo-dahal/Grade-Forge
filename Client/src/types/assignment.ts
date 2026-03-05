@@ -22,6 +22,8 @@ export interface AssignmentDetail {
   submissionsUsed: number;
   submissionsAllowed: number | null;
   language: string;
+  /** Optional comma-separated list of allowed source extensions for this assignment's language (e.g. ".py,.txt,.csv"). */
+  languageAllowedExtensions?: string | null;
   hasStarterCode: boolean;
   submissionType?: string;
   starterCodeUrl?: string | null;

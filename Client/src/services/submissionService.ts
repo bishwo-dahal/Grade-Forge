@@ -309,10 +309,6 @@ export async function submitStudentAssignmentFiles(assignmentId: string, files: 
   const parsedAssignmentId = parseAssignmentId(assignmentId);
   const formData = new FormData();
   for (const file of files) {
-    const fileName = file.name.toLowerCase();
-    if (!fileName.endsWith(".py") && !fileName.endsWith(".java")) {
-      throw new Error(`Only .py and .java files are allowed. Invalid: ${file.name}`);
-    }
     const normalized = normalizeUploadFileType(file);
     formData.append("files", normalized, normalized.name);
   }

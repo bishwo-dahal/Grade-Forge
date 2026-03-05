@@ -21,6 +21,7 @@ type ProgrammingLanguageApiResponse = {
   compileCommand: string | null;
   executionCode: string | null;
   isActive: boolean | null;
+  allowedExtensions?: string | null;
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -118,6 +119,7 @@ function mapProgrammingLanguageToUiModel(language: ProgrammingLanguageApiRespons
     compileCommand: language.compileCommand ?? undefined,
     executionCode: language.executionCode ?? "",
     isActive: language.isActive ?? true,
+    allowedExtensions: language.allowedExtensions ?? undefined,
   };
 }
 
@@ -134,6 +136,7 @@ function toUpdatePayload(payload: LanguageCreatePayload) {
     compileCommand: payload.compileCommand?.trim() || null,
     executionCode: payload.executionCode,
     isActive: payload.isActive,
+    allowedExtensions: payload.allowedExtensions?.trim() || null,
   };
 }
 

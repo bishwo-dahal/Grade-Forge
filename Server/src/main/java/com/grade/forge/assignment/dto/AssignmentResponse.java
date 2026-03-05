@@ -20,6 +20,11 @@ public class AssignmentResponse {
     private String courseName;
     private Long languageId;
     private String languageName;
+    /**
+     * Optional comma-separated list of allowed source extensions for this assignment's language
+     * (e.g. ".py,.txt,.csv"). Mirrors ProgrammingLanguage.allowedExtensions for frontend validation.
+     */
+    private String languageAllowedExtensions;
     private String name;
     private String description;
     private Integer totalPoints;

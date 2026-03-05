@@ -27,20 +27,18 @@ public class ProgrammingLanguage {
     @Column(name = "docker_image", columnDefinition = "TEXT", nullable = false)
     private String dockerImage;
 
-    /**
-     * Optional command to compile the submission before execution (e.g. "javac {{main_file}}").
-     * May contain placeholders: {{main_file}} (entry filename), {{main_class}} (filename without extension).
-     * Stored as-is; the runner substitutes placeholders at execution time.
-     */
     @Column(name = "compile_command", columnDefinition = "TEXT")
     private String compileCommand;
 
-    /**
-     * Command to run the submission (e.g. "java {{main_class}}" or "python3 {{main_file}}").
-     * May contain placeholders: {{main_file}}, {{main_class}}. The runner substitutes them at execution time.
-     */
     @Column(name = "execution_code", columnDefinition = "TEXT")
     private String executionCode;
+
+    /**
+     * Comma-separated list of allowed source file extensions for this language (e.g. ".java,.txt,.csv").
+     * Used to validate uploaded submission files per assignment language. Text/CSV are always allowed in addition.
+     */
+    @Column(name = "allowed_extensions", columnDefinition = "TEXT")
+    private String allowedExtensions;
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;

@@ -18,5 +18,7 @@ public class ProgrammingLanguageResponse {
     private String compileCommand;
     private String executionCode;
     private Boolean isActive;
+    /** Optional comma-separated list of allowed source extensions (e.g. ".py,.txt,.csv"). */
+    private String allowedExtensions;
 }
 

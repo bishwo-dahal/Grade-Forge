@@ -85,6 +85,8 @@ export interface SupportedLanguage {
   compileCommand?: string;
   executionCode: string;
   isActive: boolean;
+  /** Optional comma-separated list of allowed source extensions (e.g. ".py,.txt,.csv"). */
+  allowedExtensions?: string;
   // NOTE: Legacy optional UI fields are kept temporarily for compatibility with older, non-routed dashboard code.
   version?: string;
   addedOn?: string;
@@ -99,4 +101,6 @@ export interface LanguageCreatePayload {
   compileCommand?: string;
   executionCode: string;
   isActive: boolean;
+  /** Optional comma-separated list of allowed source extensions (e.g. ".py,.txt,.csv"). */
+  allowedExtensions?: string;
 }

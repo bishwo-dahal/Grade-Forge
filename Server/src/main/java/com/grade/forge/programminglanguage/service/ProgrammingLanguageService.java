@@ -58,6 +58,9 @@ public class ProgrammingLanguageService {
         if (request.getIsActive() != null) {
             language.setIsActive(request.getIsActive());
         }
+        if (request.getAllowedExtensions() != null) {
+            language.setAllowedExtensions(request.getAllowedExtensions());
+        }
 
         ProgrammingLanguage saved = programmingLanguageRepository.save(language);
         return mapToResponse(saved);
@@ -114,6 +117,7 @@ public class ProgrammingLanguageService {
         target.setCompileCommand(request.getCompileCommand());
         target.setExecutionCode(request.getExecutionCode());
         target.setIsActive(request.getIsActive());
+        target.setAllowedExtensions(request.getAllowedExtensions());
         return target;
     }
 
@@ -125,6 +129,7 @@ public class ProgrammingLanguageService {
                 .compileCommand(language.getCompileCommand())
                 .executionCode(language.getExecutionCode())
                 .isActive(language.getIsActive())
+                .allowedExtensions(language.getAllowedExtensions())
                 .build();
     }
 }

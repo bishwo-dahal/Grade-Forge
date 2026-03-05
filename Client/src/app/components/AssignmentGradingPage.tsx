@@ -87,6 +87,7 @@ function buildAssignmentDetailFromGA(
     submissionsUsed: 0,
     submissionsAllowed: null,
     language: "Python",
+    languageAllowedExtensions: null,
     hasStarterCode: false,
   };
 }

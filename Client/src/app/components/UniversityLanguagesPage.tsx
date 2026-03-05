@@ -94,6 +94,7 @@ function UniversityLanguagesView({
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Docker Image</th>
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Compile Command</th>
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Execution Command</th>
+                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Allowed Extensions</th>
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Status</th>
                 <th className="px-6 py-4 text-right text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Actions</th>
               </tr>
@@ -132,7 +133,7 @@ function UniversityLanguagesView({
 
               {!isLoading && filteredLanguages.length === 0 && (
                 <tr>
-                  <td className="px-6 py-5 text-[14px] text-[#5D6A80]" colSpan={6}>
+                  <td className="px-6 py-5 text-[14px] text-[#5D6A80]" colSpan={7}>
                     No languages found.
                   </td>
                 </tr>
@@ -152,6 +153,9 @@ function UniversityLanguagesView({
                     <td className="px-6 py-4 text-[14px] text-[#2D3B53]">{language.dockerImage || "-"}</td>
                     <td className="px-6 py-4 text-[14px] text-[#2D3B53]">{language.compileCommand || "-"}</td>
                     <td className="px-6 py-4 text-[14px] text-[#2D3B53]">{language.executionCode || "-"}</td>
+                    <td className="px-6 py-4 text-[13px] text-[#5D6A80]">
+                      {language.allowedExtensions || "-"}
+                    </td>
                     <td className="px-6 py-4 text-[14px]">
                       <span
                         className={
@@ -243,6 +247,7 @@ export function UniversityLanguagesPage() {
       compileCommand: language.compileCommand ?? "",
       executionCode: language.executionCode,
       isActive: language.isActive,
+      allowedExtensions: language.allowedExtensions ?? "",
     });
     setEditingLanguageId(language.id);
     setLanguageFormError(null);
@@ -264,12 +269,13 @@ export function UniversityLanguagesPage() {
     setIsSavingLanguage(true);
     setLanguageFormError(null);
 
-    const payload = {
+    const payload: LanguageCreatePayload = {
       name: languageForm.name.trim(),
       dockerImage: languageForm.dockerImage.trim(),
       compileCommand: languageForm.compileCommand?.trim() || undefined,
       executionCode: languageForm.executionCode.trim(),
       isActive: languageForm.isActive,
+      allowedExtensions: languageForm.allowedExtensions?.trim() || undefined,
     };
 
     try {
@@ -380,6 +386,22 @@ export function UniversityLanguagesPage() {
                   className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
                 />
                 <p className="mt-1 text-[12px] text-[#6F7B8D]">Use {"{{main_file}}"} or {"{{main_class}}"} as placeholders.</p>
+              </div>
+              <div>
+                <label htmlFor="language-extensions-create" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                  Allowed Source Extensions <span className="text-[#98A2B5]">(optional)</span>
+                </label>
+                <input
+                  id="language-extensions-create"
+                  type="text"
+                  value={languageForm.allowedExtensions ?? ""}
+                  onChange={(event) => setLanguageForm((prev) => ({ ...prev, allowedExtensions: event.target.value }))}
+                  placeholder='e.g., ".py,.txt,.csv"'
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                />
+                <p className="mt-1 text-[12px] text-[#6F7B8D]">
+                  Comma-separated list of extensions. Text and CSV files (".txt", ".csv") are always allowed.
+                </p>
               </div>
               <label className="inline-flex items-center gap-2 text-[13px] text-[#2D3B53]">
                 <input
