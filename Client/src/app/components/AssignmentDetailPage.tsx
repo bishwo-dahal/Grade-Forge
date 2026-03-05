@@ -56,6 +56,20 @@ export interface AssignmentDetailPageRubricSection {
   loading?: boolean;
 }
 
+/** Test case summary for assignment detail (title + private flag). */
+export interface AssignmentDetailPageTestCaseItem {
+  title: string;
+  isPrivate: boolean;
+}
+
+/** Test suite section for assignment detail page. */
+export interface AssignmentDetailPageTestSuiteSection {
+  title: string;
+  description?: string | null;
+  testCases: AssignmentDetailPageTestCaseItem[];
+  loading?: boolean;
+}
+
 /** Normalized submission row for the submissions table. */
 export interface AssignmentDetailPageSubmissionRow {
   submissionId: string;
@@ -84,6 +98,8 @@ export interface AssignmentDetailPageProps {
   submissionsSectionSubtitle?: string;
   /** Optional link for faculty to manage test cases (opens assignment workspace). */
   testCasesLink?: { to: string; label: string };
+  /** Optional test suite to display (like rubric section). */
+  testSuiteSection?: AssignmentDetailPageTestSuiteSection | null;
 }
 
 export function AssignmentDetailPage({
@@ -98,6 +114,7 @@ export function AssignmentDetailPage({
   onRefreshSubmissions,
   submissionsSectionSubtitle = "Review and grade student submissions for this assignment.",
   testCasesLink,
+  testSuiteSection,
 }: AssignmentDetailPageProps) {
   const [downloadAllLoading, setDownloadAllLoading] = useState(false);
 
@@ -332,6 +349,52 @@ export function AssignmentDetailPage({
                     </div>
                   ) : rubricSection.name ? (
                     <p className="text-[14px] text-[#2B2A2A]">{rubricSection.name}</p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {testSuiteSection ? (
+                <div className="pt-2 border-t border-gray-100">
+                  <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Test cases
+                  </h3>
+                  {testSuiteSection.loading ? (
+                    <p className="text-[14px] text-gray-500">Loading test cases…</p>
+                  ) : testSuiteSection.testCases.length > 0 ? (
+                    <div className="space-y-3">
+                      {testSuiteSection.title ? (
+                        <p className="text-[14px] font-medium text-[#2B2A2A]">{testSuiteSection.title}</p>
+                      ) : null}
+                      {testSuiteSection.description ? (
+                        <p className="text-[13px] text-gray-600">{testSuiteSection.description}</p>
+                      ) : null}
+                      <ul className="space-y-2">
+                        {testSuiteSection.testCases.map((c, i) => (
+                          <li
+                            key={c.title || i}
+                            className="text-[13px] text-[#2B2A2A] border-l-2 border-[#EEF3FF] pl-3"
+                          >
+                            <span className="font-medium">{c.title || "Untitled"}</span>
+                            {c.isPrivate && (
+                              <span className="ml-2 text-[11px] font-medium text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                                Private
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                      {testCasesLink && assignment?.id ? (
+                        <Link
+                          to={testCasesLink.to}
+                          className="inline-flex items-center gap-1.5 text-[13px] text-[#5A7ACD] hover:underline mt-2"
+                        >
+                          <ListChecks className="w-4 h-4" strokeWidth={2} />
+                          {testCasesLink.label}
+                        </Link>
+                      ) : null}
+                    </div>
+                  ) : testSuiteSection.title ? (
+                    <p className="text-[14px] text-[#2B2A2A]">{testSuiteSection.title} — no cases yet.</p>
                   ) : null}
                 </div>
               ) : null}
