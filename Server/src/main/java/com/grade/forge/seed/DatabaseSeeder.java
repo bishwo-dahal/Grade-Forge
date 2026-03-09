@@ -173,7 +173,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                 .orElseGet(() -> {
                     ProgrammingLanguage lang = new ProgrammingLanguage();
                     lang.setName("Java");
-                    lang.setDockerImage("eclipse-temurin:17-jdk-alpine");
+                    lang.setDockerImage("eclipse-temurin:17-jdk");
                     lang.setCompileCommand("javac {{main_file}}");
                     lang.setExecutionCode("java {{main_class}}");
                     lang.setAllowedExtensions(".java,.txt,.csv");
