@@ -13,7 +13,6 @@ import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.repository.SubmissionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -42,8 +41,7 @@ public class TestRunJobService {
      * @throws ResourceNotFoundException if submission not found
      * @throws IllegalArgumentException  if assignment has no test suite
      */
-    // Run in a new transaction so enqueue failures do not poison the caller's transaction (e.g. submission).
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public TestRunJob requestRunTests(Long submissionId) {
         Submission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));

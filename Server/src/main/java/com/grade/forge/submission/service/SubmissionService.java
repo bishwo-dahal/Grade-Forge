@@ -82,12 +82,13 @@ public class SubmissionService {
 
         // When a student submits, enqueue a test run so faculty/GA can see results for this submission.
         // Runs in its own transaction; failures here should not block the submission.
-        if (assignment.getTestSuite() != null) {
-            try {
-                testRunJobService.requestRunTests(saved.getId());
-            } catch (Exception e) {
-                log.warn("Failed to enqueue test run for submission {}: {}", saved.getId(), e.getMessage());
-            }
+        try {
+            // Ensure the new submission row is flushed so the separate transaction can see it.
+            submissionRepository.flush();
+            log.info("Student saved ID is: {}", saved.getId());
+            testRunJobService.requestRunTests(saved.getId());
+        } catch (Exception e) {
+            log.warn("Failed to enqueue test run for submission {}: {}", saved.getId(), e.getMessage());
         }
 
         return mapToResponse(saved);
