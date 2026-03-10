@@ -80,6 +80,10 @@ jobs:
           fi
           docker stop "${CONTAINER_NAME}" || true
           docker rm "${CONTAINER_NAME}" || true
-          docker run -d -p ${PORT}:8080 --name "${CONTAINER_NAME}" bishwodahal/grade-forge:${IMAGE_TAG}
+          docker run -d \
+            -p ${PORT}:8080 \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            --name "${CONTAINER_NAME}" \
+            bishwodahal/grade-forge:${IMAGE_TAG}
           echo "Deployed bishwodahal/grade-forge:${IMAGE_TAG} on port ${PORT} (container: ${CONTAINER_NAME})"
  
