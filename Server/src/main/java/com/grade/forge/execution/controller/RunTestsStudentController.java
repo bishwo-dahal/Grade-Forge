@@ -43,7 +43,7 @@ public class RunTestsStudentController {
         submissionService.ensureStudentCanAccessSubmission(user.getUsername(), submissionId);
         Optional<TestRunJob> job = testRunJobService.getLatestBySubmissionId(submissionId);
         return job
-                .map(j -> ResponseEntity.ok(testRunJobService.toStatusResponse(j)))
+                .map(j -> ResponseEntity.ok(testRunJobService.toStatusResponse(j, false)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -53,6 +53,6 @@ public class RunTestsStudentController {
         TestRunJob job = testRunJobService.findById(jobId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test run job not found with id: " + jobId));
         submissionService.ensureStudentCanAccessSubmission(user.getUsername(), job.getSubmission().getId());
-        return ResponseEntity.ok(testRunJobService.toStatusResponse(job));
+        return ResponseEntity.ok(testRunJobService.toStatusResponse(job, false));
     }
 }

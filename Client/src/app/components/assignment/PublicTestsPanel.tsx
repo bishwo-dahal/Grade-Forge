@@ -9,6 +9,8 @@ interface PublicTestsPanelProps {
   isRunning?: boolean;
   runError?: string | null;
   runResult?: { passedCount: number; totalCount: number; results: PublicTestCase[] } | null;
+  /** When true, show the student-facing 'public tests only' note. Hide for faculty/GA views. */
+  showPublicNote?: boolean;
 }
 
 export function PublicTestsPanel({
@@ -17,6 +19,7 @@ export function PublicTestsPanel({
   isRunning = false,
   runError = null,
   runResult = null,
+  showPublicNote = true,
 }: PublicTestsPanelProps) {
   const [expandedTests, setExpandedTests] = useState<Set<number>>(new Set([0]));
 
@@ -144,14 +147,16 @@ export function PublicTestsPanel({
         ))}
       </div>
 
-      {/* Info Box */}
-      <div className="mt-6 p-4 bg-[#5A7ACD]/5 border border-[#5A7ACD]/20 rounded-xl">
-        <p className="text-[13px] text-gray-700">
-          <strong className="text-[#2B2A2A]">Note:</strong> These are only the public test cases. 
-          Your final submission will be graded against additional private test cases that verify 
-          edge cases and advanced scenarios.
-        </p>
-      </div>
+      {/* Info Box (student copy only) */}
+      {showPublicNote && (
+        <div className="mt-6 p-4 bg-[#5A7ACD]/5 border border-[#5A7ACD]/20 rounded-xl">
+          <p className="text-[13px] text-gray-700">
+            <strong className="text-[#2B2A2A]">Note:</strong> These are only the public test cases.
+            Your final submission will be graded against additional private test cases that verify
+            edge cases and advanced scenarios.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

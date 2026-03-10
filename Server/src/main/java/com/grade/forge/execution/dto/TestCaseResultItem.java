@@ -20,4 +20,5 @@ public class TestCaseResultItem {
     private Boolean timedOut;
     private String errorMessage;
     private Long runtimeMs;
+    private Boolean isPrivate;
 }

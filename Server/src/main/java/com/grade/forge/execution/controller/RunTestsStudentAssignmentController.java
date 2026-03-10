@@ -6,6 +6,7 @@ import com.grade.forge.assignment.service.AssignmentService;
 import com.grade.forge.coursemgmt.dto.CourseResponseDto;
 import com.grade.forge.coursemgmt.service.CourseService;
 import com.grade.forge.execution.dto.TestRunJobStatusResponse;
+import com.grade.forge.execution.dto.TestCaseResultItem;
 import com.grade.forge.execution.service.RunTestsSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -41,7 +42,26 @@ public class RunTestsStudentAssignmentController {
             @RequestPart("files") List<MultipartFile> files) {
         ensureStudentCanAccessAssignment(user, assignmentId);
         TestRunJobStatusResponse result = runTestsSyncService.runTests(assignmentId, files);
-        return ResponseEntity.ok(result);
+        // Students should never see private tests; filter them out and recompute summary.
+        List<TestCaseResultItem> publicResults = result.getResults() == null
+                ? List.of()
+                : result.getResults().stream()
+                        .filter(r -> !Boolean.TRUE.equals(r.getIsPrivate()))
+                        .toList();
+        int passed = (int) publicResults.stream().filter(r -> Boolean.TRUE.equals(r.getPassed())).count();
+        TestRunJobStatusResponse safe = TestRunJobStatusResponse.builder()
+                .id(result.getId())
+                .submissionId(result.getSubmissionId())
+                .status(result.getStatus())
+                .createdAt(result.getCreatedAt())
+                .startedAt(result.getStartedAt())
+                .completedAt(result.getCompletedAt())
+                .errorMessage(result.getErrorMessage())
+                .results(publicResults)
+                .passedCount(passed)
+                .totalCount(publicResults.size())
+                .build();
+        return ResponseEntity.ok(safe);
     }
 
     /**

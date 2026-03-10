@@ -21,7 +21,7 @@ import {
   resolvePreviewLanguage,
   submitFacultySubmissionGrade,
 } from "../../services/submissionService";
-import { requestRunTests, runTestsWithFiles, pollRunTestsUntilDone } from "../../services/runTestsService";
+import { getRunTestsLatest, requestRunTests, runTestsWithFiles, pollRunTestsUntilDone } from "../../services/runTestsService";
 import { getAssignmentByCourse } from "../../services/gradingAssistantAssignmentService";
 import { getRubric } from "../../services/gradingAssistantRubricService";
 import {
@@ -247,6 +247,25 @@ export function AssignmentGradingPage() {
       .catch(() => setError("Failed to load submission."))
       .finally(() => setLoading(false));
   }, [assignmentId, submissionId, isFaculty, isGA, loadFacultyData, loadGAData]);
+
+  // Load latest test run for this submission (created on student submit or manual "Run tests").
+  useEffect(() => {
+    if (!submissionId) return;
+    getRunTestsLatest(submissionId)
+      .then((data) => data && setRunResult(data))
+      .catch(() => setRunResult(null));
+  }, [submissionId]);
+
+  // Poll while queued/running so faculty/GA sees results as soon as the consumer finishes.
+  useEffect(() => {
+    if (!runResult || runResult.status === "COMPLETED" || runResult.status === "FAILED") return;
+    const interval = setInterval(() => {
+      getRunTestsLatest(submissionId!)
+        .then((data) => data && setRunResult(data))
+        .catch(() => {});
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [submissionId, runResult?.status]);
 
   const scoreItems = useMemo(
     () => [
@@ -486,7 +505,7 @@ export function AssignmentGradingPage() {
                     {(
                       [
                         { id: "description" as const, label: "Description" },
-                        { id: "tests" as const, label: "Public Tests" },
+                        { id: "tests" as const, label: "Tests" },
                         { id: "plagiarism" as const, label: "Plagiarism" },
                         { id: "rubric" as const, label: "Grading Rubric" },
                       ] as const
@@ -536,6 +555,7 @@ export function AssignmentGradingPage() {
                             }
                           : null
                       }
+                      showPublicNote={false}
                     />
                   )}
                   {activeTab === "plagiarism" && (

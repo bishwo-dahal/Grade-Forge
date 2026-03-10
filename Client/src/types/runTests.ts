@@ -15,6 +15,7 @@ export interface TestCaseResultItem {
   timedOut: boolean;
   errorMessage: string | null;
   runtimeMs: number | null;
+  isPrivate?: boolean;
 }
 
 export interface TestRunJobStatusResponse {

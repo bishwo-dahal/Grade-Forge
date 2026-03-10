@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 /**
  * Runs tests only inside Docker containers. Uses the assignment's programming language
@@ -93,9 +92,8 @@ public class RunTestsSyncService {
             throw new IllegalArgumentException("Language '" + language.getName() + "' has no execution code configured.");
         }
 
-        List<TestCase> testCases = testCaseRepository.findByTestSuite_Id(assignment.getTestSuite().getId()).stream()
-                .filter(tc -> !Boolean.TRUE.equals(tc.getIsPrivate()))
-                .collect(Collectors.toList());
+        // Run all test cases (public + private). Student-facing APIs filter private elsewhere.
+        List<TestCase> testCases = testCaseRepository.findByTestSuite_Id(assignment.getTestSuite().getId());
 
         if (testCases.isEmpty()) {
             return TestRunJobStatusResponse.builder()
@@ -279,6 +277,7 @@ public class RunTestsSyncService {
                         .timedOut(true)
                         .errorMessage("Execution timed out after " + RUN_TIMEOUT_SECONDS + "s")
                         .runtimeMs(runtime)
+                        .isPrivate(Boolean.TRUE.equals(tc.getIsPrivate()))
                         .build();
             }
             String output = readStream(process.getInputStream());
@@ -294,6 +293,7 @@ public class RunTestsSyncService {
                     .timedOut(false)
                     .errorMessage(exit != 0 ? "Container exited with code " + exit + (output != null && !output.isBlank() ? ": " + output.trim() : "") : null)
                     .runtimeMs(runtime)
+                    .isPrivate(Boolean.TRUE.equals(tc.getIsPrivate()))
                     .build();
         } catch (Exception e) {
             killContainer(containerName);
@@ -326,6 +326,7 @@ public class RunTestsSyncService {
                 .timedOut(false)
                 .errorMessage(errorMessage)
                 .runtimeMs(System.currentTimeMillis() - start)
+                .isPrivate(Boolean.TRUE.equals(tc.getIsPrivate()))
                 .build();
     }
 

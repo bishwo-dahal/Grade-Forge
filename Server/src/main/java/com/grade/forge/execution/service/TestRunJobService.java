@@ -13,6 +13,7 @@ import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.repository.SubmissionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -41,7 +42,8 @@ public class TestRunJobService {
      * @throws ResourceNotFoundException if submission not found
      * @throws IllegalArgumentException  if assignment has no test suite
      */
-    @Transactional
+    // Run in a new transaction so enqueue failures do not poison the caller's transaction (e.g. submission).
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public TestRunJob requestRunTests(Long submissionId) {
         Submission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
@@ -84,9 +86,15 @@ public class TestRunJobService {
     }
 
     public TestRunJobStatusResponse toStatusResponse(TestRunJob job) {
+        return toStatusResponse(job, true);
+    }
+
+    /** When includePrivate is false, strips private test results (student safety). */
+    public TestRunJobStatusResponse toStatusResponse(TestRunJob job, boolean includePrivate) {
         List<TestCaseResult> results = testCaseResultRepository.findByTestRunJob_IdOrderById(job.getId());
         List<TestCaseResultItem> items = results.stream()
                 .map(this::toTestCaseResultItem)
+                .filter(i -> includePrivate || !Boolean.TRUE.equals(i.getIsPrivate()))
                 .collect(Collectors.toList());
         int passed = (int) items.stream().filter(i -> Boolean.TRUE.equals(i.getPassed())).count();
         return TestRunJobStatusResponse.builder()
@@ -113,6 +121,7 @@ public class TestRunJobService {
                 .timedOut(r.getTimedOut())
                 .errorMessage(r.getErrorMessage())
                 .runtimeMs(r.getRuntimeMs())
+                .isPrivate(Boolean.TRUE.equals(r.getTestCase().getIsPrivate()))
                 .build();
     }
 }
