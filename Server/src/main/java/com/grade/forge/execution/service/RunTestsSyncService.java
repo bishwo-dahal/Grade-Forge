@@ -119,10 +119,11 @@ public class RunTestsSyncService {
             String mainFile = null;
             for (MultipartFile f : files) {
                 if (f.getOriginalFilename() == null || f.getOriginalFilename().isBlank()) continue;
-                Path dest = workDir.resolve(f.getOriginalFilename());
+                String safeName = sanitizeFilename(f.getOriginalFilename());
+                Path dest = workDir.resolve(safeName);
                 Files.write(dest, f.getBytes());
                 if (mainFile == null) {
-                    mainFile = f.getOriginalFilename();
+                    mainFile = safeName;
                 }
             }
 
@@ -160,6 +161,29 @@ public class RunTestsSyncService {
         } finally {
             deleteRecursively(workDir);
         }
+    }
+
+    /**
+     * Normalize an uploaded filename so it cannot escape the temp directory.
+     * Strips any path components and collapses dangerous patterns; falls back to a simple name if needed.
+     */
+    private static String sanitizeFilename(String original) {
+        String name = original;
+        // Normalize separators to forward slashes and drop any path components.
+        name = name.replace("\\", "/");
+        int lastSlash = name.lastIndexOf('/');
+        if (lastSlash >= 0 && lastSlash + 1 < name.length()) {
+            name = name.substring(lastSlash + 1);
+        }
+        // Remove any remaining parent-directory tokens.
+        while (name.contains("..")) {
+            name = name.replace("..", "");
+        }
+        // Fallback if we stripped everything or got an empty/invalid name.
+        if (name.isBlank()) {
+            return "main";
+        }
+        return name;
     }
 
     private TestCaseResultItem runOneTest(Path workDir, ProgrammingLanguage language, String mainFile, String mainClass, TestCase tc) {
