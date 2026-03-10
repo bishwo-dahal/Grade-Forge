@@ -1,6 +1,10 @@
 package com.grade.forge.execution.controller;
 
 import com.grade.forge.configuration.security.CustomUserDetails;
+import com.grade.forge.assignment.dto.AssignmentResponse;
+import com.grade.forge.assignment.service.AssignmentService;
+import com.grade.forge.coursemgmt.dto.CourseResponseDto;
+import com.grade.forge.coursemgmt.service.CourseService;
 import com.grade.forge.execution.dto.TestRunJobStatusResponse;
 import com.grade.forge.execution.service.RunTestsSyncService;
 import lombok.RequiredArgsConstructor;
@@ -27,13 +31,30 @@ import java.util.List;
 public class RunTestsStudentAssignmentController {
 
     private final RunTestsSyncService runTestsSyncService;
+    private final AssignmentService assignmentService;
+    private final CourseService courseService;
 
     @PostMapping(value = "/{assignmentId}/run-tests", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<TestRunJobStatusResponse> runTestsWithFiles(
             @AuthenticationPrincipal CustomUserDetails user,
             @org.springframework.web.bind.annotation.PathVariable Long assignmentId,
             @RequestPart("files") List<MultipartFile> files) {
+        ensureStudentCanAccessAssignment(user, assignmentId);
         TestRunJobStatusResponse result = runTestsSyncService.runTests(assignmentId, files);
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Ensure that the current student is actually enrolled in the course that owns this assignment.
+     * Prevents students from running tests against arbitrary assignments.
+     */
+    private void ensureStudentCanAccessAssignment(CustomUserDetails user, Long assignmentId) {
+        AssignmentResponse assignment = assignmentService.getAssignment(assignmentId);
+        Long courseId = assignment.getCourseId();
+        List<CourseResponseDto> courses = courseService.getCoursesForStudentEmail(user.getUsername());
+        boolean allowed = courses.stream().anyMatch(c -> c.getId().equals(courseId));
+        if (!allowed) {
+            throw new IllegalArgumentException("You are not allowed to run tests for this assignment.");
+        }
     }
 }
