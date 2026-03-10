@@ -59,6 +59,14 @@ public class RunTestsSyncService {
     @Value("${run.tests.docker.pids-limit:50}")
     private int dockerPidsLimit;
 
+    /**
+     * Base directory for temporary workspaces used when running tests in Docker.
+     * In containerized deployments, this should point to a host-mounted volume so
+     * the Docker daemon can see the files (e.g. /var/gradeforge/work).
+     */
+    @Value("${run.tests.work-dir-base:/tmp}")
+    private String workDirBaseDir;
+
     private final AssignmentRepository assignmentRepository;
     private final TestCaseRepository testCaseRepository;
 
@@ -108,7 +116,9 @@ public class RunTestsSyncService {
 
         Path workDir;
         try {
-            workDir = Files.createTempDirectory("run-tests-");
+            Path baseDir = Path.of(workDirBaseDir).toAbsolutePath().normalize();
+            Files.createDirectories(baseDir);
+            workDir = Files.createTempDirectory(baseDir, "run-tests-");
         } catch (Exception e) {
             throw new RuntimeException("Failed to create temp directory", e);
         }
