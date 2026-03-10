@@ -89,8 +89,10 @@ jobs:
             -e RABBITMQ_DEFAULT_PASS=guest \
             rabbitmq:3-management-alpine
 
-          WORK_DIR_BASE="$HOME/gradeforge-work"
-          mkdir -p "${WORK_DIR_BASE}"
+          # Shared work directory for test runs (same absolute path on host and in container)
+          WORK_DIR_BASE="/var/gradeforge/work"
+          sudo mkdir -p "${WORK_DIR_BASE}"
+          sudo chown "$(whoami)":"$(whoami)" "${WORK_DIR_BASE}"
           docker stop "${CONTAINER_NAME}" || true
           docker rm "${CONTAINER_NAME}" || true
           docker run -d \
