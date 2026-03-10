@@ -813,26 +813,25 @@ export function CodeWorkspace({
   }, [assignment.language, assignment.languageAllowedExtensions]);
 
   const editorSubmissionFiles = useMemo(() => {
+    // Submit exactly the files visible in the tree (no hidden extras or renamed files).
     const list: { fileName: string; content: string }[] = [];
-    const seen = new Set<string>();
-    const candidateIds = [
-      ...(selectedId ? [selectedId] : []),
-      "main",
-      ...Object.keys(fileContents),
-    ];
-    for (const candidateId of candidateIds) {
-      if (seen.has(candidateId)) continue;
-      seen.add(candidateId);
-      const content = fileContents[candidateId] ?? "";
+    const fileNodes = nodes.filter(
+      (n) => !(n.metadata as { isFolder?: boolean })?.isFolder
+    );
+    for (const node of fileNodes) {
+      const id = String(node.id);
+      const content = fileContents[id] ?? "";
       if (!content.trim()) continue;
-      const rawFileName = getNodeName(candidateId);
-      const hasSupportedExtension =
-        rawFileName.toLowerCase().endsWith(".py") || rawFileName.toLowerCase().endsWith(".java");
-      const fileName = hasSupportedExtension ? rawFileName : `main${getDefaultExtension(assignment.language)}`;
+      const rawFileName = node.name;
+      const normalized = rawFileName.toLowerCase();
+      const hasAnyExtension = normalized.includes(".");
+      const fileName = hasAnyExtension
+        ? rawFileName
+        : `main${getDefaultExtension(assignment.language)}`;
       list.push({ fileName, content });
     }
     return list;
-  }, [assignment.language, fileContents, nodes, selectedId]);
+  }, [assignment.language, fileContents, nodes]);
 
   const canSubmitFromEditor = editorSubmissionFiles.length > 0;
   const canSubmit = Boolean(selectedSubmissionFile) || canSubmitFromEditor;
