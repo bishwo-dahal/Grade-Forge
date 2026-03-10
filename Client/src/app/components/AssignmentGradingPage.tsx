@@ -263,7 +263,7 @@ export function AssignmentGradingPage() {
       getRunTestsLatest(submissionId!)
         .then((data) => data && setRunResult(data))
         .catch(() => {});
-    }, 2000);
+    }, 10000);
     return () => clearInterval(interval);
   }, [submissionId, runResult?.status]);
 
