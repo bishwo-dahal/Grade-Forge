@@ -105,7 +105,7 @@ export async function pollRunTestsUntilDone(
   submissionId: number | string,
   options: { intervalMs?: number; timeoutMs?: number } = {}
 ): Promise<TestRunJobStatusResponse> {
-  const { intervalMs = 1500, timeoutMs = 120000 } = options;
+  const { intervalMs = 10000, timeoutMs = 120000 } = options;
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const job = await getRunTestsLatest(submissionId);
