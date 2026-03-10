@@ -32,6 +32,37 @@ public class TestSuiteService {
                 .map(this::mapToResponse);
     }
 
+    /**
+     * Student-facing view of a test suite. Only returns public test cases and never exposes
+     * any private test cases (or their expected outputs).
+     */
+    public Optional<TestSuiteResponse> getStudentVisibleByAssignmentId(Long assignmentId) {
+        return testSuiteRepository.findByAssignment_Id(assignmentId)
+                .map(suite -> {
+                    List<TestCaseResponse> publicCases = suite.getTestCases() == null
+                            ? List.of()
+                            : suite.getTestCases().stream()
+                                    .filter(tc -> !Boolean.TRUE.equals(tc.getIsPrivate()))
+                                    .map(tc -> TestCaseResponse.builder()
+                                            .id(tc.getId())
+                                            .title(tc.getTitle())
+                                            // Student API never marks cases as private; these are all public.
+                                            .isPrivate(false)
+                                            .input(tc.getInput())
+                                            .fileName(tc.getFileName())
+                                            .output(tc.getOutput())
+                                            .build())
+                                    .collect(Collectors.toList());
+                    return TestSuiteResponse.builder()
+                            .id(suite.getId())
+                            .title(suite.getTitle())
+                            .description(suite.getDescription())
+                            .assignmentId(suite.getAssignment().getId())
+                            .testCases(publicCases)
+                            .build();
+                });
+    }
+
     @Transactional
     public TestSuiteResponse create(String facultyEmail, Long assignmentId, TestSuiteRequest request) {
         Assignment assignment = assignmentRepository.findById(assignmentId)

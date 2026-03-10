@@ -24,7 +24,8 @@ public class TestSuiteStudentController {
             @PathVariable Long courseId,
             @PathVariable Long assignmentId) {
         assignmentService.getAssignmentByCourse(courseId, assignmentId);
-        return testSuiteService.getByAssignmentId(assignmentId)
+        // IMPORTANT: Student API must never expose private tests. Use student-visible projection.
+        return testSuiteService.getStudentVisibleByAssignmentId(assignmentId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
