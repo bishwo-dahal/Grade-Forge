@@ -98,7 +98,6 @@ jobs:
             -v "${WORK_DIR_BASE}:/var/gradeforge/work" \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -e RUN_TESTS_WORK_DIR_BASE=/var/gradeforge/work \
-            -e RUN_TESTS_DOCKER_USER=0:0 \
             --name "${CONTAINER_NAME}" \
             bishwodahal/grade-forge:${IMAGE_TAG}
           echo "Deployed bishwodahal/grade-forge:${IMAGE_TAG} on port ${PORT} (container: ${CONTAINER_NAME})"

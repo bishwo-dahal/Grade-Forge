@@ -43,8 +43,8 @@ public class RunTestsSyncService {
     private static final String DOCKER_SCRIPT_FILE = "run.sh";
     private static final String DOCKER_WORK_MOUNT = "/work";
 
-    /** Run container as this user:group (e.g. 1000:1000). Use same UID as the app process so the mounted work dir is writable. */
-    @Value("${run.tests.docker.user:1000:1000}")
+    /** Optional container user:group (e.g. 1000:1000). If blank, Docker's default user is used. */
+    @Value("${run.tests.docker.user:}")
     private String dockerRunUser;
 
     /** Max memory for each run container (e.g. 256m). */
@@ -244,8 +244,10 @@ public class RunTestsSyncService {
         cmd.add(containerName);
         cmd.add("--network");
         cmd.add("none");
-        cmd.add("--user");
-        cmd.add(dockerRunUser.trim());
+        if (dockerRunUser != null && !dockerRunUser.trim().isEmpty()) {
+            cmd.add("--user");
+            cmd.add(dockerRunUser.trim());
+        }
         cmd.add("--memory");
         cmd.add(memoryLimit);
         cmd.add("--memory-swap");
