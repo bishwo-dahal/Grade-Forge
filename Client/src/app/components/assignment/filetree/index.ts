@@ -1,6 +1,7 @@
 export { FileTree } from "./FileTree";
 export type { FileTreeProps } from "./FileTree";
 export {
+  buildEmptyFileTree,
   buildInitialFileTree,
   buildFileTreeFromFiles,
   nextNodeId,

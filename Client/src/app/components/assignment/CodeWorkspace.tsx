@@ -6,7 +6,7 @@ import { ConsoleDrawer } from "./ConsoleDrawer";
 import { SubmitConfirmModal } from "./SubmitConfirmModal";
 import { EditorTabBar } from "./EditorTabBar";
 import { UnsavedCloseModal } from "./UnsavedCloseModal";
-import { FileTree, buildInitialFileTree, buildFileTreeFromFiles, nextNodeId, nextUntitledFileName, uniqueFileName, getDefaultExtension } from "./filetree";
+import { FileTree, buildEmptyFileTree, buildInitialFileTree, buildFileTreeFromFiles, nextNodeId, nextUntitledFileName, uniqueFileName, getDefaultExtension } from "./filetree";
 import {
   getWorkspaceState,
   setWorkspaceState,
@@ -146,17 +146,14 @@ export function CodeWorkspace({
   const [isFacultyEditorReadOnly, setIsFacultyEditorReadOnly] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const addToEditorInputRef = useRef<HTMLInputElement | null>(null);
-  const initialCode = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
-  const [code, setCode] = useState(initialCode);
+  // Start with an empty workspace for new assignments; starter code is no longer auto-loaded.
+  const [code, setCode] = useState("");
 
-  const starterFileName = `main${getDefaultExtension(assignment.language)}`;
-  const [treeState, setTreeState] = useState(() =>
-    buildInitialFileTree(starterFileName, initialCode)
-  );
+  const [treeState, setTreeState] = useState(() => buildEmptyFileTree());
   const { nodes, fileContents } = treeState;
-  const [selectedId, setSelectedId] = useState<string | null>("main");
-  const [openTabIds, setOpenTabIds] = useState<string[]>(["main"]);
-  const [savedContents, setSavedContents] = useState<Record<string, string>>(() => ({ main: initialCode }));
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [openTabIds, setOpenTabIds] = useState<string[]>([]);
+  const [savedContents, setSavedContents] = useState<Record<string, string>>({});
   const [pendingCloseTabId, setPendingCloseTabId] = useState<string | null>(null);
   const [hasLoadedPersisted, setHasLoadedPersisted] = useState(false);
   const restoredFromPersistedRef = useRef(false);
@@ -170,9 +167,6 @@ export function CodeWorkspace({
   // Load persisted state for this assignment (edit mode only; review mode never touches IndexedDB)
   useEffect(() => {
     let cancelled = false;
-    const starterFileName = `main${getDefaultExtension(assignment.language)}`;
-    const initialCode = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
-
     if (facultyEditorPreviewPayloadRef.current) {
       // Review mode: initialize from payload only, do not read from IndexedDB
       const payload = facultyEditorPreviewPayloadRef.current;
@@ -212,12 +206,12 @@ export function CodeWorkspace({
         setSelectedId(sanitized.selectedId);
         restoredFromPersistedRef.current = true;
       } else {
-        const initial = buildInitialFileTree(starterFileName, initialCode);
+        const initial = buildEmptyFileTree();
         setTreeState(initial);
-        setOpenTabIds(["main"]);
-        setSavedContents({ main: initialCode });
-        setSelectedId("main");
-        setCode(initialCode);
+        setOpenTabIds([]);
+        setSavedContents({});
+        setSelectedId(null);
+        setCode("");
         restoredFromPersistedRef.current = false;
       }
       setHasLoadedPersisted(true);
@@ -226,18 +220,6 @@ export function CodeWorkspace({
       cancelled = true;
     };
   }, [assignmentId, assignment.language, codeExamples, facultyEditorPreviewPayload]);
-
-  // Sync server starter code into main only when we did not restore from persistence and we're not showing faculty preview
-  useEffect(() => {
-    if (!hasLoadedPersisted || restoredFromPersistedRef.current || facultyEditorPreviewPayload) return;
-    const next = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
-    setCode(next);
-    setTreeState((prev) => ({
-      ...prev,
-      fileContents: { ...prev.fileContents, main: next },
-    }));
-    setSavedContents((prev) => ({ ...prev, main: next }));
-  }, [assignment.language, codeExamples, hasLoadedPersisted, facultyEditorPreviewPayload]);
 
   useEffect(() => {
     // NOTE: Reset faculty preview state when assignment context changes.
@@ -833,6 +815,11 @@ export function CodeWorkspace({
     return list;
   }, [assignment.language, fileContents, nodes]);
 
+  const hasAnyFiles = useMemo(
+    () => nodes.some((n) => !(n.metadata as { isFolder?: boolean })?.isFolder),
+    [nodes]
+  );
+
   const canSubmitFromEditor = editorSubmissionFiles.length > 0;
   const canSubmit = Boolean(selectedSubmissionFile) || canSubmitFromEditor;
 
@@ -987,14 +974,30 @@ export function CodeWorkspace({
                     onClose={closeTab}
                   />
                   <div className="flex-1 min-h-0">
-                    <MonacoEditor
-                      value={currentContent}
-                      language={facultyPreviewLanguage ?? assignment.language}
-                      onChange={setCurrentContent}
-                      readOnly={isFacultyEditorReadOnly}
-                      height="100%"
-                      className="h-full"
-                    />
+                    {selectedId && hasAnyFiles ? (
+                      <MonacoEditor
+                        value={currentContent}
+                        language={facultyPreviewLanguage ?? assignment.language}
+                        onChange={setCurrentContent}
+                        readOnly={isFacultyEditorReadOnly}
+                        height="100%"
+                        className="h-full"
+                      />
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-center text-gray-400">
+                        <p className="text-[14px] mb-3">No file open.</p>
+                        <button
+                          type="button"
+                          onClick={() => onCreateFile("project")}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#2B2A2A] hover:bg-[#3a3939] text-[12px] text-white font-medium"
+                        >
+                          <span>Create new file</span>
+                        </button>
+                        <p className="mt-2 text-[12px] text-gray-500">
+                          Or use the file tree to upload or add files.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </Panel>

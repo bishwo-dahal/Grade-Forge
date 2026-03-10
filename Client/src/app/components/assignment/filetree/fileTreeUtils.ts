@@ -7,6 +7,17 @@ export interface FileTreeMetadata extends Record<string, string | number | boole
 
 export type FileTreeNode = INode<FileTreeMetadata>;
 
+/** Build the root + empty project tree (no starter files). */
+export function buildEmptyFileTree(): { nodes: FileTreeNode[]; fileContents: Record<string, string> } {
+  const rootId = "root";
+  const projectId = "project";
+  const nodes: FileTreeNode[] = [
+    { id: rootId, name: "", parent: null, children: [projectId], metadata: { isFolder: true } },
+    { id: projectId, name: "project", parent: rootId, children: [], isBranch: true, metadata: { isFolder: true } },
+  ];
+  return { nodes, fileContents: {} };
+}
+
 /** Build the root + default project tree and one starter file. */
 export function buildInitialFileTree(
   starterFileName: string,
