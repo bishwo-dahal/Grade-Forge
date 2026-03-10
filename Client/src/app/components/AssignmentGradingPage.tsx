@@ -555,6 +555,7 @@ export function AssignmentGradingPage() {
                             }
                           : null
                       }
+                      runStatus={runResult?.status ?? null}
                       showPublicNote={false}
                     />
                   )}

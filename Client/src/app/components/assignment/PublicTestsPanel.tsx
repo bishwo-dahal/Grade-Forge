@@ -1,6 +1,7 @@
 import { CheckCircle, XCircle, ChevronDown, ChevronRight, FileText, Terminal } from "lucide-react";
 import { useState } from "react";
 import type { PublicTestCase } from "../../../types/submission";
+import type { TestRunJobStatus } from "../../../types/runTests";
 
 interface PublicTestsPanelProps {
   testCases: PublicTestCase[];
@@ -9,6 +10,8 @@ interface PublicTestsPanelProps {
   isRunning?: boolean;
   runError?: string | null;
   runResult?: { passedCount: number; totalCount: number; results: PublicTestCase[] } | null;
+  /** Optional latest job status (QUEUED/RUNNING/COMPLETED/FAILED) so we can show progress text. */
+  runStatus?: TestRunJobStatus | null;
   /** When true, show the student-facing 'public tests only' note. Hide for faculty/GA views. */
   showPublicNote?: boolean;
 }
@@ -19,6 +22,7 @@ export function PublicTestsPanel({
   isRunning = false,
   runError = null,
   runResult = null,
+  runStatus = null,
   showPublicNote = true,
 }: PublicTestsPanelProps) {
   const [expandedTests, setExpandedTests] = useState<Set<number>>(new Set([0]));
@@ -36,6 +40,8 @@ export function PublicTestsPanel({
   const displayTests = runResult?.results?.length ? runResult.results : testCases;
   const passedCount = runResult != null ? runResult.passedCount : testCases.filter((t) => t.passed).length;
   const totalCount = runResult != null ? runResult.totalCount : testCases.length;
+  const hasResults = displayTests.length > 0;
+  const isJobRunning = runStatus === "QUEUED" || runStatus === "RUNNING";
 
   return (
     <div className="p-6">
@@ -52,7 +58,11 @@ export function PublicTestsPanel({
           </div>
         )}
         <p className="text-[13px] text-gray-600">
-          Run tests from the code workspace to see results here.
+          {isJobRunning
+            ? "Tests are running for this submission. This view will update when they complete."
+            : hasResults
+              ? "Latest test run results for this submission."
+              : "Run tests from the code workspace to see results here."}
         </p>
         {runError && (
           <p className="mt-2 text-[13px] text-red-600" role="alert">

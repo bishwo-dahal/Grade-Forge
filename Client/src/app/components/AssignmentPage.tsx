@@ -450,6 +450,7 @@ export function AssignmentPage() {
                             })()
                           : null
                       }
+                      runStatus={runResult?.status ?? null}
                     />
                   ) : (
                     <div className="p-6">
