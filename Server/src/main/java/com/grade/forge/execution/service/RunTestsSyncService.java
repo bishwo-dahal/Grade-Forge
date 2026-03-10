@@ -21,8 +21,11 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -119,6 +122,7 @@ public class RunTestsSyncService {
             Path baseDir = Path.of(workDirBaseDir).toAbsolutePath().normalize();
             Files.createDirectories(baseDir);
             workDir = Files.createTempDirectory(baseDir, "run-tests-");
+            setWorldReadableAndExecutable(workDir);
         } catch (Exception e) {
             throw new RuntimeException("Failed to create temp directory", e);
         }
@@ -215,7 +219,9 @@ public class RunTestsSyncService {
         String execCmd = substitute(executionCode, mainFile, mainClass);
 
         try {
-            Files.writeString(workDir.resolve(DOCKER_STDIN_FILE), input, StandardCharsets.UTF_8);
+            Path stdinPath = workDir.resolve(DOCKER_STDIN_FILE);
+            Files.writeString(stdinPath, input, StandardCharsets.UTF_8);
+            setWorldReadableAndExecutable(stdinPath);
         } catch (Exception e) {
             return failResult(tc, start, "Failed to write stdin: " + e.getMessage());
         }
@@ -226,8 +232,10 @@ public class RunTestsSyncService {
             script.append(compileCmd).append("\n");
         }
         script.append(execCmd).append(" < ").append(DOCKER_STDIN_FILE).append("\n");
+        Path scriptPath = workDir.resolve(DOCKER_SCRIPT_FILE);
         try {
-            Files.writeString(workDir.resolve(DOCKER_SCRIPT_FILE), script.toString(), StandardCharsets.UTF_8);
+            Files.writeString(scriptPath, script.toString(), StandardCharsets.UTF_8);
+            setWorldReadableAndExecutable(scriptPath);
         } catch (Exception e) {
             return failResult(tc, start, "Failed to write run script: " + e.getMessage());
         }
@@ -355,6 +363,22 @@ public class RunTestsSyncService {
         int n;
         while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
         return out.toString(StandardCharsets.UTF_8);
+    }
+
+    /** Make file readable and executable by all so container user can run it when backend runs on host. */
+    private static void setWorldReadableAndExecutable(Path path) {
+        try {
+            Set<PosixFilePermission> perms = EnumSet.of(
+                    PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE,
+                    PosixFilePermission.GROUP_READ, PosixFilePermission.GROUP_EXECUTE,
+                    PosixFilePermission.OTHERS_READ, PosixFilePermission.OTHERS_EXECUTE
+            );
+            Files.setPosixFilePermissions(path, perms);
+        } catch (UnsupportedOperationException e) {
+            // Non-POSIX filesystem (e.g. Windows); skip, container may still work
+        } catch (Exception e) {
+            log.debug("Could not set permissions on {}: {}", path, e.getMessage());
+        }
     }
 
     private static void deleteRecursively(Path path) {
