@@ -7,7 +7,13 @@ export interface AssignmentDetail {
   title: string;
   course: string;
   courseCode: string;
+  /** Course id for API calls (e.g. test suite by course + assignment). */
+  courseId?: number;
   dueDate: string;
+  /** Formatted available-from datetime, or null if not set. */
+  availableFrom?: string | null;
+  /** Formatted late-due datetime, or null if not set. */
+  lateDueDate?: string | null;
   status: AssignmentStatus;
   points: {
     earned: number | null;
@@ -16,7 +22,13 @@ export interface AssignmentDetail {
   submissionsUsed: number;
   submissionsAllowed: number | null;
   language: string;
+  /** Optional comma-separated list of allowed source extensions for this assignment's language (e.g. ".py,.txt,.csv"). */
+  languageAllowedExtensions?: string | null;
   hasStarterCode: boolean;
+  submissionType?: string;
+  starterCodeUrl?: string | null;
+  rubricName?: string | null;
+  rubricId?: number | null;
 }
 
 export interface AssignmentSummary {
@@ -44,6 +56,22 @@ export interface UpcomingAssignment {
   dueDate: string;
   daysLeft: string;
   urgent: boolean;
+  icon: string;
+  iconBg: string;
+}
+
+// NOTE: Student assignments workspace type includes only fields rendered in the current list UI.
+export type StudentAssignmentStatus = "upcoming" | "active" | "completed" | "overdue";
+
+export interface StudentAssignmentListItem {
+  id: string;
+  title: string;
+  courseCode: string;
+  courseName: string;
+  points: number;
+  dueAt: string;
+  status: StudentAssignmentStatus;
+  progressPercent: number | null;
   icon: string;
   iconBg: string;
 }
@@ -82,4 +110,45 @@ export interface AssignmentDescription {
 // NOTE: Added editor example map so code samples can come from services.
 export interface EditorCodeExamples {
   [language: string]: string;
+}
+
+// NOTE: UI-driven models for faculty assignment creation; grow only when the create page renders new fields.
+export interface FacultyAssignmentCreatePageHeader {
+  classId: string;
+  courseCode: string;
+  courseName: string;
+}
+
+export interface AssignmentCreateOption {
+  id: string;
+  label: string;
+}
+
+export type AssignmentSubmissionType = "INDIVIDUAL" | "GROUP";
+
+export interface AssignmentCreateFormData {
+  title: string;
+  description: string;
+  // NOTE: Optional schedule gates map directly to backend Assignment.availableFrom.
+  availableFromDate: string;
+  availableFromTime: string;
+  dueDate: string;
+  dueTime: string;
+  // NOTE: Optional late deadline maps to backend Assignment.lateDueDate.
+  lateDueDate: string;
+  lateDueTime: string;
+  languageId: string;
+  submissionType: AssignmentSubmissionType;
+  // NOTE: Starter code file upload is handled elsewhere; assignment create stores URL reference only.
+  starterCodeUrl: string;
+  // NOTE: Rubric linkage is optional and references pre-created faculty rubrics.
+  rubricId: string;
+  totalPoints: number;
+}
+
+export interface FacultyAssignmentCreatePageData {
+  header: FacultyAssignmentCreatePageHeader;
+  languageOptions: AssignmentCreateOption[];
+  rubricOptions: AssignmentCreateOption[];
+  initialForm: AssignmentCreateFormData;
 }

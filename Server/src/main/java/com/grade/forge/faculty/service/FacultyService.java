@@ -3,6 +3,7 @@ package com.grade.forge.faculty.service;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.faculty.dto.FacultyCreateRequest;
 import com.grade.forge.faculty.dto.FacultyResponse;
+import com.grade.forge.faculty.dto.FacultyUpdateRequest;
 import com.grade.forge.faculty.entity.Faculty;
 import com.grade.forge.faculty.repository.FacultyRepository;
 import com.grade.forge.user.entity.Users;
@@ -54,6 +55,7 @@ public class FacultyService implements FacultyServiceInterface {
         faculty.setQualifications(facultyCreateRequest.getQualifications());
         faculty.setPhoneNumber(facultyCreateRequest.getPhoneNumber());
         faculty.setOfficeLocation(facultyCreateRequest.getOfficeLocation());
+        faculty.setOfficeHours(facultyCreateRequest.getOfficeHours());
         faculty.setActive(true);
         faculty.setUser(savedUser);
 
@@ -68,6 +70,7 @@ public class FacultyService implements FacultyServiceInterface {
         response.setQualifications(savedFaculty.getQualifications());
         response.setPhoneNumber(savedFaculty.getPhoneNumber());
         response.setOfficeLocation(savedFaculty.getOfficeLocation());
+        response.setOfficeHours(savedFaculty.getOfficeHours());
         response.setActive(savedFaculty.getActive());
 
         response.setUserId(savedUser.getId());
@@ -91,10 +94,88 @@ public class FacultyService implements FacultyServiceInterface {
         response.setPhoneNumber(faculty.getPhoneNumber());
         response.setOfficeLocation(faculty.getOfficeLocation());
         response.setActive(faculty.getActive());
+        response.setOfficeHours(faculty.getOfficeHours());
 
         response.setUserId(faculty.getUser().getId());
         response.setEmail(faculty.getUser().getEmail());
         response.setRole(faculty.getUser().getRole().toString());
+
+        return response;
+    }
+
+    @Override
+    public FacultyResponse getFacultyByUserEmail(String email) {
+        Faculty faculty = facultyRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found for user email: " + email));
+
+        FacultyResponse response = new FacultyResponse();
+        response.setFacultyId(faculty.getId());
+        response.setName(faculty.getName());
+        response.setDepartment(faculty.getDepartment());
+        response.setQualifications(faculty.getQualifications());
+        response.setPhoneNumber(faculty.getPhoneNumber());
+        response.setOfficeLocation(faculty.getOfficeLocation());
+        response.setActive(faculty.getActive());
+        response.setOfficeHours(faculty.getOfficeHours());
+
+        response.setUserId(faculty.getUser().getId());
+        response.setEmail(faculty.getUser().getEmail());
+        response.setRole(faculty.getUser().getRole().toString());
+
+        return response;
+    }
+
+    @Override
+    public FacultyResponse updateCurrentFaculty(String email, FacultyUpdateRequest request) {
+        Faculty faculty = facultyRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found for user email: " + email));
+
+        if (request.getName() != null) {
+            faculty.setName(request.getName());
+        }
+        if (request.getEmail() != null && !request.getEmail().equalsIgnoreCase(faculty.getEmail())) {
+            userRepository.findByEmail(request.getEmail()).ifPresent(existingUser -> {
+                if (!existingUser.getId().equals(faculty.getUser().getId())) {
+                    throw new IllegalArgumentException("User with email " + request.getEmail() + " already exists");
+                }
+            });
+            faculty.setEmail(request.getEmail());
+            Users user = faculty.getUser();
+            user.setEmail(request.getEmail());
+            userRepository.save(user);
+        }
+        if (request.getDepartment() != null) {
+            faculty.setDepartment(request.getDepartment().toUpperCase());
+        }
+        if (request.getQualifications() != null) {
+            faculty.setQualifications(request.getQualifications());
+        }
+        if (request.getPhoneNumber() != null) {
+            faculty.setPhoneNumber(request.getPhoneNumber());
+        }
+        if (request.getOfficeLocation() != null) {
+            faculty.setOfficeLocation(request.getOfficeLocation());
+        }
+
+        if (request.getOfficeHours() != null) {
+            faculty.setOfficeHours(request.getOfficeHours());
+        }
+
+        Faculty savedFaculty = facultyRepository.save(faculty);
+
+        FacultyResponse response = new FacultyResponse();
+        response.setFacultyId(savedFaculty.getId());
+        response.setName(savedFaculty.getName());
+        response.setDepartment(savedFaculty.getDepartment());
+        response.setQualifications(savedFaculty.getQualifications());
+        response.setPhoneNumber(savedFaculty.getPhoneNumber());
+        response.setOfficeLocation(savedFaculty.getOfficeLocation());
+        response.setOfficeHours(savedFaculty.getOfficeHours());
+        response.setActive(savedFaculty.getActive());
+
+        response.setUserId(savedFaculty.getUser().getId());
+        response.setEmail(savedFaculty.getUser().getEmail());
+        response.setRole(savedFaculty.getUser().getRole().toString());
 
         return response;
     }
@@ -133,6 +214,10 @@ public class FacultyService implements FacultyServiceInterface {
             faculty.setOfficeLocation(facultyDetails.getOfficeLocation());
         }
 
+        if (facultyDetails.getOfficeHours() != null) {
+            faculty.setOfficeHours(facultyDetails.getOfficeHours());
+        }
+
         Faculty savedFaculty = facultyRepository.save(faculty);
 
         FacultyResponse response = new FacultyResponse();
@@ -143,6 +228,7 @@ public class FacultyService implements FacultyServiceInterface {
         response.setPhoneNumber(savedFaculty.getPhoneNumber());
         response.setOfficeLocation(savedFaculty.getOfficeLocation());
         response.setActive(savedFaculty.getActive());
+        response.setOfficeHours(savedFaculty.getOfficeHours());
 
         response.setUserId(savedFaculty.getUser().getId());
         response.setEmail(savedFaculty.getUser().getEmail());
@@ -166,6 +252,7 @@ public class FacultyService implements FacultyServiceInterface {
         response.setPhoneNumber(savedFaculty.getPhoneNumber());
         response.setOfficeLocation(savedFaculty.getOfficeLocation());
         response.setActive(savedFaculty.getActive());
+        response.setOfficeHours(savedFaculty.getOfficeHours());
 
         response.setUserId(savedFaculty.getUser().getId());
         response.setEmail(savedFaculty.getUser().getEmail());
@@ -187,6 +274,7 @@ public class FacultyService implements FacultyServiceInterface {
             response.setPhoneNumber(faculty.getPhoneNumber());
             response.setOfficeLocation(faculty.getOfficeLocation());
             response.setActive(faculty.getActive());
+            response.setOfficeHours(faculty.getOfficeHours());
 
             response.setUserId(faculty.getUser().getId());
             response.setEmail(faculty.getUser().getEmail());
@@ -208,6 +296,7 @@ public class FacultyService implements FacultyServiceInterface {
             response.setPhoneNumber(faculty.getPhoneNumber());
             response.setOfficeLocation(faculty.getOfficeLocation());
             response.setActive(faculty.getActive());
+            response.setOfficeHours(faculty.getOfficeHours());
 
             response.setUserId(faculty.getUser().getId());
             response.setEmail(faculty.getUser().getEmail());
@@ -229,6 +318,7 @@ public class FacultyService implements FacultyServiceInterface {
             response.setPhoneNumber(faculty.getPhoneNumber());
             response.setOfficeLocation(faculty.getOfficeLocation());
             response.setActive(faculty.getActive());
+            response.setOfficeHours(faculty.getOfficeHours());
 
             response.setUserId(faculty.getUser().getId());
             response.setEmail(faculty.getUser().getEmail());
@@ -255,6 +345,4 @@ public class FacultyService implements FacultyServiceInterface {
         }
     }
 }
-
-
 

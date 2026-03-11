@@ -9,10 +9,17 @@ export function RightPanel() {
   // NOTE: Data now comes from mock services to keep integration seams in one place.
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<DeadlineItem[]>([]);
   const [recentlyGraded, setRecentlyGraded] = useState<RecentlyGradedItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    listUpcomingDeadlines().then(setUpcomingDeadlines);
-    listRecentlyGraded().then(setRecentlyGraded);
+    // NOTE: One loading flag keeps both right-panel sections visible while service calls resolve.
+    setIsLoading(true);
+    Promise.all([listUpcomingDeadlines(), listRecentlyGraded()])
+      .then(([deadlinesData, gradedData]) => {
+        setUpcomingDeadlines(deadlinesData);
+        setRecentlyGraded(gradedData);
+      })
+      .finally(() => setIsLoading(false));
   }, []);
 
   return (
@@ -26,7 +33,26 @@ export function RightPanel() {
           </h3>
         </div>
         <div className="space-y-3">
-          {upcomingDeadlines.map((item, index) => (
+          {isLoading
+            ? Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={`right-panel-deadline-skeleton-${index}`}
+                  // NOTE: Skeleton cards keep deadline section shape visible while data is loading.
+                  className="p-4 rounded-xl bg-gray-50 animate-pulse"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="h-4 w-32 rounded bg-gray-200" />
+                    <div className="h-5 w-14 rounded-full bg-gray-100" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="h-3 w-20 rounded bg-gray-200" />
+                    <div className="h-3 w-20 rounded bg-gray-200" />
+                  </div>
+                </div>
+              ))
+            : null}
+          {!isLoading &&
+            upcomingDeadlines.map((item, index) => (
             <div 
               key={index}
               className="p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
@@ -45,7 +71,7 @@ export function RightPanel() {
                 </div>
               </div>
             </div>
-          ))}
+            ))}
         </div>
       </div>
 
@@ -60,7 +86,22 @@ export function RightPanel() {
           </h3>
         </div>
         <div className="space-y-3">
-          {recentlyGraded.map((item, index) => (
+          {isLoading
+            ? Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={`right-panel-graded-skeleton-${index}`}
+                  className="p-4 rounded-xl bg-gray-50 animate-pulse"
+                >
+                  <div className="h-4 w-32 rounded bg-gray-200 mb-2" />
+                  <div className="flex items-center justify-between">
+                    <div className="h-3 w-20 rounded bg-gray-200" />
+                    <div className="h-3 w-24 rounded bg-gray-200" />
+                  </div>
+                </div>
+              ))
+            : null}
+          {!isLoading &&
+            recentlyGraded.map((item, index) => (
             <div 
               key={index}
               className="p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
@@ -77,7 +118,7 @@ export function RightPanel() {
                 </div>
               </div>
             </div>
-          ))}
+            ))}
         </div>
       </div>
     </aside>

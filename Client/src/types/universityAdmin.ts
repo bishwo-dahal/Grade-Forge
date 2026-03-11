@@ -8,6 +8,8 @@ export interface UniversitySummaryStat {
 }
 
 export interface FacultyMember {
+  // NOTE: Stable backend id required for destructive actions like delete.
+  id: number;
   initials: string;
   name: string;
   email: string;
@@ -18,11 +20,24 @@ export interface FacultyMember {
 }
 
 export interface AcademicSemester {
+  // NOTE: Stable backend id required for destructive actions like delete.
+  id: number;
   name: string;
   status: "active" | "upcoming" | "past";
   startDate: string;
   endDate: string;
   courses: number;
+}
+
+// NOTE: UI-driven shape for the University Courses table; add fields only when the UI renders them.
+export interface UniversityCourseRow {
+  id: string;
+  code: string;
+  name: string;
+  instructor: string;
+  semester: string;
+  students: number;
+  assignments: number;
 }
 
 export interface FacultyCreatePayload {
@@ -62,8 +77,30 @@ export interface SemesterApiResponse {
 }
 
 export interface SupportedLanguage {
+  // NOTE: Stable backend id used by language management list actions.
+  id: number;
   name: string;
-  version: string;
-  addedOn: string;
-  icon: "python" | "javascript" | "java" | "cpp" | "rust" | "go";
+  dockerImage: string;
+  /** Optional compile command template; may use {{main_file}} and {{main_class}}. */
+  compileCommand?: string;
+  executionCode: string;
+  isActive: boolean;
+  /** Optional comma-separated list of allowed source extensions (e.g. ".py,.txt,.csv"). */
+  allowedExtensions?: string;
+  // NOTE: Legacy optional UI fields are kept temporarily for compatibility with older, non-routed dashboard code.
+  version?: string;
+  addedOn?: string;
+  icon?: "python" | "javascript" | "java" | "cpp" | "rust" | "go" | "code";
+}
+
+// NOTE: UI-driven payload mirrors backend request shape for easy API handoff.
+export interface LanguageCreatePayload {
+  name: string;
+  dockerImage: string;
+  /** Optional. Template may use {{main_file}} and {{main_class}}. */
+  compileCommand?: string;
+  executionCode: string;
+  isActive: boolean;
+  /** Optional comma-separated list of allowed source extensions (e.g. ".py,.txt,.csv"). */
+  allowedExtensions?: string;
 }

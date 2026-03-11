@@ -1,5 +1,6 @@
 package com.grade.forge.submission.dto;
 
+import com.grade.forge.submission.enums.SubmissionStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -27,4 +28,5 @@ public class SubmissionResponse {
     private Double marks;
     private String feedback;
     private LocalDateTime submittedAt;
+    private SubmissionStatus status;
 }

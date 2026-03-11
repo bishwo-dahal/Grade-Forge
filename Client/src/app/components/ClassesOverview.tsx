@@ -6,9 +6,14 @@ import { listClassesOverview } from "../../services/classService";
 export function ClassesOverview() {
   // NOTE: Data now comes from the mock service to create a clean backend integration seam.
   const [classes, setClasses] = useState<ClassOverviewItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    listClassesOverview().then(setClasses);
+    // NOTE: Keep a dedicated loading flag so class cards do not disappear while service data resolves.
+    setIsLoading(true);
+    listClassesOverview()
+      .then(setClasses)
+      .finally(() => setIsLoading(false));
   }, []);
 
   return (
@@ -18,7 +23,31 @@ export function ClassesOverview() {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {classes.map((cls, index) => (
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={`classes-overview-skeleton-${index}`}
+                // NOTE: Skeleton cards preserve class overview visual blocks during initial fetch.
+                className="bg-white border border-gray-100 rounded-2xl p-6 animate-pulse"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-[#EEF2FA] flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="mb-3 space-y-2">
+                      <div className="h-4 w-40 rounded bg-gray-200" />
+                      <div className="h-3 w-28 rounded bg-gray-200" />
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <div className="h-3 w-24 rounded bg-gray-200" />
+                      <div className="h-3 w-20 rounded bg-gray-200" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          : null}
+        {!isLoading &&
+          classes.map((cls, index) => (
           <div 
             key={index}
             className="bg-white border border-gray-100 rounded-2xl p-6 hover:border-gray-200 transition-colors cursor-pointer"
@@ -54,7 +83,7 @@ export function ClassesOverview() {
               </div>
             </div>
           </div>
-        ))}
+          ))}
       </div>
     </div>
   );

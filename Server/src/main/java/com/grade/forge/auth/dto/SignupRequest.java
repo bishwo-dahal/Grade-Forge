@@ -13,5 +13,9 @@ public class SignupRequest {
     private String email;
     private String password;
     private Role role;
+    // NOTE: Student registration metadata is captured during signup and persisted in Student entity.
+    private String cwid;
+    private String major;
+    private String canvasUserId;
 }
 

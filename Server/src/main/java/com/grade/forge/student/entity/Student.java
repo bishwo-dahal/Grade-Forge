@@ -1,5 +1,6 @@
 package com.grade.forge.student.entity;
 
+import com.grade.forge.enrollment.entity.Enrollment;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.user.entity.Users;
 import jakarta.persistence.*;
@@ -16,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 
 @Entity
+@Table(name = "student")
+// FIX: Explicit table mapping aligns Student entity with the existing production table name ("student").
 @Getter
 @Setter
 @AllArgsConstructor

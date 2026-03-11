@@ -1,0 +1,18 @@
+# RabbitMQ for local development (test-run job queue)
+# Run from project root:  docker compose up -d
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: gradeforge-rabbitmq
+    ports:
+      - "5672:5672"   # AMQP (app connects here)
+      - "15672:15672" # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

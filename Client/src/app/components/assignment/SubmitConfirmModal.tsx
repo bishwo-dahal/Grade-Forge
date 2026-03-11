@@ -1,20 +1,25 @@
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle, Loader2, X } from "lucide-react";
 
 interface SubmitConfirmModalProps {
   submissionsUsed: number;
   submissionsAllowed: number | null;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void> | void;
   onCancel: () => void;
+  isSubmitting?: boolean;
+  errorMessage?: string | null;
 }
 
 export function SubmitConfirmModal({ 
   submissionsUsed, 
   submissionsAllowed, 
   onConfirm, 
-  onCancel 
+  onCancel,
+  isSubmitting = false,
+  errorMessage = null,
 }: SubmitConfirmModalProps) {
   const hasAttemptsLimit = submissionsAllowed !== null;
   const attemptsRemaining = hasAttemptsLimit ? submissionsAllowed - submissionsUsed : null;
+  const hasSubmittedBefore = submissionsUsed > 0;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -24,7 +29,8 @@ export function SubmitConfirmModal({
           <h2 className="text-lg font-semibold text-[#2B2A2A]">Confirm Submission</h2>
           <button
             onClick={onCancel}
-            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+            disabled={isSubmitting}
+            className="p-1 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <X className="w-5 h-5 text-gray-400" strokeWidth={2} />
           </button>
@@ -47,6 +53,14 @@ export function SubmitConfirmModal({
               </div>
             </div>
           </div>
+
+          {hasSubmittedBefore ? (
+            <div className="bg-[#C23A42]/10 border border-[#C23A42]/25 rounded-xl p-4 mb-5">
+              <p className="text-[14px] text-[#2B2A2A] font-semibold mb-1">You already submitted this assignment.</p>
+              {/* FIX: Make resubmission intent explicit so students confirm they want to submit again. */}
+              <p className="text-[13px] text-gray-700">Do you want to submit again and replace your previous submission?</p>
+            </div>
+          ) : null}
 
           {/* Submission Count */}
           {hasAttemptsLimit && (
@@ -105,21 +119,34 @@ export function SubmitConfirmModal({
               </li>
             </ul>
           </div>
+          {errorMessage ? (
+            // FIX: Keep submission API errors visible in the confirmation step so users know why save failed.
+            <p className="text-[12px] text-[#C23A42]">{errorMessage}</p>
+          ) : null}
         </div>
 
         {/* Actions */}
         <div className="flex gap-3 p-6 bg-gray-50 border-t border-gray-200">
           <button
             onClick={onCancel}
-            className="flex-1 px-4 py-2.5 bg-white border border-gray-300 hover:bg-gray-100 text-[#2B2A2A] rounded-lg text-[14px] font-medium transition-colors"
+            disabled={isSubmitting}
+            className="flex-1 px-4 py-2.5 bg-white border border-gray-300 hover:bg-gray-100 text-[#2B2A2A] rounded-lg text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
           <button
-            onClick={onConfirm}
-            className="flex-1 px-4 py-2.5 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[14px] font-medium transition-colors"
+            onClick={() => void onConfirm()}
+            disabled={isSubmitting}
+            className="flex-1 px-4 py-2.5 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[14px] font-medium transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            Submit for Grading
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <span>{hasSubmittedBefore ? "Submit Again" : "Submit for Grading"}</span>
+            )}
           </button>
         </div>
       </div>

@@ -49,11 +49,17 @@ public class ProgrammingLanguageService {
             }
             language.setDockerImage(request.getDockerImage());
         }
+        if (request.getCompileCommand() != null) {
+            language.setCompileCommand(request.getCompileCommand());
+        }
         if (request.getExecutionCode() != null) {
             language.setExecutionCode(request.getExecutionCode());
         }
         if (request.getIsActive() != null) {
             language.setIsActive(request.getIsActive());
+        }
+        if (request.getAllowedExtensions() != null) {
+            language.setAllowedExtensions(request.getAllowedExtensions());
         }
 
         ProgrammingLanguage saved = programmingLanguageRepository.save(language);
@@ -108,8 +114,10 @@ public class ProgrammingLanguageService {
     private ProgrammingLanguage mapToEntity(ProgrammingLanguageRequest request, ProgrammingLanguage target) {
         target.setName(request.getName());
         target.setDockerImage(request.getDockerImage());
+        target.setCompileCommand(request.getCompileCommand());
         target.setExecutionCode(request.getExecutionCode());
         target.setIsActive(request.getIsActive());
+        target.setAllowedExtensions(request.getAllowedExtensions());
         return target;
     }
 
@@ -118,8 +126,10 @@ public class ProgrammingLanguageService {
                 .id(language.getId())
                 .name(language.getName())
                 .dockerImage(language.getDockerImage())
+                .compileCommand(language.getCompileCommand())
                 .executionCode(language.getExecutionCode())
                 .isActive(language.getIsActive())
+                .allowedExtensions(language.getAllowedExtensions())
                 .build();
     }
 }

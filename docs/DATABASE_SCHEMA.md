@@ -57,7 +57,7 @@ Extension of `User`. Instructors who manage courses.
 
 ---
 
-### 1.4 `students` (Student)
+### 1.4 `student` (Student)
 
 Extension of `User`.
 

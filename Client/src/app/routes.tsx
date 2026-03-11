@@ -1,5 +1,5 @@
 import React from "react";
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import { GradeForgeDashboard } from "./components/GradeForgeDashboard";
 import { AssignmentPage } from "./components/AssignmentPage";
 import { CoursePage } from "./components/CoursePage";
@@ -11,7 +11,36 @@ import SignInPage from "./components/SignInPage";
 import LandingPage from "./components/LandingPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { SettingsPage } from "./components/SettingsPage";
-import { UniversityAdminDashboard } from "./components/UniversityAdminDashboard";
+import { UniversityAdminWorkspace } from "./components/UniversityAdminWorkspace";
+import { UniversityCoursesPage } from "./components/UniversityCoursesPage";
+import { UniversityFacultyPage } from "./components/UniversityFacultyPage";
+import { UniversityLanguagesPage } from "./components/UniversityLanguagesPage";
+import { UniversitySemestersPage } from "./components/UniversitySemestersPage";
+import { FacultyCreateClassPage } from "./components/FacultyCreateClassPage";
+import { FacultyCreateAssignmentPage } from "./components/FacultyCreateAssignmentPage";
+import { FacultyGradingAssignmentDetailPage } from "./components/FacultyGradingAssignmentDetailPage";
+import CompleteStudentRegistrationPage from "./components/CompleteStudentRegistrationPage";
+import {
+  FacultyDiscussionsPage,
+  FacultyGradingHubPage,
+  FacultyMaterialsPage,
+  FacultyMyClassesPage,
+  FacultySchedulePage,
+  FacultyStudentsPage,
+  StudentAssignmentsPage,
+  StudentCalendarPage,
+  StudentDiscussionsPage,
+  StudentMaterialsPage,
+  StudentMyCoursesPage,
+} from "./components/RoleWorkspacePages";
+import { FacultyRubricsPage } from "./components/faculty/rubrics/FacultyRubricsPage";
+import { FacultyRubricCreatePage } from "./components/faculty/rubrics/FacultyRubricCreatePage";
+import { FacultyRubricDetailPage } from "./components/faculty/rubrics/FacultyRubricDetailPage";
+import { FacultyGradingAssistantsPage } from "./components/faculty/gradingAssistants/FacultyGradingAssistantsPage";
+import { GradingAssistantCoursesPage } from "./components/gradingAssistant/GradingAssistantCoursesPage";
+import { GradingAssistantClassPage } from "./components/gradingAssistant/GradingAssistantClassPage";
+import { GradingAssistantAssignmentDetailPage } from "./components/AssignmentDetailPage";
+import { AssignmentGradingPage } from "./components/AssignmentGradingPage";
 
 export const router = createBrowserRouter([
   {
@@ -22,7 +51,7 @@ export const router = createBrowserRouter([
     path: "/dashboard",
     element: (
       // NOTE: Student/Faculty shared shell; university admin has a separate dashboard.
-      <ProtectedRoute allowedRoles={["STUDENT", "FACULTY"]}>
+      <ProtectedRoute allowedRoles={["STUDENT", "FACULTY", "GRADING_ASSISTANT"]}>
         <GradeForgeDashboard />
       </ProtectedRoute>
     ),
@@ -31,19 +60,218 @@ export const router = createBrowserRouter([
     path: "/settings",
     element: (
       // NOTE: Settings shell is student/faculty-only; university admin uses dedicated university pages.
-      <ProtectedRoute allowedRoles={["STUDENT", "FACULTY"]}>
+      <ProtectedRoute allowedRoles={["STUDENT", "FACULTY", "GRADING_ASSISTANT"]}>
         <SettingsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/grading-assistant/courses",
+    element: (
+      <ProtectedRoute allowedRoles={["GRADING_ASSISTANT"]}>
+        <GradingAssistantCoursesPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/grading-assistant/class/:classId",
+    element: (
+      <ProtectedRoute allowedRoles={["GRADING_ASSISTANT"]}>
+        <GradingAssistantClassPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/grading-assistant/class/:classId/assignment/:assignmentId",
+    element: (
+      <ProtectedRoute allowedRoles={["GRADING_ASSISTANT"]}>
+        <GradingAssistantAssignmentDetailPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/grading-assistant/class/:classId/assignment/:assignmentId/submission/:submissionId",
+    element: (
+      <ProtectedRoute allowedRoles={["GRADING_ASSISTANT"]}>
+        <AssignmentGradingPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/complete-registration",
+    element: (
+      <ProtectedRoute allowedRoles={["STUDENT"]}>
+        <CompleteStudentRegistrationPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/student/my-courses",
+    element: (
+      <ProtectedRoute allowedRoles={["STUDENT"]}>
+        <StudentMyCoursesPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/student/assignments",
+    element: (
+      <ProtectedRoute allowedRoles={["STUDENT"]}>
+        <StudentAssignmentsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/student/calendar",
+    element: (
+      <ProtectedRoute allowedRoles={["STUDENT"]}>
+        <StudentCalendarPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/student/materials",
+    element: (
+      <ProtectedRoute allowedRoles={["STUDENT"]}>
+        <StudentMaterialsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/student/discussions",
+    element: (
+      <ProtectedRoute allowedRoles={["STUDENT"]}>
+        <StudentDiscussionsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/my-classes",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyMyClassesPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/my-classes/create",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyCreateClassPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/class/:classId/assignments/create",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyCreateAssignmentPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/grading",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyGradingHubPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/rubrics",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyRubricsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/rubrics/new",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyRubricCreatePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/rubrics/:rubricId",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyRubricDetailPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/grading-assistants",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyGradingAssistantsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/students",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyStudentsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/schedule",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultySchedulePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/materials",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyMaterialsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/discussions",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyDiscussionsPage />
       </ProtectedRoute>
     ),
   },
   {
     path: "/university-admin",
     element: (
-      // NOTE: University dashboard is strictly limited to UNIVERSITY_ADMIN role.
+      // REFACTOR: University admin now uses nested section routes under one shared shell.
       <ProtectedRoute allowedRoles={["UNIVERSITY_ADMIN"]}>
-        <UniversityAdminDashboard />
+        <UniversityAdminWorkspace />
       </ProtectedRoute>
     ),
+    children: [
+      {
+        // NOTE: Default university section lands on Faculty management.
+        index: true,
+        element: <Navigate to="/university-admin/faculty" replace />,
+      },
+      {
+        path: "faculty",
+        Component: UniversityFacultyPage,
+      },
+      {
+        path: "semesters",
+        Component: UniversitySemestersPage,
+      },
+      {
+        path: "courses",
+        Component: UniversityCoursesPage,
+      },
+      {
+        path: "languages",
+        Component: UniversityLanguagesPage,
+      },
+    ],
   },
   {
     path: "/class/:classId",
@@ -57,7 +285,31 @@ export const router = createBrowserRouter([
     path: "/faculty/class/:classId",
     element: (
       <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <Navigate to="./dashboard" replace />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/class/:classId/:section",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
         <FacultyClassPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/class/:classId/assignment/:assignmentId/submission/:submissionId",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <AssignmentGradingPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/class/:classId/assignment/:assignmentId",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyGradingAssignmentDetailPage />
       </ProtectedRoute>
     ),
   },
@@ -73,6 +325,24 @@ export const router = createBrowserRouter([
     path: "/assignment/:assignmentId",
     element: (
       <ProtectedRoute allowedRoles={["STUDENT"]}>
+        <AssignmentPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/assignment/:assignmentId",
+    element: (
+      // NOTE: Faculty uses this route to open assignment details from class-management Assignments tab.
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <AssignmentPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/assignment/:assignmentId/submission/:submissionId",
+    element: (
+      // NOTE: Faculty uses this route when deep-linking directly to a specific submission.
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
         <AssignmentPage />
       </ProtectedRoute>
     ),

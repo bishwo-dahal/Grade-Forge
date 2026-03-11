@@ -1,21 +1,24 @@
 package com.grade.forge.assignment.service;
 
+import com.grade.forge.assignment.dto.AssignmentBasicResponse;
 import com.grade.forge.assignment.dto.AssignmentRequest;
 import com.grade.forge.assignment.dto.AssignmentResponse;
 import com.grade.forge.assignment.entity.Assignment;
-import com.grade.forge.assignment.enums.SubmissionType;
 import com.grade.forge.assignment.repository.AssignmentRepository;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.programminglanguage.entity.ProgrammingLanguage;
 import com.grade.forge.programminglanguage.repository.ProgrammingLanguageRepository;
+import com.grade.forge.rubric.entity.Rubric;
+import com.grade.forge.rubric.repository.RubricRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,17 +29,32 @@ public class AssignmentService {
     private final AssignmentRepository assignmentRepository;
     private final CourseRepository courseRepository;
     private final ProgrammingLanguageRepository programmingLanguageRepository;
+    private final RubricRepository rubricRepository;
 
-    public AssignmentResponse createAssignment(AssignmentRequest request) {
+    public AssignmentResponse createAssignment(AssignmentRequest request, String userEmail) {
         validateCreate(request);
         Course course = courseRepository.findById(request.getCourseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + request.getCourseId()));
         ProgrammingLanguage language = programmingLanguageRepository.findById(request.getLanguageId())
                 .orElseThrow(() -> new ResourceNotFoundException("Programming language not found with id: " + request.getLanguageId()));
 
+        if (!Objects.equals(course.getFaculty().getEmail(), userEmail)) {
+            throw new IllegalArgumentException("You are not authorized to create assignments for this course");
+        }
+
+        Rubric rubric = null;
+        if (request.getRubricId() != null) {
+            rubric = rubricRepository.findById(request.getRubricId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Rubric not found with id: " + request.getRubricId()));
+            if (!Objects.equals(rubric.getFaculty().getId(), course.getFaculty().getId())) {
+                throw new IllegalArgumentException("Rubric does not belong to the course faculty");
+            }
+        }
+
         Assignment assignment = mapToEntity(request, new Assignment());
         assignment.setCourse(course);
         assignment.setProgrammingLanguage(language);
+        assignment.setRubric(rubric);
 
         Assignment saved = assignmentRepository.save(assignment);
         return mapToResponse(saved);
@@ -51,6 +69,9 @@ public class AssignmentService {
                     .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + request.getCourseId()));
             assignment.setCourse(course);
         }
+        // ensure we have the latest course reference for rubric validation
+        Course currentCourse = assignment.getCourse();
+
         if (request.getLanguageId() != null) {
             ProgrammingLanguage language = programmingLanguageRepository.findById(request.getLanguageId())
                     .orElseThrow(() -> new ResourceNotFoundException("Programming language not found with id: " + request.getLanguageId()));
@@ -80,6 +101,14 @@ public class AssignmentService {
         if (request.getLateDueDate() != null) {
             assignment.setLateDueDate(request.getLateDueDate());
         }
+        if (request.getRubricId() != null) {
+            Rubric rubric = rubricRepository.findById(request.getRubricId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Rubric not found with id: " + request.getRubricId()));
+            if (!Objects.equals(rubric.getFaculty().getId(), currentCourse.getFaculty().getId())) {
+                throw new IllegalArgumentException("Rubric does not belong to the course faculty");
+            }
+            assignment.setRubric(rubric);
+        }
 
         validateTimeline(assignment.getAvailableFrom(), assignment.getDueDate(), assignment.getLateDueDate());
 
@@ -93,16 +122,18 @@ public class AssignmentService {
         return mapToResponse(assignment);
     }
 
-    public List<AssignmentResponse> getAllAssignments() {
-        return assignmentRepository.findAll().stream()
-                .map(this::mapToResponse)
+
+    public List<AssignmentBasicResponse> getAssignmentsByCourse(Long courseId) {
+        return assignmentRepository.findByCourse_Id(courseId).stream()
+                .map(this::mapToBasicResponse)
                 .collect(Collectors.toList());
     }
 
-    public List<AssignmentResponse> getAssignmentsByCourse(Long courseId) {
-        return assignmentRepository.findByCourse_Id(courseId).stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+    public AssignmentResponse getAssignmentByCourse(Long courseId, Long assignmentId) {
+        Assignment assignment = assignmentRepository.findByIdAndCourse_Id(assignmentId, courseId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Assignment not found with id: " + assignmentId + " for course: " + courseId));
+        return mapToResponse(assignment);
     }
 
     public void deleteAssignment(Long id) {
@@ -161,6 +192,7 @@ public class AssignmentService {
                 .courseName(assignment.getCourse().getName())
                 .languageId(assignment.getProgrammingLanguage().getId())
                 .languageName(assignment.getProgrammingLanguage().getName())
+                .languageAllowedExtensions(assignment.getProgrammingLanguage().getAllowedExtensions())
                 .name(assignment.getName())
                 .description(assignment.getDescription())
                 .totalPoints(assignment.getTotalPoints())
@@ -169,7 +201,21 @@ public class AssignmentService {
                 .availableFrom(assignment.getAvailableFrom())
                 .dueDate(assignment.getDueDate())
                 .lateDueDate(assignment.getLateDueDate())
+                .rubricId(assignment.getRubric() != null ? assignment.getRubric().getId() : null)
+                .rubricName(assignment.getRubric() != null ? assignment.getRubric().getName() : null)
                 .build();
     }
-}
 
+    private AssignmentBasicResponse mapToBasicResponse(Assignment assignment) {
+        AssignmentBasicResponse response = new AssignmentBasicResponse();
+        response.setId(assignment.getId());
+        response.setCourseId(assignment.getCourse().getId());
+        response.setName(assignment.getName());
+        response.setDescription(assignment.getDescription());
+        response.setTotalPoints(assignment.getTotalPoints());
+        response.setAvailableFrom(assignment.getAvailableFrom());
+        response.setDueDate(assignment.getDueDate());
+        response.setLateDueDate(assignment.getLateDueDate());
+        return response;
+    }
+}

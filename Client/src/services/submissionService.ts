@@ -1,10 +1,14 @@
 import type {
   ClassSubmissionItem,
+  FacultyAssignmentSubmissionRow,
+  FacultySubmissionGradePayload,
   PendingSubmissionItem,
+  SubmissionFileItem,
   SubmissionConsoleData,
   SubmissionDetail,
   SubmissionSummary,
 } from "../types/submission";
+import api from "../api/axios";
 
 // NOTE: Centralized mock submission data to create a single integration seam.
 // TODO(backend): Replace mock service with real API calls. Keep return shapes stable for the UI.
@@ -146,31 +150,6 @@ const allSubmissions: SubmissionSummary[] = [
   { id: "sub-004", studentName: "Michael Brown", status: "manually-adjusted", score: 78 },
 ];
 
-const classSubmissions: ClassSubmissionItem[] = [
-  {
-    id: "sub-1",
-    student: "Alex Thompson",
-    assignment: "Assignment 8: BST Implementation",
-    submittedAt: "Oct 23, 2023 10:45 PM",
-    status: "ungraded",
-  },
-  {
-    id: "sub-2",
-    student: "Morgan Davis",
-    assignment: "Assignment 8: BST Implementation",
-    submittedAt: "Oct 23, 2023 8:20 PM",
-    status: "ungraded",
-  },
-  {
-    id: "sub-3",
-    student: "Jamie Park",
-    assignment: "Assignment 7: Hash Table",
-    submittedAt: "Oct 17, 2023 11:30 PM",
-    status: "graded",
-    score: 88,
-  },
-];
-
 const pendingSubmissions: PendingSubmissionItem[] = [
   {
     id: "sub-001",
@@ -224,6 +203,90 @@ Total Score: 85/100`,
 [2023-10-24 23:42:21] Auto-grading complete: 85/100`,
 };
 
+interface AssignmentApiResponse {
+  id: number;
+  courseId: number;
+  name: string;
+}
+
+interface FacultySubmissionApiResponse {
+  id: number;
+  assignmentId: number;
+  assignmentName: string;
+  studentName: string;
+  submittedAt: string;
+  marks: number | null;
+  files: SubmissionFileApiResponse[] | null;
+}
+
+interface SubmissionFileApiResponse {
+  id: number;
+  fileName: string;
+  fileType: string | null;
+  fileSize: number | null;
+  downloadUrl: string | null;
+}
+
+function formatSubmissionDate(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Unknown date";
+  }
+  return parsed.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function parseAssignmentId(rawAssignmentId: string): number {
+  const parsedAssignmentId = Number(rawAssignmentId.trim());
+  if (!Number.isFinite(parsedAssignmentId) || parsedAssignmentId <= 0) {
+    throw new Error("Invalid assignment id.");
+  }
+  return parsedAssignmentId;
+}
+
+function parseSubmissionId(rawSubmissionId: string): number {
+  const parsedSubmissionId = Number(rawSubmissionId.trim());
+  if (!Number.isFinite(parsedSubmissionId) || parsedSubmissionId <= 0) {
+    throw new Error("Invalid submission id.");
+  }
+  return parsedSubmissionId;
+}
+
+function normalizeUploadFileType(file: File): File {
+  if (file.type) {
+    return file;
+  }
+
+  const lowerFileName = file.name.toLowerCase();
+  const fallbackType = lowerFileName.endsWith(".java")
+    ? "text/x-java-source"
+    : lowerFileName.endsWith(".py")
+      ? "text/x-python"
+      : "application/octet-stream";
+  // FIX: Backend validation requires fileType, so we provide a safe fallback MIME when browser omits it.
+  return new File([file], file.name, { type: fallbackType });
+}
+
+function mapSubmissionFiles(files: SubmissionFileApiResponse[] | null | undefined): SubmissionFileItem[] {
+  if (!files?.length) {
+    return [];
+  }
+
+  return files.map((file, index) => ({
+    // FIX: Keep file row keys stable in UI even when backend ids are temporarily missing.
+    id: Number.isFinite(file.id) ? String(file.id) : `file-${index}`,
+    fileName: file.fileName || "uploaded-file",
+    fileType: file.fileType ?? null,
+    fileSize: typeof file.fileSize === "number" ? file.fileSize : null,
+    downloadUrl: file.downloadUrl ?? null,
+  }));
+}
+
 export function getSubmissionDetailById(submissionId: string): Promise<SubmissionDetail> {
   // NOTE: submissionId is unused in the mock implementation but preserved for backend parity.
   return Promise.resolve({ ...submissionDetail, id: submissionId });
@@ -239,9 +302,127 @@ export function listSubmissionsForAssignment(assignmentId: string): Promise<Subm
   return Promise.resolve(allSubmissions);
 }
 
-export function listClassSubmissions(classId: string): Promise<ClassSubmissionItem[]> {
-  // NOTE: classId is unused in the mock implementation but preserved for backend parity.
-  return Promise.resolve(classSubmissions);
+export async function submitStudentAssignmentFiles(assignmentId: string, files: File[]): Promise<void> {
+  if (!files.length) {
+    throw new Error("At least one file is required.");
+  }
+  const parsedAssignmentId = parseAssignmentId(assignmentId);
+  const formData = new FormData();
+  for (const file of files) {
+    const normalized = normalizeUploadFileType(file);
+    formData.append("files", normalized, normalized.name);
+  }
+  await api.post(`/api/v1/student/submissions?assignmentId=${parsedAssignmentId}`, formData);
+}
+
+export async function listClassSubmissions(classId: string): Promise<ClassSubmissionItem[]> {
+  const parsedClassId = Number(classId);
+  if (!Number.isFinite(parsedClassId) || parsedClassId <= 0) {
+    throw new Error("Invalid class id.");
+  }
+
+  // NOTE: Faculty submissions table now aggregates real submissions for all assignments in the selected class.
+  const { data: assignments } = await api.get<AssignmentApiResponse[]>(
+    `/api/v1/faculty/assignments/course/${parsedClassId}`,
+  );
+
+  const submissionGroups = await Promise.all(
+    assignments.map(async (assignment) => {
+      const { data } = await api.get<FacultySubmissionApiResponse[]>(
+        `/api/v1/faculty/submissions?assignmentId=${assignment.id}`,
+      );
+      return data;
+    }),
+  );
+
+  return submissionGroups
+    .flat()
+    .sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime())
+    .map((submission) => {
+      const mappedFiles = mapSubmissionFiles(submission.files);
+      const primaryFile = mappedFiles[0] ?? null;
+      return {
+        id: String(submission.id),
+        // FIX: Keep assignment id on each row so faculty submissions list can deep-link into assignment page.
+        assignmentId: String(submission.assignmentId),
+        student: submission.studentName,
+        assignment: submission.assignmentName,
+        submittedAt: formatSubmissionDate(submission.submittedAt),
+        status: submission.marks === null ? "ungraded" : "graded",
+        score: submission.marks ?? undefined,
+        files: mappedFiles,
+        primaryFileName: primaryFile?.fileName ?? null,
+        additionalFileCount: Math.max(0, mappedFiles.length - 1),
+        primaryDownloadUrl: primaryFile?.downloadUrl ?? null,
+      } satisfies ClassSubmissionItem;
+    });
+}
+
+export async function listFacultyAssignmentSubmissionFiles(
+  assignmentId: string,
+): Promise<FacultyAssignmentSubmissionRow[]> {
+  const parsedAssignmentId = parseAssignmentId(assignmentId);
+  const { data } = await api.get<FacultySubmissionApiResponse[]>(
+    `/api/v1/faculty/submissions?assignmentId=${parsedAssignmentId}`,
+  );
+
+  // NOTE: Faculty results tab requires full file lists per submission for direct downloads.
+  return data
+    .sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime())
+    .map((submission) => ({
+      submissionId: String(submission.id),
+      studentName: submission.studentName,
+      submittedAt: submission.submittedAt,
+      marks: typeof submission.marks === "number" ? submission.marks : null,
+      files: mapSubmissionFiles(submission.files),
+    }));
+}
+
+export async function submitFacultySubmissionGrade(payload: FacultySubmissionGradePayload): Promise<void> {
+  const parsedSubmissionId = parseSubmissionId(payload.submissionId);
+  if (!Number.isFinite(payload.marks) || payload.marks < 0) {
+    throw new Error("Grade must be zero or higher.");
+  }
+
+  // NOTE: Faculty grade updates map directly to backend submission grade endpoint used for final marks/feedback.
+  await api.put(`/api/v1/faculty/submissions/${parsedSubmissionId}/grade`, {
+    marks: payload.marks,
+    feedback: payload.feedback,
+  });
+}
+
+export function resolvePreviewLanguage(fileName: string, fallbackLanguage: string): string {
+  const normalizedName = fileName.toLowerCase();
+  if (normalizedName.endsWith(".py")) {
+    return "Python";
+  }
+  if (normalizedName.endsWith(".java")) {
+    return "Java";
+  }
+  if (
+    normalizedName.endsWith(".cpp") ||
+    normalizedName.endsWith(".cc") ||
+    normalizedName.endsWith(".hpp") ||
+    normalizedName.endsWith(".h")
+  ) {
+    return "C++";
+  }
+  // NOTE: Keep fallback language so editor rendering remains resilient if unsupported extension slips through.
+  return fallbackLanguage;
+}
+
+export async function fetchSubmissionFileText(downloadUrl: string, fileName: string): Promise<string> {
+  if (!downloadUrl) {
+    throw new Error("Download link is unavailable for this file.");
+  }
+
+  // NOTE: Use fetch directly for presigned S3 URLs to avoid auth-header/cors conflicts from API client interceptors.
+  const response = await fetch(downloadUrl);
+  if (!response.ok) {
+    throw new Error(`Unable to load file content (${response.status}).`);
+  }
+
+  return response.text();
 }
 
 export function listPendingSubmissions(): Promise<PendingSubmissionItem[]> {
