@@ -11,7 +11,18 @@ pip install -r requirements.txt
 python run.py
 ```
 
-Change `INPUT_FILE` at the top of `run.py` to point at another assignment (e.g. `test/sample_submissions2.json` for the Java TSP assignment). Pipe to a file if you need: `python run.py > out.json`.
+Change the default input by editing `DEFAULT_INPUT_FILE` in `run.py`, or pass a path: `python run.py test/sample_submissions2.json`. Pipe to a file if you need: `python run.py > out.json`.
+
+## Backend / Docker invocation
+
+When the backend runs the grader (e.g. for grader reports), it can pass the input file path so the pipeline reads the JSON it generated:
+
+- **CLI:** `python run.py /path/to/input.json` (absolute or relative to grader dir)
+- **Env:** `GRADER_INPUT_PATH=/path/to/input.json python run.py`
+
+The script writes the full pipeline JSON to **stdout** and errors to **stderr**; exit code **0** on success, **1** on failure. The backend should run the script with working directory set to the grader directory (so `data_parser`, `pipeline`, `plagiarism` import correctly) and pass an absolute path to the input file, or a path relative to the grader dir.
+
+For Docker: ensure the runtime image has Python 3 and the grader code (e.g. copy `grader/` into the image and install `requirements.txt`). The backend then invokes `python run.py <input_path>` where `<input_path>` is where it wrote the input JSON (e.g. in a temp or mounted volume). No database migrations are required for the grader script itself.
 
 ## Layout
 
