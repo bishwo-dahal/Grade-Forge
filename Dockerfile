@@ -24,9 +24,20 @@ WORKDIR /app
 # Install Docker CLI inside the container so RunTestsSyncService can call `docker`
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      docker.io && \
+      docker.io \
+      python3 \
+      python3-pip && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=backend-build /app/backend/target/*.jar app.jar
+
+# Copy grader pipeline into the runtime image and install Python deps.
+# Backend uses GRADER_DIR to locate this directory.
+COPY grader/ /app/grader/
+RUN python3 -m pip install --no-cache-dir -r /app/grader/requirements.txt
+
+ENV GRADER_DIR=/app/grader
+ENV GRADER_PYTHON_CMD=python3
+
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
