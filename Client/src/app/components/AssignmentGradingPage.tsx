@@ -10,6 +10,7 @@ import { GradingRubricPanel } from "./assignment/GradingRubricPanel";
 import { CircularScorePanel } from "./assignment/CircularScorePanel";
 import { GradeSubmissionDialog } from "./assignment/GradeSubmissionDialog";
 import { CodeWorkspace } from "./assignment/CodeWorkspace";
+import { PlagiarismReportPanel } from "./assignment/PlagiarismReportPanel";
 import {
   getAssignmentDescription,
   getAssignmentDetailById,
@@ -560,7 +561,7 @@ export function AssignmentGradingPage() {
                     />
                   )}
                   {activeTab === "plagiarism" && (
-                    <div className="p-6 text-[14px] text-gray-500">Plagiarism report will appear here.</div>
+                    <PlagiarismReportPanel assignmentId={assignmentId ?? ""} isFaculty={isFaculty} />
                   )}
                   {activeTab === "rubric" && <GradingRubricPanel rubricCategories={rubricCategories} />}
                 </div>
