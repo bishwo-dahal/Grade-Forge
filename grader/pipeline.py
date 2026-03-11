@@ -24,11 +24,14 @@ def run_pipeline(assignment: Assignment) -> dict:
             elif sid == right_id:
                 out.append({"left": c["right"], "right": c["left"], "overlap_tokens": c.get("overlap_tokens")})
         by_student[sid]["comparisons"] = out
-        if "ai_flag" not in by_student[sid]:
-            by_student[sid]["ai_flag"] = None
+        # Extensible object for future AI-derived features per student (e.g. is_ai_generated, explanation).
+        if "ai_features" not in by_student[sid]:
+            by_student[sid]["ai_features"] = {}
 
     return {
         "assignment_id": assignment.assignment_id,
         "results": [{"student_id": sid, **data} for sid, data in by_student.items()],
         "highlight_markers": {"start": HIGHLIGHT_START, "end": HIGHLIGHT_END},
+        # Extensible object for assignment-level AI features (e.g. model_version, run_metadata).
+        "ai_features": {},
     }

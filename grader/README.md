@@ -34,6 +34,7 @@ The pipeline returns a single JSON object. Use it to update grades in your DB an
 - **`assignment_id`** – Which assignment this run was for.
 - **`results`** – One object per student. Each has grades, similarity info, and a **`comparisons`** array. Each comparison is attached only to the student who is the **subject** (the one whose code was tested, i.e. the “right” side in the pair). So a similarity between student A and B appears in exactly one report—the one for the student who was the subject in that comparison—not in both. That avoids duplicate pairs; the viewer shows “You” (subject) vs “Other”.
 - **`highlight_markers`** – `{ "start": ">>", "end": "<<" }`. Code in comparisons uses these to mark copied regions so the frontend can highlight them.
+- **`ai_features`** – Top-level JSON object reserved for assignment-level AI features (e.g. `model_version`, `run_metadata`). Empty `{}` until used.
 
 ### Per-student result
 
@@ -45,7 +46,7 @@ Every item in `results` looks like this:
 | `final_grade` | Computed grade from test weights. |
 | `similarity_score` | 0–1; how much of this submission matched others. |
 | `similarity_warning` | If there was a match, a short message (e.g. path to the other file); otherwise `null`. |
-| `ai_flag` | Reserved for future AI-generated detection; `null` for now. |
+| `ai_features` | JSON object for per-student AI-derived features (e.g. `is_ai_generated`, `explanation`, `confidence`). Empty `{}` until used; extend with more keys as needed. |
 | `comparisons` | List of pairs for this student. Each has `left` (you), `right` (other), and `overlap_tokens`. |
 
 **Backend:** You can take each element of `results`, update the grade (and any flags) for that `student_id`, and persist that same object’s `comparisons` in one go (e.g. one row or document per student with a JSON column or related table for comparisons).
@@ -67,7 +68,7 @@ Below is a realistic payload for two students: one with no plagiarism, one with 
       "final_grade": 92,
       "similarity_score": 0,
       "similarity_warning": null,
-      "ai_flag": null,
+      "ai_features": {},
       "comparisons": []
     },
     {
@@ -75,7 +76,7 @@ Below is a realistic payload for two students: one with no plagiarism, one with 
       "final_grade": 88,
       "similarity_score": 0.67,
       "similarity_warning": "Match: /home/proj/grader/test/submissions1/student_101/main.py",
-      "ai_flag": null,
+      "ai_features": {},
       "comparisons": [
         {
           "left": {
@@ -98,7 +99,8 @@ Below is a realistic payload for two students: one with no plagiarism, one with 
   "highlight_markers": {
     "start": ">>",
     "end": "<<"
-  }
+  },
+  "ai_features": {}
 }
 ```
 
