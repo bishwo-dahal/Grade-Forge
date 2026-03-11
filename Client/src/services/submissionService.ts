@@ -309,10 +309,6 @@ export async function submitStudentAssignmentFiles(assignmentId: string, files: 
   const parsedAssignmentId = parseAssignmentId(assignmentId);
   const formData = new FormData();
   for (const file of files) {
-    const fileName = file.name.toLowerCase();
-    if (!fileName.endsWith(".py") && !fileName.endsWith(".java")) {
-      throw new Error(`Only .py and .java files are allowed. Invalid: ${file.name}`);
-    }
     const normalized = normalizeUploadFileType(file);
     formData.append("files", normalized, normalized.name);
   }
@@ -395,11 +391,6 @@ export async function submitFacultySubmissionGrade(payload: FacultySubmissionGra
   });
 }
 
-function isPreviewableSourceFile(fileName: string): boolean {
-  const normalizedName = fileName.toLowerCase();
-  return normalizedName.endsWith(".py") || normalizedName.endsWith(".java");
-}
-
 export function resolvePreviewLanguage(fileName: string, fallbackLanguage: string): string {
   const normalizedName = fileName.toLowerCase();
   if (normalizedName.endsWith(".py")) {
@@ -408,14 +399,19 @@ export function resolvePreviewLanguage(fileName: string, fallbackLanguage: strin
   if (normalizedName.endsWith(".java")) {
     return "Java";
   }
+  if (
+    normalizedName.endsWith(".cpp") ||
+    normalizedName.endsWith(".cc") ||
+    normalizedName.endsWith(".hpp") ||
+    normalizedName.endsWith(".h")
+  ) {
+    return "C++";
+  }
   // NOTE: Keep fallback language so editor rendering remains resilient if unsupported extension slips through.
   return fallbackLanguage;
 }
 
 export async function fetchSubmissionFileText(downloadUrl: string, fileName: string): Promise<string> {
-  if (!isPreviewableSourceFile(fileName)) {
-    throw new Error("Only .py and .java files can be shown in editor.");
-  }
   if (!downloadUrl) {
     throw new Error("Download link is unavailable for this file.");
   }

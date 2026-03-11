@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router";
+import { useParams, Link, useSearchParams } from "react-router";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { AssignmentHeader } from "./assignment/AssignmentHeader";
 import { TabNavigation } from "./assignment/TabNavigation";
 import { DescriptionPanel } from "./assignment/DescriptionPanel";
 import { PublicTestsPanel } from "./assignment/PublicTestsPanel";
+import { TestSuiteFormPanel } from "./assignment/TestSuiteFormPanel";
 import { GradingRubricPanel } from "./assignment/GradingRubricPanel";
 import { ResultsPanel } from "./assignment/ResultsPanel";
 import { CodeWorkspace } from "./assignment/CodeWorkspace";
@@ -17,7 +18,6 @@ import {
   getAssignmentDetailById,
   getEditorCodeExamples,
   invalidateAssignmentWorkspaceCache,
-  listPublicTestCases,
   listRubricCategories,
 } from "../../services/assignmentService";
 import { getAssignmentResult, invalidateAssignmentResultCache } from "../../services/resultService";
@@ -28,6 +28,11 @@ import {
   submitFacultySubmissionGrade,
   submitStudentAssignmentFiles,
 } from "../../services/submissionService";
+import {
+  getTestSuiteByAssignment,
+  getTestSuiteByCourseAndAssignment,
+} from "../../services/testSuiteService";
+import { requestRunTests, runTestsWithFiles, pollRunTestsUntilDone } from "../../services/runTestsService";
 import { getAuthenticatedRole } from "../auth";
 import React from "react";
 import type {
@@ -35,6 +40,8 @@ import type {
   FacultyEditorPreviewPayload,
   FacultySubmissionGradePayload,
 } from "../../types/submission";
+import type { TestSuiteDetail } from "../../types/testSuite";
+import type { TestRunJobStatusResponse } from "../../types/runTests";
 
 type TabType = 'description' | 'tests' | 'rubric' | 'results';
 
@@ -51,20 +58,23 @@ function getErrorMessage(error: unknown): string {
 
 export function AssignmentPage() {
   const { assignmentId, submissionId } = useParams();
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
   const authenticatedRole = getAuthenticatedRole();
   const isStudentRole = authenticatedRole === "STUDENT";
   const isFacultyRole = authenticatedRole === "FACULTY";
 
-  const [activeTab, setActiveTab] = useState<TabType>(
-    isFacultyRole && submissionId ? "results" : "description",
-  );
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    if (tabParam === "tests") return "tests";
+    if (isFacultyRole && submissionId) return "results";
+    return "description";
+  });
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submissionFeedback, setSubmissionFeedback] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   // NOTE: Load all assignment-related data here so child panels remain presentation-only.
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [description, setDescription] = useState<AssignmentDescription | null>(null);
-  const [publicTests, setPublicTests] = useState<PublicTestCase[]>([]);
   const [rubricCategories, setRubricCategories] = useState<RubricCategory[]>([]);
   const [results, setResults] = useState<AssignmentResult | null>(null);
   const [facultySubmissionRows, setFacultySubmissionRows] = useState<FacultyAssignmentSubmissionRow[]>([]);
@@ -73,6 +83,11 @@ export function AssignmentPage() {
   const [facultyPreviewErrorMessage, setFacultyPreviewErrorMessage] = useState<string | null>(null);
   const [editorCodeExamples, setEditorCodeExamples] = useState<EditorCodeExamples>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [testSuite, setTestSuite] = useState<TestSuiteDetail | null>(null);
+  const [testSuiteSaveInProgress, setTestSuiteSaveInProgress] = useState(false);
+  const [runLoading, setRunLoading] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [runResult, setRunResult] = useState<TestRunJobStatusResponse | null>(null);
 
   const facultySubmissionFileOptions = useMemo(() => {
     if (!isFacultyRole) {
@@ -96,10 +111,9 @@ export function AssignmentPage() {
     // FIX: Invalidate assignment/result caches before loading so newly submitted files appear immediately in faculty/student views.
     invalidateAssignmentWorkspaceCache(resolvedId);
     invalidateAssignmentResultCache(resolvedId);
-    const [assignmentData, descriptionData, publicTestsData, rubricData, resultsData, codeExamplesData, facultyRows] = await Promise.all([
+    const [assignmentData, descriptionData, rubricData, resultsData, codeExamplesData, facultyRows] = await Promise.all([
       getAssignmentDetailById(resolvedId),
       getAssignmentDescription(resolvedId),
-      listPublicTestCases(resolvedId),
       listRubricCategories(resolvedId),
       getAssignmentResult(resolvedId),
       getEditorCodeExamples(resolvedId),
@@ -108,7 +122,6 @@ export function AssignmentPage() {
 
     setAssignment(assignmentData);
     setDescription(descriptionData);
-    setPublicTests(publicTestsData);
     setRubricCategories(rubricData);
     setResults(resultsData);
     setEditorCodeExamples(codeExamplesData);
@@ -116,6 +129,18 @@ export function AssignmentPage() {
     setFacultySubmissionRows(facultyRows);
     // FIX: Results tab now reflects whether at least one real submission exists for this assignment.
     setHasSubmitted(assignmentData.submissionsUsed > 0);
+    // Load test suite: faculty by assignment id, student by course + assignment (student needs courseId from assignment).
+    try {
+      const suite = isFacultyRole
+        ? await getTestSuiteByAssignment(resolvedId)
+        : await getTestSuiteByCourseAndAssignment(
+            String(assignmentData.courseId ?? ""),
+            resolvedId,
+          );
+      setTestSuite(suite ?? null);
+    } catch {
+      setTestSuite(null);
+    }
   }, [isFacultyRole]);
 
   useEffect(() => {
@@ -228,6 +253,53 @@ export function AssignmentPage() {
     }
   };
 
+  const handleRunTests = useCallback(
+    async (files?: File[]) => {
+      const assignmentIdForRun = assignmentId ?? assignment?.id;
+      const hasFiles = files != null && files.length > 0;
+      const submissionIdForRun = results?.latestSubmissionId ?? null;
+
+      if (hasFiles && assignmentIdForRun) {
+        setRunLoading(true);
+        setRunError(null);
+        try {
+          const result = await runTestsWithFiles(assignmentIdForRun, files);
+          setRunResult(result);
+          setActiveTab("tests");
+        } catch (e) {
+          const message = e instanceof Error ? e.message : "Run tests failed.";
+          setRunError(message);
+          setRunResult(null);
+        } finally {
+          setRunLoading(false);
+        }
+        return;
+      }
+
+      if (submissionIdForRun != null) {
+        setRunLoading(true);
+        setRunError(null);
+        try {
+          await requestRunTests(submissionIdForRun);
+          const job = await pollRunTestsUntilDone(submissionIdForRun);
+          setRunResult(job);
+          setActiveTab("tests");
+        } catch (e) {
+          const message = e instanceof Error ? e.message : "Run tests failed.";
+          setRunError(message);
+          setRunResult(null);
+        } finally {
+          setRunLoading(false);
+        }
+        return;
+      }
+
+      setRunError("Add code or upload a file, then run tests.");
+      setActiveTab("tests");
+    },
+    [assignmentId, assignment?.id, results?.latestSubmissionId]
+  );
+
   if (isLoading) {
     return (
       <div className="flex flex-col h-screen bg-[#F5F2F2]">
@@ -315,7 +387,80 @@ export function AssignmentPage() {
               {/* Tab Content */}
               <div className="flex-1 overflow-y-auto">
                 {activeTab === 'description' && <DescriptionPanel description={description} />}
-                {activeTab === 'tests' && <PublicTestsPanel testCases={publicTests} />}
+                {activeTab === 'tests' && (
+                  isFacultyRole ? (
+                    <TestSuiteFormPanel
+                      assignmentId={assignmentId ?? assignment.id}
+                      existingSuite={testSuite}
+                      onSaved={async () => {
+                        setTestSuiteSaveInProgress(true);
+                        try {
+                          const suite = await getTestSuiteByAssignment(assignmentId ?? assignment.id);
+                          setTestSuite(suite ?? null);
+                        } finally {
+                          setTestSuiteSaveInProgress(false);
+                        }
+                      }}
+                      isSubmitting={testSuiteSaveInProgress}
+                      errorMessage={null}
+                    />
+                  ) : testSuite ? (
+                    <PublicTestsPanel
+                      testCases={testSuite.testCases
+                        .filter((tc) => !tc.isPrivate)
+                        .map(
+                          (tc, i): PublicTestCase => ({
+                            id: tc.id ?? i,
+                            name: tc.title,
+                            passed: false,
+                            input: tc.input ?? "",
+                            inputFileName: tc.fileName ?? null,
+                            expectedOutput: tc.output ?? "",
+                            actualOutput: "",
+                          })
+                        )}
+                      onRunTests={handleRunTests}
+                      isRunning={runLoading}
+                      runError={runError}
+                      runResult={
+                        runResult
+                          ? (() => {
+                              const suiteCases = testSuite.testCases.filter((tc) => !tc.isPrivate);
+                              return {
+                                passedCount: runResult.passedCount,
+                                totalCount: runResult.totalCount,
+                                results: runResult.results.map(
+                                  (r, i): PublicTestCase => {
+                                    const suiteCase = suiteCases.find(
+                                      (tc) => tc.id === r.testCaseId || Number(tc.id) === Number(r.testCaseId)
+                                    );
+                                    return {
+                                      id: r.testCaseId ?? i,
+                                      name: r.testCaseTitle,
+                                      passed: r.passed,
+                                      input: suiteCase?.input ?? "",
+                                      inputFileName: suiteCase?.fileName ?? null,
+                                      expectedOutput: r.expectedOutput ?? suiteCase?.output ?? "",
+                                      actualOutput: r.actualOutput ?? r.errorMessage ?? "",
+                                      executionTime: r.runtimeMs != null ? `${r.runtimeMs}ms` : undefined,
+                                    };
+                                  }
+                                ),
+                              };
+                            })()
+                          : null
+                      }
+                      runStatus={runResult?.status ?? null}
+                    />
+                  ) : (
+                    <div className="p-6">
+                      <h2 className="text-lg font-semibold text-[#2B2A2A]">Test Cases</h2>
+                      <p className="mt-2 text-[13px] text-gray-600">
+                        No test cases have been defined for this assignment yet.
+                      </p>
+                    </div>
+                  )
+                )}
                 {activeTab === 'rubric' && <GradingRubricPanel rubricCategories={rubricCategories} />}
                 {activeTab === 'results' && (
                   <ResultsPanel
@@ -345,15 +490,17 @@ export function AssignmentPage() {
               assignmentId={assignmentId ?? assignment.id}
               assignment={assignment}
               codeExamples={editorCodeExamples}
-              onRunTests={() => console.log("Run tests")}
+              onRunTests={handleRunTests}
               onSubmit={handleStudentSubmit}
-              // NOTE: Faculty assignment pages stay read-only for local file upload controls.
               showUploadControls={isStudentRole}
               showFacultyGradeControls={isFacultyRole}
               facultySubmissionRows={isFacultyRole ? facultySubmissionRows : undefined}
               onSubmitFacultyGrade={isFacultyRole ? handleFacultySubmissionGrade : undefined}
               maxGradePoints={assignment.points.total}
               facultyEditorPreviewPayload={isFacultyRole ? facultyEditorPreviewPayload : null}
+              runLoading={runLoading}
+              runError={runError}
+              runResult={runResult}
             />
           </Panel>
         </PanelGroup>

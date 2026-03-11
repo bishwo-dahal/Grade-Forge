@@ -484,10 +484,8 @@ export async function getAssignmentResult(assignmentId: string): Promise<Assignm
     totalPoints: workspaceSource.assignment.totalPoints,
     earnedPoints: score,
     submittedAt: formatDateTime(latest?.submittedAt),
-    // TODO(backend): Replace with real grading timestamp once backend exposes grader metadata.
     gradedAt: formatDateTime(latest?.submittedAt),
     status: "placeholder text",
-    // TODO(backend): Replace test-run placeholders once backend exposes per-test grading outcomes.
     publicTestsPassed: 0,
     publicTestsTotal: 0,
     privateTestsPassed: 0,
@@ -504,6 +502,7 @@ export async function getAssignmentResult(assignmentId: string): Promise<Assignm
         feedback: "placeholder text",
       },
     ],
+    latestSubmissionId: latest?.id ?? null,
   };
 }
 

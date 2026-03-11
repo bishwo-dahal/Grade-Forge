@@ -19,7 +19,9 @@ import {
   type AssignmentDetailPageAssignment,
   type AssignmentDetailPageRubricSection,
   type AssignmentDetailPageSubmissionRow,
+  type AssignmentDetailPageTestSuiteSection,
 } from "./AssignmentDetailPage";
+import { getTestSuiteByAssignment } from "../../services/testSuiteService";
 
 function extractErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim()) {
@@ -88,6 +90,19 @@ function mapToSubmissionRows(rows: FacultyAssignmentSubmissionRow[]): Assignment
   });
 }
 
+function mapToTestSuiteSection(suite: Awaited<ReturnType<typeof getTestSuiteByAssignment>>): AssignmentDetailPageTestSuiteSection | null {
+  if (!suite) return null;
+  return {
+    title: suite.title ?? "Test Suite",
+    description: suite.description ?? null,
+    testCases: (suite.testCases ?? []).map((tc) => ({
+      title: tc.title ?? "Untitled",
+      isPrivate: Boolean(tc.isPrivate),
+    })),
+    loading: false,
+  };
+}
+
 export function FacultyGradingAssignmentDetailPage() {
   const { classId, assignmentId } = useParams();
   const navigate = useNavigate();
@@ -116,6 +131,8 @@ export function FacultyGradingAssignmentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [testSuite, setTestSuite] = useState<Awaited<ReturnType<typeof getTestSuiteByAssignment>>>(null);
+  const [testSuiteLoading, setTestSuiteLoading] = useState(false);
 
   const goToSettingsSection = (section: SettingsSection) => {
     navigate(`/settings?section=${section}`);
@@ -165,6 +182,15 @@ export function FacultyGradingAssignmentDetailPage() {
   }, [resolvedAssignmentId]);
 
   useEffect(() => {
+    if (!resolvedAssignmentId.trim()) return;
+    setTestSuiteLoading(true);
+    getTestSuiteByAssignment(resolvedAssignmentId)
+      .then(setTestSuite)
+      .catch(() => setTestSuite(null))
+      .finally(() => setTestSuiteLoading(false));
+  }, [resolvedAssignmentId]);
+
+  useEffect(() => {
     void loadAll();
   }, [loadAll]);
 
@@ -198,6 +224,12 @@ export function FacultyGradingAssignmentDetailPage() {
     () => mapToSubmissionRows(latestSubmissionsPerStudent),
     [latestSubmissionsPerStudent]
   );
+  const pageTestSuiteSection = useMemo((): AssignmentDetailPageTestSuiteSection | null => {
+    if (testSuiteLoading && !testSuite) {
+      return { title: "", description: null, testCases: [], loading: true };
+    }
+    return mapToTestSuiteSection(testSuite);
+  }, [testSuite, testSuiteLoading]);
 
   return (
     <AuthShell
@@ -225,6 +257,11 @@ export function FacultyGradingAssignmentDetailPage() {
           error={errorMessage}
           onRefreshSubmissions={reloadSubmissions}
           submissionsSectionSubtitle="Open a submission to review code and submit a grade."
+          testCasesLink={{
+            to: `/faculty/assignment/${resolvedAssignmentId}?tab=tests`,
+            label: "Edit test cases",
+          }}
+          testSuiteSection={pageTestSuiteSection}
         />
       }
     />

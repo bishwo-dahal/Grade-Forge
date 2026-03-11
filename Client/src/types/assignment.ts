@@ -7,6 +7,8 @@ export interface AssignmentDetail {
   title: string;
   course: string;
   courseCode: string;
+  /** Course id for API calls (e.g. test suite by course + assignment). */
+  courseId?: number;
   dueDate: string;
   /** Formatted available-from datetime, or null if not set. */
   availableFrom?: string | null;
@@ -20,6 +22,8 @@ export interface AssignmentDetail {
   submissionsUsed: number;
   submissionsAllowed: number | null;
   language: string;
+  /** Optional comma-separated list of allowed source extensions for this assignment's language (e.g. ".py,.txt,.csv"). */
+  languageAllowedExtensions?: string | null;
   hasStarterCode: boolean;
   submissionType?: string;
   starterCodeUrl?: string | null;

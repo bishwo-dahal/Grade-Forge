@@ -98,4 +98,6 @@ export interface AssignmentResult {
   compileErrors: string[];
   runtimeErrors: string[];
   rubricBreakdown: RubricBreakdownItem[];
+  /** Latest submission id for this assignment (student); used for Run tests. */
+  latestSubmissionId?: number | null;
 }

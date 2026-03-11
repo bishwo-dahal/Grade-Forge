@@ -16,12 +16,14 @@ import com.grade.forge.submission.repository.SubmissionFileRepository;
 import com.grade.forge.user.entity.Users;
 import com.grade.forge.user.repository.UserRepository;
 import com.grade.forge.storage.service.FileStorageService;
+import com.grade.forge.execution.service.TestRunJobService;
 import com.grade.forge.faculty.entity.Faculty;
 import com.grade.forge.faculty.repository.FacultyRepository;
 import com.grade.forge.courseassistant.repository.CourseAssistantRepository;
 import com.grade.forge.gradingassistant.entity.GradingAssistant;
 import com.grade.forge.gradingassistant.repository.GradingAssistantRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,6 +35,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class SubmissionService {
 
     private final SubmissionRepository submissionRepository;
@@ -41,6 +44,7 @@ public class SubmissionService {
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
     private final SubmissionFileRepository submissionFileRepository;
+    private final TestRunJobService testRunJobService;
     private final FacultyRepository facultyRepository;
     private final GradingAssistantRepository gradingAssistantRepository;
     private final CourseAssistantRepository courseAssistantRepository;
@@ -75,6 +79,18 @@ public class SubmissionService {
         submissionFiles.forEach(file -> file.setSubmission(saved));
         submissionFileRepository.saveAll(submissionFiles);
         saved.setFiles(submissionFiles);
+
+        // When a student submits, enqueue a test run so faculty/GA can see results for this submission.
+        // Runs in its own transaction; failures here should not block the submission.
+        try {
+            // Ensure the new submission row is flushed so the separate transaction can see it.
+            submissionRepository.flush();
+            log.info("Student saved ID is: {}", saved.getId());
+            testRunJobService.requestRunTests(saved.getId());
+        } catch (Exception e) {
+            log.warn("Failed to enqueue test run for submission {}: {}", saved.getId(), e.getMessage());
+        }
+
         return mapToResponse(saved);
     }
 
@@ -240,5 +256,33 @@ public class SubmissionService {
         if (!allowed) {
             throw new IllegalArgumentException("You are not allowed to access submissions for this assignment");
         }
+    }
+
+    /** Ensures the student (by email) can access the submission; throws if not. For run-tests. */
+    @Transactional(readOnly = true)
+    public void ensureStudentCanAccessSubmission(String userEmail, Long submissionId) {
+        getSubmissionForCurrentStudent(userEmail, submissionId);
+    }
+
+    /** Ensures the faculty (by email) can access the submission; throws if not. For run-tests. */
+    @Transactional(readOnly = true)
+    public void ensureFacultyCanAccessSubmission(String facultyEmail, Long submissionId) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
+        Faculty faculty = facultyRepository.findByEmail(facultyEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with email: " + facultyEmail));
+        if (!submission.getAssignment().getCourse().getFaculty().getId().equals(faculty.getId())) {
+            throw new IllegalArgumentException("You are not allowed to access this submission");
+        }
+    }
+
+    /** Ensures the grading assistant (by user id) can access the submission; throws if not. For run-tests. */
+    @Transactional(readOnly = true)
+    public void ensureGradingAssistantCanAccessSubmission(Long userId, Long submissionId) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
+        GradingAssistant gradingAssistant = gradingAssistantRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Grading assistant not found for user id: " + userId));
+        validateGradingAssistantCourseAccess(gradingAssistant.getId(), submission.getAssignment().getCourse().getId());
     }
 }

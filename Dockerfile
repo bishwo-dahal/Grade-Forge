@@ -20,6 +20,13 @@ RUN mvn clean package -DskipTests
 # Stage 3: Final runtime image
 FROM eclipse-temurin:21-jdk
 WORKDIR /app
+
+# Install Docker CLI inside the container so RunTestsSyncService can call `docker`
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      docker.io && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY --from=backend-build /app/backend/target/*.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

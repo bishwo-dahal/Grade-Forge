@@ -21,6 +21,7 @@ import {
   resolvePreviewLanguage,
   submitFacultySubmissionGrade,
 } from "../../services/submissionService";
+import { getRunTestsLatest, requestRunTests, runTestsWithFiles, pollRunTestsUntilDone } from "../../services/runTestsService";
 import { getAssignmentByCourse } from "../../services/gradingAssistantAssignmentService";
 import { getRubric } from "../../services/gradingAssistantRubricService";
 import {
@@ -34,6 +35,8 @@ import type { SettingsSection } from "./layout/AuthTopBar";
 import type { AssignmentDetail, AssignmentDescription } from "../../types/assignment";
 import type { RubricCategory } from "../../types/grade";
 import type { GradingAssistantRubricResponse } from "../../types/gradingAssistantRubric";
+import type { TestRunJobStatusResponse } from "../../types/runTests";
+import type { PublicTestCase } from "../../types/submission";
 
 type GradingTabType = "description" | "tests" | "plagiarism" | "rubric";
 
@@ -84,6 +87,7 @@ function buildAssignmentDetailFromGA(
     submissionsUsed: 0,
     submissionsAllowed: null,
     language: "Python",
+    languageAllowedExtensions: null,
     hasStarterCode: false,
   };
 }
@@ -111,6 +115,9 @@ export function AssignmentGradingPage() {
   const [submissionFeedback, setSubmissionFeedback] = useState<string>("");
   const [gradeDialogOpen, setGradeDialogOpen] = useState(false);
   const [gradeSubmitting, setGradeSubmitting] = useState(false);
+  const [runLoading, setRunLoading] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [runResult, setRunResult] = useState<TestRunJobStatusResponse | null>(null);
 
   const backToAssignmentUrl = isFaculty
     ? `/faculty/class/${classId}/assignment/${assignmentId}`
@@ -241,6 +248,25 @@ export function AssignmentGradingPage() {
       .finally(() => setLoading(false));
   }, [assignmentId, submissionId, isFaculty, isGA, loadFacultyData, loadGAData]);
 
+  // Load latest test run for this submission (created on student submit or manual "Run tests").
+  useEffect(() => {
+    if (!submissionId) return;
+    getRunTestsLatest(submissionId)
+      .then((data) => data && setRunResult(data))
+      .catch(() => setRunResult(null));
+  }, [submissionId]);
+
+  // Poll while queued/running so faculty/GA sees results as soon as the consumer finishes.
+  useEffect(() => {
+    if (!runResult || runResult.status === "COMPLETED" || runResult.status === "FAILED") return;
+    const interval = setInterval(() => {
+      getRunTestsLatest(submissionId!)
+        .then((data) => data && setRunResult(data))
+        .catch(() => {});
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [submissionId, runResult?.status]);
+
   const scoreItems = useMemo(
     () => [
       { label: "Plagiarism", value: null as number | null, percent: 0, color: "#FEB05D" },
@@ -250,9 +276,43 @@ export function AssignmentGradingPage() {
     []
   );
 
-  const handleRunTests = useCallback(() => {
-    console.log("Run tests for submission", submissionId);
-  }, [submissionId]);
+  const handleRunTests = useCallback(
+    async (files?: File[]) => {
+      const hasFiles = files != null && files.length > 0;
+      if (hasFiles && assignmentId) {
+        setRunLoading(true);
+        setRunError(null);
+        try {
+          const result = await runTestsWithFiles(assignmentId, files);
+          setRunResult(result);
+          setActiveTab("tests");
+        } catch (e) {
+          const message = e instanceof Error ? e.message : "Run tests failed.";
+          setRunError(message);
+          setRunResult(null);
+        } finally {
+          setRunLoading(false);
+        }
+        return;
+      }
+      if (!submissionId) return;
+      setRunLoading(true);
+      setRunError(null);
+      try {
+        await requestRunTests(submissionId);
+        const job = await pollRunTestsUntilDone(submissionId);
+        setRunResult(job);
+        setActiveTab("tests");
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Run tests failed.";
+        setRunError(message);
+        setRunResult(null);
+      } finally {
+        setRunLoading(false);
+      }
+    },
+    [assignmentId, submissionId]
+  );
 
   const handleSaveGrade = useCallback(
     async (marks: number, feedback: string) => {
@@ -445,7 +505,7 @@ export function AssignmentGradingPage() {
                     {(
                       [
                         { id: "description" as const, label: "Description" },
-                        { id: "tests" as const, label: "Public Tests" },
+                        { id: "tests" as const, label: "Tests" },
                         { id: "plagiarism" as const, label: "Plagiarism" },
                         { id: "rubric" as const, label: "Grading Rubric" },
                       ] as const
@@ -469,7 +529,36 @@ export function AssignmentGradingPage() {
                 {/* Tab content - grows with content, panel scrolls */}
                 <div className="flex-1 min-h-0">
                   {activeTab === "description" && <DescriptionPanel description={description} />}
-                  {activeTab === "tests" && <PublicTestsPanel testCases={[]} />}
+                  {activeTab === "tests" && (
+                    <PublicTestsPanel
+                      testCases={[]}
+                      onRunTests={handleRunTests}
+                      isRunning={runLoading}
+                      runError={runError}
+                      runResult={
+                        runResult
+                          ? {
+                              passedCount: runResult.passedCount,
+                              totalCount: runResult.totalCount,
+                              results: runResult.results.map(
+                                (r, i): PublicTestCase => ({
+                                  id: r.testCaseId ?? i,
+                                  name: r.testCaseTitle,
+                                  passed: r.passed,
+                                  input: "",
+                                  inputFileName: null,
+                                  expectedOutput: r.expectedOutput ?? "",
+                                  actualOutput: r.actualOutput ?? r.errorMessage ?? "",
+                                  executionTime: r.runtimeMs != null ? `${r.runtimeMs}ms` : undefined,
+                                })
+                              ),
+                            }
+                          : null
+                      }
+                      runStatus={runResult?.status ?? null}
+                      showPublicNote={false}
+                    />
+                  )}
                   {activeTab === "plagiarism" && (
                     <div className="p-6 text-[14px] text-gray-500">Plagiarism report will appear here.</div>
                   )}
@@ -514,6 +603,9 @@ export function AssignmentGradingPage() {
                 showUploadControls={false}
                 showFacultyGradeControls={false}
                 facultyEditorPreviewPayload={facultyEditorPreviewPayload}
+                runLoading={runLoading}
+                runError={runError}
+                runResult={runResult}
               />
             ) : (
               <div className="h-full flex items-center justify-center bg-[#1e1e1e] text-gray-400 text-[14px]">

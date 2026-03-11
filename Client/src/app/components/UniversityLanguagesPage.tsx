@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { Code2, Plus, Search, Trash2, X } from "lucide-react";
+import { Code2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import {
   createSupportedLanguage,
   listSupportedLanguages,
   removeSupportedLanguage,
+  updateSupportedLanguage,
 } from "../../services/universityAdminService";
 import type { LanguageCreatePayload, SupportedLanguage } from "../../types/universityAdmin";
 
 const DEFAULT_LANGUAGE_FORM: LanguageCreatePayload = {
   name: "",
   dockerImage: "",
+  compileCommand: "",
   executionCode: "",
   isActive: true,
 };
@@ -22,6 +24,7 @@ interface UniversityLanguagesViewProps {
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
   onOpenCreateModal: () => void;
+  onEditLanguage: (language: SupportedLanguage) => void;
   onRemoveLanguage: (languageId: number) => void;
 }
 
@@ -32,6 +35,7 @@ function UniversityLanguagesView({
   searchTerm,
   onSearchTermChange,
   onOpenCreateModal,
+  onEditLanguage,
   onRemoveLanguage,
 }: UniversityLanguagesViewProps) {
   const filteredLanguages = useMemo(() => {
@@ -43,6 +47,7 @@ function UniversityLanguagesView({
       return (
         language.name.toLowerCase().includes(normalizedSearch) ||
         language.dockerImage.toLowerCase().includes(normalizedSearch) ||
+        (language.compileCommand?.toLowerCase().includes(normalizedSearch) ?? false) ||
         language.executionCode.toLowerCase().includes(normalizedSearch)
       );
     });
@@ -72,7 +77,7 @@ function UniversityLanguagesView({
             type="text"
             value={searchTerm}
             onChange={(event) => onSearchTermChange(event.target.value)}
-            placeholder="Search languages by name, docker image, or execution command..."
+            placeholder="Search languages by name, docker image, compile or execution command..."
             className="w-full rounded-2xl border border-[#CFD2D9] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#2B2A2A] placeholder:text-[#8791A5] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
           />
         </div>
@@ -87,7 +92,9 @@ function UniversityLanguagesView({
               <tr className="border-b border-gray-200 bg-[#FBFCFE]">
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Language</th>
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Docker Image</th>
+                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Compile Command</th>
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Execution Command</th>
+                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Allowed Extensions</th>
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Status</th>
                 <th className="px-6 py-4 text-right text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Actions</th>
               </tr>
@@ -102,6 +109,9 @@ function UniversityLanguagesView({
                           <div className="h-10 w-10 rounded-xl bg-[#EEF2FA]" />
                           <div className="h-4 w-28 rounded bg-gray-200" />
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-36 rounded bg-gray-200 animate-pulse" />
                       </td>
                       <td className="px-6 py-4">
                         <div className="h-4 w-36 rounded bg-gray-200 animate-pulse" />
@@ -123,7 +133,7 @@ function UniversityLanguagesView({
 
               {!isLoading && filteredLanguages.length === 0 && (
                 <tr>
-                  <td className="px-6 py-5 text-[14px] text-[#5D6A80]" colSpan={5}>
+                  <td className="px-6 py-5 text-[14px] text-[#5D6A80]" colSpan={7}>
                     No languages found.
                   </td>
                 </tr>
@@ -141,7 +151,11 @@ function UniversityLanguagesView({
                       </div>
                     </td>
                     <td className="px-6 py-4 text-[14px] text-[#2D3B53]">{language.dockerImage || "-"}</td>
+                    <td className="px-6 py-4 text-[14px] text-[#2D3B53]">{language.compileCommand || "-"}</td>
                     <td className="px-6 py-4 text-[14px] text-[#2D3B53]">{language.executionCode || "-"}</td>
+                    <td className="px-6 py-4 text-[13px] text-[#5D6A80]">
+                      {language.allowedExtensions || "-"}
+                    </td>
                     <td className="px-6 py-4 text-[14px]">
                       <span
                         className={
@@ -154,12 +168,19 @@ function UniversityLanguagesView({
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center justify-end">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => onEditLanguage(language)}
+                          aria-label={`Edit ${language.name}`}
+                          className="rounded-lg p-1.5 text-[#5A7ACD] transition-colors hover:bg-[#E8EEFF] hover:text-[#4456A0]"
+                        >
+                          <Pencil className="h-4 w-4" strokeWidth={2} />
+                        </button>
                         <button
                           type="button"
                           onClick={() => onRemoveLanguage(language.id)}
                           aria-label={`Remove ${language.name}`}
-                          // FIX: Added visible hover background so icon-only delete action has clearer affordance.
                           className="rounded-lg p-1.5 text-[#E0474C] transition-colors hover:bg-[#FDEBEC] hover:text-[#CB2F34]"
                         >
                           <Trash2 className="h-4 w-4" strokeWidth={2} />
@@ -182,6 +203,7 @@ export function UniversityLanguagesPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingLanguageId, setEditingLanguageId] = useState<number | null>(null);
   const [isSavingLanguage, setIsSavingLanguage] = useState(false);
   const [languageForm, setLanguageForm] = useState<LanguageCreatePayload>(DEFAULT_LANGUAGE_FORM);
   const [languageFormError, setLanguageFormError] = useState<string | null>(null);
@@ -213,16 +235,32 @@ export function UniversityLanguagesPage() {
 
   const handleOpenCreateModal = () => {
     setLanguageForm(DEFAULT_LANGUAGE_FORM);
+    setEditingLanguageId(null);
     setLanguageFormError(null);
     setShowCreateModal(true);
   };
 
-  const handleCloseCreateModal = () => {
+  const handleOpenEditModal = (language: SupportedLanguage) => {
+    setLanguageForm({
+      name: language.name,
+      dockerImage: language.dockerImage,
+      compileCommand: language.compileCommand ?? "",
+      executionCode: language.executionCode,
+      isActive: language.isActive,
+      allowedExtensions: language.allowedExtensions ?? "",
+    });
+    setEditingLanguageId(language.id);
+    setLanguageFormError(null);
+    setShowCreateModal(true);
+  };
+
+  const handleCloseLanguageModal = () => {
     setShowCreateModal(false);
+    setEditingLanguageId(null);
     setLanguageFormError(null);
   };
 
-  const handleCreateLanguage = async () => {
+  const handleSaveLanguage = async () => {
     if (!languageForm.name.trim()) {
       setLanguageFormError("Language name is required.");
       return;
@@ -231,18 +269,27 @@ export function UniversityLanguagesPage() {
     setIsSavingLanguage(true);
     setLanguageFormError(null);
 
+    const payload: LanguageCreatePayload = {
+      name: languageForm.name.trim(),
+      dockerImage: languageForm.dockerImage.trim(),
+      compileCommand: languageForm.compileCommand?.trim() || undefined,
+      executionCode: languageForm.executionCode.trim(),
+      isActive: languageForm.isActive,
+      allowedExtensions: languageForm.allowedExtensions?.trim() || undefined,
+    };
+
     try {
-      // NOTE: Popup payload now matches backend ProgrammingLanguageRequest fields for direct API integration.
-      await createSupportedLanguage({
-        name: languageForm.name.trim(),
-        dockerImage: languageForm.dockerImage.trim(),
-        executionCode: languageForm.executionCode.trim(),
-        isActive: languageForm.isActive,
-      });
-      handleCloseCreateModal();
+      if (editingLanguageId != null) {
+        await updateSupportedLanguage(editingLanguageId, payload);
+      } else {
+        await createSupportedLanguage(payload);
+      }
+      handleCloseLanguageModal();
       loadLanguages();
-    } catch (creationError) {
-      setLanguageFormError(getErrorMessage(creationError, "Could not create language."));
+    } catch (saveError) {
+      setLanguageFormError(
+        getErrorMessage(saveError, editingLanguageId != null ? "Could not update language." : "Could not create language.")
+      );
     } finally {
       setIsSavingLanguage(false);
     }
@@ -263,6 +310,7 @@ export function UniversityLanguagesPage() {
         searchTerm={searchTerm}
         onSearchTermChange={setSearchTerm}
         onOpenCreateModal={handleOpenCreateModal}
+        onEditLanguage={handleOpenEditModal}
         onRemoveLanguage={handleRemoveLanguage}
       />
 
@@ -270,11 +318,13 @@ export function UniversityLanguagesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4">
           <div className="w-full max-w-[480px] overflow-hidden rounded-3xl border border-gray-200 bg-white">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
-              <h2 className="text-[22px] font-semibold text-[#1F2430]">Add Programming Language</h2>
+              <h2 className="text-[22px] font-semibold text-[#1F2430]">
+                {editingLanguageId != null ? "Edit Programming Language" : "Add Programming Language"}
+              </h2>
               <button
                 type="button"
-                onClick={handleCloseCreateModal}
-                aria-label="Close Add Programming Language dialog"
+                onClick={handleCloseLanguageModal}
+                aria-label={editingLanguageId != null ? "Close Edit Programming Language dialog" : "Close Add Programming Language dialog"}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-[#8B96A8] hover:bg-gray-100"
               >
                 <X className="h-4 w-4" strokeWidth={2} />
@@ -310,6 +360,20 @@ export function UniversityLanguagesPage() {
                 />
               </div>
               <div>
+                <label htmlFor="language-compile-command-create" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                  Compile Command <span className="text-[#98A2B5]">(optional)</span>
+                </label>
+                <input
+                  id="language-compile-command-create"
+                  type="text"
+                  value={languageForm.compileCommand ?? ""}
+                  onChange={(event) => setLanguageForm((prev) => ({ ...prev, compileCommand: event.target.value }))}
+                  placeholder="e.g., javac {{main_file}}"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                />
+                <p className="mt-1 text-[12px] text-[#6F7B8D]">Use {"{{main_file}}"} or {"{{main_class}}"} as placeholders.</p>
+              </div>
+              <div>
                 <label htmlFor="language-execution-code-create" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
                   Execution Command
                 </label>
@@ -318,9 +382,26 @@ export function UniversityLanguagesPage() {
                   type="text"
                   value={languageForm.executionCode}
                   onChange={(event) => setLanguageForm((prev) => ({ ...prev, executionCode: event.target.value }))}
-                  placeholder="e.g., python Main.py"
+                  placeholder="e.g., python3 {{main_file}} or java {{main_class}}"
                   className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
                 />
+                <p className="mt-1 text-[12px] text-[#6F7B8D]">Use {"{{main_file}}"} or {"{{main_class}}"} as placeholders.</p>
+              </div>
+              <div>
+                <label htmlFor="language-extensions-create" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                  Allowed Source Extensions <span className="text-[#98A2B5]">(optional)</span>
+                </label>
+                <input
+                  id="language-extensions-create"
+                  type="text"
+                  value={languageForm.allowedExtensions ?? ""}
+                  onChange={(event) => setLanguageForm((prev) => ({ ...prev, allowedExtensions: event.target.value }))}
+                  placeholder='e.g., ".py,.txt,.csv"'
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                />
+                <p className="mt-1 text-[12px] text-[#6F7B8D]">
+                  Comma-separated list of extensions. Text and CSV files (".txt", ".csv") are always allowed.
+                </p>
               </div>
               <label className="inline-flex items-center gap-2 text-[13px] text-[#2D3B53]">
                 <input
@@ -336,7 +417,7 @@ export function UniversityLanguagesPage() {
             <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
               <button
                 type="button"
-                onClick={handleCloseCreateModal}
+                onClick={handleCloseLanguageModal}
                 className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-[#2B2A2A]"
                 disabled={isSavingLanguage}
               >
@@ -344,11 +425,11 @@ export function UniversityLanguagesPage() {
               </button>
               <button
                 type="button"
-                onClick={handleCreateLanguage}
+                onClick={handleSaveLanguage}
                 className="rounded-xl bg-[#2B2A2A] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
                 disabled={isSavingLanguage}
               >
-                {isSavingLanguage ? "Saving..." : "Add Language"}
+                {isSavingLanguage ? "Saving..." : editingLanguageId != null ? "Update Language" : "Add Language"}
               </button>
             </div>
           </div>

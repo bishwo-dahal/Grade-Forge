@@ -192,6 +192,7 @@ public class AssignmentService {
                 .courseName(assignment.getCourse().getName())
                 .languageId(assignment.getProgrammingLanguage().getId())
                 .languageName(assignment.getProgrammingLanguage().getName())
+                .languageAllowedExtensions(assignment.getProgrammingLanguage().getAllowedExtensions())
                 .name(assignment.getName())
                 .description(assignment.getDescription())
                 .totalPoints(assignment.getTotalPoints())

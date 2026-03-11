@@ -105,6 +105,8 @@ interface AssignmentApiResponse {
   courseName: string;
   languageId: number;
   languageName: string;
+   /** Optional comma-separated list of allowed source extensions for this assignment's language (e.g. ".py,.txt,.csv"). */
+  languageAllowedExtensions?: string | null;
   name: string;
   description: string | null;
   totalPoints: number;
@@ -500,6 +502,7 @@ export async function getAssignmentDetailById(id: string): Promise<AssignmentDet
     title: workspaceSource.assignment.name,
     course: workspaceSource.course.name || workspaceSource.assignment.courseName || "placeholder text",
     courseCode: workspaceSource.course.courseCode || "placeholder text",
+    courseId: workspaceSource.course.id,
     dueDate: formatDueDateTime(workspaceSource.assignment.dueDate),
     availableFrom: workspaceSource.assignment.availableFrom
       ? formatDueDateTime(workspaceSource.assignment.availableFrom)
@@ -516,6 +519,7 @@ export async function getAssignmentDetailById(id: string): Promise<AssignmentDet
     // TODO(backend): Replace placeholder with real attempt limit once backend exposes this field.
     submissionsAllowed: null,
     language: workspaceSource.assignment.languageName || "placeholder text",
+    languageAllowedExtensions: workspaceSource.assignment.languageAllowedExtensions ?? null,
     hasStarterCode: Boolean(workspaceSource.assignment.starterCodeUrl),
     submissionType: workspaceSource.assignment.submissionType ?? undefined,
     starterCodeUrl: workspaceSource.assignment.starterCodeUrl ?? undefined,

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, ListChecks, Trash2 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import {
   createFacultyAssignmentDraft,
   getFacultyAssignmentCreatePageData,
 } from "../../services/assignmentService";
+import { createTestSuite } from "../../services/testSuiteService";
 import type { AssignmentCreateFormData, FacultyAssignmentCreatePageData } from "../../types/assignment";
+import type { TestSuitePayload } from "../../types/testSuite";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
@@ -16,30 +18,59 @@ interface FacultyCreateAssignmentViewProps {
   classId: string;
   pageData: FacultyAssignmentCreatePageData | null;
   form: AssignmentCreateFormData | null;
+  testSuiteDraft: TestSuiteDraftState | null;
   isLoading: boolean;
   isSaving: boolean;
   errorMessage: string | null;
   showSuccessModal: boolean;
+  testCasesAdded?: boolean;
   onFieldChange: <K extends keyof AssignmentCreateFormData>(field: K, value: AssignmentCreateFormData[K]) => void;
+  onTestSuiteTitleChange: (title: string) => void;
+  onTestSuiteDescriptionChange: (description: string) => void;
+  onTestCaseAdd: () => void;
+  onTestCaseRemove: (id: string) => void;
+  onTestCaseChange: (id: string, field: keyof TestCaseRow, value: string | boolean) => void;
   onCreateRubric: () => void;
   onCloseSuccessModal: () => void;
   onGoBackToClass: () => void;
   onSubmit: () => void;
 }
 
+interface TestCaseRow {
+  id: string;
+  title: string;
+  isPrivate: boolean;
+  input: string;
+  fileName: string;
+  output: string;
+}
+
+interface TestSuiteDraftState {
+  title: string;
+  description: string;
+  testCases: TestCaseRow[];
+}
+
 function FacultyCreateAssignmentView({
   classId,
   pageData,
   form,
+  testSuiteDraft,
   isLoading,
   isSaving,
   errorMessage,
   showSuccessModal,
   onFieldChange,
+  onTestSuiteTitleChange,
+  onTestSuiteDescriptionChange,
+  onTestCaseAdd,
+  onTestCaseRemove,
+  onTestCaseChange,
   onCreateRubric,
   onCloseSuccessModal,
   onGoBackToClass,
   onSubmit,
+  testCasesAdded = false,
 }: FacultyCreateAssignmentViewProps) {
   const courseCode = pageData?.header.courseCode ?? "CS 2400";
 
@@ -278,6 +309,151 @@ function FacultyCreateAssignmentView({
                 </div>
               </section>
 
+              {/* Test cases (optional) */}
+              {testSuiteDraft && (
+                <section className="mt-5 rounded-2xl border border-[#E5E9F2] bg-[#FAFBFD] p-5">
+                  <div className="flex items-center gap-2">
+                    <ListChecks className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
+                    <h3 className="text-[16px] font-semibold text-[#1F2430]">Test cases (optional)</h3>
+                  </div>
+                  <p className="mt-1 text-[12px] text-[#6D7B91]">
+                    Add test cases now or later from the assignment page. Mark as private to hide from students until grading.
+                  </p>
+                  <div className="mt-4">
+                    <label className="mb-2 block text-[13px] font-medium text-[#1F2430]">Suite title</label>
+                    <input
+                      value={testSuiteDraft.title}
+                      onChange={(e) => onTestSuiteTitleChange(e.target.value)}
+                      placeholder="e.g. Public tests"
+                      className="h-10 w-full max-w-xs rounded-xl border border-gray-200 bg-white px-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[13px] font-medium text-[#1F2430]">Test cases</span>
+                      <button
+                        type="button"
+                        onClick={onTestCaseAdd}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[#D8DFEC] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[#30415F] hover:bg-[#F3F6FB]"
+                      >
+                        <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+                        Add case
+                      </button>
+                    </div>
+                    <div className="space-y-4">
+                      {testSuiteDraft.testCases.map((row, index) => (
+                        <div key={row.id} className="rounded-xl border border-[#E5E9F2] bg-white p-4">
+                          <div className="mb-3 flex items-center justify-between">
+                            <span className="text-[12px] font-medium text-[#6D7B91]">Case {index + 1}</span>
+                            {testSuiteDraft.testCases.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => onTestCaseRemove(row.id)}
+                                className="text-[12px] text-[#C23A42] hover:underline flex items-center gap-1"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-4">
+                              <input
+                                value={row.title}
+                                onChange={(e) => onTestCaseChange(row.id, "title", e.target.value)}
+                                placeholder="Case title"
+                                className="flex-1 h-9 rounded-lg border border-gray-200 bg-white px-3 text-[13px] placeholder:text-gray-400 focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/20"
+                              />
+                              <label className="flex items-center gap-2 text-[13px] text-gray-700 whitespace-nowrap">
+                                <input
+                                  type="checkbox"
+                                  checked={row.isPrivate}
+                                  onChange={(e) => onTestCaseChange(row.id, "isPrivate", e.target.checked)}
+                                  className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
+                                />
+                                Private
+                              </label>
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-[12px] font-medium text-gray-600">Input</label>
+                              <p className="mb-2 text-[11px] text-gray-500">Content passed to the program as stdin, or as a file if you check &quot;Use as file&quot; and enter a file name.</p>
+                              <textarea
+                                value={row.input}
+                                onChange={(e) => onTestCaseChange(row.id, "input", e.target.value)}
+                                placeholder="Type or paste input, or import from file below..."
+                                rows={3}
+                                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-[13px] focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/20"
+                              />
+                              <div className="mt-2 flex flex-wrap items-center gap-3">
+                                <input
+                                  type="file"
+                                  accept="*"
+                                  className="hidden"
+                                  id={`file-input-${row.id}`}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const reader = new FileReader();
+                                    reader.onload = () => {
+                                      onTestCaseChange(row.id, "input", String(reader.result ?? ""));
+                                      onTestCaseChange(row.id, "fileName", file.name);
+                                    };
+                                    reader.readAsText(file);
+                                    e.target.value = "";
+                                  }}
+                                />
+                                <label
+                                  htmlFor={`file-input-${row.id}`}
+                                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50"
+                                >
+                                  Import from file
+                                </label>
+                                <label className="flex items-center gap-2 text-[13px] text-gray-700">
+                                  <input
+                                    type="checkbox"
+                                    checked={row.fileName.length > 0}
+                                    onChange={(e) => {
+                                      if (!e.target.checked) {
+                                        onTestCaseChange(row.id, "fileName", "");
+                                      } else {
+                                        onTestCaseChange(row.id, "fileName", "input.txt");
+                                      }
+                                    }}
+                                    className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
+                                  />
+                                  Use as file
+                                </label>
+                                {row.fileName.length > 0 && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[12px] text-gray-500">File name</span>
+                                    <input
+                                      value={row.fileName}
+                                      onChange={(e) => onTestCaseChange(row.id, "fileName", e.target.value)}
+                                      placeholder="e.g. input.txt"
+                                      className="h-8 w-40 rounded-lg border border-gray-200 bg-white px-2 font-mono text-[13px] focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/20"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-[12px] font-medium text-gray-600">Expected output</label>
+                              <textarea
+                                value={row.output}
+                                onChange={(e) => onTestCaseChange(row.id, "output", e.target.value)}
+                                placeholder="Expected stdout"
+                                rows={2}
+                                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-[13px] focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/20"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              )}
+
               <div className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 pt-5">
                 <Link
                   to={`/faculty/class/${classId}`}
@@ -305,6 +481,7 @@ function FacultyCreateAssignmentView({
               {/* NOTE: Success confirmation is modal-based so faculty can clearly confirm completion before navigation. */}
               <p className="mt-2 text-[14px] text-[#5D6A80]">
                 Your assignment was created successfully.
+                {testCasesAdded ? " Test cases were added." : ""}
               </p>
               <div className="mt-6 flex items-center justify-end gap-3">
                 <button
@@ -357,10 +534,16 @@ export function FacultyCreateAssignmentPage() {
 
   const [pageData, setPageData] = useState<FacultyAssignmentCreatePageData | null>(null);
   const [form, setForm] = useState<AssignmentCreateFormData | null>(null);
+  const [testSuiteDraft, setTestSuiteDraft] = useState<TestSuiteDraftState>({
+    title: "Test Suite",
+    description: "",
+    testCases: [{ id: "tc-1", title: "", isPrivate: false, input: "", fileName: "", output: "" }],
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [testCasesAdded, setTestCasesAdded] = useState(false);
 
   useEffect(() => {
     setIsLoading(true);
@@ -405,6 +588,41 @@ export function FacultyCreateAssignmentPage() {
       }
       return { ...previous, [field]: value };
     });
+  };
+
+  const onTestSuiteTitleChange = (title: string) => {
+    setTestSuiteDraft((prev) => ({ ...prev, title }));
+  };
+  const onTestSuiteDescriptionChange = (description: string) => {
+    setTestSuiteDraft((prev) => ({ ...prev, description }));
+  };
+  const onTestCaseAdd = () => {
+    setTestSuiteDraft((prev) => ({
+      ...prev,
+      testCases: [
+        ...prev.testCases,
+        {
+        id: `tc-${Date.now()}`,
+        title: "",
+        isPrivate: false,
+        input: "",
+        fileName: "",
+        output: "",
+      },
+      ],
+    }));
+  };
+  const onTestCaseRemove = (id: string) => {
+    setTestSuiteDraft((prev) => ({
+      ...prev,
+      testCases: prev.testCases.length <= 1 ? prev.testCases : prev.testCases.filter((c) => c.id !== id),
+    }));
+  };
+  const onTestCaseChange = (id: string, field: keyof TestCaseRow, value: string | boolean) => {
+    setTestSuiteDraft((prev) => ({
+      ...prev,
+      testCases: prev.testCases.map((c) => (c.id === id ? { ...c, [field]: value } : c)),
+    }));
   };
 
   const handleSubmit = async () => {
@@ -457,8 +675,28 @@ export function FacultyCreateAssignmentPage() {
     setIsSaving(true);
     setErrorMessage(null);
     try {
-      await createFacultyAssignmentDraft(resolvedClassId, form);
-      // NOTE: Created assignments are persisted in backend and available through enrolled-student assignment queries.
+      const { assignmentId } = await createFacultyAssignmentDraft(resolvedClassId, form);
+      const hasTestCases = testSuiteDraft.testCases.some((c) => c.output.trim().length > 0);
+      setTestCasesAdded(false);
+      if (hasTestCases) {
+        const payload: TestSuitePayload = {
+          title: testSuiteDraft.title.trim() || "Test Suite",
+          description: testSuiteDraft.description.trim(),
+          testCases: testSuiteDraft.testCases
+            .filter((c) => c.output.trim().length > 0)
+            .map((c) => ({
+              title: c.title.trim() || "Untitled",
+              isPrivate: c.isPrivate,
+              input: c.input,
+              fileName: c.fileName.trim() || null,
+              output: c.output,
+            })),
+        };
+        if (payload.testCases.length > 0) {
+          await createTestSuite(assignmentId, payload);
+          setTestCasesAdded(true);
+        }
+      }
       setShowSuccessModal(true);
     } catch (error) {
       setErrorMessage(extractErrorMessage(error));
@@ -506,11 +744,18 @@ export function FacultyCreateAssignmentPage() {
           classId={resolvedClassId}
           pageData={pageData}
           form={form}
+          testSuiteDraft={testSuiteDraft}
           isLoading={isLoading}
           isSaving={isSaving}
           errorMessage={errorMessage}
           showSuccessModal={showSuccessModal}
+          testCasesAdded={testCasesAdded}
           onFieldChange={onFieldChange}
+          onTestSuiteTitleChange={onTestSuiteTitleChange}
+          onTestSuiteDescriptionChange={onTestSuiteDescriptionChange}
+          onTestCaseAdd={onTestCaseAdd}
+          onTestCaseRemove={onTestCaseRemove}
+          onTestCaseChange={onTestCaseChange}
           onCreateRubric={handleCreateRubric}
           onCloseSuccessModal={handleCloseSuccessModal}
           onGoBackToClass={handleGoBackToClass}

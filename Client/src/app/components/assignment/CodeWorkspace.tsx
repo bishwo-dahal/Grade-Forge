@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Loader2, Play, Send, RotateCcw, Save, Upload, CheckSquare } from "lucide-react";
+import { Loader2, Play, Send, RotateCcw, Save, Upload, CheckSquare, X, AlertCircle } from "lucide-react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { MonacoEditor } from "../editors";
 import { ConsoleDrawer } from "./ConsoleDrawer";
 import { SubmitConfirmModal } from "./SubmitConfirmModal";
 import { EditorTabBar } from "./EditorTabBar";
 import { UnsavedCloseModal } from "./UnsavedCloseModal";
-import { FileTree, buildInitialFileTree, buildFileTreeFromFiles, nextNodeId, nextUntitledFileName, uniqueFileName, getDefaultExtension } from "./filetree";
+import { FileTree, buildEmptyFileTree, buildInitialFileTree, buildFileTreeFromFiles, nextNodeId, nextUntitledFileName, uniqueFileName, getDefaultExtension } from "./filetree";
 import {
   getWorkspaceState,
   setWorkspaceState,
@@ -21,6 +21,7 @@ import type {
   FacultySubmissionGradeOption,
   FacultyAssignmentSubmissionRow,
 } from "../../../types/submission";
+import type { TestRunJobStatusResponse } from "../../../types/runTests";
 
 interface CodeWorkspaceProps {
   assignmentId: string;
@@ -29,9 +30,12 @@ interface CodeWorkspaceProps {
     hasStarterCode: boolean;
     submissionsUsed: number;
     submissionsAllowed: number | null;
+    /** Optional comma-separated list of allowed source extensions for this assignment's language (e.g. ".py,.txt,.csv"). */
+    languageAllowedExtensions?: string | null;
   };
   codeExamples: EditorCodeExamples;
-  onRunTests: () => void;
+  /** Called when Run Tests is clicked. Receives current workspace files (empty if none) so student can run without submitting. */
+  onRunTests: (files?: File[]) => void;
   onSubmit: (files: File[]) => Promise<void> | void;
   showUploadControls?: boolean;
   showFacultyGradeControls?: boolean;
@@ -40,6 +44,10 @@ interface CodeWorkspaceProps {
   maxGradePoints?: number;
   facultyEditorPreviewPayload?: FacultyEditorPreviewPayload | null;
   isMobile?: boolean;
+  /** When provided, console shows live run state and results instead of mock output */
+  runLoading?: boolean;
+  runError?: string | null;
+  runResult?: TestRunJobStatusResponse | null;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -53,12 +61,42 @@ function getErrorMessage(error: unknown): string {
   return "Unable to submit file.";
 }
 
-function validateSubmissionFile(file: File): string | null {
+function validateSubmissionFile(
+  file: File,
+  opts: { languageName: string; languageAllowedExtensions?: string | null }
+): string | null {
   const lowerFileName = file.name.toLowerCase();
-  if (!lowerFileName.endsWith(".py") && !lowerFileName.endsWith(".java")) {
-    return "Only .py or .java files are allowed.";
+  const dotIndex = lowerFileName.lastIndexOf(".");
+  const ext = dotIndex >= 0 ? lowerFileName.slice(dotIndex) : "";
+
+  const normalizedLang = opts.languageName.toLowerCase();
+
+  const allowedFromLanguage = (opts.languageAllowedExtensions ?? "")
+    .split(",")
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (!allowedFromLanguage.length) {
+    if (normalizedLang.includes("python")) {
+      allowedFromLanguage.push(".py");
+    } else if (normalizedLang.includes("java")) {
+      allowedFromLanguage.push(".java");
+    }
   }
-  return null;
+
+  const alwaysAllowed = [".txt", ".csv"];
+  const allowedExtensions = Array.from(new Set([...allowedFromLanguage, ...alwaysAllowed]));
+
+  if (allowedExtensions.includes(ext)) {
+    return null;
+  }
+
+  if (!ext) {
+    return `This assignment only accepts files with extensions: ${allowedExtensions.join(", ")}.`;
+  }
+
+  const distinctAllowed = allowedExtensions.join(", ");
+  return `Only ${distinctAllowed} files are allowed for this assignment. '${ext}' is not an allowed file type.`;
 }
 
 function getSubmissionMimeType(fileName: string): string {
@@ -78,6 +116,9 @@ export function CodeWorkspace({
   maxGradePoints,
   facultyEditorPreviewPayload = null,
   isMobile = false,
+  runLoading = false,
+  runError = null,
+  runResult = null,
 }: CodeWorkspaceProps) {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [consoleOutput, setConsoleOutput] = useState<string>("");
@@ -89,6 +130,11 @@ export function CodeWorkspace({
   const [submissionStatusMessage, setSubmissionStatusMessage] = useState<string | null>(null);
   const [submitModalError, setSubmitModalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  /** Modal for workspace errors/success (upload validation, add file, submit success, run progress). */
+  const [workspaceNotification, setWorkspaceNotification] = useState<{
+    message: string;
+    type: "error" | "success" | "info";
+  } | null>(null);
   const [showFacultyGradeModal, setShowFacultyGradeModal] = useState(false);
   const [selectedGradeSubmissionId, setSelectedGradeSubmissionId] = useState<string>("");
   const [facultyGradeInput, setFacultyGradeInput] = useState<string>("");
@@ -100,17 +146,14 @@ export function CodeWorkspace({
   const [isFacultyEditorReadOnly, setIsFacultyEditorReadOnly] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const addToEditorInputRef = useRef<HTMLInputElement | null>(null);
-  const initialCode = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
-  const [code, setCode] = useState(initialCode);
+  // Start with an empty workspace for new assignments; starter code is no longer auto-loaded.
+  const [code, setCode] = useState("");
 
-  const starterFileName = `main${getDefaultExtension(assignment.language)}`;
-  const [treeState, setTreeState] = useState(() =>
-    buildInitialFileTree(starterFileName, initialCode)
-  );
+  const [treeState, setTreeState] = useState(() => buildEmptyFileTree());
   const { nodes, fileContents } = treeState;
-  const [selectedId, setSelectedId] = useState<string | null>("main");
-  const [openTabIds, setOpenTabIds] = useState<string[]>(["main"]);
-  const [savedContents, setSavedContents] = useState<Record<string, string>>(() => ({ main: initialCode }));
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [openTabIds, setOpenTabIds] = useState<string[]>([]);
+  const [savedContents, setSavedContents] = useState<Record<string, string>>({});
   const [pendingCloseTabId, setPendingCloseTabId] = useState<string | null>(null);
   const [hasLoadedPersisted, setHasLoadedPersisted] = useState(false);
   const restoredFromPersistedRef = useRef(false);
@@ -124,9 +167,6 @@ export function CodeWorkspace({
   // Load persisted state for this assignment (edit mode only; review mode never touches IndexedDB)
   useEffect(() => {
     let cancelled = false;
-    const starterFileName = `main${getDefaultExtension(assignment.language)}`;
-    const initialCode = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
-
     if (facultyEditorPreviewPayloadRef.current) {
       // Review mode: initialize from payload only, do not read from IndexedDB
       const payload = facultyEditorPreviewPayloadRef.current;
@@ -166,12 +206,12 @@ export function CodeWorkspace({
         setSelectedId(sanitized.selectedId);
         restoredFromPersistedRef.current = true;
       } else {
-        const initial = buildInitialFileTree(starterFileName, initialCode);
+        const initial = buildEmptyFileTree();
         setTreeState(initial);
-        setOpenTabIds(["main"]);
-        setSavedContents({ main: initialCode });
-        setSelectedId("main");
-        setCode(initialCode);
+        setOpenTabIds([]);
+        setSavedContents({});
+        setSelectedId(null);
+        setCode("");
         restoredFromPersistedRef.current = false;
       }
       setHasLoadedPersisted(true);
@@ -180,18 +220,6 @@ export function CodeWorkspace({
       cancelled = true;
     };
   }, [assignmentId, assignment.language, codeExamples, facultyEditorPreviewPayload]);
-
-  // Sync server starter code into main only when we did not restore from persistence and we're not showing faculty preview
-  useEffect(() => {
-    if (!hasLoadedPersisted || restoredFromPersistedRef.current || facultyEditorPreviewPayload) return;
-    const next = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
-    setCode(next);
-    setTreeState((prev) => ({
-      ...prev,
-      fileContents: { ...prev.fileContents, main: next },
-    }));
-    setSavedContents((prev) => ({ ...prev, main: next }));
-  }, [assignment.language, codeExamples, hasLoadedPersisted, facultyEditorPreviewPayload]);
 
   useEffect(() => {
     // NOTE: Reset faculty preview state when assignment context changes.
@@ -262,6 +290,21 @@ export function CodeWorkspace({
       }
     }
   }, [showFacultyGradeModal, facultyGradeOptions, selectedGradeSubmissionId]);
+
+  // Show run tests progress/error in workspace notification modal
+  useEffect(() => {
+    if (runLoading) {
+      setWorkspaceNotification({ message: "Running tests...", type: "info" });
+      return;
+    }
+    setWorkspaceNotification((prev) => {
+      if (prev?.message === "Running tests...") {
+        if (runError) return { message: runError, type: "error" };
+        return null;
+      }
+      return prev;
+    });
+  }, [runLoading, runError]);
 
   const getNodeName = (id: string) => nodes.find((n) => String(n.id) === id)?.name ?? id;
   const isDirty = (id: string) => (fileContents[id] ?? "") !== (savedContents[id] ?? "");
@@ -376,6 +419,33 @@ export function CodeWorkspace({
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [fileContents, openTabIds]);
+
+  // Sync run-tests state from parent to console (student/faculty run tests)
+  useEffect(() => {
+    if (runLoading) {
+      setConsoleOutput("Running tests...\n");
+      return;
+    }
+    if (runError) {
+      setConsoleOutput(`Running tests...\n\nError: ${runError}`);
+      return;
+    }
+    if (runResult) {
+      const lines: string[] = ["Running tests...\n"];
+      runResult.results.forEach((r, i) => {
+        const status = r.passed ? "PASSED \u2713" : "FAILED \u2717";
+        lines.push(`Test ${i + 1}: ${r.testCaseTitle} - ${status}`);
+        if (!r.passed) {
+          if (r.expectedOutput != null) lines.push(`  Expected: ${r.expectedOutput}`);
+          if (r.actualOutput != null) lines.push(`  Got: ${r.actualOutput}`);
+          if (r.errorMessage) lines.push(`  Error: ${r.errorMessage}`);
+        }
+        if (r.runtimeMs != null) lines.push(`  (${r.runtimeMs}ms)`);
+      });
+      lines.push("", `${runResult.passedCount}/${runResult.totalCount} tests passed`);
+      setConsoleOutput(lines.join("\n"));
+    }
+  }, [runLoading, runError, runResult]);
 
   const allIds = useMemo(() => nodes.map((n) => String(n.id)), [nodes]);
   const getDescendantIds = (id: string): string[] => {
@@ -506,9 +576,10 @@ export function CodeWorkspace({
 
   const handleRunTests = () => {
     setLastRunTime(new Date().toLocaleTimeString());
-    // NOTE: Use Unicode escapes to avoid mojibake in non-UTF8 environments.
-    setConsoleOutput("Running public tests...\n\nTest 1: Basic Insert and In-order Traversal - PASSED \u2713\nTest 2: Search Existing Node - PASSED \u2713\nTest 3: Delete Node with Two Children - FAILED \u2717\n  Expected: [20, 40, 50, 70]\n  Got: [20, 30, 50, 70]\nTest 4: Pre-order Traversal - PASSED \u2713\nTest 5: Search Non-existing Node - PASSED \u2713\n\n4/5 tests passed");
-    onRunTests();
+    setConsoleOutput("Running tests...\n");
+    const fileNodes = nodes.filter((n) => !(n.metadata as { isFolder?: boolean })?.isFolder);
+    const files = fileNodes.map((n) => new File([fileContents[String(n.id)] ?? ""], n.name));
+    onRunTests(files);
   };
 
   const handleSubmit = () => {
@@ -534,12 +605,15 @@ export function CodeWorkspace({
     if (!selectedFile) {
       return;
     }
-    const validationError = validateSubmissionFile(selectedFile);
+    const validationError = validateSubmissionFile(selectedFile, {
+      languageName: assignment.language,
+      languageAllowedExtensions: assignment.languageAllowedExtensions ?? null,
+    });
     if (validationError) {
       setSelectedSubmissionFile(null);
       setSubmissionFileError(validationError);
-      // CLEANUP: Clear stale success state whenever a new invalid file is selected.
       setSubmissionStatusMessage(null);
+      setWorkspaceNotification({ message: validationError, type: "error" });
       event.target.value = "";
       return;
     }
@@ -552,8 +626,27 @@ export function CodeWorkspace({
     const fileList = event.target.files;
     event.target.value = "";
     if (!fileList?.length) return;
-    const files = Array.from(fileList).filter((f) => !validateSubmissionFile(f));
-    if (!files.length) return;
+    const validationOpts = {
+      languageName: assignment.language,
+      languageAllowedExtensions: assignment.languageAllowedExtensions ?? null,
+    };
+    const invalidResults: string[] = [];
+    const validFiles: File[] = [];
+    for (const f of Array.from(fileList)) {
+      const err = validateSubmissionFile(f, validationOpts);
+      if (err) invalidResults.push(`${f.name}: ${err}`);
+      else validFiles.push(f);
+    }
+    if (invalidResults.length > 0) {
+      const message =
+        invalidResults.length === 1
+          ? invalidResults[0]
+          : `${invalidResults.length} file(s) not allowed. ${invalidResults[0].split(": ")[1] ?? invalidResults[0]}`;
+      setWorkspaceNotification({ message, type: "error" });
+      return;
+    }
+    if (!validFiles.length) return;
+    const files = validFiles;
     const contents = await Promise.all(
       files.map(
         (f) =>
@@ -602,6 +695,10 @@ export function CodeWorkspace({
     setSavedContents((prev) => ({ ...prev, ...newContents }));
     setOpenTabIds((prev) => [...new Set([...prev, ...newIds])]);
     setSelectedId(newIds[newIds.length - 1] ?? null);
+    setWorkspaceNotification({
+      message: files.length === 1 ? "File added to workspace." : `${files.length} files added to workspace.`,
+      type: "success",
+    });
   };
 
   const confirmSubmit = async () => {
@@ -623,6 +720,7 @@ export function CodeWorkspace({
       await onSubmit(filesToSubmit);
       setShowSubmitModal(false);
       setSubmissionStatusMessage("Submitted successfully.");
+      setWorkspaceNotification({ message: "Submitted successfully.", type: "success" });
     } catch (error) {
       setSubmitModalError(getErrorMessage(error));
     } finally {
@@ -687,27 +785,40 @@ export function CodeWorkspace({
     }
   };
 
+  const allowedExtensionsAccept = useMemo(() => {
+    const ext = assignment.languageAllowedExtensions?.trim();
+    if (ext) return ext;
+    const lang = assignment.language.toLowerCase();
+    if (lang.includes("python")) return ".py,.txt,.csv";
+    if (lang.includes("java")) return ".java,.txt,.csv";
+    return ".py,.java,.txt,.csv";
+  }, [assignment.language, assignment.languageAllowedExtensions]);
+
   const editorSubmissionFiles = useMemo(() => {
+    // Submit exactly the files visible in the tree (no hidden extras or renamed files).
     const list: { fileName: string; content: string }[] = [];
-    const seen = new Set<string>();
-    const candidateIds = [
-      ...(selectedId ? [selectedId] : []),
-      "main",
-      ...Object.keys(fileContents),
-    ];
-    for (const candidateId of candidateIds) {
-      if (seen.has(candidateId)) continue;
-      seen.add(candidateId);
-      const content = fileContents[candidateId] ?? "";
+    const fileNodes = nodes.filter(
+      (n) => !(n.metadata as { isFolder?: boolean })?.isFolder
+    );
+    for (const node of fileNodes) {
+      const id = String(node.id);
+      const content = fileContents[id] ?? "";
       if (!content.trim()) continue;
-      const rawFileName = getNodeName(candidateId);
-      const hasSupportedExtension =
-        rawFileName.toLowerCase().endsWith(".py") || rawFileName.toLowerCase().endsWith(".java");
-      const fileName = hasSupportedExtension ? rawFileName : `main${getDefaultExtension(assignment.language)}`;
+      const rawFileName = node.name;
+      const normalized = rawFileName.toLowerCase();
+      const hasAnyExtension = normalized.includes(".");
+      const fileName = hasAnyExtension
+        ? rawFileName
+        : `main${getDefaultExtension(assignment.language)}`;
       list.push({ fileName, content });
     }
     return list;
-  }, [assignment.language, fileContents, nodes, selectedId]);
+  }, [assignment.language, fileContents, nodes]);
+
+  const hasAnyFiles = useMemo(
+    () => nodes.some((n) => !(n.metadata as { isFolder?: boolean })?.isFolder),
+    [nodes]
+  );
 
   const canSubmitFromEditor = editorSubmissionFiles.length > 0;
   const canSubmit = Boolean(selectedSubmissionFile) || canSubmitFromEditor;
@@ -743,7 +854,7 @@ export function CodeWorkspace({
         <input
           ref={addToEditorInputRef}
           type="file"
-          accept=".py,.java"
+          accept={allowedExtensionsAccept}
           multiple
           className="hidden"
           onChange={handleAddFileToEditor}
@@ -753,14 +864,14 @@ export function CodeWorkspace({
         <input
           ref={uploadInputRef}
           type="file"
-          accept=".py,.java"
+          accept={allowedExtensionsAccept}
           className="hidden"
           onChange={handleFileSelection}
         />
       ) : null}
 
       {/* Resizable Editor and Console - no separate top bar; toolbar lives inside editor */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         <PanelGroup direction="horizontal">
           <Panel defaultSize={18} minSize={12} maxSize={35}>
             <FileTree
@@ -863,14 +974,30 @@ export function CodeWorkspace({
                     onClose={closeTab}
                   />
                   <div className="flex-1 min-h-0">
-                    <MonacoEditor
-                      value={currentContent}
-                      language={facultyPreviewLanguage ?? assignment.language}
-                      onChange={setCurrentContent}
-                      readOnly={isFacultyEditorReadOnly}
-                      height="100%"
-                      className="h-full"
-                    />
+                    {selectedId && hasAnyFiles ? (
+                      <MonacoEditor
+                        value={currentContent}
+                        language={facultyPreviewLanguage ?? assignment.language}
+                        onChange={setCurrentContent}
+                        readOnly={isFacultyEditorReadOnly}
+                        height="100%"
+                        className="h-full"
+                      />
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-center text-gray-400">
+                        <p className="text-[14px] mb-3">No file open.</p>
+                        <button
+                          type="button"
+                          onClick={() => onCreateFile("project")}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#2B2A2A] hover:bg-[#3a3939] text-[12px] text-white font-medium"
+                        >
+                          <span>Create new file</span>
+                        </button>
+                        <p className="mt-2 text-[12px] text-gray-500">
+                          Or use the file tree to upload or add files.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </Panel>
@@ -898,6 +1025,46 @@ export function CodeWorkspace({
         </PanelGroup>
       </Panel>
         </PanelGroup>
+
+        {/* Workspace notification modal – scoped to editor area, dark themed */}
+        {workspaceNotification && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 p-4">
+            <div className="bg-[#252526] rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-[#3c3c3c]">
+              <div className="flex items-start gap-3 p-5">
+                {workspaceNotification.type === "error" && (
+                  <AlertCircle className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" strokeWidth={2} />
+                )}
+                {workspaceNotification.type === "success" && (
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-green-500/20 text-green-400 text-sm font-medium">✓</span>
+                )}
+                {workspaceNotification.type === "info" && (
+                  <AlertCircle className="w-6 h-6 text-[#5A7ACD] flex-shrink-0 mt-0.5" strokeWidth={2} />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={`text-[14px] ${
+                      workspaceNotification.type === "error"
+                        ? "text-red-400 font-medium"
+                        : workspaceNotification.type === "success"
+                          ? "text-green-400"
+                          : "text-gray-200"
+                    }`}
+                  >
+                    {workspaceNotification.message}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceNotification(null)}
+                  className="p-1.5 hover:bg-[#3c3c3c] rounded-lg transition-colors flex-shrink-0 text-gray-400 hover:text-gray-200"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" strokeWidth={2} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {showFacultyGradeModal ? (
@@ -920,7 +1087,7 @@ export function CodeWorkspace({
                     const selectedOption = facultyGradeOptions.find(
                       (option) => option.submissionId === nextSubmissionId,
                     );
-                    if (selectedOption?.currentMarks !== null) {
+                    if (selectedOption != null && selectedOption.currentMarks !== null) {
                       setFacultyGradeInput(String(selectedOption.currentMarks));
                     }
                   }}
@@ -1017,6 +1184,7 @@ export function CodeWorkspace({
           onCancel={() => setPendingCloseTabId(null)}
         />
       )}
+
     </div>
   );
 }
