@@ -70,8 +70,10 @@ export interface RubricCategory {
   name: string;
   points: number;
   criteria: Array<{
+    id?: number;
     description: string;
     points: number;
+    weight?: number | null;
   }>;
 }
 

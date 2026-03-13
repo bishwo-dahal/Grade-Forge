@@ -21,6 +21,11 @@ import {
   resolvePreviewLanguage,
   submitFacultySubmissionGrade,
 } from "../../services/submissionService";
+import {
+  createFacultyGrade,
+  updateFacultyGrade,
+} from "../../services/facultySubmissionGradeService";
+import type { FacultySubmissionGradeResponse } from "../../types/facultySubmissionGrade";
 import { getRunTestsLatest, requestRunTests, runTestsWithFiles, pollRunTestsUntilDone } from "../../services/runTestsService";
 import { getAssignmentByCourse } from "../../services/gradingAssistantAssignmentService";
 import { getRubric } from "../../services/gradingAssistantRubricService";
@@ -325,6 +330,57 @@ export function AssignmentGradingPage() {
             marks,
             feedback,
           });
+
+          // If feedback is rubric JSON, also persist per-criterion grades.
+          try {
+            const parsed = JSON.parse(feedback) as {
+              criteria?: Array<{
+                criterionId?: number;
+                score: number;
+                comment?: string;
+              }>;
+            };
+            if (parsed && Array.isArray(parsed.criteria) && parsed.criteria.length > 0) {
+              const existing: FacultySubmissionGradeResponse[] =
+                await (async () => {
+                  // Backend may not support faculty submission-grades yet; fail silently if so.
+                  try {
+                    const { getFacultyGradesBySubmission } = await import(
+                      "../../services/facultySubmissionGradeService"
+                    );
+                    return await getFacultyGradesBySubmission(submissionId);
+                  } catch {
+                    return [];
+                  }
+                })();
+              const byCriteriaId = new Map<number, FacultySubmissionGradeResponse>();
+              for (const g of existing) {
+                byCriteriaId.set(g.rubricCriteriaId, g);
+              }
+
+              const tasks = parsed.criteria
+                .filter((item) => typeof item.criterionId === "number")
+                .map((item) => {
+                  const criterionId = item.criterionId as number;
+                  const payload = {
+                    submissionId: Number(submissionId),
+                    rubricCriteriaId: criterionId,
+                    awardedScore: Math.max(0, Math.round(item.score)),
+                    feedback: item.comment?.trim() || undefined,
+                  };
+                  const existingGrade = byCriteriaId.get(criterionId);
+                  return existingGrade
+                    ? updateFacultyGrade(existingGrade.id, payload)
+                    : createFacultyGrade(payload);
+                });
+
+              if (tasks.length > 0) {
+                await Promise.all(tasks);
+              }
+            }
+          } catch {
+            // If feedback is not JSON or the per-criterion API is unavailable, skip silently.
+          }
         } else {
           await updateSubmissionGrade(Number(submissionId), { marks, feedback });
         }
@@ -337,13 +393,13 @@ export function AssignmentGradingPage() {
                 status: "graded",
                 points: { ...prev.points, earned: marks },
               }
-            : prev
+            : prev,
         );
       } finally {
         setGradeSubmitting(false);
       }
     },
-    [submissionId, isFaculty]
+    [submissionId, isFaculty],
   );
 
   const codeWorkspaceAssignment = useMemo(

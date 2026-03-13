@@ -16,6 +16,14 @@ export interface GradeSubmissionDialogProps {
   /** When true, show rubric criteria inputs; otherwise single marks input */
   hasRubric: boolean;
   rubricCategories: RubricCategory[];
+  /** Existing per-criterion grades for faculty rubric grading (keyed by rubric criteria id). */
+  rubricExistingGrades?: Record<
+    number,
+    {
+      awardedScore: number;
+      feedback?: string | null;
+    }
+  >;
   /** Max points for non-rubric mode */
   maxPoints: number;
   currentMarks: number | null;
@@ -25,11 +33,11 @@ export interface GradeSubmissionDialogProps {
 }
 
 /** Flatten criteria with max points for form state */
-function flattenCriteria(categories: RubricCategory[]): { maxPoints: number }[] {
-  const list: { maxPoints: number }[] = [];
+function flattenCriteria(categories: RubricCategory[]): { id?: number; maxPoints: number }[] {
+  const list: { id?: number; maxPoints: number }[] = [];
   for (const cat of categories) {
     for (const c of cat.criteria) {
-      list.push({ maxPoints: c.points });
+      list.push({ id: c.id, maxPoints: c.points });
     }
   }
   return list;
@@ -67,6 +75,7 @@ export function GradeSubmissionDialog({
   onOpenChange,
   hasRubric,
   rubricCategories,
+  rubricExistingGrades,
   maxPoints,
   currentMarks,
   currentFeedback,
@@ -78,10 +87,10 @@ export function GradeSubmissionDialog({
 
   const [marksInput, setMarksInput] = useState("");
   const [criterionScores, setCriterionScores] = useState<number[]>(() =>
-    flatCriteria.map(() => 0)
+    flatCriteria.map(() => 0),
   );
   const [criterionComments, setCriterionComments] = useState<string[]>(() =>
-    flatCriteria.map(() => "")
+    flatCriteria.map(() => ""),
   );
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -134,6 +143,7 @@ export function GradeSubmissionDialog({
                     .slice(0, catIndex)
                     .reduce((acc, c) => acc + c.criteria.length, 0) + critIndex;
                 return {
+                  criterionId: criterion.id,
                   category: category.name,
                   description: criterion.description,
                   maxPoints: criterion.points,
