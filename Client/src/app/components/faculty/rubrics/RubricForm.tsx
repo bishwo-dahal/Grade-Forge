@@ -28,6 +28,7 @@ export function RubricForm({
 }: RubricFormProps) {
   const [name, setName] = useState(initialRubric?.name ?? "");
   const [description, setDescription] = useState(initialRubric?.description ?? "");
+  const [autoAdjustWeights, setAutoAdjustWeights] = useState(true);
   const [criteria, setCriteria] = useState<CriterionRow[]>(() => {
     if (initialRubric && initialRubric.criteria.length > 0) {
       return initialRubric.criteria.map((c) => ({
@@ -49,6 +50,40 @@ export function RubricForm({
     ];
   });
   const [localError, setLocalError] = useState<string | null>(null);
+
+  const rebalanceWeightsToHundred = (rows: CriterionRow[]): CriterionRow[] => {
+    if (rows.length <= 1) return rows;
+    const numeric = rows.map((r) => {
+      const n = Number(r.weight);
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    });
+    const sum = numeric.reduce((a, b) => a + b, 0);
+    const epsilon = 0.0001;
+    const next = [...rows];
+
+    if (Math.abs(sum - 100) <= 0.01) {
+      return rows;
+    }
+
+    if (sum > 100 + epsilon) {
+      let excess = sum - 100;
+      for (let i = numeric.length - 1; i >= 0 && excess > epsilon; i--) {
+        const cur = numeric[i];
+        if (cur <= 0) continue;
+        const reduceBy = Math.min(cur, excess);
+        numeric[i] = cur - reduceBy;
+        next[i] = { ...next[i], weight: String(numeric[i]) };
+        excess -= reduceBy;
+      }
+    } else if (sum < 100 - epsilon) {
+      const deficit = 100 - sum;
+      const lastIndex = numeric.length - 1;
+      numeric[lastIndex] = (numeric[lastIndex] ?? 0) + deficit;
+      next[lastIndex] = { ...next[lastIndex], weight: String(numeric[lastIndex]) };
+    }
+
+    return next;
+  };
 
   const canSubmit = useMemo(() => {
     if (!name.trim()) return false;
@@ -110,7 +145,7 @@ export function RubricForm({
       const next = prev.map((c) => (c.id === id ? { ...c, [field]: value } : c));
 
       // Auto-adjust weights so the total stays 100% when editing weight
-      if (field === "weight") {
+      if (field === "weight" && autoAdjustWeights) {
         const index = next.findIndex((c) => c.id === id);
         if (index !== -1 && next.length > 1) {
           const numericWeights = next.map((c) => Number(c.weight) || 0);
@@ -118,33 +153,42 @@ export function RubricForm({
 
           // If edited weight is invalid, just keep raw string without auto-adjust
           if (Number.isFinite(editedWeight) && editedWeight >= 0) {
-            const otherTotal = numericWeights.reduce(
-              (sum, w, i) => (i === index ? sum : sum + w),
-              0,
-            );
+            // If weight is set to 0, don't auto-adjust other rows.
+            if (editedWeight === 0) {
+              return next;
+            }
 
-            const remaining = 100 - editedWeight;
-            const lastIndex = next.length - 1;
+            // Ensure total is exactly 100 by adjusting other criteria.
+            const sum = numericWeights.reduce((a, b) => a + b, 0);
+            const epsilon = 0.0001;
 
-            if (remaining >= 0) {
-              if (index !== lastIndex) {
-                // Put all remaining weight on the last criterion
-                next[lastIndex] = {
-                  ...next[lastIndex],
-                  weight: String(remaining),
-                };
-              } else if (next.length > 1) {
-                // Edited the last one → adjust the previous one
-                const adjustIndex = lastIndex - 1;
-                next[adjustIndex] = {
-                  ...next[adjustIndex],
-                  weight: String(remaining),
-                };
+            if (sum > 100 + epsilon) {
+              let excess = sum - 100;
+              // Reduce from the end first (prefer reducing non-edited rows).
+              for (let i = numericWeights.length - 1; i >= 0 && excess > epsilon; i--) {
+                if (i === index) continue;
+                const cur = numericWeights[i];
+                if (cur <= 0) continue;
+                const reduceBy = Math.min(cur, excess);
+                numericWeights[i] = cur - reduceBy;
+                next[i] = { ...next[i], weight: String(numericWeights[i]) };
+                excess -= reduceBy;
               }
-
-              // If there were more than two criteria, keep others as-is;
-              // user can fine-tune them and auto-adjust will always bump
-              // one neighbor so the sum stays 100.
+              // If still excess (all others were 0), reduce the edited one as last resort.
+              if (excess > epsilon) {
+                const cur = numericWeights[index];
+                const reduceBy = Math.min(cur, excess);
+                numericWeights[index] = cur - reduceBy;
+                next[index] = { ...next[index], weight: String(numericWeights[index]) };
+              }
+            } else if (sum < 100 - epsilon) {
+              const deficit = 100 - sum;
+              // Add deficit to the last row (or previous if editing last).
+              const target = index === numericWeights.length - 1 ? index - 1 : numericWeights.length - 1;
+              if (target >= 0) {
+                numericWeights[target] = (numericWeights[target] ?? 0) + deficit;
+                next[target] = { ...next[target], weight: String(numericWeights[target]) };
+              }
             }
           }
         }
@@ -244,10 +288,27 @@ export function RubricForm({
                   Add Criterion
                 </button>
               </div>
-              <p className="mb-3 text-[12px] text-[#7C879A]">
-                Each row represents a rubric criterion. Provide a title, description, max points,
-                and a weight so that all weights sum to 100%.
-              </p>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-[12px] text-[#7C879A]">
+                  Each row represents a rubric criterion. Provide a title, description, max points,
+                  and a weight so that all weights sum to 100%.
+                </p>
+                <label className="inline-flex items-center gap-2 text-[12px] font-medium text-[#1F2430]">
+                  <input
+                    type="checkbox"
+                    checked={autoAdjustWeights}
+                    onChange={(e) => {
+                      const nextValue = e.target.checked;
+                      setAutoAdjustWeights(nextValue);
+                      if (nextValue) {
+                        setCriteria((prev) => rebalanceWeightsToHundred(prev));
+                      }
+                    }}
+                    className="h-4 w-4 accent-[#5A7ACD]"
+                  />
+                  Auto-adjust weights
+                </label>
+              </div>
 
               <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-[#F9FAFB]">
                 <table className="min-w-full border-separate border-spacing-0 text-left">
