@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Edit3, AlertCircle } from "lucide-react";
+import React, { useState } from "react";
+import { AlertCircle } from "lucide-react";
 
 interface RubricTabProps {
   submission: any;
@@ -76,77 +76,97 @@ export function RubricTab({ submission }: RubricTabProps) {
         )}
       </div>
 
-      {/* Rubric Items */}
-      <div className="space-y-4">
-        {rubricItems.map((item: any) => (
-          <div
-            key={item.id}
-            className={`bg-white rounded-xl border p-4 ${
-              item.manualPoints !== null
-                ? "border-[#FEB05D] bg-[#FEB05D]/5"
-                : "border-gray-200"
-            }`}
-          >
-            {/* Header */}
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex-1">
-                <h4 className="text-[13px] font-semibold text-[#2B2A2A] mb-1">
-                  {item.category}
-                </h4>
-                <p className="text-[11px] text-gray-600">{item.description}</p>
-              </div>
-              <div className="text-right ml-4">
-                <div className="text-[11px] text-gray-500 mb-1">Max Points</div>
-                <div className="text-[14px] font-bold text-[#2B2A2A]">
-                  {item.maxPoints}
-                </div>
-              </div>
-            </div>
+      {/* Rubric Items - table layout */}
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[14px] font-semibold text-[#1F2430]">Criteria</h2>
+          {/* In grading view, criteria are fixed so Add Criterion is disabled/hidden for now */}
+        </div>
+        <p className="mb-3 text-[12px] text-[#7C879A]">
+          Each row represents a rubric criterion. Faculty can enter points from 0 up to the max
+          for each criterion; the total points update automatically.
+        </p>
 
-            {/* Points Assignment */}
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div className="bg-gray-50 rounded-lg p-3">
-                <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">
-                  Auto Points
-                </div>
-                <div className="text-[16px] font-bold text-gray-600">
-                  {item.autoPoints}
-                </div>
-              </div>
+        <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-[#F9FAFB]">
+          <table className="min-w-full border-separate border-spacing-0 text-left">
+            <thead className="bg-[#E4E7EC] text-[12px] font-semibold text-[#1F2430]">
+              <tr>
+                <th className="px-4 py-2 align-middle">Criterion</th>
+                <th className="px-4 py-2 align-middle">Description</th>
+                <th className="w-[110px] px-4 py-2 align-middle">
+                  Max Points <span className="text-[#D84E57]">*</span>
+                </th>
+                <th className="w-[100px] px-4 py-2 align-middle">Weight (%)</th>
+                <th className="w-[140px] px-4 py-2 align-middle text-right">Total points</th>
+              </tr>
+            </thead>
+            <tbody className="text-[13px] text-[#1F2430]">
+              {rubricItems.map((item: any, index: number) => {
+                const weight =
+                  totalMaxPoints > 0 ? (item.maxPoints / totalMaxPoints) * 100 : 0;
 
-              <div className="bg-[#5A7ACD]/10 rounded-lg p-3">
-                <div className="text-[10px] text-[#5A7ACD] uppercase tracking-wide mb-1 flex items-center gap-1">
-                  <Edit3 className="w-3 h-3" strokeWidth={2} />
-                  Manual Override
-                </div>
-                <input
-                  type="number"
-                  min="0"
-                  max={item.maxPoints}
-                  value={item.manualPoints ?? ""}
-                  onChange={(e) => handlePointsChange(item.id, e.target.value)}
-                  placeholder={item.autoPoints.toString()}
-                  className="w-full bg-white border border-[#5A7ACD] rounded px-2 py-1 text-[14px] font-bold text-[#2B2A2A] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                />
-              </div>
-            </div>
-
-            {/* Feedback */}
-            <div>
-              <label className="text-[11px] text-gray-600 mb-1 block">
-                Feedback (optional)
-              </label>
-              <textarea
-                value={item.feedback}
-                onChange={(e) => handleFeedbackChange(item.id, e.target.value)}
-                placeholder="Add specific feedback for this rubric item..."
-                rows={2}
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-[12px] text-[#2B2A2A] focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] resize-none"
-              />
-            </div>
-          </div>
-        ))}
-      </div>
+                return (
+                  <tr
+                    key={item.id}
+                    className={`border-t border-gray-200 bg-white ${
+                      item.manualPoints !== null
+                        ? "bg-[#FEB05D]/5"
+                        : "bg-white"
+                    }`}
+                  >
+                    <td className="px-4 py-3 align-top">
+                      <div className="mb-1 text-[11px] font-medium text-[#6D7B91]">
+                        Criterion {index + 1}
+                      </div>
+                      <div className="text-[13px] font-semibold text-[#2B2A2A]">
+                        {item.category}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <p className="text-[12px] text-gray-700 whitespace-pre-line">
+                        {item.description}
+                      </p>
+                    </td>
+                    <td className="w-[110px] px-4 py-3 align-top">
+                      <div className="text-[13px] font-semibold text-[#2B2A2A]">
+                        {item.maxPoints}
+                      </div>
+                    </td>
+                    <td className="w-[100px] px-4 py-3 align-top">
+                      <div className="text-[13px] text-[#2B2A2A]">
+                        {weight.toFixed(1)}
+                      </div>
+                    </td>
+                    <td className="w-[140px] px-4 py-3 align-top">
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={0}
+                            max={item.maxPoints}
+                            value={item.manualPoints ?? ""}
+                            onChange={(e) =>
+                              handlePointsChange(item.id, e.target.value)
+                            }
+                            placeholder={item.autoPoints.toString()}
+                            className="h-8 w-20 rounded-md border border-gray-300 bg-white px-2 text-right text-[13px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                          />
+                          <span className="text-[11px] text-gray-500">
+                            / {item.maxPoints}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-gray-500">
+                          Auto: {item.autoPoints} pts
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }
