@@ -53,16 +53,24 @@ export function RubricForm({
   const canSubmit = useMemo(() => {
     if (!name.trim()) return false;
     if (criteria.length === 0) return false;
-    return criteria.every((c) => {
+
+    let totalWeight = 0;
+
+    for (const c of criteria) {
       if (!c.title.trim()) return false;
+
       const maxScore = Number(c.maxScore);
       if (!Number.isFinite(maxScore) || maxScore <= 0) return false;
-      if (c.weight.trim().length > 0) {
-        const w = Number(c.weight);
-        if (!Number.isFinite(w) || w < 0) return false;
-      }
-      return true;
-    });
+
+      const w = Number(c.weight);
+      if (!Number.isFinite(w) || w < 0) return false;
+      totalWeight += w;
+    }
+
+    // Require weights to sum to 100% (allowing tiny floating error)
+    if (Math.abs(totalWeight - 100) > 0.01) return false;
+
+    return true;
   }, [name, criteria]);
 
   const handleAddCriterion = () => {
@@ -98,9 +106,52 @@ export function RubricForm({
   };
 
   const handleChangeCriterion = (id: string, field: keyof CriterionRow, value: string) => {
-    setCriteria((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)),
-    );
+    setCriteria((prev) => {
+      const next = prev.map((c) => (c.id === id ? { ...c, [field]: value } : c));
+
+      // Auto-adjust weights so the total stays 100% when editing weight
+      if (field === "weight") {
+        const index = next.findIndex((c) => c.id === id);
+        if (index !== -1 && next.length > 1) {
+          const numericWeights = next.map((c) => Number(c.weight) || 0);
+          const editedWeight = numericWeights[index];
+
+          // If edited weight is invalid, just keep raw string without auto-adjust
+          if (Number.isFinite(editedWeight) && editedWeight >= 0) {
+            const otherTotal = numericWeights.reduce(
+              (sum, w, i) => (i === index ? sum : sum + w),
+              0,
+            );
+
+            const remaining = 100 - editedWeight;
+            const lastIndex = next.length - 1;
+
+            if (remaining >= 0) {
+              if (index !== lastIndex) {
+                // Put all remaining weight on the last criterion
+                next[lastIndex] = {
+                  ...next[lastIndex],
+                  weight: String(remaining),
+                };
+              } else if (next.length > 1) {
+                // Edited the last one → adjust the previous one
+                const adjustIndex = lastIndex - 1;
+                next[adjustIndex] = {
+                  ...next[adjustIndex],
+                  weight: String(remaining),
+                };
+              }
+
+              // If there were more than two criteria, keep others as-is;
+              // user can fine-tune them and auto-adjust will always bump
+              // one neighbor so the sum stays 100.
+            }
+          }
+        }
+      }
+
+      return next;
+    });
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -117,7 +168,7 @@ export function RubricForm({
         title: c.title.trim(),
         description: c.description.trim() || undefined,
         maxScore: Number(c.maxScore),
-        weight: c.weight.trim().length > 0 ? Number(c.weight) : undefined,
+        weight: Number(c.weight),
       })),
     };
     await onSubmit(payload);
@@ -193,115 +244,144 @@ export function RubricForm({
                   Add Criterion
                 </button>
               </div>
-              <p className="text-[12px] text-[#7C879A] mb-3">
-                Each criterion should have a title and max points. Weight is optional and can be
-                used to emphasize certain criteria.
+              <p className="mb-3 text-[12px] text-[#7C879A]">
+                Each row represents a rubric criterion. Provide a title, description, max points,
+                and a weight so that all weights sum to 100%.
               </p>
 
-              <div className="space-y-3">
-                {criteria.map((criterion, index) => (
-                  <div
-                    key={criterion.id}
-                    className="rounded-2xl border border-gray-200 bg-[#F9FAFB] p-4"
-                  >
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div className="text-[12px] font-medium text-[#6D7B91]">
-                        Criterion {index + 1}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleDuplicateCriterion(criterion.id)}
-                          className="text-[11px] text-[#5A7ACD] hover:underline"
-                        >
-                          Duplicate
-                        </button>
-                        {criteria.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveCriterion(criterion.id)}
-                            className="text-[11px] text-[#C23A42] hover:underline"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div>
-                        <label className="mb-1 block text-[13px] font-medium text-[#1F2430]">
-                          Title <span className="text-[#D84E57]">*</span>
-                        </label>
-                        <input
-                          value={criterion.title}
-                          onChange={(event) =>
-                            handleChangeCriterion(criterion.id, "title", event.target.value)
-                          }
-                          placeholder="e.g., Correctness"
-                          className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-[13px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-1 block text-[13px] font-medium text-[#1F2430]">
-                          Description
-                        </label>
-                        <textarea
-                          value={criterion.description}
-                          onChange={(event) =>
-                            handleChangeCriterion(criterion.id, "description", event.target.value)
-                          }
-                          rows={2}
-                          placeholder="Optional: explain what you are looking for in this criterion."
-                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[13px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div>
-                          <label className="mb-1 block text-[13px] font-medium text-[#1F2430]">
-                            Max Points <span className="text-[#D84E57]">*</span>
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="number"
-                              min={1}
-                              value={criterion.maxScore}
-                              onChange={(event) =>
-                                handleChangeCriterion(criterion.id, "maxScore", event.target.value)
-                              }
-                              className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 pr-10 text-[13px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                            />
-                            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-[#7C879A]">
-                              points
-                            </span>
+              <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-[#F9FAFB]">
+                <table className="min-w-full border-separate border-spacing-0 text-left">
+                  <thead className="bg-[#E4E7EC] text-[12px] font-semibold text-[#1F2430]">
+                    <tr>
+                      <th className="px-4 py-2 align-middle">Criterion</th>
+                      <th className="px-4 py-2 align-middle">Description</th>
+                      <th className="w-[110px] px-4 py-2 align-middle">
+                        Max Points <span className="text-[#D84E57]">*</span>
+                      </th>
+                      <th className="w-[100px] px-4 py-2 align-middle">Weight (%)</th>
+                      <th className="w-[90px] px-3 py-2 align-middle text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-[13px] text-[#1F2430]">
+                    {criteria.map((criterion, index) => (
+                      <tr
+                        key={criterion.id}
+                        className="border-t border-gray-200 bg-white last:rounded-b-2xl [&:last-child>td:first-child]:rounded-bl-2xl [&:last-child>td:last-child]:rounded-br-2xl"
+                      >
+                        <td className="px-4 py-3 align-top">
+                          <div className="mb-1 text-[11px] font-medium text-[#6D7B91]">
+                            Criterion {index + 1}
                           </div>
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-[13px] font-medium text-[#1F2430]">
-                            Weight
-                            <span className="ml-1 text-[11px] font-normal text-[#7C879A]">
-                              (optional)
-                            </span>
-                          </label>
+                          <input
+                            value={criterion.title}
+                            onChange={(event) =>
+                              handleChangeCriterion(criterion.id, "title", event.target.value)
+                            }
+                            placeholder="e.g., Correctness"
+                            className="h-9 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-[13px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                          />
+                        </td>
+                        <td className="px-4 py-3 align-top">
+                          <textarea
+                            value={criterion.description}
+                            onChange={(event) =>
+                              handleChangeCriterion(
+                                criterion.id,
+                                "description",
+                                event.target.value,
+                              )
+                            }
+                            rows={2}
+                            placeholder="Optional: explain what you are looking for in this criterion."
+                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-[13px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                          />
+                        </td>
+                        <td className="w-[40px] px-4 py-3 align-top">
+                          <input
+                            type="number"
+                            min={1}
+                            value={criterion.maxScore}
+                            onChange={(event) =>
+                              handleChangeCriterion(
+                                criterion.id,
+                                "maxScore",
+                                event.target.value,
+                              )
+                            }
+                            className="h-9 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-[13px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                          />
+                        </td>
+                        <td className="w-[100px] px-4 py-3 align-top">
                           <input
                             type="number"
                             min={0}
-                            step="0.01"
+                            max={100}
+                            step="0.1"
                             value={criterion.weight}
                             onChange={(event) =>
-                              handleChangeCriterion(criterion.id, "weight", event.target.value)
+                              handleChangeCriterion(
+                                criterion.id,
+                                "weight",
+                                event.target.value,
+                              )
                             }
                             placeholder="e.g., 1.0"
-                            className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-[13px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                            className="h-9 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-[13px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
                           />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                        </td>
+                        <td className="w-[90px] px-3 py-3 align-top">
+                          <div className="flex justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleDuplicateCriterion(criterion.id)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent text-[#5A7ACD] hover:border-[#CBD2E0] hover:bg-[#EEF2FF]"
+                              aria-label="Duplicate criterion"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="h-4 w-4"
+                              >
+                                <rect x="9" y="9" width="10" height="10" rx="2" />
+                                <path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" />
+                              </svg>
+                            </button>
+                            {criteria.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCriterion(criterion.id)}
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent text-[#C23A42] hover:border-[#F3CDD1] hover:bg-[#FDEBEC]"
+                                aria-label="Remove criterion"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="1.8"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="h-4 w-4"
+                                >
+                                  <path d="M5 7h14" />
+                                  <path d="M10 11v6" />
+                                  <path d="M14 11v6" />
+                                  <path d="M9 7l1-2h4l1 2" />
+                                  <path d="M7 7v11a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V7" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
           </div>
