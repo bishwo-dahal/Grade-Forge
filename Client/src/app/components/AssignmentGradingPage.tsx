@@ -24,6 +24,7 @@ import {
 import {
   createFacultyGrade,
   updateFacultyGrade,
+  getFacultyGradesBySubmission,
 } from "../../services/facultySubmissionGradeService";
 import type { FacultySubmissionGradeResponse } from "../../types/facultySubmissionGrade";
 import { getRunTestsLatest, requestRunTests, runTestsWithFiles, pollRunTestsUntilDone } from "../../services/runTestsService";
@@ -123,6 +124,15 @@ export function AssignmentGradingPage() {
   const [runLoading, setRunLoading] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [runResult, setRunResult] = useState<TestRunJobStatusResponse | null>(null);
+  const [rubricExistingGrades, setRubricExistingGrades] = useState<
+    Record<
+      number,
+      {
+        awardedScore: number;
+        feedback?: string | null;
+      }
+    >
+  >({});
 
   const backToAssignmentUrl = isFaculty
     ? `/faculty/class/${classId}/assignment/${assignmentId}`
@@ -157,6 +167,26 @@ export function AssignmentGradingPage() {
     setSubmissionLanguage(resolvePreviewLanguage(files[0].fileName, assignData.language));
     setSubmissionMarks(row.marks ?? null);
     setSubmissionFeedback("");
+    // Preload existing rubric grades for this submission (faculty path).
+    try {
+      const facultyGrades = await getFacultyGradesBySubmission(sId);
+      const byCriteriaId: Record<
+        number,
+        {
+          awardedScore: number;
+          feedback?: string | null;
+        }
+      > = {};
+      for (const g of facultyGrades) {
+        byCriteriaId[g.rubricCriteriaId] = {
+          awardedScore: g.awardedScore,
+          feedback: g.feedback ?? null,
+        };
+      }
+      setRubricExistingGrades(byCriteriaId);
+    } catch {
+      setRubricExistingGrades({});
+    }
     const filesWithContent = await Promise.all(
       files.map(async (f) => {
         const content = await fetchSubmissionFileText(f.downloadUrl ?? "", f.fileName);
@@ -677,6 +707,7 @@ export function AssignmentGradingPage() {
         onOpenChange={setGradeDialogOpen}
         hasRubric={rubricCategories.length > 0}
         rubricCategories={rubricCategories}
+        rubricExistingGrades={isFaculty ? rubricExistingGrades : undefined}
         maxPoints={assignment.points?.total ?? 100}
         currentMarks={submissionMarks}
         currentFeedback={submissionFeedback}

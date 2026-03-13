@@ -736,10 +736,12 @@ export async function listRubricCategories(assignmentId: string): Promise<Rubric
         name: rubric.name,
         points: totalPoints,
         criteria: rubric.criteria.map((criterion) => ({
+          id: criterion.id,
           description: criterion.description?.trim()
             ? `${criterion.title}: ${criterion.description}`
             : criterion.title,
           points: criterion.maxScore,
+          weight: criterion.weight,
         })),
       },
     ];

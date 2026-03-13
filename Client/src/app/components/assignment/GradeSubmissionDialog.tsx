@@ -99,14 +99,44 @@ export function GradeSubmissionDialog({
     if (!open) return;
     setMarksInput(currentMarks != null ? String(currentMarks) : "");
     setFeedback(currentFeedback ?? "");
-    if (hasRubric && currentMarks != null && currentMarks > 0 && rubricMax > 0) {
-      setCriterionScores(distributeMarksAcrossCriteria(flatCriteria, currentMarks));
+    if (hasRubric) {
+      // Prefill from existing rubric grades when available; otherwise distribute by currentMarks.
+      if (rubricExistingGrades && Object.keys(rubricExistingGrades).length > 0) {
+        setCriterionScores(
+          flatCriteria.map((c) =>
+            c.id != null && rubricExistingGrades[c.id]
+              ? rubricExistingGrades[c.id]!.awardedScore
+              : 0,
+          ),
+        );
+        setCriterionComments(
+          flatCriteria.map((c) =>
+            c.id != null && rubricExistingGrades[c.id]
+              ? rubricExistingGrades[c.id]!.feedback ?? ""
+              : "",
+          ),
+        );
+      } else if (currentMarks != null && currentMarks > 0 && rubricMax > 0) {
+        setCriterionScores(distributeMarksAcrossCriteria(flatCriteria, currentMarks));
+        setCriterionComments(flatCriteria.map(() => ""));
+      } else {
+        setCriterionScores(flatCriteria.map(() => 0));
+        setCriterionComments(flatCriteria.map(() => ""));
+      }
     } else {
       setCriterionScores(flatCriteria.map(() => 0));
+      setCriterionComments(flatCriteria.map(() => ""));
     }
-    setCriterionComments(flatCriteria.map(() => ""));
     setError(null);
-  }, [open, currentMarks, currentFeedback, hasRubric, rubricMax, flatCriteria.length]);
+  }, [
+    open,
+    currentMarks,
+    currentFeedback,
+    hasRubric,
+    rubricMax,
+    flatCriteria.length,
+    rubricExistingGrades,
+  ]);
 
   const computedMarks = hasRubric
     ? criterionScores.reduce((a, b) => a + b, 0)
