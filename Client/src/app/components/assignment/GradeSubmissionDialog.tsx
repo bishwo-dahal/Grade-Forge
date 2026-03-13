@@ -206,10 +206,9 @@ export function GradeSubmissionDialog({
                           const max = criterion.points ?? 0;
                           const grade = criterionScores[flatIndex] ?? 0;
                           const percentOfMax =
-                            rubricMax > 0 && max > 0
-                              ? ((max / rubricMax) * 100)
-                              : 0;
-                          const pts = grade;
+                            rubricMax > 0 && max > 0 ? (max / rubricMax) * 100 : 0;
+                          const pts =
+                            rubricMax > 0 ? (grade * maxPoints) / rubricMax : 0;
                           const comment = criterionComments[flatIndex] ?? "";
 
                           return (
