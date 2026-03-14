@@ -215,9 +215,10 @@ export function GradeSubmissionDialog({
 
   const handleSubmit = async () => {
     setError(null);
-    const marks = hasRubric
+    const rawMarks = hasRubric
       ? (normalizedRubricMarks ?? 0)
       : parseFloat(marksInput);
+    const marks = roundTo2(rawMarks);
     if (!Number.isFinite(marks) || marks < 0) {
       setError("Enter a valid score (0 or higher).");
       return;
@@ -261,10 +262,10 @@ export function GradeSubmissionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={hasRubric ? "sm:max-w-4xl max-h-[90vh] flex flex-col" : "sm:max-w-md"}
+        className={hasRubric ? "sm:max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0" : "sm:max-w-md"}
         aria-describedby={undefined}
       >
-        <DialogHeader className="space-y-1.5">
+        <DialogHeader className="space-y-1.5 shrink-0 px-6 pt-6 pb-2">
           <DialogTitle className="text-xl text-[#2B2A2A]">
             Grade submission
           </DialogTitle>
@@ -275,6 +276,7 @@ export function GradeSubmissionDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="flex-1 min-h-0 overflow-y-auto px-6">
         <div className="space-y-5 py-1">
           {error ? (
             <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2">
@@ -290,7 +292,7 @@ export function GradeSubmissionDialog({
             </div>
 
             {hasRubric ? (
-              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 -mr-1">
+              <div className="space-y-4 pr-1 -mr-1">
                 {rubricNested && hasNestedCriteria(rubricNested) && (
                   <div className="rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] px-4 py-3">
                     {rubricNested.name ? (
@@ -339,7 +341,7 @@ export function GradeSubmissionDialog({
                                     const calculatedPts = getCalculatedPts(flatIndex, max, weight);
                                     const rowMaxPts = maxPtsForRow(max, weight);
                                     const rawPts = overridePts[flatIndex] != null && Number.isFinite(overridePts[flatIndex]) ? overridePts[flatIndex]! : calculatedPts;
-                                    const pts = Math.min(rawPts, rowMaxPts);
+                                    const pts = roundTo2(Math.min(rawPts, rowMaxPts));
                                     const comment = criterionComments[flatIndex] ?? "";
                                     return (
                                       <tr
@@ -397,7 +399,7 @@ export function GradeSubmissionDialog({
                                         </td>
                                         <td className="w-[64px] px-2 py-3 align-middle text-right">
                                           <span className="text-[12px] text-gray-700">
-                                            {weight != null ? `${weight}%` : (rubricMax > 0 && max > 0 ? `${percentOfMax.toFixed(1)}%` : "—")}
+                                            {weight != null ? `${roundTo2(weight)}%` : (rubricMax > 0 && max > 0 ? `${roundTo2(percentOfMax)}%` : "—")}
                                           </span>
                                         </td>
                                         <td className="w-[110px] px-3 py-3 align-middle">
@@ -425,7 +427,7 @@ export function GradeSubmissionDialog({
                                                 }
                                                 const v = parseFloat(raw);
                                                 if (!Number.isFinite(v) || v < 0) return;
-                                                const clamped = Math.min(rowMaxPts, v);
+                                                const clamped = roundTo2(Math.min(rowMaxPts, v));
                                                 setOverridePts((prev) => {
                                                   const next = [...prev];
                                                   next[flatIndex] = clamped;
@@ -476,7 +478,7 @@ export function GradeSubmissionDialog({
                               const calculatedPts = getCalculatedPts(flatIndex, max, weight);
                               const rowMaxPts = maxPtsForRow(max, weight);
                               const rawPts = overridePts[flatIndex] != null && Number.isFinite(overridePts[flatIndex]) ? overridePts[flatIndex]! : calculatedPts;
-                              const pts = Math.min(rawPts, rowMaxPts);
+                              const pts = roundTo2(Math.min(rawPts, rowMaxPts));
                               const comment = criterionComments[flatIndex] ?? "";
 
                               return (
@@ -538,7 +540,7 @@ export function GradeSubmissionDialog({
                                   </td>
                                   <td className="w-[64px] px-2 py-3 align-middle text-right">
                                     <span className="text-[12px] text-gray-700">
-                                      {weight != null ? `${weight}%` : (rubricMax > 0 && max > 0 ? `${percentOfMax.toFixed(1)}%` : "—")}
+                                      {weight != null ? `${roundTo2(weight)}%` : (rubricMax > 0 && max > 0 ? `${roundTo2(percentOfMax)}%` : "—")}
                                     </span>
                                   </td>
                                   <td className="w-[110px] px-3 py-3 align-middle">
@@ -566,7 +568,7 @@ export function GradeSubmissionDialog({
                                           }
                                           const v = parseFloat(raw);
                                           if (!Number.isFinite(v) || v < 0) return;
-                                          const clamped = Math.min(rowMaxPts, v);
+                                          const clamped = roundTo2(Math.min(rowMaxPts, v));
                                           setOverridePts((prev) => {
                                             const next = [...prev];
                                             next[flatIndex] = clamped;
@@ -610,7 +612,7 @@ export function GradeSubmissionDialog({
                   <span className="text-[13px] font-medium">Total</span>
                   <span className="text-[15px] font-bold tabular-nums">
                     {normalizedRubricMarks != null
-                      ? Math.round(normalizedRubricMarks)
+                      ? roundTo2(normalizedRubricMarks)
                       : 0}{" "}
                     / {maxPoints} pts
                   </span>
@@ -655,8 +657,9 @@ export function GradeSubmissionDialog({
             />
           </div>
         </div>
+        </div>
 
-        <DialogFooter className="gap-2 sm:gap-2 pt-2">
+        <DialogFooter className="gap-2 sm:gap-2 pt-4 pb-6 px-6 shrink-0 border-t border-gray-100">
           <button
             type="button"
             onClick={() => onOpenChange(false)}

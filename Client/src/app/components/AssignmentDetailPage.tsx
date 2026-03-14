@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { AssignmentDetailResponse } from "../../types/gradingAssistantAssignment";
 import type { GradingAssistantRubricResponse } from "../../types/gradingAssistantRubric";
+import { roundTo2 } from "../../utils/number";
 import type { GradingAssistantSubmissionResponse } from "../../types/gradingAssistantSubmission";
 import { getAssignmentByCourse } from "../../services/gradingAssistantAssignmentService";
 import { getRubric } from "../../services/gradingAssistantRubricService";
@@ -367,7 +368,7 @@ export function AssignmentDetailPage({
                                     <p className="mt-0.5 text-[12px] text-gray-500">
                                       Max {sub.maxScore} pts
                                       {sub.weight != null ? (
-                                        <span> · Weight {sub.weight}%</span>
+                                        <span> · Weight {roundTo2(sub.weight)}%</span>
                                       ) : null}
                                     </p>
                                   </li>
@@ -397,7 +398,7 @@ export function AssignmentDetailPage({
                               <span className="text-gray-500"> — max {c.maxScore} pts</span>
                             )}
                             {c.weight != null && (
-                              <span className="text-gray-500"> (weight {c.weight})</span>
+                              <span className="text-gray-500"> (weight {roundTo2(c.weight)})</span>
                             )}
                             {c.description ? (
                               <p className="text-gray-600 mt-0.5">{c.description}</p>

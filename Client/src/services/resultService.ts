@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import api from "../api/axios";
 import { getAuthenticatedRole } from "../app/auth";
+import { roundTo2 } from "../utils/number";
 import type {
   ActivitySummary,
   AssignmentResult,
@@ -424,7 +425,7 @@ export async function listCategoryStats(classId?: string): Promise<CategoryStat[
   return Array.from(grouped.entries()).map(([category, values]) => {
     const average =
       values.totalPoints > 0 && values.gradedCount > 0
-        ? `${((values.earnedPoints / values.totalPoints) * 100).toFixed(1)}%`
+        ? `${roundTo2((values.earnedPoints / values.totalPoints) * 100).toFixed(2)}%`
         : "\u2014";
     const weight =
       totalPointsAcrossAssignments > 0
@@ -467,7 +468,7 @@ export async function getOverallGradeSummary(classId?: string): Promise<OverallG
   const percentage = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 0;
 
   return {
-    current: `${percentage.toFixed(1)}%`,
+    current: `${roundTo2(percentage).toFixed(2)}%`,
     letter: toLetterGrade(percentage),
     // TODO(backend): Replace this placeholder when class-wide average endpoint is available.
     classAverage: "N/A",

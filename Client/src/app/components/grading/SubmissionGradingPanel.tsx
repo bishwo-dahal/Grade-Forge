@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircle, FileText, Save } from "lucide-react";
+import { roundTo2 } from "../../../utils/number";
 
 interface SubmissionFileLike {
   id?: number;
@@ -426,7 +427,7 @@ export function SubmissionGradingPanel({
                         </td>
                         <td className="w-[90px] px-4 py-3 align-top">
                           <div className="text-[13px] text-[#2B2A2A]">
-                            {weight != null ? weight.toFixed(1) : "—"}
+                            {weight != null ? roundTo2(weight).toFixed(2) : "—"}
                           </div>
                         </td>
                         <td className="w-[150px] px-4 py-3 align-top">
@@ -447,13 +448,13 @@ export function SubmissionGradingPanel({
                               </span>
                             </div>
                             <div className="text-[11px] text-gray-500">
-                              Earned: {numericAwarded.toFixed(2)} pts
+                              Earned: {roundTo2(numericAwarded).toFixed(2)} pts
                             </div>
                           </div>
                         </td>
                         <td className="w-[150px] px-4 py-3 align-top">
                           <div className="text-right text-[13px] text-[#2B2A2A]">
-                            {weightedPoints != null ? weightedPoints.toFixed(2) : "—"}
+                            {weightedPoints != null ? roundTo2(weightedPoints).toFixed(2) : "—"}
                           </div>
                         </td>
                       </tr>

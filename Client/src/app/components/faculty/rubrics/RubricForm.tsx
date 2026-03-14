@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { Copy, Trash2 } from "lucide-react";
 import type { Rubric, RubricCreatePayload } from "../../../../types/rubric";
+import { roundTo2 } from "../../../../utils/number";
 
 export interface RubricFormProps {
   mode: "create" | "edit";
@@ -257,7 +258,7 @@ export function RubricForm({
         subCriteria: c.subCriteria.map((s) => ({
           description: s.description.trim() || undefined,
           maxScore: Number(s.maxScore),
-          weight: s.weight.trim() !== "" ? Number(s.weight) : undefined,
+          weight: s.weight.trim() !== "" ? roundTo2(Number(s.weight)) : undefined,
         })),
       })),
     };

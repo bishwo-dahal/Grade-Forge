@@ -24,6 +24,9 @@ public class RubricCriteria {
     @Column(nullable = false)
     private String title;
 
+
+
+
     @OneToMany(mappedBy = "criteria", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RubricSubCriteria> subCriteria = new ArrayList<>();
 

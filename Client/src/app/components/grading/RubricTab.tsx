@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { AlertCircle } from "lucide-react";
+import { roundTo2 } from "../../../utils/number";
 
 interface RubricTabProps {
   submission: any;
@@ -134,7 +135,7 @@ export function RubricTab({ submission }: RubricTabProps) {
                     </td>
                     <td className="w-[100px] px-4 py-3 align-top">
                       <div className="text-[13px] text-[#2B2A2A]">
-                        {weight.toFixed(1)}
+                        {roundTo2(weight).toFixed(2)}
                       </div>
                     </td>
                     <td className="w-[140px] px-4 py-3 align-top">
