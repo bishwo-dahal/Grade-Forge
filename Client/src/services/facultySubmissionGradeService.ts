@@ -4,6 +4,7 @@ import type {
   FacultySubmissionGradeResponse,
   SubmissionGradeBatchRequest,
   SubmissionGradeResponse,
+  SubmissionGradesBySubmissionResponse,
 } from "../types/facultySubmissionGrade";
 
 const BASE = "/api/v1/faculty/submission-grades";
@@ -32,14 +33,21 @@ export async function updateFacultyGrade(
   return data;
 }
 
-/** GET grades for a submission by submission ID (path). Returns list of SubmissionGradeResponse. */
+/** GET grades for a submission by submission ID (path). Returns list usable for prefill (rubricSubCriteriaId, awardedScore, feedback). */
 export async function getSubmissionGrades(
   submissionId: number | string,
-): Promise<SubmissionGradeResponse[]> {
+): Promise<Array<{ rubricSubCriteriaId: number; awardedScore: number; feedback?: string | null }>> {
   const id = String(submissionId);
-  const { data } = await api.get<SubmissionGradeResponse[]>(`${BASE}/${id}`);
-  if (Array.isArray(data)) return data;
-  if (data != null && typeof data === "object" && "id" in data) return [data as SubmissionGradeResponse];
+  const { data } = await api.get<SubmissionGradesBySubmissionResponse | SubmissionGradeResponse[]>(`${BASE}/${id}`);
+  // Backend may return { submissionId, grades: [...] }
+  if (data != null && typeof data === "object" && "grades" in data && Array.isArray((data as SubmissionGradesBySubmissionResponse).grades)) {
+    return (data as SubmissionGradesBySubmissionResponse).grades;
+  }
+  if (Array.isArray(data)) return data.map((g) => ({ rubricSubCriteriaId: g.rubricSubCriteriaId, awardedScore: g.awardedScore, feedback: g.feedback ?? null }));
+  if (data != null && typeof data === "object" && "rubricSubCriteriaId" in data) {
+    const g = data as SubmissionGradeResponse;
+    return [{ rubricSubCriteriaId: g.rubricSubCriteriaId, awardedScore: g.awardedScore, feedback: g.feedback ?? null }];
+  }
   return [];
 }
 

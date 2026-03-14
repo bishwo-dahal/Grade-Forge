@@ -28,7 +28,6 @@ import {
   getSubmissionGrades,
   replaceSubmissionGrades,
 } from "../../services/facultySubmissionGradeService";
-import type { SubmissionGradeResponse } from "../../types/facultySubmissionGrade";
 import { getRunTestsLatest, requestRunTests, runTestsWithFiles, pollRunTestsUntilDone } from "../../services/runTestsService";
 import { getAssignmentByCourse } from "../../services/gradingAssistantAssignmentService";
 import { getRubric } from "../../services/gradingAssistantRubricService";
@@ -179,7 +178,7 @@ export function AssignmentGradingPage() {
     setSubmissionFeedback("");
     // Preload existing rubric grades for this submission (GET .../submission-grades/{submissionId}).
     try {
-      const grades: SubmissionGradeResponse[] = await getSubmissionGrades(sId);
+      const grades = await getSubmissionGrades(sId);
       const bySubCriteriaId: Record<
         number,
         {
@@ -358,6 +357,28 @@ export function AssignmentGradingPage() {
     },
     [assignmentId, submissionId]
   );
+
+  const handleOpenGradeClick = useCallback(async () => {
+    if (isFaculty && submissionId) {
+      try {
+        const grades = await getSubmissionGrades(submissionId);
+        const bySubCriteriaId: Record<
+          number,
+          { awardedScore: number; feedback?: string | null }
+        > = {};
+        for (const g of grades) {
+          bySubCriteriaId[g.rubricSubCriteriaId] = {
+            awardedScore: g.awardedScore,
+            feedback: g.feedback ?? null,
+          };
+        }
+        setRubricExistingGrades(bySubCriteriaId);
+      } catch {
+        setRubricExistingGrades({});
+      }
+    }
+    setGradeDialogOpen(true);
+  }, [submissionId, isFaculty]);
 
   const handleSaveGrade = useCallback(
     async (marks: number, feedback: string) => {
@@ -647,7 +668,7 @@ export function AssignmentGradingPage() {
                     <span className="text-[13px] font-medium text-[#2B2A2A]">Grade</span>
                     <button
                       type="button"
-                      onClick={() => setGradeDialogOpen(true)}
+                      onClick={handleOpenGradeClick}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2B2A2A] hover:bg-[#3a3939] text-white text-[13px] font-medium"
                     >
                       <CheckSquare className="w-3.5 h-3.5" strokeWidth={2} />

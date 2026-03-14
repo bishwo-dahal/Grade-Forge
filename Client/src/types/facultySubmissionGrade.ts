@@ -38,3 +38,13 @@ export interface SubmissionGradeResponse {
   feedback?: string | null;
 }
 
+/** GET .../submission-grades/{submissionId} response (when grades exist) */
+export interface SubmissionGradesBySubmissionResponse {
+  submissionId: number;
+  grades: Array<{
+    rubricSubCriteriaId: number;
+    awardedScore: number;
+    feedback?: string | null;
+  }>;
+}
+

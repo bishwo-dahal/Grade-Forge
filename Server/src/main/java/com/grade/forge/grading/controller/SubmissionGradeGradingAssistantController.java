@@ -29,9 +29,9 @@ public class SubmissionGradeGradingAssistantController {
         return new ResponseEntity<>(updated, HttpStatus.OK);
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<SubmissionGradeBatchResponse> get(@PathVariable Long id) {
-        SubmissionGradeBatchResponse response = submissionGradeService.getGradeBatch(id);
+    @GetMapping("/{submissionId}")
+    public ResponseEntity<SubmissionGradeBatchResponse> getBySubmissionPath(@PathVariable("submissionId") Long submissionId) {
+        SubmissionGradeBatchResponse response = submissionGradeService.getGradesBySubmission(submissionId);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
