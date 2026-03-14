@@ -452,6 +452,7 @@ export function AssignmentDetailPage({
                   <th className="px-6 py-3">Student</th>
                   <th className="px-6 py-3">Status</th>
                   <th className="px-6 py-3">Score</th>
+                  <th className="px-6 py-3">Submitted</th>
                   <th className="px-6 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -470,6 +471,9 @@ export function AssignmentDetailPage({
                       </td>
                       <td className="px-6 py-4">
                         <div className="h-4 w-10 rounded bg-gray-200 animate-pulse" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
                       </td>
                       <td className="px-6 py-4">
                         <div className="ml-auto h-8 w-20 rounded-lg bg-gray-100 animate-pulse" />
@@ -510,6 +514,9 @@ export function AssignmentDetailPage({
                         </td>
                         <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">
                           {row.marks != null ? String(row.marks) : "—"}
+                        </td>
+                        <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">
+                          {row.submittedAt ?? "—"}
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -555,7 +562,7 @@ export function AssignmentDetailPage({
                 ) : (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={5}
                       className="px-6 py-6 text-center text-[13px] text-gray-600"
                     >
                       No submissions yet.

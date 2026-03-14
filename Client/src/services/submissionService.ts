@@ -218,6 +218,7 @@ interface FacultySubmissionListResponse {
   grade: number | null;
   feedback: string | null;
   status: string;
+  submittedAt?: string | null;
 }
 
 /** Full detail from GET /api/v1/faculty/submissions/{id} (when a submission is selected) */
@@ -388,7 +389,7 @@ export async function listFacultyAssignmentSubmissionFiles(
   return (data ?? []).map((sub) => ({
     submissionId: String(sub.submissionId),
     studentName: sub.studentName,
-    submittedAt: "",
+    submittedAt: sub.submittedAt ?? "",
     marks: typeof sub.grade === "number" ? sub.grade : null,
     files: [],
   }));
