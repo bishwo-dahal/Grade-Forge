@@ -278,6 +278,7 @@ public class SubmissionService {
                 .grade(submission.getMarks())
                 .feedback(submission.getFeedback())
                 .status(submission.getStatus())
+                .submittedAt(submission.getSubmittedAt())
                 .build();
     }
 
