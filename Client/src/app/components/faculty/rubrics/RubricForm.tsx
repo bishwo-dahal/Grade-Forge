@@ -98,7 +98,8 @@ export function RubricForm({
         if (cur <= 0) continue;
         const reduceBy = Math.min(cur, excess);
         weights[i] = cur - reduceBy;
-        next[criterionIndex].subCriteria[subIndex] = { ...next[criterionIndex].subCriteria[subIndex], weight: String(weights[i]) };
+        const rounded = Math.round(weights[i] * 100) / 100;
+        next[criterionIndex].subCriteria[subIndex] = { ...next[criterionIndex].subCriteria[subIndex], weight: String(rounded) };
         excess -= reduceBy;
       }
     } else if (sum < 100 - epsilon) {
@@ -106,9 +107,10 @@ export function RubricForm({
       const last = flat[flat.length - 1];
       if (last) {
         weights[flat.length - 1] = (weights[flat.length - 1] ?? 0) + deficit;
+        const rounded = Math.round(weights[flat.length - 1] * 100) / 100;
         next[last.criterionIndex].subCriteria[last.subIndex] = {
           ...next[last.criterionIndex].subCriteria[last.subIndex],
-          weight: String(weights[flat.length - 1]),
+          weight: String(rounded),
         };
       }
     }
@@ -416,9 +418,10 @@ export function RubricForm({
                                   type="number"
                                   min={0}
                                   max={100}
-                                  step="0.1"
+                                  step="any"
                                   value={sub.weight}
                                   onChange={(e) => handleChangeSubCriterion(criterion.id, sub.id, "weight", e.target.value)}
+                                  placeholder="0"
                                   className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-[13px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
                                 />
                               </td>
@@ -452,7 +455,7 @@ export function RubricForm({
                   </div>
                 ))}
               </div>
-              <p className="mt-2 text-[12px] text-[#7C879A]">Total weight: {totalWeight.toFixed(1)}% (must be 100%)</p>
+              <p className="mt-2 text-[12px] text-[#7C879A]">Total weight: {totalWeight.toFixed(2)}% (must be 100%)</p>
             </section>
           </div>
 

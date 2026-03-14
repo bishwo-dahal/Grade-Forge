@@ -35,12 +35,12 @@ export interface GradeSubmissionDialogProps {
   isSubmitting?: boolean;
 }
 
-/** Flatten criteria with max points for form state */
-function flattenCriteria(categories: RubricCategory[]): { id?: number; maxPoints: number }[] {
-  const list: { id?: number; maxPoints: number }[] = [];
+/** Flatten criteria with max points and weight for form state */
+function flattenCriteria(categories: RubricCategory[]): { id?: number; maxPoints: number; weight?: number | null }[] {
+  const list: { id?: number; maxPoints: number; weight?: number | null }[] = [];
   for (const cat of categories) {
     for (const c of cat.criteria) {
-      list.push({ id: c.id, maxPoints: c.points });
+      list.push({ id: c.id, maxPoints: c.points, weight: c.weight ?? null });
     }
   }
   return list;
@@ -151,10 +151,25 @@ export function GradeSubmissionDialog({
     ? criterionScores.reduce((a, b) => a + b, 0)
     : null;
 
-  const normalizedRubricMarks =
-    hasRubric && rubricMax > 0
-      ? ((computedMarks ?? 0) / rubricMax) * maxPoints
-      : null;
+  /** Weight-based total when all criteria have weight; else proportion of rubric max */
+  const normalizedRubricMarks = (() => {
+    if (!hasRubric || flatCriteria.length === 0) return null;
+    const allHaveWeight = flatCriteria.every(
+      (c) => c.weight != null && Number.isFinite(c.weight) && c.weight >= 0,
+    );
+    const totalWeight = flatCriteria.reduce((s, c) => s + (c.weight ?? 0), 0);
+    if (allHaveWeight && totalWeight > 0) {
+      let sum = 0;
+      for (let i = 0; i < flatCriteria.length; i++) {
+        const max = flatCriteria[i].maxPoints;
+        const w = flatCriteria[i].weight ?? 0;
+        if (max > 0) sum += ((criterionScores[i] ?? 0) / max) * (w / 100) * maxPoints;
+      }
+      return sum;
+    }
+    if (rubricMax > 0) return ((computedMarks ?? 0) / rubricMax) * maxPoints;
+    return null;
+  })();
 
   const handleSubmit = async () => {
     setError(null);
@@ -250,7 +265,7 @@ export function GradeSubmissionDialog({
                       <tr>
                         <th className="px-4 py-2 align-middle">Criterion</th>
                         <th className="w-[80px] px-3 py-2 align-middle text-right">Grade</th>
-                        <th className="w-[80px] px-3 py-2 align-middle text-right">% of max</th>
+                        <th className="w-[80px] px-3 py-2 align-middle text-right">Weight (%)</th>
                         <th className="w-[80px] px-3 py-2 align-middle text-right">Pts</th>
                         <th className="px-4 py-2 align-middle">Instructor comments</th>
                       </tr>
@@ -277,27 +292,28 @@ export function GradeSubmissionDialog({
                                       .reduce((acc, cr) => acc + (cr.subCriteria?.length ?? 0), 0) + sIdx;
                                     const max = sub.maxScore ?? 0;
                                     const grade = criterionScores[flatIndex] ?? 0;
-                                    const percentOfMax =
-                                      rubricMax > 0 && max > 0 ? (max / rubricMax) * 100 : 0;
+                                    const weight = sub.weight ?? null;
+                                    const percentOfMax = weight != null ? weight : (rubricMax > 0 && max > 0 ? (max / rubricMax) * 100 : 0);
                                     const pts =
-                                      rubricMax > 0 ? (grade * maxPoints) / rubricMax : 0;
+                                      weight != null && max > 0
+                                        ? (grade / max) * (weight / 100) * maxPoints
+                                        : rubricMax > 0
+                                          ? (grade * maxPoints) / rubricMax
+                                          : 0;
                                     const comment = criterionComments[flatIndex] ?? "";
                                     return (
                                       <tr
                                         key={`${cIdx}-${sIdx}`}
                                         className="border-t border-gray-200 bg-white last:rounded-b-xl [&:last-child>td:first-child]:rounded-bl-xl [&:last-child>td:last-child]:rounded-br-xl"
                                       >
-                                        <td className="px-4 py-3 align-top pl-6">
+                                        <td className="px-4 py-3 align-middle pl-6">
                                           <div className="text-[12px] text-[#2B2A2A]">
                                             {sub.description ?? "—"}
                                           </div>
-                                          <div className="mt-0.5 text-[11px] text-gray-500">
-                                            {max} pts
-                                            {sub.weight != null ? ` · ${sub.weight}%` : ""}
-                                          </div>
                                         </td>
-                                        <td className="w-[80px] px-3 py-3 align-top">
-                                          <div className="flex items-center justify-end gap-1">
+                                        <td className="w-[80px] px-3 py-3 align-middle">
+                                          <div className="flex flex-col items-center gap-0.5">
+                                            <span className="text-[10px] text-gray-500">0–{max}</span>
                                             <input
                                               type="number"
                                               min={0}
@@ -317,17 +333,17 @@ export function GradeSubmissionDialog({
                                             />
                                           </div>
                                         </td>
-                                        <td className="w-[80px] px-3 py-3 align-top text-right">
+                                        <td className="w-[80px] px-3 py-3 align-middle text-right">
                                           <span className="text-[12px] text-gray-700">
-                                            {rubricMax > 0 && max > 0 ? `${percentOfMax.toFixed(1)}%` : "—"}
+                                            {weight != null ? `${weight}%` : (rubricMax > 0 && max > 0 ? `${percentOfMax.toFixed(1)}%` : "—")}
                                           </span>
                                         </td>
-                                        <td className="w-[80px] px-3 py-3 align-top text-right">
+                                        <td className="w-[80px] px-3 py-3 align-middle text-right">
                                           <span className="text-[12px] text-gray-700">
                                             {pts.toFixed(2)}
                                           </span>
                                         </td>
-                                        <td className="px-4 py-3 align-top">
+                                        <td className="px-4 py-3 align-middle">
                                           <textarea
                                             rows={2}
                                             value={comment}
@@ -356,10 +372,14 @@ export function GradeSubmissionDialog({
                                   .reduce((acc, c) => acc + c.criteria.length, 0) + critIndex;
                               const max = criterion.points ?? 0;
                               const grade = criterionScores[flatIndex] ?? 0;
-                              const percentOfMax =
-                                rubricMax > 0 && max > 0 ? (max / rubricMax) * 100 : 0;
+                              const weight = criterion.weight ?? null;
+                              const percentOfMax = weight != null ? weight : (rubricMax > 0 && max > 0 ? (max / rubricMax) * 100 : 0);
                               const pts =
-                                rubricMax > 0 ? (grade * maxPoints) / rubricMax : 0;
+                                weight != null && max > 0
+                                  ? (grade / max) * (weight / 100) * maxPoints
+                                  : rubricMax > 0
+                                    ? (grade * maxPoints) / rubricMax
+                                    : 0;
                               const comment = criterionComments[flatIndex] ?? "";
 
                               return (
@@ -367,7 +387,7 @@ export function GradeSubmissionDialog({
                                   key={`${catIndex}-${critIndex}`}
                                   className="border-t border-gray-200 bg-white last:rounded-b-xl [&:last-child>td:first-child]:rounded-bl-xl [&:last-child>td:last-child]:rounded-br-xl"
                                 >
-                                  <td className="px-4 py-3 align-top">
+                                  <td className="px-4 py-3 align-middle">
                                     <div className="text-[12px] font-semibold text-[#2B2A2A]">
                                       {criterion.description ?? "Criterion"}
                                     </div>
@@ -375,8 +395,9 @@ export function GradeSubmissionDialog({
                                       {category.name}
                                     </div>
                                   </td>
-                                  <td className="w-[80px] px-3 py-3 align-top">
-                                    <div className="flex items-center justify-end gap-1">
+                                  <td className="w-[80px] px-3 py-3 align-middle">
+                                    <div className="flex flex-col items-center gap-0.5">
+                                      <span className="text-[10px] text-gray-500">0–{max}</span>
                                       <input
                                         type="number"
                                         min={0}
@@ -398,7 +419,7 @@ export function GradeSubmissionDialog({
                                   </td>
                                   <td className="w-[80px] px-3 py-3 align-top text-right">
                                     <span className="text-[12px] text-gray-700">
-                                      {rubricMax > 0 && max > 0 ? `${percentOfMax.toFixed(1)}%` : "—"}
+                                      {weight != null ? `${weight}%` : (rubricMax > 0 && max > 0 ? `${percentOfMax.toFixed(1)}%` : "—")}
                                     </span>
                                   </td>
                                   <td className="w-[80px] px-3 py-3 align-top text-right">
