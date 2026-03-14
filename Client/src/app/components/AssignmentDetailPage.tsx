@@ -1,10 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import JSZip from "jszip";
 import {
   ChevronLeft,
   Download,
-  DownloadCloud,
   FileText,
   Filter,
   Inbox,
@@ -133,53 +131,6 @@ export function AssignmentDetailPage({
   testCasesLink,
   testSuiteSection,
 }: AssignmentDetailPageProps) {
-  const [downloadAllLoading, setDownloadAllLoading] = useState(false);
-
-  const canDownloadAll = useMemo(() => {
-    if (!submissions.length) return false;
-    return submissions.some((row) => row.files && row.files.length > 0);
-  }, [submissions]);
-
-  const sanitizeFolderName = useCallback((name: string, submissionId: string): string => {
-    const sanitized = name
-      .replace(/[/\\:*?"<>|]/g, "_")
-      .replace(/\s+/g, " ")
-      .trim();
-    return sanitized || `Student_${submissionId}`;
-  }, []);
-
-  const handleDownloadAll = useCallback(async () => {
-    if (!canDownloadAll || downloadAllLoading) return;
-    const rowsWithFiles = submissions.filter((row) => row.files && row.files.length > 0);
-    if (!rowsWithFiles.length) return;
-    setDownloadAllLoading(true);
-    try {
-      const zip = new JSZip();
-      for (const row of rowsWithFiles) {
-        const folderName = sanitizeFolderName(row.studentName, row.submissionId);
-        for (const file of row.files!) {
-          try {
-            const res = await fetch(file.downloadUrl);
-            if (!res.ok) continue;
-            const blob = await res.blob();
-            zip.file(`${folderName}/${file.fileName}`, blob);
-          } catch {
-            // Skip file on fetch error
-          }
-        }
-      }
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(zipBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = assignment?.title ? `submissions-${assignment.title.replace(/[/\\:*?"<>|]/g, "_")}.zip` : "submissions.zip";
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setDownloadAllLoading(false);
-    }
-  }, [canDownloadAll, downloadAllLoading, submissions, sanitizeFolderName, assignment?.title]);
-
   if (loading) {
     return (
       <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
@@ -604,7 +555,7 @@ export function AssignmentDetailPage({
                 ) : (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={4}
                       className="px-6 py-6 text-center text-[13px] text-gray-600"
                     >
                       No submissions yet.
