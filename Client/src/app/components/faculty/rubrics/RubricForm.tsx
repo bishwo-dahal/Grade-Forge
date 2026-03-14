@@ -41,6 +41,13 @@ export function RubricForm({
 }: RubricFormProps) {
   const [name, setName] = useState(initialRubric?.name ?? "");
   const [description, setDescription] = useState(initialRubric?.description ?? "");
+  const [isWeighted, setIsWeighted] = useState(() => {
+    if (!initialRubric?.criteria?.length) return true;
+    const hasWeight = initialRubric.criteria.some(
+      (c) => (c.subCriteria ?? []).some((s) => s.weight != null && s.weight > 0),
+    );
+    return hasWeight;
+  });
   const [autoAdjustWeights, setAutoAdjustWeights] = useState(true);
   const [criteria, setCriteria] = useState<CriterionRow[]>(() => {
     if (initialRubric?.criteria?.length) {
@@ -127,13 +134,15 @@ export function RubricForm({
       for (const s of c.subCriteria) {
         const maxScore = Number(s.maxScore);
         if (!Number.isFinite(maxScore) || maxScore <= 0) return false;
-        const w = Number(s.weight);
-        if (!Number.isFinite(w) || w < 0) return false;
+        if (isWeighted) {
+          const w = Number(s.weight);
+          if (!Number.isFinite(w) || w < 0) return false;
+        }
       }
     }
-    if (Math.abs(totalWeight - 100) > 0.01) return false;
+    if (isWeighted && Math.abs(totalWeight - 100) > 0.01) return false;
     return true;
-  }, [name, criteria, totalWeight]);
+  }, [name, criteria, totalWeight, isWeighted]);
 
   const handleAddCriterion = () => {
     setCriteria((prev) => [
@@ -245,7 +254,11 @@ export function RubricForm({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!canSubmit) {
-      setLocalError("Please fill in the rubric name and ensure every criterion has at least one sub-criterion and weights sum to 100%.");
+      setLocalError(
+        isWeighted
+          ? "Please fill in the rubric name and ensure every criterion has at least one sub-criterion and weights sum to 100%."
+          : "Please fill in the rubric name and ensure every criterion has at least one sub-criterion with valid max points.",
+      );
       return;
     }
     setLocalError(null);
@@ -258,7 +271,7 @@ export function RubricForm({
         subCriteria: c.subCriteria.map((s) => ({
           description: s.description.trim() || undefined,
           maxScore: Number(s.maxScore),
-          weight: s.weight.trim() !== "" ? roundTo2(Number(s.weight)) : undefined,
+          weight: isWeighted && s.weight.trim() !== "" ? roundTo2(Number(s.weight)) : undefined,
         })),
       })),
     };
@@ -272,7 +285,7 @@ export function RubricForm({
           {mode === "create" ? "Create Rubric" : "Edit Rubric"}
         </h1>
         <p className="mt-2 text-[14px] text-[#5D6A80]">
-          Main rubric has a title and description. Add criteria (title only), then under each criterion add sub-criteria with description, max points, and weight. Weights must total 100%.
+          Main rubric has a title and description. Add criteria (title only), then under each criterion add sub-criteria with description and max points. Use Weighted to assign weight percentages (must total 100%).
         </p>
 
         {errorMessage ? (
@@ -311,6 +324,33 @@ export function RubricForm({
               />
             </div>
 
+            <div className="flex items-center gap-4">
+              <span className="text-[14px] font-medium text-[#1F2430]">Scoring</span>
+              <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setIsWeighted(true)}
+                  className={`rounded-lg px-4 py-2 text-[13px] font-medium transition-colors ${
+                    isWeighted ? "bg-white text-[#1F2430] shadow-sm" : "text-[#5D6A80] hover:text-[#1F2430]"
+                  }`}
+                >
+                  Weighted
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsWeighted(false)}
+                  className={`rounded-lg px-4 py-2 text-[13px] font-medium transition-colors ${
+                    !isWeighted ? "bg-white text-[#1F2430] shadow-sm" : "text-[#5D6A80] hover:text-[#1F2430]"
+                  }`}
+                >
+                  Unweighted
+                </button>
+              </div>
+              <span className="text-[12px] text-[#7C879A]">
+                {isWeighted ? "Weights must total 100%." : "No weight percentages; score by points only."}
+              </span>
+            </div>
+
             <section>
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-[16px] font-semibold text-[#1F2430]">Criteria</h2>
@@ -324,21 +364,25 @@ export function RubricForm({
               </div>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-[12px] text-[#7C879A]">
-                  Each criterion has a title only. Under it add sub-criteria with description, max points, and weight. Total weight must be 100%.
+                  {isWeighted
+                    ? "Each criterion has a title only. Under it add sub-criteria with description, max points, and weight. Total weight must be 100%."
+                    : "Each criterion has a title only. Under it add sub-criteria with description and max points."}
                 </p>
-                <label className="inline-flex items-center gap-2 text-[12px] font-medium text-[#1F2430]">
-                  <input
-                    type="checkbox"
-                    checked={autoAdjustWeights}
-                    onChange={(e) => {
-                      const nextValue = e.target.checked;
-                      setAutoAdjustWeights(nextValue);
-                      if (nextValue) setCriteria((prev) => rebalanceWeightsToHundred(prev));
-                    }}
-                    className="h-4 w-4 accent-[#5A7ACD]"
-                  />
-                  Auto-adjust weights
-                </label>
+                {isWeighted && (
+                  <label className="inline-flex items-center gap-2 text-[12px] font-medium text-[#1F2430]">
+                    <input
+                      type="checkbox"
+                      checked={autoAdjustWeights}
+                      onChange={(e) => {
+                        const nextValue = e.target.checked;
+                        setAutoAdjustWeights(nextValue);
+                        if (nextValue) setCriteria((prev) => rebalanceWeightsToHundred(prev));
+                      }}
+                      className="h-4 w-4 accent-[#5A7ACD]"
+                    />
+                    Auto-adjust weights
+                  </label>
+                )}
               </div>
 
               <div className="space-y-6">
@@ -389,7 +433,7 @@ export function RubricForm({
                           <tr>
                             <th className="px-4 py-2 align-middle">Description</th>
                             <th className="w-[110px] px-4 py-2 align-middle">Max Points *</th>
-                            <th className="w-[100px] px-4 py-2 align-middle">Weight (%)</th>
+                            {isWeighted && <th className="w-[100px] px-4 py-2 align-middle">Weight (%)</th>}
                             <th className="w-[72px] px-2 py-2 align-middle text-right">Actions</th>
                           </tr>
                         </thead>
@@ -414,18 +458,20 @@ export function RubricForm({
                                   className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-[13px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
                                 />
                               </td>
-                              <td className="w-[100px] px-4 py-3 align-top">
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={100}
-                                  step="any"
-                                  value={sub.weight}
-                                  onChange={(e) => handleChangeSubCriterion(criterion.id, sub.id, "weight", e.target.value)}
-                                  placeholder="0"
-                                  className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-[13px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                                />
-                              </td>
+                              {isWeighted && (
+                                <td className="w-[100px] px-4 py-3 align-top">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step="any"
+                                    value={sub.weight}
+                                    onChange={(e) => handleChangeSubCriterion(criterion.id, sub.id, "weight", e.target.value)}
+                                    placeholder="0"
+                                    className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-[13px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                                  />
+                                </td>
+                              )}
                               <td className="w-[72px] px-2 py-3 align-top">
                                 <div className="flex items-center justify-end gap-1">
                                   <button
@@ -456,7 +502,9 @@ export function RubricForm({
                   </div>
                 ))}
               </div>
-              <p className="mt-2 text-[12px] text-[#7C879A]">Total weight: {totalWeight.toFixed(2)}% (must be 100%)</p>
+              {isWeighted && (
+                <p className="mt-2 text-[12px] text-[#7C879A]">Total weight: {totalWeight.toFixed(2)}% (must be 100%)</p>
+              )}
             </section>
           </div>
 
