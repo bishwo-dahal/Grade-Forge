@@ -4,11 +4,12 @@ import com.grade.forge.grading.dto.SubmissionGradeBatchRequest;
 import com.grade.forge.grading.dto.SubmissionGradeBatchResponse;
 import com.grade.forge.grading.service.SubmissionGradeService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/grading-assistant/submission-grades")
 @RequiredArgsConstructor
@@ -25,6 +26,7 @@ public class SubmissionGradeGradingAssistantController {
     @PutMapping("/{id}")
     public ResponseEntity<SubmissionGradeBatchResponse> update(@PathVariable("id") Long submissionId,
                                                                @RequestBody SubmissionGradeBatchRequest request) {
+
         SubmissionGradeBatchResponse updated = submissionGradeService.replaceGrades(submissionId, request);
         return new ResponseEntity<>(updated, HttpStatus.OK);
     }

@@ -48,6 +48,7 @@ import type { AssignmentDetail, AssignmentDescription } from "../../types/assign
 import type { RubricCategory } from "../../types/grade";
 import type { GradingAssistantRubricResponse } from "../../types/gradingAssistantRubric";
 import type { TestRunJobStatusResponse } from "../../types/runTests";
+import { roundTo2 } from "../../utils/number";
 import type { PublicTestCase } from "../../types/submission";
 
 type GradingTabType = "description" | "tests" | "plagiarism" | "rubric";
@@ -520,7 +521,7 @@ export function AssignmentGradingPage() {
           if (rubricGrades && rubricGrades.length > 0) {
             const grades = rubricGrades.map((item) => ({
               rubricSubCriteriaId: item.criterionId,
-              awardedScore: Math.max(0, Math.round(item.score)),
+              awardedScore: roundTo2(Math.max(0, item.score)),
               feedback: (item.comment?.trim() || undefined) ?? null,
             }));
             const request = { submissionId: Number(submissionId), grades };
@@ -541,7 +542,7 @@ export function AssignmentGradingPage() {
           if (rubricGrades && rubricGrades.length > 0) {
             const grades = rubricGrades.map((item) => ({
               rubricSubCriteriaId: item.criterionId,
-              awardedScore: Math.max(0, Math.round(item.score)),
+              awardedScore: roundTo2(Math.max(0, item.score)),
               feedback: (item.comment?.trim() || undefined) ?? null,
             }));
             const request = { submissionId: Number(submissionId), grades };
