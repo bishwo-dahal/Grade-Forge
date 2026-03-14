@@ -343,29 +343,37 @@ export function AssignmentDetailPage({
                       {rubricSection.description ? (
                         <p className="text-[13px] text-gray-600">{rubricSection.description}</p>
                       ) : null}
-                      <div className="space-y-4">
+                      <div className="space-y-5">
                         {(rubricSection.criteriaNested ?? []).map((criterion, cIdx) => (
-                          <div key={cIdx} className="rounded-lg border border-[#EEF3FF] bg-[#FAFBFF] overflow-hidden">
-                            <div className="px-3 py-2 border-b border-[#EEF3FF] bg-[#F3F6FB]">
-                              <span className="text-[13px] font-semibold text-[#2B2A2A]">
+                          <div
+                            key={cIdx}
+                            className="rounded-xl border-2 border-[#E4E7EC] bg-white shadow-sm overflow-hidden"
+                          >
+                            <div className="px-4 py-3 bg-[#F3F6FB] border-b-2 border-[#E4E7EC]">
+                              <span className="text-[14px] font-semibold text-[#1F2430]">
                                 {criterion.title || `Criterion ${cIdx + 1}`}
                               </span>
                             </div>
-                            <ul className="divide-y divide-gray-100">
-                              {criterion.subCriteria.map((sub, sIdx) => (
-                                <li key={sIdx} className="px-3 py-2.5 text-[13px] text-[#2B2A2A]">
-                                  {sub.description ? (
-                                    <p className="text-[#2B2A2A]">{sub.description}</p>
-                                  ) : null}
-                                  <p className="mt-0.5 text-[12px] text-gray-500">
-                                    Max {sub.maxScore} pts
-                                    {sub.weight != null ? (
-                                      <span> · Weight {sub.weight}%</span>
+                            <div className="px-4 py-3">
+                              <ul className="space-y-3">
+                                {criterion.subCriteria.map((sub, sIdx) => (
+                                  <li
+                                    key={sIdx}
+                                    className="text-[13px] text-[#2B2A2A] pl-3 border-l-2 border-[#EEF3FF]"
+                                  >
+                                    {sub.description ? (
+                                      <p className="text-[#2B2A2A]">{sub.description}</p>
                                     ) : null}
-                                  </p>
-                                </li>
-                              ))}
-                            </ul>
+                                    <p className="mt-0.5 text-[12px] text-gray-500">
+                                      Max {sub.maxScore} pts
+                                      {sub.weight != null ? (
+                                        <span> · Weight {sub.weight}%</span>
+                                      ) : null}
+                                    </p>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
                           </div>
                         ))}
                       </div>

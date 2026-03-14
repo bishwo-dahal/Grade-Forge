@@ -8,7 +8,7 @@ import com.grade.forge.grading.repository.SubmissionGradeRepository;
 import com.grade.forge.rubric.entity.Rubric;
 import com.grade.forge.rubric.entity.RubricCriteria;
 import com.grade.forge.rubric.entity.RubricSubCriteria;
-import com.grade.forge.rubric.repository.RubricCriteriaRepository;
+import com.grade.forge.rubric.repository.RubricSubCriteriaRepository;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.enums.SubmissionStatus;
 import com.grade.forge.submission.repository.SubmissionRepository;
@@ -27,21 +27,21 @@ public class SubmissionGradeService {
 
     private final SubmissionGradeRepository submissionGradeRepository;
     private final SubmissionRepository submissionRepository;
-    private final RubricCriteriaRepository rubricCriteriaRepository;
+    private final RubricSubCriteriaRepository rubricSubCriteriaRepository;
 
     public SubmissionGradeResponse createGrade(SubmissionGradeRequest request) {
         validateCreateRequest(request);
         Submission submission = submissionRepository.findById(request.getSubmissionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + request.getSubmissionId()));
-        RubricCriteria criteria = rubricCriteriaRepository.findById(request.getRubricCriteriaId())
-                .orElseThrow(() -> new ResourceNotFoundException("Rubric criteria not found with id: " + request.getRubricCriteriaId()));
+        RubricSubCriteria subCriteria = rubricSubCriteriaRepository.findById(request.getRubricSubCriteriaId())
+                .orElseThrow(() -> new ResourceNotFoundException("Rubric sub-criteria not found with id: " + request.getRubricSubCriteriaId()));
 
-        validateCriteriaMatchesAssignment(submission, criteria);
-        validateScore(criteria, request.getAwardedScore());
+        validateSubCriteriaMatchesAssignment(submission, subCriteria);
+        validateScore(subCriteria, request.getAwardedScore());
 
         SubmissionGrade grade = new SubmissionGrade();
         grade.setSubmission(submission);
-        grade.setRubricCriteria(criteria);
+        grade.setRubricSubCriteria(subCriteria);
         grade.setAwardedScore(request.getAwardedScore());
         grade.setFeedback(request.getFeedback());
 
@@ -56,14 +56,14 @@ public class SubmissionGradeService {
         SubmissionGrade grade = submissionGradeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission grade not found with id: " + id));
 
-        if (request.getRubricCriteriaId() != null && !Objects.equals(request.getRubricCriteriaId(), grade.getRubricCriteria().getId())) {
-            RubricCriteria criteria = rubricCriteriaRepository.findById(request.getRubricCriteriaId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Rubric criteria not found with id: " + request.getRubricCriteriaId()));
-            validateCriteriaMatchesAssignment(grade.getSubmission(), criteria);
-            grade.setRubricCriteria(criteria);
+        if (request.getRubricSubCriteriaId() != null && !Objects.equals(request.getRubricSubCriteriaId(), grade.getRubricSubCriteria().getId())) {
+            RubricSubCriteria subCriteria = rubricSubCriteriaRepository.findById(request.getRubricSubCriteriaId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Rubric sub-criteria not found with id: " + request.getRubricSubCriteriaId()));
+            validateSubCriteriaMatchesAssignment(grade.getSubmission(), subCriteria);
+            grade.setRubricSubCriteria(subCriteria);
         }
         if (request.getAwardedScore() != null) {
-            validateScore(grade.getRubricCriteria(), request.getAwardedScore());
+            validateScore(grade.getRubricSubCriteria(), request.getAwardedScore());
             grade.setAwardedScore(request.getAwardedScore());
         }
         if (request.getFeedback() != null) {
@@ -129,32 +129,29 @@ public class SubmissionGradeService {
         if (request.getSubmissionId() == null) {
             throw new IllegalArgumentException("submissionId is required");
         }
-        if (request.getRubricCriteriaId() == null) {
-            throw new IllegalArgumentException("rubricCriteriaId is required");
+        if (request.getRubricSubCriteriaId() == null) {
+            throw new IllegalArgumentException("rubricSubCriteriaId is required");
         }
         if (request.getAwardedScore() == null) {
             throw new IllegalArgumentException("awardedScore is required");
         }
     }
 
-    private void validateCriteriaMatchesAssignment(Submission submission, RubricCriteria criteria) {
+    private void validateSubCriteriaMatchesAssignment(Submission submission, RubricSubCriteria subCriteria) {
         Rubric assignmentRubric = submission.getAssignment().getRubric();
-        if (assignmentRubric != null && !Objects.equals(assignmentRubric.getId(), criteria.getRubric().getId())) {
-            throw new IllegalArgumentException("Rubric criteria does not belong to the assignment rubric");
+        RubricCriteria parentCriteria = subCriteria.getCriteria();
+        if (assignmentRubric != null && parentCriteria != null && !Objects.equals(assignmentRubric.getId(), parentCriteria.getRubric().getId())) {
+            throw new IllegalArgumentException("Rubric sub-criteria does not belong to the assignment rubric");
         }
     }
 
-    private void validateScore(RubricCriteria criteria, Integer score) {
+    private void validateScore(RubricSubCriteria subCriteria, Integer score) {
         if (score < 0) {
             throw new IllegalArgumentException("awardedScore cannot be negative");
         }
-        int maxAllowed = (criteria.getSubCriteria() == null ? List.<RubricSubCriteria>of() : criteria.getSubCriteria())
-                .stream()
-                .filter(Objects::nonNull)
-                .mapToInt(sub -> sub.getMaxScore() != null ? sub.getMaxScore() : 0)
-                .sum();
-        if (maxAllowed > 0 && score > maxAllowed) {
-            throw new IllegalArgumentException("awardedScore cannot exceed criteria total maxScore");
+        Integer maxAllowed = subCriteria.getMaxScore();
+        if (maxAllowed != null && score > maxAllowed) {
+            throw new IllegalArgumentException("awardedScore cannot exceed sub-criteria maxScore");
         }
     }
 
@@ -162,8 +159,10 @@ public class SubmissionGradeService {
         return SubmissionGradeResponse.builder()
                 .id(grade.getId())
                 .submissionId(grade.getSubmission().getId())
-                .rubricCriteriaId(grade.getRubricCriteria().getId())
-                .rubricCriteriaTitle(grade.getRubricCriteria().getTitle())
+                .rubricSubCriteriaId(grade.getRubricSubCriteria().getId())
+                .rubricSubCriteriaDescription(grade.getRubricSubCriteria().getDescription())
+                .rubricCriteriaId(grade.getRubricSubCriteria().getCriteria() != null ? grade.getRubricSubCriteria().getCriteria().getId() : null)
+                .rubricCriteriaTitle(grade.getRubricSubCriteria().getCriteria() != null ? grade.getRubricSubCriteria().getCriteria().getTitle() : null)
                 .awardedScore(grade.getAwardedScore())
                 .feedback(grade.getFeedback())
                 .build();

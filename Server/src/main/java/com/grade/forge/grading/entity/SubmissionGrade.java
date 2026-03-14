@@ -1,6 +1,6 @@
 package com.grade.forge.grading.entity;
 
-import com.grade.forge.rubric.entity.RubricCriteria;
+import com.grade.forge.rubric.entity.RubricSubCriteria;
 import com.grade.forge.submission.entity.Submission;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -29,8 +29,8 @@ public class SubmissionGrade {
     private Submission submission;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "rubric_criteria_id", nullable = false)
-    private RubricCriteria rubricCriteria;
+    @JoinColumn(name = "rubric_sub_criteria_id", nullable = false)
+    private RubricSubCriteria rubricSubCriteria;
 
     @Column(name = "awarded_score", nullable = false)
     private Integer awardedScore;
