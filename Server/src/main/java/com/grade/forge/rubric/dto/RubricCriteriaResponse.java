@@ -16,7 +16,7 @@ import java.util.List;
 public class RubricCriteriaResponse {
     private Long id;
     private String title;
-    private Integer points;
+    private double points;
     private List<RubricSubCriteriaResponse> subCriteria;
 }
 

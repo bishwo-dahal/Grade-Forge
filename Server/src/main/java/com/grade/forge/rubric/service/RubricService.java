@@ -154,7 +154,7 @@ public class RubricService {
         }
         boolean isUnweighted = RubricType.UNWEIGHTED.equals(rubricType);
         if (isUnweighted) {
-            if (request.getPoints() == null || request.getPoints() <= 0) {
+            if (request.getPoints() <= 0) {
                 throw new IllegalArgumentException("Criteria points must be a positive number for unweighted rubrics");
             }
             if (request.getSubCriteria() != null) {
@@ -200,7 +200,7 @@ public class RubricService {
                     if (RubricType.UNWEIGHTED.equals(rubricType)) {
                         criteria.setPoints(criteriaRequest.getPoints());
                     } else {
-                        criteria.setPoints(null);
+                        criteria.setPoints(0);
                     }
                     criteria.setRubric(rubric);
                     if (criteriaRequest.getSubCriteria() != null) {

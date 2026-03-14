@@ -1,5 +1,7 @@
 package com.grade.forge.rubric.dto;
 
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,7 +15,8 @@ import java.util.List;
 @AllArgsConstructor
 public class RubricCriteriaRequest {
     private String title;
-    private Integer points;
+    @JsonSetter(nulls = Nulls.SKIP)
+    private double points;
     private List<RubricSubCriteriaRequest> subCriteria;
 }
 

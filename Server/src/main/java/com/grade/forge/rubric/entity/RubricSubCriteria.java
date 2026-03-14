@@ -26,7 +26,7 @@ public class RubricSubCriteria {
     private String description;
 
 
-    private Integer maxScore;
+    private Double maxScore;
 
     private Double weight;
 

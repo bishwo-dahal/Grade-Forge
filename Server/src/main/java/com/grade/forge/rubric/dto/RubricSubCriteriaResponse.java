@@ -14,7 +14,7 @@ import lombok.Setter;
 public class RubricSubCriteriaResponse {
     private Long id;
     private String description;
-    private Integer maxScore;
+    private Double maxScore;
     private Double weight;
 }
 

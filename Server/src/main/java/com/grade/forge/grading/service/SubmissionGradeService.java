@@ -217,7 +217,7 @@ public class SubmissionGradeService {
         if (score < 0) {
             throw new IllegalArgumentException("awardedScore cannot be negative");
         }
-        Integer maxAllowed = subCriteria.getMaxScore();
+        Double maxAllowed = subCriteria.getMaxScore();
         if (maxAllowed != null && score > maxAllowed) {
             throw new IllegalArgumentException("awardedScore cannot exceed sub-criteria maxScore");
         }

@@ -475,10 +475,11 @@ public class DatabaseSeeder implements CommandLineRunner {
         return rubricRepository.save(rubric);
     }
 
-    private RubricCriteria buildCriteria(Rubric rubric, String title, String description, int maxScore) {
+    private RubricCriteria buildCriteria(Rubric rubric, String title, String description, double maxScore) {
         RubricCriteria criteria = new RubricCriteria();
         criteria.setRubric(rubric);
         criteria.setTitle(title);
+        criteria.setPoints(maxScore);
 
         RubricSubCriteria sub = new RubricSubCriteria();
         sub.setDescription(description);
