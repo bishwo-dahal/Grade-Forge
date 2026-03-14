@@ -145,3 +145,9 @@ export interface FacultySubmissionGradePayload {
   marks: number;
   feedback: string;
 }
+
+/** PATCH /api/v1/faculty/submissions/{submissionId}/grade request body (SubmissionGradeRequest: marks, feedback). */
+export interface SubmissionGradeRequest {
+  marks: number;
+  feedback: string;
+}

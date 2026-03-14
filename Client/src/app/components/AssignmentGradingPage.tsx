@@ -593,6 +593,23 @@ export function AssignmentGradingPage() {
                       ? `File: ${submissionFiles[0]?.fileName ?? "—"}`
                       : `Files: ${submissionFiles.length} files`}
                   </div>
+                  {isFaculty && (submissionMarks != null || (submissionFeedback != null && submissionFeedback.trim() !== "")) ? (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="text-[12px] font-medium text-gray-500 uppercase tracking-wide mb-1">Grade & feedback</div>
+                      <div className="text-[13px] text-[#2B2A2A]">
+                        <span className="font-medium">
+                          {submissionMarks != null
+                            ? `${submissionMarks} / ${assignment.points?.total ?? "—"}`
+                            : "—"}
+                        </span>
+                      </div>
+                      {submissionFeedback != null && submissionFeedback.trim() !== "" ? (
+                        <div className="mt-1.5 text-[12px] text-gray-600 line-clamp-3 break-words">
+                          {submissionFeedback.trim()}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Tabs */}

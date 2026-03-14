@@ -6,6 +6,7 @@ import type {
   SubmissionFileItem,
   SubmissionConsoleData,
   SubmissionDetail,
+  SubmissionGradeRequest,
   SubmissionSummary,
 } from "../types/submission";
 import api from "../api/axios";
@@ -221,7 +222,7 @@ interface FacultySubmissionListResponse {
   submittedAt?: string | null;
 }
 
-/** Full detail from GET /api/v1/faculty/submissions/{id} (when a submission is selected) */
+/** GET /api/v1/faculty/submissions/{submissionId} — full SubmissionResponse for a single submission */
 interface FacultySubmissionDetailResponse {
   id: number;
   assignmentId: number;
@@ -413,17 +414,18 @@ export async function getFacultySubmissionById(
   };
 }
 
+/** PATCH /api/v1/faculty/submissions/{submissionId}/grade — updates marks and feedback for the submission. */
 export async function submitFacultySubmissionGrade(payload: FacultySubmissionGradePayload): Promise<void> {
   const parsedSubmissionId = parseSubmissionId(payload.submissionId);
   if (!Number.isFinite(payload.marks) || payload.marks < 0) {
     throw new Error("Grade must be zero or higher.");
   }
 
-  // NOTE: Faculty grade updates map directly to backend submission grade endpoint used for final marks/feedback.
-  await api.put(`/api/v1/faculty/submissions/${parsedSubmissionId}/grade`, {
+  const body: SubmissionGradeRequest = {
     marks: payload.marks,
     feedback: payload.feedback,
-  });
+  };
+  await api.patch(`/api/v1/faculty/submissions/${parsedSubmissionId}/grade`, body);
 }
 
 export function resolvePreviewLanguage(fileName: string, fallbackLanguage: string): string {
