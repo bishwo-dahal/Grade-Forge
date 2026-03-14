@@ -8,6 +8,7 @@ import com.grade.forge.student.repository.StudentRepository;
 import com.grade.forge.submission.dto.SubmissionFileResponse;
 import com.grade.forge.submission.dto.SubmissionResponse;
 import com.grade.forge.submission.dto.SubmissionGradeRequest;
+import com.grade.forge.submission.dto.SubmissionSummaryResponse;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.entity.SubmissionFile;
 import com.grade.forge.submission.enums.SubmissionStatus;
@@ -124,7 +125,7 @@ public class SubmissionService {
     }
 
     @Transactional(readOnly = true)
-    public List<SubmissionResponse> getSubmissionsForFacultyByAssignment(String facultyEmail, Long assignmentId) {
+    public List<SubmissionSummaryResponse> getSubmissionsForFacultyByAssignment(String facultyEmail, Long assignmentId) {
         Faculty faculty = facultyRepository.findByEmail(facultyEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with email: " + facultyEmail));
 
@@ -137,7 +138,7 @@ public class SubmissionService {
 
         List<Submission> submissions = submissionRepository.findByAssignment_Id(assignmentId);
         return submissions.stream()
-                .map(this::mapToResponse)
+                .map(this::mapToSummaryResponse)
                 .toList();
     }
 
@@ -181,7 +182,7 @@ public class SubmissionService {
     }
 
     @Transactional(readOnly = true)
-    public List<SubmissionResponse> getSubmissionsForGradingAssistantByAssignment(Long gradingAssistantUserId, Long assignmentId) {
+    public List<SubmissionSummaryResponse> getSubmissionsForGradingAssistantByAssignment(Long gradingAssistantUserId, Long assignmentId) {
         GradingAssistant gradingAssistant = gradingAssistantRepository.findByUserId(gradingAssistantUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Grading assistant not found for user id: " + gradingAssistantUserId));
 
@@ -192,7 +193,7 @@ public class SubmissionService {
 
         List<Submission> submissions = submissionRepository.findByAssignment_Id(assignmentId);
         return submissions.stream()
-                .map(this::mapToResponse)
+                .map(this::mapToSummaryResponse)
                 .toList();
     }
 
@@ -264,6 +265,18 @@ public class SubmissionService {
                 .marks(submission.getMarks())
                 .feedback(submission.getFeedback())
                 .submittedAt(submission.getSubmittedAt())
+                .status(submission.getStatus())
+                .build();
+    }
+
+    private SubmissionSummaryResponse mapToSummaryResponse(Submission submission) {
+        return SubmissionSummaryResponse.builder()
+                .submissionId(submission.getId())
+                .studentId(submission.getStudent().getId())
+                .studentName(submission.getStudent().getUser().getName())
+                .studentEmail(submission.getStudent().getUser().getEmail())
+                .grade(submission.getMarks())
+                .feedback(submission.getFeedback())
                 .status(submission.getStatus())
                 .build();
     }
