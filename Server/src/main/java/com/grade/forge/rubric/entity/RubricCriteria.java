@@ -30,5 +30,13 @@ public class RubricCriteria {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "rubric_id", nullable = false)
     private Rubric rubric;
+
+    public void addSubCriteria(RubricSubCriteria subCriteria) {
+        if (subCriteria == null) {
+            return;
+        }
+        subCriteria.setCriteria(this);
+        this.subCriteria.add(subCriteria);
+    }
 }
 

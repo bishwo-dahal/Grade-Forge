@@ -1,12 +1,21 @@
 import api from "../api/axios";
 import type { Rubric, RubricCreatePayload, RubricSummary, RubricCriterion } from "../types/rubric";
 
+/** Flat criterion (legacy API). */
 interface RubricCriteriaApiResponse {
   id: number;
   title: string;
-  description: string | null;
+  description?: string | null;
+  maxScore?: number;
+  weight?: number | null;
+  subCriteria?: RubricSubCriteriaApiResponse[];
+}
+
+interface RubricSubCriteriaApiResponse {
+  id?: number;
+  description?: string | null;
   maxScore: number;
-  weight: number | null;
+  weight?: number | null;
 }
 
 interface RubricApiResponse {
@@ -17,13 +26,26 @@ interface RubricApiResponse {
   criteria: RubricCriteriaApiResponse[];
 }
 
-function mapCriterion(api: RubricCriteriaApiResponse): RubricCriterion {
+function mapCriterion(c: RubricCriteriaApiResponse): RubricCriterion {
+  if (c.subCriteria && c.subCriteria.length > 0) {
+    return {
+      id: c.id,
+      title: c.title,
+      subCriteria: c.subCriteria.map((s) => ({
+        id: s.id,
+        description: s.description ?? null,
+        maxScore: s.maxScore,
+        weight: s.weight ?? null,
+      })),
+    };
+  }
   return {
-    id: api.id,
-    title: api.title,
-    description: api.description,
-    maxScore: api.maxScore,
-    weight: api.weight,
+    id: c.id,
+    title: c.title,
+    description: c.description ?? null,
+    maxScore: c.maxScore ?? 0,
+    weight: c.weight ?? null,
+    subCriteria: [{ description: c.description, maxScore: c.maxScore ?? 0, weight: c.weight }],
   };
 }
 
@@ -38,15 +60,20 @@ function mapRubric(api: RubricApiResponse): Rubric {
 }
 
 function mapRubricToSummary(api: RubricApiResponse): RubricSummary {
-  const criteria = api.criteria ?? [];
-  const totalMaxScore = criteria.reduce((sum, c) => sum + (c.maxScore ?? 0), 0);
+  const criteria = (api.criteria ?? []).map(mapCriterion);
+  const totalMaxScore = criteria.reduce(
+    (sum, c) =>
+      sum +
+      (c.subCriteria?.reduce((s, sub) => s + (sub.maxScore ?? 0), 0) ?? (c.maxScore ?? 0)),
+    0,
+  );
   return {
     id: api.id,
     name: api.name,
     description: api.description,
     criteriaCount: criteria.length,
     totalMaxScore,
-    criteria: criteria.map(mapCriterion),
+    criteria,
   };
 }
 

@@ -172,8 +172,7 @@ public class RubricService {
                                 sub.setDescription(subRequest.getDescription());
                                 sub.setMaxScore(subRequest.getMaxScore());
                                 sub.setWeight(subRequest.getWeight());
-                                sub.setCriteria(criteria);
-                                criteria.getSubCriteria().add(sub);
+                                criteria.addSubCriteria(sub);
                             });
                     rubric.getCriteria().add(criteria);
                 });

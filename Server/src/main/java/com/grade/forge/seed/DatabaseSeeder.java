@@ -14,6 +14,7 @@ import com.grade.forge.programminglanguage.repository.ProgrammingLanguageReposit
 import com.grade.forge.rubric.entity.Rubric;
 import com.grade.forge.rubric.entity.RubricCriteria;
 import com.grade.forge.rubric.repository.RubricRepository;
+import com.grade.forge.rubric.entity.RubricSubCriteria;
 import com.grade.forge.semester.entity.Semester;
 import com.grade.forge.semester.repository.SemesterRepository;
 import com.grade.forge.student.entity.Student;
@@ -93,7 +94,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                                 "test_cases, test_suites, " +
                                 "enrollment, " +
                                 "assignments, courses, " +
-                                "rubric_criteria, rubrics, " +
+                                "rubric_sub_criteria, rubric_criteria, rubrics, " +
                                 "student, " +
                                 "semesters, " +
                                 "users, " +
@@ -478,6 +479,12 @@ public class DatabaseSeeder implements CommandLineRunner {
         RubricCriteria criteria = new RubricCriteria();
         criteria.setRubric(rubric);
         criteria.setTitle(title);
+
+        RubricSubCriteria sub = new RubricSubCriteria();
+        sub.setDescription(description);
+        sub.setMaxScore(maxScore);
+        sub.setWeight(null);
+        criteria.addSubCriteria(sub);
 
         return criteria;
     }

@@ -730,19 +730,35 @@ export async function listRubricCategories(assignmentId: string): Promise<Rubric
             `/api/v1/student/assignments/course/${workspaceSource.course.id}/${workspaceSource.assignment.id}/rubric`,
           )
         ).data;
-    const totalPoints = rubric.criteria.reduce((sum, criterion) => sum + criterion.maxScore, 0);
+    const flatCriteria: Array<{ id?: number; description: string; points: number; weight?: number | null }> = [];
+    let totalPoints = 0;
+    for (const criterion of rubric.criteria) {
+      if (criterion.subCriteria?.length) {
+        for (const sub of criterion.subCriteria) {
+          flatCriteria.push({
+            id: sub.id,
+            description: sub.description?.trim() ? sub.description : criterion.title,
+            points: sub.maxScore,
+            weight: sub.weight ?? null,
+          });
+          totalPoints += sub.maxScore;
+        }
+      } else {
+        const maxScore = criterion.maxScore ?? 0;
+        flatCriteria.push({
+          id: criterion.id,
+          description: criterion.description?.trim() ? `${criterion.title}: ${criterion.description}` : criterion.title,
+          points: maxScore,
+          weight: criterion.weight ?? null,
+        });
+        totalPoints += maxScore;
+      }
+    }
     return [
       {
         name: rubric.name,
         points: totalPoints,
-        criteria: rubric.criteria.map((criterion) => ({
-          id: criterion.id,
-          description: criterion.description?.trim()
-            ? `${criterion.title}: ${criterion.description}`
-            : criterion.title,
-          points: criterion.maxScore,
-          weight: criterion.weight,
-        })),
+        criteria: flatCriteria,
       },
     ];
   } catch {
