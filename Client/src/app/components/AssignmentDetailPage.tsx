@@ -474,16 +474,6 @@ export function AssignmentDetailPage({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={handleDownloadAll}
-                disabled={!canDownloadAll || downloadAllLoading || submissionsLoading}
-                title={canDownloadAll ? "Download all submissions as a ZIP (one folder per student)" : "No submissions with files to download"}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#5A7ACD] text-white rounded-lg text-[12px] font-medium hover:bg-[#4a6abd] disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <DownloadCloud className={`w-4 h-4 ${downloadAllLoading ? "animate-pulse" : ""}`} strokeWidth={2} />
-                <span>{downloadAllLoading ? "Preparing…" : "Download all"}</span>
-              </button>
-              <button
-                type="button"
                 onClick={onRefreshSubmissions}
                 disabled={submissionsLoading}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
@@ -509,8 +499,6 @@ export function AssignmentDetailPage({
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50 text-left text-[12px] font-semibold text-gray-500 uppercase tracking-wide">
                   <th className="px-6 py-3">Student</th>
-                  <th className="px-6 py-3">Submitted</th>
-                  <th className="px-6 py-3">Files</th>
                   <th className="px-6 py-3">Status</th>
                   <th className="px-6 py-3">Score</th>
                   <th className="px-6 py-3 text-right">Actions</th>
@@ -525,12 +513,6 @@ export function AssignmentDetailPage({
                     >
                       <td className="px-6 py-4">
                         <div className="h-4 w-32 rounded bg-gray-200 animate-pulse" />
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" />
                       </td>
                       <td className="px-6 py-4">
                         <div className="h-6 w-20 rounded-md bg-gray-100 animate-pulse" />
@@ -563,25 +545,6 @@ export function AssignmentDetailPage({
                           >
                             {row.studentName}
                           </Link>
-                        </td>
-                        <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">
-                          {row.submittedAt}
-                        </td>
-                        <td className="px-6 py-4">
-                          {row.primaryFileName ? (
-                            <div className="flex flex-col">
-                              <span className="text-[13px] text-[#2B2A2A]">
-                                {row.primaryFileName}
-                              </span>
-                              {row.additionalFileCount > 0 ? (
-                                <span className="text-[11px] text-gray-500">
-                                  +{row.additionalFileCount} more
-                                </span>
-                              ) : null}
-                            </div>
-                          ) : (
-                            <span className="text-[13px] text-gray-400">—</span>
-                          )}
                         </td>
                         <td className="px-6 py-4">
                           <span

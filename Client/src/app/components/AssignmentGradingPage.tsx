@@ -19,7 +19,7 @@ import { getRubric as getRubricFaculty } from "../../services/rubricService";
 import type { Rubric } from "../../types/rubric";
 import {
   fetchSubmissionFileText,
-  listFacultyAssignmentSubmissionFiles,
+  getFacultySubmissionById,
   resolvePreviewLanguage,
   submitFacultySubmissionGrade,
 } from "../../services/submissionService";
@@ -145,18 +145,14 @@ export function AssignmentGradingPage() {
     if (!assignmentId || !submissionId) return;
     const aId = assignmentId;
     const sId = submissionId;
-    const [assignData, descData, rubricData, rows] = await Promise.all([
-      getAssignmentDetailById(aId),
-      getAssignmentDescription(aId),
-      listRubricCategories(aId),
-      listFacultyAssignmentSubmissionFiles(aId),
-    ]);
-    const row = rows.find((r) => r.submissionId === sId) ?? rows.find((r) => String(r.submissionId) === String(sId));
-    if (!row) {
-      setError("Submission not found.");
-      return;
-    }
-    setAssignment(assignData);
+    try {
+      const [assignData, descData, rubricData, row] = await Promise.all([
+        getAssignmentDetailById(aId),
+        getAssignmentDescription(aId),
+        listRubricCategories(aId),
+        getFacultySubmissionById(sId),
+      ]);
+      setAssignment(assignData);
     setDescription(descData);
     setRubricCategories(rubricData);
     if (assignData.rubricId != null) {
@@ -175,7 +171,7 @@ export function AssignmentGradingPage() {
     setSubmittedAt(formatDate(row.submittedAt));
     setSubmissionLanguage(resolvePreviewLanguage(files[0].fileName, assignData.language));
     setSubmissionMarks(row.marks ?? null);
-    setSubmissionFeedback("");
+    setSubmissionFeedback(row.feedback ?? "");
     // Preload existing rubric grades for this submission (GET .../submission-grades/{submissionId}).
     try {
       const grades = await getSubmissionGrades(sId);
@@ -209,6 +205,9 @@ export function AssignmentGradingPage() {
         downloadUrl: f.downloadUrl ?? null,
       }))
     );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load submission.");
+    }
   }, [assignmentId, submissionId]);
 
   const loadGAData = useCallback(async () => {
