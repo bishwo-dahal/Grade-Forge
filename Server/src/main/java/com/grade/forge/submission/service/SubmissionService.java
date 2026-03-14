@@ -141,6 +141,21 @@ public class SubmissionService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public SubmissionResponse getSubmissionForFaculty(String facultyEmail, Long submissionId) {
+        Faculty faculty = facultyRepository.findByEmail(facultyEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with email: " + facultyEmail));
+
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
+
+        if (!submission.getAssignment().getCourse().getFaculty().getId().equals(faculty.getId())) {
+            throw new IllegalArgumentException("You are not allowed to view this submission");
+        }
+
+        return mapToResponse(submission);
+    }
+
     @Transactional
     public SubmissionResponse updateGradeForSubmission(String facultyEmail, Long submissionId, SubmissionGradeRequest request) {
         Faculty faculty = facultyRepository.findByEmail(facultyEmail)
@@ -179,6 +194,19 @@ public class SubmissionService {
         return submissions.stream()
                 .map(this::mapToResponse)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public SubmissionResponse getSubmissionForGradingAssistant(Long gradingAssistantUserId, Long submissionId) {
+        GradingAssistant gradingAssistant = gradingAssistantRepository.findByUserId(gradingAssistantUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Grading assistant not found for user id: " + gradingAssistantUserId));
+
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
+
+        validateGradingAssistantCourseAccess(gradingAssistant.getId(), submission.getAssignment().getCourse().getId());
+
+        return mapToResponse(submission);
     }
 
     @Transactional

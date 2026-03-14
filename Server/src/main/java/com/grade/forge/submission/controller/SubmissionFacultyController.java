@@ -33,4 +33,11 @@ public class SubmissionFacultyController {
         SubmissionResponse response = submissionService.updateGradeForSubmission(customUserDetails.getUsername(), submissionId, request);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
+
+    @GetMapping("/{submissionId}")
+    public ResponseEntity<SubmissionResponse> getSubmission(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                            @PathVariable Long submissionId) {
+        SubmissionResponse response = submissionService.getSubmissionForFaculty(customUserDetails.getUsername(), submissionId);
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
 }

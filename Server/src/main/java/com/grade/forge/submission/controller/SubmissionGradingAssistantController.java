@@ -44,5 +44,12 @@ public class SubmissionGradingAssistantController {
         SubmissionResponse response = submissionService.updateGradeForSubmissionByGradingAssistant(customUserDetails.getUserId(), submissionId, request);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
+
+    @GetMapping("/{submissionId}")
+    public ResponseEntity<SubmissionResponse> getSubmission(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                            @PathVariable Long submissionId) {
+        SubmissionResponse response = submissionService.getSubmissionForGradingAssistant(customUserDetails.getUserId(), submissionId);
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
 }
 
