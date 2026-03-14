@@ -40,7 +40,7 @@ export interface AssignmentDetailPageAssignment {
   rubricName?: string | null;
 }
 
-/** Single rubric criterion for display. */
+/** Single rubric criterion for display (flat, used when no subCriteria). */
 export interface AssignmentDetailPageRubricCriterion {
   title: string;
   maxScore?: number | null;
@@ -48,11 +48,27 @@ export interface AssignmentDetailPageRubricCriterion {
   weight?: number | null;
 }
 
+/** Sub-criterion for hierarchical rubric display. */
+export interface AssignmentDetailPageRubricSubCriterion {
+  description?: string | null;
+  maxScore: number;
+  weight?: number | null;
+}
+
+/** Criterion with nested sub-criteria (faculty rubric from API). */
+export interface AssignmentDetailPageRubricCriterionNested {
+  title: string;
+  subCriteria: AssignmentDetailPageRubricSubCriterion[];
+}
+
 /** Rubric section passed from either faculty (categories) or GA (criteria) API. */
 export interface AssignmentDetailPageRubricSection {
   name?: string | null;
   description?: string | null;
+  /** Flat criteria (GA or legacy). */
   criteria: AssignmentDetailPageRubricCriterion[];
+  /** Nested criteria (faculty rubric with criteria → subCriteria). When set, UI shows hierarchy. */
+  criteriaNested?: AssignmentDetailPageRubricCriterionNested[] | null;
   loading?: boolean;
 }
 
@@ -319,6 +335,41 @@ export function AssignmentDetailPage({
                   </h3>
                   {rubricSection.loading ? (
                     <p className="text-[14px] text-gray-500">Loading rubric…</p>
+                  ) : (rubricSection.criteriaNested?.length ?? 0) > 0 ? (
+                    <div className="space-y-4">
+                      {rubricSection.name ? (
+                        <p className="text-[14px] font-medium text-[#2B2A2A]">{rubricSection.name}</p>
+                      ) : null}
+                      {rubricSection.description ? (
+                        <p className="text-[13px] text-gray-600">{rubricSection.description}</p>
+                      ) : null}
+                      <div className="space-y-4">
+                        {(rubricSection.criteriaNested ?? []).map((criterion, cIdx) => (
+                          <div key={cIdx} className="rounded-lg border border-[#EEF3FF] bg-[#FAFBFF] overflow-hidden">
+                            <div className="px-3 py-2 border-b border-[#EEF3FF] bg-[#F3F6FB]">
+                              <span className="text-[13px] font-semibold text-[#2B2A2A]">
+                                {criterion.title || `Criterion ${cIdx + 1}`}
+                              </span>
+                            </div>
+                            <ul className="divide-y divide-gray-100">
+                              {criterion.subCriteria.map((sub, sIdx) => (
+                                <li key={sIdx} className="px-3 py-2.5 text-[13px] text-[#2B2A2A]">
+                                  {sub.description ? (
+                                    <p className="text-[#2B2A2A]">{sub.description}</p>
+                                  ) : null}
+                                  <p className="mt-0.5 text-[12px] text-gray-500">
+                                    Max {sub.maxScore} pts
+                                    {sub.weight != null ? (
+                                      <span> · Weight {sub.weight}%</span>
+                                    ) : null}
+                                  </p>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   ) : rubricSection.criteria.length > 0 ? (
                     <div className="space-y-3">
                       {rubricSection.name ? (
