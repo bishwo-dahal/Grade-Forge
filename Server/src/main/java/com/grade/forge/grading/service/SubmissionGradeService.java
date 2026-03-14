@@ -213,7 +213,7 @@ public class SubmissionGradeService {
         }
     }
 
-    private void validateScore(RubricSubCriteria subCriteria, Integer score) {
+    private void validateScore(RubricSubCriteria subCriteria, Double score) {
         if (score < 0) {
             throw new IllegalArgumentException("awardedScore cannot be negative");
         }
