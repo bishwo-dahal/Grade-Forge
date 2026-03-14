@@ -141,6 +141,11 @@ export function AssignmentGradingPage() {
     : `/grading-assistant/class/${classId}/assignment/${assignmentId}`;
   const backLabel = "Back to assignment";
 
+  const resolvedSubmissionId =
+    submissionId != null && submissionId !== "" && Number.isFinite(Number(submissionId))
+      ? String(submissionId)
+      : null;
+
   const loadFacultyData = useCallback(async () => {
     if (!assignmentId || !submissionId) return;
     const aId = assignmentId;
@@ -220,7 +225,7 @@ export function AssignmentGradingPage() {
       getAssignmentByCourse(cId, aId),
       listSubmissionsByAssignment(aId),
     ]);
-    const sub = list.find((s) => s.id === sId) ?? null;
+    const sub = list.find((s) => (s.submissionId ?? s.id) === sId) ?? null;
     if (!sub) {
       setError("Submission not found.");
       return;
@@ -252,7 +257,7 @@ export function AssignmentGradingPage() {
       rubric: [],
       constraints: [],
     });
-    setStudentName(sub.studentName ?? sub.studentEmail ?? `Submission #${sub.id}`);
+    setStudentName(sub.studentName ?? sub.studentEmail ?? `Submission #${sub.submissionId ?? sub.id}`);
     setStudentEmail(sub.studentEmail ?? null);
     setSubmittedAt(formatDate(sub.submittedAt ?? undefined));
     setSubmissionLanguage(assignData.languageName ?? "Python");
@@ -293,22 +298,23 @@ export function AssignmentGradingPage() {
 
   // Load latest test run for this submission (created on student submit or manual "Run tests").
   useEffect(() => {
-    if (!submissionId) return;
-    getRunTestsLatest(submissionId)
+    if (!resolvedSubmissionId) return;
+    getRunTestsLatest(resolvedSubmissionId)
       .then((data) => data && setRunResult(data))
       .catch(() => setRunResult(null));
-  }, [submissionId]);
+  }, [resolvedSubmissionId]);
 
   // Poll while queued/running so faculty/GA sees results as soon as the consumer finishes.
   useEffect(() => {
-    if (!runResult || runResult.status === "COMPLETED" || runResult.status === "FAILED") return;
+    if (!resolvedSubmissionId || !runResult || runResult.status === "COMPLETED" || runResult.status === "FAILED")
+      return;
     const interval = setInterval(() => {
-      getRunTestsLatest(submissionId!)
+      getRunTestsLatest(resolvedSubmissionId)
         .then((data) => data && setRunResult(data))
         .catch(() => {});
     }, 10000);
     return () => clearInterval(interval);
-  }, [submissionId, runResult?.status]);
+  }, [resolvedSubmissionId, runResult?.status]);
 
   const scoreItems = useMemo(
     () => [
@@ -338,12 +344,12 @@ export function AssignmentGradingPage() {
         }
         return;
       }
-      if (!submissionId) return;
+      if (!resolvedSubmissionId) return;
       setRunLoading(true);
       setRunError(null);
       try {
-        await requestRunTests(submissionId);
-        const job = await pollRunTestsUntilDone(submissionId);
+        await requestRunTests(resolvedSubmissionId);
+        const job = await pollRunTestsUntilDone(resolvedSubmissionId);
         setRunResult(job);
         setActiveTab("tests");
       } catch (e) {
@@ -354,7 +360,7 @@ export function AssignmentGradingPage() {
         setRunLoading(false);
       }
     },
-    [assignmentId, submissionId]
+    [assignmentId, resolvedSubmissionId]
   );
 
   const handleOpenGradeClick = useCallback(async () => {

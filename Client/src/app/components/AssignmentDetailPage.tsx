@@ -657,13 +657,14 @@ function mapGASubmissions(
         downloadUrl: f.downloadUrl ?? f.url ?? "",
       }))
       .filter((f) => Boolean(f.downloadUrl));
-    const status = s.marks == null ? "Ungraded" : "Graded";
+    const status = (s.marks ?? s.grade) == null ? "Ungraded" : "Graded";
+    const subId = s.submissionId ?? s.id;
     return {
-      submissionId: String(s.id),
-      studentName: s.studentName ?? s.studentEmail ?? `Submission #${s.id}`,
+      submissionId: String(subId ?? ""),
+      studentName: s.studentName ?? s.studentEmail ?? `Submission #${subId ?? "?"}`,
       submittedAt: formatSubmissionDisplayDate(s.submittedAt ?? undefined),
       status,
-      marks: s.marks ?? null,
+      marks: s.marks ?? s.grade ?? null,
       primaryFileName: primary?.fileName ?? null,
       additionalFileCount: Math.max(0, files.length - 1),
       primaryDownloadUrl: primary?.downloadUrl ?? primary?.url ?? null,
