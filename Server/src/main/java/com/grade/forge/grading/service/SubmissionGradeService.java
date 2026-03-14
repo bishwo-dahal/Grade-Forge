@@ -1,6 +1,8 @@
 package com.grade.forge.grading.service;
 
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
+import com.grade.forge.grading.dto.SubmissionGradeBatchResponse;
+import com.grade.forge.grading.dto.SubmissionGradeItemResponse;
 import com.grade.forge.grading.dto.SubmissionGradeRequest;
 import com.grade.forge.grading.dto.SubmissionGradeResponse;
 import com.grade.forge.grading.dto.SubmissionGradeBatchRequest;
@@ -36,7 +38,7 @@ public class SubmissionGradeService {
     private final RubricSubCriteriaRepository rubricSubCriteriaRepository;
 
 
-    public List<SubmissionGradeResponse> createGrades(SubmissionGradeBatchRequest request) {
+    public SubmissionGradeBatchResponse createGrades(SubmissionGradeBatchRequest request) {
         validateBatchRequest(request);
 
         Submission submission = submissionRepository.findById(request.getSubmissionId())
@@ -47,12 +49,10 @@ public class SubmissionGradeService {
         List<SubmissionGrade> savedGrades = submissionGradeRepository.saveAll(gradesToSave);
         submission.setStatus(SubmissionStatus.GRADED);
         submissionRepository.save(submission);
-        return savedGrades.stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return mapToBatchResponse(submission.getId(), savedGrades);
     }
 
-    public List<SubmissionGradeResponse> replaceGrades(Long submissionId, SubmissionGradeBatchRequest request) {
+    public SubmissionGradeBatchResponse replaceGrades(Long submissionId, SubmissionGradeBatchRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("request is required");
         }
@@ -76,9 +76,7 @@ public class SubmissionGradeService {
         List<SubmissionGrade> savedGrades = submissionGradeRepository.saveAll(gradesToSave);
         submission.setStatus(SubmissionStatus.GRADED);
         submissionRepository.save(submission);
-        return savedGrades.stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return mapToBatchResponse(submission.getId(), savedGrades);
     }
 
     public SubmissionGradeResponse updateGrade(Long id, SubmissionGradeRequest request) {
@@ -111,12 +109,20 @@ public class SubmissionGradeService {
     }
 
     @Transactional(readOnly = true)
-    public List<SubmissionGradeResponse> getGradesBySubmission(Long submissionId) {
+    public SubmissionGradeBatchResponse getGradeBatch(Long id) {
+        SubmissionGrade grade = submissionGradeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission grade not found with id: " + id));
+        Long submissionId = grade.getSubmission().getId();
+        List<SubmissionGrade> grades = submissionGradeRepository.findBySubmission_Id(submissionId);
+        return mapToBatchResponse(submissionId, grades);
+    }
+
+    @Transactional(readOnly = true)
+    public SubmissionGradeBatchResponse getGradesBySubmission(Long submissionId) {
         submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
-        return submissionGradeRepository.findBySubmission_Id(submissionId).stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        List<SubmissionGrade> grades = submissionGradeRepository.findBySubmission_Id(submissionId);
+        return mapToBatchResponse(submissionId, grades);
     }
 
     @Transactional(readOnly = true)
@@ -227,6 +233,20 @@ public class SubmissionGradeService {
                 .rubricCriteriaTitle(grade.getRubricSubCriteria().getCriteria() != null ? grade.getRubricSubCriteria().getCriteria().getTitle() : null)
                 .awardedScore(grade.getAwardedScore())
                 .feedback(grade.getFeedback())
+                .build();
+    }
+
+    private SubmissionGradeBatchResponse mapToBatchResponse(Long submissionId, List<SubmissionGrade> grades) {
+        List<SubmissionGradeItemResponse> gradeResponses = grades.stream()
+                .map(grade -> SubmissionGradeItemResponse.builder()
+                        .rubricSubCriteriaId(grade.getRubricSubCriteria().getId())
+                        .awardedScore(grade.getAwardedScore())
+                        .feedback(grade.getFeedback())
+                        .build())
+                .collect(Collectors.toList());
+        return SubmissionGradeBatchResponse.builder()
+                .submissionId(submissionId)
+                .grades(gradeResponses)
                 .build();
     }
 }
