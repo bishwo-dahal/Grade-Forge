@@ -1,7 +1,6 @@
 package com.grade.forge.grading.controller;
 
 import com.grade.forge.grading.dto.SubmissionGradeBatchRequest;
-import com.grade.forge.grading.dto.SubmissionGradeRequest;
 import com.grade.forge.grading.dto.SubmissionGradeResponse;
 import com.grade.forge.grading.service.SubmissionGradeService;
 import lombok.RequiredArgsConstructor;
@@ -27,8 +26,9 @@ public class SubmissionGradeController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<SubmissionGradeResponse> update(@PathVariable Long id, @RequestBody SubmissionGradeRequest request) {
-        SubmissionGradeResponse updated = submissionGradeService.updateGrade(id, request);
+    public ResponseEntity<List<SubmissionGradeResponse>> update(@PathVariable("id") Long submissionId,
+                                                                @RequestBody SubmissionGradeBatchRequest request) {
+        List<SubmissionGradeResponse> updated = submissionGradeService.replaceGrades(submissionId, request);
         return new ResponseEntity<>(updated, HttpStatus.OK);
     }
 
