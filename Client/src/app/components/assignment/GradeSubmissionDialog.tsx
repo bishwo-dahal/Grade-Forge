@@ -9,6 +9,7 @@ import {
   DialogDescription,
 } from "../ui/dialog";
 import type { RubricCategory } from "../../../types/grade";
+import type { Rubric } from "../../../types/rubric";
 
 export interface GradeSubmissionDialogProps {
   open: boolean;
@@ -16,6 +17,8 @@ export interface GradeSubmissionDialogProps {
   /** When true, show rubric criteria inputs; otherwise single marks input */
   hasRubric: boolean;
   rubricCategories: RubricCategory[];
+  /** Nested rubric (criteria with subCriteria) for faculty; when set, description shown at top and table shows criterion → sub-criteria rows */
+  rubricNested?: Rubric | null;
   /** Existing per-criterion grades for faculty rubric grading (keyed by rubric criteria id). */
   rubricExistingGrades?: Record<
     number,
@@ -70,11 +73,17 @@ function distributeMarksAcrossCriteria(
   return scores;
 }
 
+/** Whether rubric has nested criteria (criteria[].subCriteria) for hierarchical display */
+function hasNestedCriteria(rubric: Rubric | null | undefined): boolean {
+  return (rubric?.criteria?.some((c) => (c.subCriteria?.length ?? 0) > 0) ?? false);
+}
+
 export function GradeSubmissionDialog({
   open,
   onOpenChange,
   hasRubric,
   rubricCategories,
+  rubricNested,
   rubricExistingGrades,
   maxPoints,
   currentMarks,
@@ -225,6 +234,16 @@ export function GradeSubmissionDialog({
 
             {hasRubric ? (
               <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-1 -mr-1">
+                {rubricNested && hasNestedCriteria(rubricNested) && (
+                  <div className="rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] px-4 py-3">
+                    {rubricNested.name ? (
+                      <p className="text-[14px] font-semibold text-[#2B2A2A]">{rubricNested.name}</p>
+                    ) : null}
+                    {rubricNested.description ? (
+                      <p className="mt-1 text-[13px] text-gray-600">{rubricNested.description}</p>
+                    ) : null}
+                  </div>
+                )}
                 <div className="overflow-x-auto rounded-xl border border-gray-200 bg-[#F9FAFB]">
                   <table className="min-w-full border-separate border-spacing-0 text-left">
                     <thead className="bg-[#E4E7EC] text-[12px] font-semibold text-[#1F2430]">
@@ -237,83 +256,175 @@ export function GradeSubmissionDialog({
                       </tr>
                     </thead>
                     <tbody className="text-[13px] text-[#1F2430]">
-                      {rubricCategories.map((category, catIndex) =>
-                        category.criteria.map((criterion, critIndex) => {
-                          const flatIndex =
-                            rubricCategories
-                              .slice(0, catIndex)
-                              .reduce((acc, c) => acc + c.criteria.length, 0) + critIndex;
-                          const max = criterion.points ?? 0;
-                          const grade = criterionScores[flatIndex] ?? 0;
-                          const percentOfMax =
-                            rubricMax > 0 && max > 0 ? (max / rubricMax) * 100 : 0;
-                          const pts =
-                            rubricMax > 0 ? (grade * maxPoints) / rubricMax : 0;
-                          const comment = criterionComments[flatIndex] ?? "";
+                      {rubricNested && hasNestedCriteria(rubricNested)
+                        ? rubricNested.criteria
+                            .filter((c) => (c.subCriteria?.length ?? 0) > 0)
+                            .map((criterion, cIdx) => {
+                              const subList = criterion.subCriteria ?? [];
+                              return (
+                                <React.Fragment key={cIdx}>
+                                  <tr className="border-t border-gray-200 bg-[#F3F6FB]">
+                                    <td colSpan={5} className="px-4 py-2 align-middle">
+                                      <span className="text-[13px] font-semibold text-[#1F2430]">
+                                        {criterion.title || `Criterion ${cIdx + 1}`}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                  {subList.map((sub, sIdx) => {
+                                    const flatIndex = rubricNested.criteria
+                                      .filter((cr) => (cr.subCriteria?.length ?? 0) > 0)
+                                      .slice(0, cIdx)
+                                      .reduce((acc, cr) => acc + (cr.subCriteria?.length ?? 0), 0) + sIdx;
+                                    const max = sub.maxScore ?? 0;
+                                    const grade = criterionScores[flatIndex] ?? 0;
+                                    const percentOfMax =
+                                      rubricMax > 0 && max > 0 ? (max / rubricMax) * 100 : 0;
+                                    const pts =
+                                      rubricMax > 0 ? (grade * maxPoints) / rubricMax : 0;
+                                    const comment = criterionComments[flatIndex] ?? "";
+                                    return (
+                                      <tr
+                                        key={`${cIdx}-${sIdx}`}
+                                        className="border-t border-gray-200 bg-white last:rounded-b-xl [&:last-child>td:first-child]:rounded-bl-xl [&:last-child>td:last-child]:rounded-br-xl"
+                                      >
+                                        <td className="px-4 py-3 align-top pl-6">
+                                          <div className="text-[12px] text-[#2B2A2A]">
+                                            {sub.description ?? "—"}
+                                          </div>
+                                          <div className="mt-0.5 text-[11px] text-gray-500">
+                                            {max} pts
+                                            {sub.weight != null ? ` · ${sub.weight}%` : ""}
+                                          </div>
+                                        </td>
+                                        <td className="w-[80px] px-3 py-3 align-top">
+                                          <div className="flex items-center justify-end gap-1">
+                                            <input
+                                              type="number"
+                                              min={0}
+                                              max={max}
+                                              step={1}
+                                              value={grade}
+                                              onChange={(e) => {
+                                                const v = parseInt(e.target.value, 10);
+                                                if (!Number.isFinite(v)) return;
+                                                setCriterionScores((prev) => {
+                                                  const next = [...prev];
+                                                  next[flatIndex] = Math.max(0, Math.min(max, v));
+                                                  return next;
+                                                });
+                                              }}
+                                              className="h-8 w-14 rounded-lg border border-gray-300 bg-white px-2 text-right text-[13px] tabular-nums text-[#1F2430] focus:border-[#5A7ACD] focus:ring-1 focus:ring-[#5A7ACD]/30 outline-none"
+                                            />
+                                          </div>
+                                        </td>
+                                        <td className="w-[80px] px-3 py-3 align-top text-right">
+                                          <span className="text-[12px] text-gray-700">
+                                            {rubricMax > 0 && max > 0 ? `${percentOfMax.toFixed(1)}%` : "—"}
+                                          </span>
+                                        </td>
+                                        <td className="w-[80px] px-3 py-3 align-top text-right">
+                                          <span className="text-[12px] text-gray-700">
+                                            {pts.toFixed(2)}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-3 align-top">
+                                          <textarea
+                                            rows={2}
+                                            value={comment}
+                                            onChange={(e) =>
+                                              setCriterionComments((prev) => {
+                                                const next = [...prev];
+                                                next[flatIndex] = e.target.value;
+                                                return next;
+                                              })
+                                            }
+                                            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-[#5A7ACD] focus:ring-1 focus:ring-[#5A7ACD]/30 outline-none"
+                                            placeholder="Comments…"
+                                          />
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </React.Fragment>
+                              );
+                            })
+                        : rubricCategories.map((category, catIndex) =>
+                            category.criteria.map((criterion, critIndex) => {
+                              const flatIndex =
+                                rubricCategories
+                                  .slice(0, catIndex)
+                                  .reduce((acc, c) => acc + c.criteria.length, 0) + critIndex;
+                              const max = criterion.points ?? 0;
+                              const grade = criterionScores[flatIndex] ?? 0;
+                              const percentOfMax =
+                                rubricMax > 0 && max > 0 ? (max / rubricMax) * 100 : 0;
+                              const pts =
+                                rubricMax > 0 ? (grade * maxPoints) / rubricMax : 0;
+                              const comment = criterionComments[flatIndex] ?? "";
 
-                          return (
-                            <tr
-                              key={`${catIndex}-${critIndex}`}
-                              className="border-t border-gray-200 bg-white last:rounded-b-xl [&:last-child>td:first-child]:rounded-bl-xl [&:last-child>td:last-child]:rounded-br-xl"
-                            >
-                              <td className="px-4 py-3 align-top">
-                                <div className="text-[12px] font-semibold text-[#2B2A2A]">
-                                  {criterion.description ?? "Criterion"}
-                                </div>
-                                <div className="mt-0.5 text-[11px] text-gray-500">
-                                  {category.name}
-                                </div>
-                              </td>
-                              <td className="w-[80px] px-3 py-3 align-top">
-                                <div className="flex items-center justify-end gap-1">
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    max={max}
-                                    step={1}
-                                    value={grade}
-                                    onChange={(e) => {
-                                      const v = parseInt(e.target.value, 10);
-                                      if (!Number.isFinite(v)) return;
-                                      setCriterionScores((prev) => {
-                                        const next = [...prev];
-                                        next[flatIndex] = Math.max(0, Math.min(max, v));
-                                        return next;
-                                      });
-                                    }}
-                                    className="h-8 w-14 rounded-lg border border-gray-300 bg-white px-2 text-right text-[13px] tabular-nums text-[#1F2430] focus:border-[#5A7ACD] focus:ring-1 focus:ring-[#5A7ACD]/30 outline-none"
-                                  />
-                                </div>
-                              </td>
-                              <td className="w-[80px] px-3 py-3 align-top text-right">
-                                <span className="text-[12px] text-gray-700">
-                                  {rubricMax > 0 && max > 0 ? `${percentOfMax.toFixed(1)}%` : "—"}
-                                </span>
-                              </td>
-                              <td className="w-[80px] px-3 py-3 align-top text-right">
-                                <span className="text-[12px] text-gray-700">
-                                  {pts.toFixed(2)}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 align-top">
-                                <textarea
-                                  rows={2}
-                                  value={comment}
-                                  onChange={(e) =>
-                                    setCriterionComments((prev) => {
-                                      const next = [...prev];
-                                      next[flatIndex] = e.target.value;
-                                      return next;
-                                    })
-                                  }
-                                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-[#5A7ACD] focus:ring-1 focus:ring-[#5A7ACD]/30 outline-none"
-                                  placeholder="Comments for this criterion…"
-                                />
-                              </td>
-                            </tr>
-                          );
-                        }),
-                      )}
+                              return (
+                                <tr
+                                  key={`${catIndex}-${critIndex}`}
+                                  className="border-t border-gray-200 bg-white last:rounded-b-xl [&:last-child>td:first-child]:rounded-bl-xl [&:last-child>td:last-child]:rounded-br-xl"
+                                >
+                                  <td className="px-4 py-3 align-top">
+                                    <div className="text-[12px] font-semibold text-[#2B2A2A]">
+                                      {criterion.description ?? "Criterion"}
+                                    </div>
+                                    <div className="mt-0.5 text-[11px] text-gray-500">
+                                      {category.name}
+                                    </div>
+                                  </td>
+                                  <td className="w-[80px] px-3 py-3 align-top">
+                                    <div className="flex items-center justify-end gap-1">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={max}
+                                        step={1}
+                                        value={grade}
+                                        onChange={(e) => {
+                                          const v = parseInt(e.target.value, 10);
+                                          if (!Number.isFinite(v)) return;
+                                          setCriterionScores((prev) => {
+                                            const next = [...prev];
+                                            next[flatIndex] = Math.max(0, Math.min(max, v));
+                                            return next;
+                                          });
+                                        }}
+                                        className="h-8 w-14 rounded-lg border border-gray-300 bg-white px-2 text-right text-[13px] tabular-nums text-[#1F2430] focus:border-[#5A7ACD] focus:ring-1 focus:ring-[#5A7ACD]/30 outline-none"
+                                      />
+                                    </div>
+                                  </td>
+                                  <td className="w-[80px] px-3 py-3 align-top text-right">
+                                    <span className="text-[12px] text-gray-700">
+                                      {rubricMax > 0 && max > 0 ? `${percentOfMax.toFixed(1)}%` : "—"}
+                                    </span>
+                                  </td>
+                                  <td className="w-[80px] px-3 py-3 align-top text-right">
+                                    <span className="text-[12px] text-gray-700">
+                                      {pts.toFixed(2)}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 align-top">
+                                    <textarea
+                                      rows={2}
+                                      value={comment}
+                                      onChange={(e) =>
+                                        setCriterionComments((prev) => {
+                                          const next = [...prev];
+                                          next[flatIndex] = e.target.value;
+                                          return next;
+                                        })
+                                      }
+                                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-[#5A7ACD] focus:ring-1 focus:ring-[#5A7ACD]/30 outline-none"
+                                      placeholder="Comments for this criterion…"
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            }),
+                          )}
                     </tbody>
                   </table>
                 </div>

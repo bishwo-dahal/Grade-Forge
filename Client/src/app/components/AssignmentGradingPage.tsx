@@ -15,6 +15,8 @@ import {
   getAssignmentDetailById,
   listRubricCategories,
 } from "../../services/assignmentService";
+import { getRubric as getRubricFaculty } from "../../services/rubricService";
+import type { Rubric } from "../../types/rubric";
 import {
   fetchSubmissionFileText,
   listFacultyAssignmentSubmissionFiles,
@@ -109,6 +111,7 @@ export function AssignmentGradingPage() {
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [description, setDescription] = useState<AssignmentDescription | null>(null);
   const [rubricCategories, setRubricCategories] = useState<RubricCategory[]>([]);
+  const [rubricNested, setRubricNested] = useState<Rubric | null>(null);
   const [submissionFiles, setSubmissionFiles] = useState<{ fileName: string; content: string }[]>([]);
   const [submissionFileLinks, setSubmissionFileLinks] = useState<{ fileName: string; downloadUrl: string | null }[]>([]);
   const [submissionLanguage, setSubmissionLanguage] = useState<string>("Python");
@@ -157,6 +160,13 @@ export function AssignmentGradingPage() {
     setAssignment(assignData);
     setDescription(descData);
     setRubricCategories(rubricData);
+    if (assignData.rubricId != null) {
+      getRubricFaculty(assignData.rubricId)
+        .then(setRubricNested)
+        .catch(() => setRubricNested(null));
+    } else {
+      setRubricNested(null);
+    }
     const files = row.files ?? [];
     if (!files.length) {
       setError("Submission or files not found.");
@@ -707,6 +717,7 @@ export function AssignmentGradingPage() {
         onOpenChange={setGradeDialogOpen}
         hasRubric={rubricCategories.length > 0}
         rubricCategories={rubricCategories}
+        rubricNested={isFaculty ? rubricNested : undefined}
         rubricExistingGrades={isFaculty ? rubricExistingGrades : undefined}
         maxPoints={assignment.points?.total ?? 100}
         currentMarks={submissionMarks}
