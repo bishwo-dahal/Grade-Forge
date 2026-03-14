@@ -346,6 +346,11 @@ export function GradeSubmissionDialog({
                                     <td colSpan={isUnweighted ? 3 : 5} className="px-4 py-2 align-middle">
                                       <span className="text-[13px] font-semibold text-[#1F2430]">
                                         {criterion.title || `Criterion ${cIdx + 1}`}
+                                        {isUnweighted && criterion.points != null && (
+                                          <span className="ml-1.5 font-normal text-[#5D6A80]">
+                                            ({criterion.points} pts)
+                                          </span>
+                                        )}
                                       </span>
                                     </td>
                                   </tr>
