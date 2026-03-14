@@ -1,5 +1,6 @@
 package com.grade.forge.grading.controller;
 
+import com.grade.forge.grading.dto.SubmissionGradeBatchRequest;
 import com.grade.forge.grading.dto.SubmissionGradeRequest;
 import com.grade.forge.grading.dto.SubmissionGradeResponse;
 import com.grade.forge.grading.service.SubmissionGradeService;
@@ -20,8 +21,8 @@ public class SubmissionGradeController {
     private final SubmissionGradeService submissionGradeService;
 
     @PostMapping
-    public ResponseEntity<SubmissionGradeResponse> create(@RequestBody SubmissionGradeRequest request) {
-        SubmissionGradeResponse created = submissionGradeService.createGrade(request);
+    public ResponseEntity<List<SubmissionGradeResponse>> create(@RequestBody SubmissionGradeBatchRequest request) {
+        List<SubmissionGradeResponse> created = submissionGradeService.createGrades(request);
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
 
@@ -49,4 +50,3 @@ public class SubmissionGradeController {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 }
-

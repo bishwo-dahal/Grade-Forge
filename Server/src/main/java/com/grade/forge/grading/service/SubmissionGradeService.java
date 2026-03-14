@@ -3,6 +3,8 @@ package com.grade.forge.grading.service;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.grading.dto.SubmissionGradeRequest;
 import com.grade.forge.grading.dto.SubmissionGradeResponse;
+import com.grade.forge.grading.dto.SubmissionGradeBatchRequest;
+import com.grade.forge.grading.dto.SubmissionGradeItemRequest;
 import com.grade.forge.grading.entity.SubmissionGrade;
 import com.grade.forge.grading.repository.SubmissionGradeRepository;
 import com.grade.forge.rubric.entity.Rubric;
@@ -17,8 +19,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.Set;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.function.Function;
 
 @Service
 @RequiredArgsConstructor
@@ -30,26 +36,57 @@ public class SubmissionGradeService {
     private final RubricSubCriteriaRepository rubricSubCriteriaRepository;
 
     public SubmissionGradeResponse createGrade(SubmissionGradeRequest request) {
-        validateCreateRequest(request);
+        SubmissionGradeBatchRequest batchRequest = SubmissionGradeBatchRequest.builder()
+                .submissionId(request != null ? request.getSubmissionId() : null)
+                .grades(List.of(SubmissionGradeItemRequest.builder()
+                        .rubricSubCriteriaId(request != null ? request.getRubricSubCriteriaId() : null)
+                        .awardedScore(request != null ? request.getAwardedScore() : null)
+                        .feedback(request != null ? request.getFeedback() : null)
+                        .build()))
+                .build();
+        List<SubmissionGradeResponse> responses = createGrades(batchRequest);
+        return responses.isEmpty() ? null : responses.get(0);
+    }
+
+    public List<SubmissionGradeResponse> createGrades(SubmissionGradeBatchRequest request) {
+        validateBatchCreateRequest(request);
+
         Submission submission = submissionRepository.findById(request.getSubmissionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + request.getSubmissionId()));
-        RubricSubCriteria subCriteria = rubricSubCriteriaRepository.findById(request.getRubricSubCriteriaId())
-                .orElseThrow(() -> new ResourceNotFoundException("Rubric sub-criteria not found with id: " + request.getRubricSubCriteriaId()));
 
-        validateSubCriteriaMatchesAssignment(submission, subCriteria);
-        validateScore(subCriteria, request.getAwardedScore());
+        List<SubmissionGradeItemRequest> gradeItems = request.getGrades();
+        Set<Long> subCriteriaIds = gradeItems.stream()
+                .map(SubmissionGradeItemRequest::getRubricSubCriteriaId)
+                .collect(Collectors.toSet());
 
-        SubmissionGrade grade = new SubmissionGrade();
-        grade.setSubmission(submission);
-        grade.setRubricSubCriteria(subCriteria);
-        grade.setAwardedScore(request.getAwardedScore());
-        grade.setFeedback(request.getFeedback());
+        Map<Long, RubricSubCriteria> subCriteriaMap = rubricSubCriteriaRepository.findAllById(subCriteriaIds).stream()
+                .collect(Collectors.toMap(RubricSubCriteria::getId, Function.identity()));
 
-        SubmissionGrade saved = submissionGradeRepository.save(grade);
+        List<SubmissionGrade> gradesToSave = new ArrayList<>();
+        for (SubmissionGradeItemRequest gradeRequest : gradeItems) {
+            RubricSubCriteria subCriteria = subCriteriaMap.get(gradeRequest.getRubricSubCriteriaId());
+            if (subCriteria == null) {
+                throw new ResourceNotFoundException("Rubric sub-criteria not found with id: " + gradeRequest.getRubricSubCriteriaId());
+            }
+
+            validateSubCriteriaMatchesAssignment(submission, subCriteria);
+            validateScore(subCriteria, gradeRequest.getAwardedScore());
+
+            SubmissionGrade grade = new SubmissionGrade();
+            grade.setSubmission(submission);
+            grade.setRubricSubCriteria(subCriteria);
+            grade.setAwardedScore(gradeRequest.getAwardedScore());
+            grade.setFeedback(gradeRequest.getFeedback());
+            gradesToSave.add(grade);
+        }
+
+        List<SubmissionGrade> savedGrades = submissionGradeRepository.saveAll(gradesToSave);
         submission.setStatus(SubmissionStatus.GRADED);
         submissionRepository.save(submission);
 
-        return mapToResponse(saved);
+        return savedGrades.stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 
     public SubmissionGradeResponse updateGrade(Long id, SubmissionGradeRequest request) {
@@ -134,6 +171,26 @@ public class SubmissionGradeService {
         }
         if (request.getAwardedScore() == null) {
             throw new IllegalArgumentException("awardedScore is required");
+        }
+    }
+
+    private void validateBatchCreateRequest(SubmissionGradeBatchRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request is required");
+        }
+        if (request.getSubmissionId() == null) {
+            throw new IllegalArgumentException("submissionId is required");
+        }
+        if (request.getGrades() == null || request.getGrades().isEmpty()) {
+            throw new IllegalArgumentException("grades are required");
+        }
+        for (SubmissionGradeItemRequest grade : request.getGrades()) {
+            if (grade.getRubricSubCriteriaId() == null) {
+                throw new IllegalArgumentException("rubricSubCriteriaId is required for each grade");
+            }
+            if (grade.getAwardedScore() == null) {
+                throw new IllegalArgumentException("awardedScore is required for each grade");
+            }
         }
     }
 

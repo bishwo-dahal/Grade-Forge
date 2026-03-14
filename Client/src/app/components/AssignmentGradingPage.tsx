@@ -24,8 +24,7 @@ import {
   submitFacultySubmissionGrade,
 } from "../../services/submissionService";
 import {
-  createFacultyGrade,
-  updateFacultyGrade,
+  createGradesBatch,
   getFacultyGradesBySubmission,
 } from "../../services/facultySubmissionGradeService";
 import type { FacultySubmissionGradeResponse } from "../../types/facultySubmissionGrade";
@@ -365,13 +364,7 @@ export function AssignmentGradingPage() {
       setGradeSubmitting(true);
       try {
         if (isFaculty) {
-          await submitFacultySubmissionGrade({
-            submissionId,
-            marks,
-            feedback,
-          });
-
-          // If feedback is rubric JSON, also persist per-criterion grades.
+          // If feedback is rubric JSON, persist per-criterion grades via batch API first.
           try {
             const parsed = JSON.parse(feedback) as {
               criteria?: Array<{
@@ -381,46 +374,29 @@ export function AssignmentGradingPage() {
               }>;
             };
             if (parsed && Array.isArray(parsed.criteria) && parsed.criteria.length > 0) {
-              const existing: FacultySubmissionGradeResponse[] =
-                await (async () => {
-                  // Backend may not support faculty submission-grades yet; fail silently if so.
-                  try {
-                    const { getFacultyGradesBySubmission } = await import(
-                      "../../services/facultySubmissionGradeService"
-                    );
-                    return await getFacultyGradesBySubmission(submissionId);
-                  } catch {
-                    return [];
-                  }
-                })();
-              const byCriteriaId = new Map<number, FacultySubmissionGradeResponse>();
-              for (const g of existing) {
-                byCriteriaId.set(g.rubricCriteriaId, g);
-              }
-
-              const tasks = parsed.criteria
+              const grades = parsed.criteria
                 .filter((item) => typeof item.criterionId === "number")
-                .map((item) => {
-                  const criterionId = item.criterionId as number;
-                  const payload = {
-                    submissionId: Number(submissionId),
-                    rubricCriteriaId: criterionId,
-                    awardedScore: Math.max(0, Math.round(item.score)),
-                    feedback: item.comment?.trim() || undefined,
-                  };
-                  const existingGrade = byCriteriaId.get(criterionId);
-                  return existingGrade
-                    ? updateFacultyGrade(existingGrade.id, payload)
-                    : createFacultyGrade(payload);
+                .map((item) => ({
+                  rubricSubCriteriaId: item.criterionId as number,
+                  awardedScore: Math.max(0, Math.round(item.score)),
+                  feedback: (item.comment?.trim() || undefined) ?? null,
+                }));
+              if (grades.length > 0) {
+                await createGradesBatch({
+                  submissionId: Number(submissionId),
+                  grades,
                 });
-
-              if (tasks.length > 0) {
-                await Promise.all(tasks);
               }
             }
           } catch {
-            // If feedback is not JSON or the per-criterion API is unavailable, skip silently.
+            // Not rubric JSON or batch API failed; continue to update overall grade.
           }
+
+          await submitFacultySubmissionGrade({
+            submissionId,
+            marks,
+            feedback,
+          });
         } else {
           await updateSubmissionGrade(Number(submissionId), { marks, feedback });
         }
