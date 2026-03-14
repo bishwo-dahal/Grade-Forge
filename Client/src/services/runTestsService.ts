@@ -19,9 +19,15 @@ function getBasePath(): string {
 /**
  * Request a test run for the given submission. Returns job id; poll getRunTestsLatest or getRunTestsByJobId for status.
  */
+function toSubmissionId(submissionId: number | string): number {
+  const id = Number(submissionId);
+  if (!Number.isFinite(id)) throw new Error("Invalid submission id for run tests.");
+  return id;
+}
+
 export async function requestRunTests(submissionId: number | string): Promise<RunTestsResponse> {
   const base = getBasePath();
-  const id = Number(submissionId);
+  const id = toSubmissionId(submissionId);
   const { data } = await api.post<RunTestsResponse>(`${base}/${id}/run-tests`);
   return data;
 }
@@ -69,8 +75,9 @@ export async function runTestsWithFiles(
  * Get the latest test run for a submission (for polling).
  */
 export async function getRunTestsLatest(submissionId: number | string): Promise<TestRunJobStatusResponse | null> {
-  const base = getBasePath();
   const id = Number(submissionId);
+  if (!Number.isFinite(id)) return null;
+  const base = getBasePath();
   try {
     const { data } = await api.get<TestRunJobStatusResponse>(`${base}/${id}/run-tests/latest`);
     return data;

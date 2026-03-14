@@ -35,6 +35,7 @@ import {
   listSubmissionsByAssignment,
   updateSubmissionGrade,
 } from "../../services/gradingAssistantSubmissionService";
+import { getGASubmissionGrades } from "../../services/gradingAssistantSubmissionGradeService";
 import { clearAuthenticated, getAuthenticatedUser, getAuthenticatedRole } from "../auth";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
@@ -59,18 +60,102 @@ function formatDate(iso: string | null | undefined): string {
   }
 }
 
-/** Map GA rubric to RubricCategory[] for GradingRubricPanel */
+/** Map GA rubric (flat) to RubricCategory[] for GradingRubricPanel */
 function mapGARubricToCategories(rubric: GradingAssistantRubricResponse | null): RubricCategory[] {
   if (!rubric?.criteria?.length) return [];
-  const points = rubric.criteria.reduce((sum, c) => sum + (c.maxScore ?? 0), 0);
+  const points = rubric.criteria.reduce((sum, c) => {
+    const cr = c as { maxScore?: number };
+    return sum + (cr.maxScore ?? 0);
+  }, 0);
   return [
     {
       name: rubric.name ?? "Rubric",
       points,
-      criteria: rubric.criteria.map((c) => ({
-        description: c.title ?? "Criterion",
-        points: c.maxScore ?? 0,
-      })),
+      criteria: rubric.criteria.map((c) => {
+        const cr = c as { id?: number; title?: string; maxScore?: number; weight?: number | null };
+        return {
+          id: cr.id,
+          description: cr.title ?? "Criterion",
+          points: cr.maxScore ?? 0,
+          weight: cr.weight ?? null,
+        };
+      }),
+    },
+  ];
+}
+
+/** Check if GA rubric has nested criteria (subCriteria). */
+function gaRubricHasNestedCriteria(rubric: GradingAssistantRubricResponse | null): boolean {
+  return (
+    (rubric?.criteria?.some((c) => {
+      const cr = c as { subCriteria?: unknown[] };
+      return (cr.subCriteria?.length ?? 0) > 0;
+    }) ?? false)
+  );
+}
+
+/** Map GA rubric response (with rubricType, criteria[].points, subCriteria) to faculty Rubric type for same grading UI. */
+function mapGARubricToRubric(ga: GradingAssistantRubricResponse | null): Rubric | null {
+  if (!ga?.criteria?.length || !gaRubricHasNestedCriteria(ga)) return null;
+  return {
+    id: ga.id,
+    name: ga.name ?? "Rubric",
+    description: ga.description ?? null,
+    facultyId: ga.facultyId ?? null,
+    rubricType: ga.rubricType,
+    criteria: ga.criteria.map((c) => {
+      const cr = c as {
+        id?: number;
+        title?: string;
+        points?: number | null;
+        subCriteria?: Array<{ id?: number; description?: string; maxScore: number; weight?: number | null }>;
+      };
+      return {
+        id: cr.id,
+        title: cr.title ?? "Criterion",
+        points: cr.points ?? null,
+        subCriteria: (cr.subCriteria ?? []).map((s) => ({
+          id: s.id,
+          description: s.description ?? null,
+          maxScore: s.maxScore,
+          weight: s.weight ?? null,
+        })),
+      };
+    }),
+  };
+}
+
+/** Build RubricCategory[] from full Rubric (flatten subCriteria) so dialog flat state matches. */
+function rubricToCategories(rubric: Rubric): RubricCategory[] {
+  const flatCriteria: Array<{ id?: number; description: string; points: number; weight?: number | null }> = [];
+  let totalPoints = 0;
+  for (const criterion of rubric.criteria) {
+    if (criterion.subCriteria?.length) {
+      for (const sub of criterion.subCriteria) {
+        flatCriteria.push({
+          id: sub.id,
+          description: sub.description?.trim() ? sub.description : criterion.title,
+          points: sub.maxScore,
+          weight: sub.weight ?? null,
+        });
+        totalPoints += sub.maxScore;
+      }
+    } else {
+      const maxScore = criterion.maxScore ?? 0;
+      flatCriteria.push({
+        id: criterion.id,
+        description: criterion.description?.trim() ? `${criterion.title}: ${criterion.description}` : criterion.title,
+        points: maxScore,
+        weight: criterion.weight ?? null,
+      });
+      totalPoints += maxScore;
+    }
+  }
+  return [
+    {
+      name: rubric.name,
+      points: totalPoints,
+      criteria: flatCriteria,
     },
   ];
 }
@@ -233,12 +318,30 @@ export function AssignmentGradingPage() {
     const rubricId = assignData.rubricId ?? null;
     let totalPoints = assignData.totalPoints ?? null;
     if (rubricId != null) {
-      const rubric = await getRubric(rubricId);
-      setRubricCategories(mapGARubricToCategories(rubric));
-      if (totalPoints == null && rubric?.criteria?.length) {
-        totalPoints = rubric.criteria.reduce((sum, c) => sum + (c.maxScore ?? 0), 0);
+      const gaRubric = await getRubric(rubricId);
+      const mappedRubric = mapGARubricToRubric(gaRubric);
+      if (mappedRubric) {
+        setRubricNested(mappedRubric);
+        setRubricCategories(rubricToCategories(mappedRubric));
+        if (totalPoints == null) {
+          totalPoints = mappedRubric.criteria.reduce(
+            (sum, c) =>
+              sum + (c.subCriteria?.reduce((s, sub) => s + sub.maxScore, 0) ?? c.maxScore ?? 0),
+            0,
+          );
+        }
+      } else {
+        setRubricNested(null);
+        setRubricCategories(mapGARubricToCategories(gaRubric));
+        if (totalPoints == null && gaRubric?.criteria?.length) {
+          totalPoints = (gaRubric.criteria as { maxScore?: number }[]).reduce(
+            (sum, c) => sum + (c.maxScore ?? 0),
+            0,
+          );
+        }
       }
     } else {
+      setRubricNested(null);
       setRubricCategories([]);
     }
     setAssignment(
@@ -364,26 +467,41 @@ export function AssignmentGradingPage() {
   );
 
   const handleOpenGradeClick = useCallback(async () => {
-    if (isFaculty && submissionId) {
+    if (submissionId) {
       try {
-        const grades = await getSubmissionGrades(submissionId);
-        const bySubCriteriaId: Record<
-          number,
-          { awardedScore: number; feedback?: string | null }
-        > = {};
-        for (const g of grades) {
-          bySubCriteriaId[g.rubricSubCriteriaId] = {
-            awardedScore: g.awardedScore,
-            feedback: g.feedback ?? null,
-          };
+        if (isFaculty) {
+          const grades = await getSubmissionGrades(submissionId);
+          const bySubCriteriaId: Record<
+            number,
+            { awardedScore: number; feedback?: string | null }
+          > = {};
+          for (const g of grades) {
+            bySubCriteriaId[g.rubricSubCriteriaId] = {
+              awardedScore: g.awardedScore,
+              feedback: g.feedback ?? null,
+            };
+          }
+          setRubricExistingGrades(bySubCriteriaId);
+        } else if (isGA) {
+          const grades = await getGASubmissionGrades(submissionId);
+          const bySubCriteriaId: Record<
+            number,
+            { awardedScore: number; feedback?: string | null }
+          > = {};
+          for (const g of grades) {
+            bySubCriteriaId[g.rubricSubCriteriaId] = {
+              awardedScore: g.awardedScore,
+              feedback: g.feedback ?? null,
+            };
+          }
+          setRubricExistingGrades(bySubCriteriaId);
         }
-        setRubricExistingGrades(bySubCriteriaId);
       } catch {
         setRubricExistingGrades({});
       }
     }
     setGradeDialogOpen(true);
-  }, [submissionId, isFaculty]);
+  }, [submissionId, isFaculty, isGA]);
 
   const handleSaveGrade = useCallback(
     async (
@@ -728,8 +846,8 @@ export function AssignmentGradingPage() {
         onOpenChange={setGradeDialogOpen}
         hasRubric={rubricCategories.length > 0}
         rubricCategories={rubricCategories}
-        rubricNested={isFaculty ? rubricNested : undefined}
-        rubricExistingGrades={isFaculty ? rubricExistingGrades : undefined}
+        rubricNested={rubricNested ?? undefined}
+        rubricExistingGrades={rubricExistingGrades}
         maxPoints={assignment.points?.total ?? 100}
         currentMarks={submissionMarks}
         currentFeedback={submissionFeedback}
