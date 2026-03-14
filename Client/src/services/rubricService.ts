@@ -1,5 +1,5 @@
 import api from "../api/axios";
-import type { Rubric, RubricCreatePayload, RubricSummary, RubricCriterion } from "../types/rubric";
+import type { Rubric, RubricCreatePayload, RubricSummary, RubricCriterion, RubricType } from "../types/rubric";
 
 /** Flat criterion (legacy API). */
 interface RubricCriteriaApiResponse {
@@ -8,7 +8,18 @@ interface RubricCriteriaApiResponse {
   description?: string | null;
   maxScore?: number;
   weight?: number | null;
+  points?: number | null;
   subCriteria?: RubricSubCriteriaApiResponse[];
+}
+
+/** API response for get rubric by id. */
+interface RubricApiResponse {
+  id: number;
+  name: string;
+  description: string | null;
+  facultyId: number | null;
+  rubricType?: RubricType;
+  criteria: RubricCriteriaApiResponse[];
 }
 
 interface RubricSubCriteriaApiResponse {
@@ -18,19 +29,12 @@ interface RubricSubCriteriaApiResponse {
   weight?: number | null;
 }
 
-interface RubricApiResponse {
-  id: number;
-  name: string;
-  description: string | null;
-  facultyId: number | null;
-  criteria: RubricCriteriaApiResponse[];
-}
-
 function mapCriterion(c: RubricCriteriaApiResponse): RubricCriterion {
   if (c.subCriteria && c.subCriteria.length > 0) {
     return {
       id: c.id,
       title: c.title,
+      points: c.points ?? null,
       subCriteria: c.subCriteria.map((s) => ({
         id: s.id,
         description: s.description ?? null,
@@ -45,17 +49,19 @@ function mapCriterion(c: RubricCriteriaApiResponse): RubricCriterion {
     description: c.description ?? null,
     maxScore: c.maxScore ?? 0,
     weight: c.weight ?? null,
+    points: c.points ?? null,
     subCriteria: [{ description: c.description, maxScore: c.maxScore ?? 0, weight: c.weight }],
   };
 }
 
-function mapRubric(api: RubricApiResponse): Rubric {
+function mapRubric(apiData: RubricApiResponse): Rubric {
   return {
-    id: api.id,
-    name: api.name,
-    description: api.description,
-    facultyId: api.facultyId,
-    criteria: (api.criteria ?? []).map(mapCriterion),
+    id: apiData.id,
+    name: apiData.name,
+    description: apiData.description,
+    facultyId: apiData.facultyId,
+    rubricType: apiData.rubricType,
+    criteria: (apiData.criteria ?? []).map(mapCriterion),
   };
 }
 

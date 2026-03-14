@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { Copy, Trash2 } from "lucide-react";
 import type { Rubric, RubricCreatePayload } from "../../../../types/rubric";
-import { roundTo2 } from "../../../../utils/number";
+import { roundTo2, formatMax2Decimals } from "../../../../utils/number";
 
 export interface RubricFormProps {
   mode: "create" | "edit";
@@ -22,6 +22,8 @@ interface SubCriterionRow {
 interface CriterionRow {
   id: string;
   title: string;
+  /** Criterion-level points (unweighted). Sub-criteria max scores must not exceed this. */
+  points: string;
   subCriteria: SubCriterionRow[];
 }
 
@@ -42,6 +44,8 @@ export function RubricForm({
   const [name, setName] = useState(initialRubric?.name ?? "");
   const [description, setDescription] = useState(initialRubric?.description ?? "");
   const [isWeighted, setIsWeighted] = useState(() => {
+    if (initialRubric?.rubricType === "UNWEIGHTED") return false;
+    if (initialRubric?.rubricType === "WEIGHTED") return true;
     if (!initialRubric?.criteria?.length) return true;
     const hasWeight = initialRubric.criteria.some(
       (c) => (c.subCriteria ?? []).some((s) => s.weight != null && s.weight > 0),
@@ -54,6 +58,7 @@ export function RubricForm({
       return initialRubric.criteria.map((c, i) => ({
         id: String(c.id ?? `c-${i}-${Date.now()}`),
         title: c.title ?? "",
+        points: c.points != null ? String(c.points) : "",
         subCriteria: (c.subCriteria ?? (c.maxScore != null ? [{ description: c.description ?? "", maxScore: c.maxScore, weight: c.weight ?? null }] : [])).map((s, j) => ({
           id: `s-${i}-${j}-${Date.now()}`,
           description: s.description ?? "",
@@ -66,6 +71,7 @@ export function RubricForm({
       {
         id: `criterion-1-${Date.now()}`,
         title: "",
+        points: "",
         subCriteria: [{ id: `sub-1-${Date.now()}`, description: "", maxScore: "", weight: "" }],
       },
     ];
@@ -131,6 +137,15 @@ export function RubricForm({
     for (const c of criteria) {
       if (!c.title.trim()) return false;
       if (!c.subCriteria.length) return false;
+      if (!isWeighted) {
+        const criterionPoints = Number(c.points);
+        if (!Number.isFinite(criterionPoints)) return false;
+        const subSum = c.subCriteria.reduce(
+          (sum, s) => sum + (Number.isFinite(Number(s.maxScore)) ? Number(s.maxScore) : 0),
+          0,
+        );
+        if (roundTo2(subSum) > roundTo2(criterionPoints)) return false;
+      }
       for (const s of c.subCriteria) {
         const maxScore = Number(s.maxScore);
         if (!Number.isFinite(maxScore)) return false;
@@ -150,6 +165,7 @@ export function RubricForm({
       {
         id: `criterion-${prev.length + 1}-${Date.now()}`,
         title: "",
+        points: "",
         subCriteria: [{ id: `sub-${Date.now()}`, description: "", maxScore: "", weight: "" }],
       },
     ]);
@@ -185,6 +201,7 @@ export function RubricForm({
       const duplicate: CriterionRow = {
         id: `criterion-${Date.now()}-${index}`,
         title: source.title,
+        points: source.points,
         subCriteria: source.subCriteria.map((s, j) => ({
           id: `sub-${Date.now()}-${index}-${j}`,
           description: s.description,
@@ -223,18 +240,33 @@ export function RubricForm({
     setCriteria((prev) => prev.map((c) => (c.id === criterionId ? { ...c, title: value } : c)));
   };
 
+  const handleChangeCriterionPoints = (criterionId: string, value: string) => {
+    const normalized =
+      value.trim() !== "" && Number.isFinite(Number(value)) && roundTo2(Number(value)) !== Number(value)
+        ? formatMax2Decimals(roundTo2(Number(value)))
+        : value;
+    setCriteria((prev) => prev.map((c) => (c.id === criterionId ? { ...c, points: normalized } : c)));
+  };
+
   const handleChangeSubCriterion = (
     criterionId: string,
     subId: string,
     field: keyof SubCriterionRow,
     value: string,
   ) => {
+    const normalized =
+      (field === "maxScore" || field === "weight") &&
+      value.trim() !== "" &&
+      Number.isFinite(Number(value)) &&
+      roundTo2(Number(value)) !== Number(value)
+        ? formatMax2Decimals(roundTo2(Number(value)))
+        : value;
     setCriteria((prev) => {
-      const next = prev.map((c) => {
+      let next = prev.map((c) => {
         if (c.id !== criterionId) return c;
         return {
           ...c,
-          subCriteria: c.subCriteria.map((s) => (s.id === subId ? { ...s, [field]: value } : s)),
+          subCriteria: c.subCriteria.map((s) => (s.id === subId ? { ...s, [field]: normalized } : s)),
         };
       });
       if (field === "weight" && autoAdjustWeights) {
@@ -247,6 +279,29 @@ export function RubricForm({
         if (editedWeight === 0) return next;
         return rebalanceWeightsToHundred(next);
       }
+      if (field === "maxScore" && !isWeighted) {
+        const cIdx = next.findIndex((c) => c.id === criterionId);
+        if (cIdx === -1) return next;
+        const criterion = next[cIdx];
+        const criterionPoints = Number(criterion.points);
+        if (!Number.isFinite(criterionPoints)) return next;
+        const sumOthers = criterion.subCriteria
+          .filter((s) => s.id !== subId)
+          .reduce((sum, s) => sum + (Number.isFinite(Number(s.maxScore)) ? Number(s.maxScore) : 0), 0);
+        const maxAllowed = roundTo2(criterionPoints - sumOthers);
+        const entered = Number(normalized);
+        if (Number.isFinite(entered) && entered > maxAllowed) {
+          const clamped = maxAllowed;
+          const clampedStr = clamped === Math.floor(clamped) ? String(Math.round(clamped)) : clamped.toFixed(2);
+          next = next.map((c) => {
+            if (c.id !== criterionId) return c;
+            return {
+              ...c,
+              subCriteria: c.subCriteria.map((s) => (s.id === subId ? { ...s, maxScore: clampedStr } : s)),
+            };
+          });
+        }
+      }
       return next;
     });
   };
@@ -257,7 +312,7 @@ export function RubricForm({
       setLocalError(
         isWeighted
           ? "Please fill in the rubric name and ensure every criterion has at least one sub-criterion and weights sum to 100%."
-          : "Please fill in the rubric name and ensure every criterion has at least one sub-criterion with valid max points.",
+          : "Please fill in the rubric name and criterion points. Each criterion must have points, and the sum of sub-criteria max points must not exceed the criterion points.",
       );
       return;
     }
@@ -266,8 +321,13 @@ export function RubricForm({
       name: name.trim(),
       description: description.trim() || undefined,
       facultyId: undefined,
+      rubricType: isWeighted ? "WEIGHTED" : "UNWEIGHTED",
       criteria: criteria.map((c) => ({
         title: c.title.trim(),
+        points:
+          !isWeighted && c.points.trim() !== ""
+            ? roundTo2(Number(c.points))
+            : undefined,
         subCriteria: c.subCriteria.map((s) => ({
           description: s.description.trim() || undefined,
           maxScore: Number(s.maxScore),
@@ -366,7 +426,7 @@ export function RubricForm({
                 <p className="text-[12px] text-[#7C879A]">
                   {isWeighted
                     ? "Each criterion has a title only. Under it add sub-criteria with description, max points, and weight. Total weight must be 100%."
-                    : "Each criterion has a title only. Under it add sub-criteria with description and max points."}
+                    : "Each criterion has a title and total points. Sub-criteria max points must not exceed the criterion points."}
                 </p>
                 {isWeighted && (
                   <label className="inline-flex items-center gap-2 text-[12px] font-medium text-[#1F2430]">
@@ -397,6 +457,30 @@ export function RubricForm({
                           placeholder="e.g., Correctness"
                           className="h-9 min-w-[200px] flex-1 rounded-xl border border-gray-200 bg-white px-3 text-[13px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
                         />
+                        {!isWeighted && (
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <label className="text-[12px] font-medium text-[#1F2430]">Points</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={criterion.points}
+                              onChange={(e) => handleChangeCriterionPoints(criterion.id, e.target.value)}
+                              placeholder="e.g. 10"
+                              className="h-9 w-[88px] rounded-xl border border-gray-200 bg-white px-3 text-[13px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                            />
+                            {criterion.subCriteria.length > 0 && (() => {
+                              const cp = Number(criterion.points);
+                              const subSum = criterion.subCriteria.reduce(
+                                (s, sub) => s + (Number.isFinite(Number(sub.maxScore)) ? Number(sub.maxScore) : 0),
+                                0,
+                              );
+                              const valid = Number.isFinite(cp) && roundTo2(subSum) <= roundTo2(cp);
+                              return !valid && criterion.points.trim() !== "" ? (
+                                <span className="text-[11px] text-[#C23A42]">Sum ≤ {criterion.points || "?"}</span>
+                              ) : null;
+                            })()}
+                          </div>
+                        )}
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <button

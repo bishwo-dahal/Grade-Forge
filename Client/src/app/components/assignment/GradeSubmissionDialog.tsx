@@ -10,7 +10,7 @@ import {
 } from "../ui/dialog";
 import type { RubricCategory } from "../../../types/grade";
 import type { Rubric } from "../../../types/rubric";
-import { roundTo2 } from "../../../utils/number";
+import { roundTo2, formatMax2Decimals } from "../../../utils/number";
 
 export interface GradeSubmissionDialogProps {
   open: boolean;
@@ -402,8 +402,11 @@ export function GradeSubmissionDialog({
                                                 const minVal = max < 0 ? max : 0;
                                                 const clamped = Math.min(max, Math.max(minVal, parsed));
                                                 const inRange = parsed === clamped;
+                                                const moreThan2Decimals = roundTo2(parsed) !== parsed;
                                                 const display = inRange
-                                                  ? raw.trim()
+                                                  ? moreThan2Decimals
+                                                    ? formatMax2Decimals(roundTo2(parsed))
+                                                    : raw.trim()
                                                   : (() => {
                                                       const r = roundTo2(clamped);
                                                       return r === Math.floor(r) ? String(Math.round(r)) : r.toFixed(2);
@@ -554,8 +557,11 @@ export function GradeSubmissionDialog({
                                           const minVal = max < 0 ? max : 0;
                                           const clamped = Math.min(max, Math.max(minVal, parsed));
                                           const inRange = parsed === clamped;
+                                          const moreThan2Decimals = roundTo2(parsed) !== parsed;
                                           const display = inRange
-                                            ? raw.trim()
+                                            ? moreThan2Decimals
+                                              ? formatMax2Decimals(roundTo2(parsed))
+                                              : raw.trim()
                                             : (() => {
                                                 const r = roundTo2(clamped);
                                                 return r === Math.floor(r) ? String(Math.round(r)) : r.toFixed(2);

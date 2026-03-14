@@ -3,6 +3,7 @@ package com.grade.forge.rubric.service;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.faculty.entity.Faculty;
 import com.grade.forge.faculty.repository.FacultyRepository;
+import com.grade.forge.rubric.RubricType;
 import com.grade.forge.rubric.dto.RubricCriteriaRequest;
 import com.grade.forge.rubric.dto.RubricCriteriaResponse;
 import com.grade.forge.rubric.dto.RubricRequest;
@@ -36,15 +37,20 @@ public class RubricService {
         rubric.setName(request.getName());
         rubric.setDescription(request.getDescription());
         rubric.setFaculty(faculty);
+        rubric.setRubricType(request.getRubricType());
         setCriteriaFromRequest(rubric, request.getCriteria());
         Rubric saved = rubricRepository.save(rubric);
         return mapToResponse(saved);
     }
 
     public RubricResponse updateRubric(Long id, RubricRequest request) {
-        validateUpdateRequest(request);
+        if (request == null) {
+            throw new IllegalArgumentException("Rubric request cannot be null");
+        }
         Rubric rubric = rubricRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Rubric not found with id: " + id));
+
+        validateUpdateRequest(request, rubric.getRubricType());
 
         if (request.getName() != null) {
             rubric.setName(request.getName());
@@ -54,6 +60,9 @@ public class RubricService {
         }
         if (request.getFacultyId() != null) {
             rubric.setFaculty(resolveFaculty(request.getFacultyId()));
+        }
+        if (request.getRubricType() != null) {
+            rubric.setRubricType(request.getRubricType());
         }
         if (request.getCriteria() != null) {
             rubric.getCriteria().clear();
@@ -104,38 +113,59 @@ public class RubricService {
         if (request.getName() == null || request.getName().isBlank()) {
             throw new IllegalArgumentException("Rubric name is required");
         }
+        if (request.getRubricType() == null) {
+            throw new IllegalArgumentException("Rubric type is required");
+        }
         if (request.getCriteria() == null || request.getCriteria().isEmpty()) {
             throw new IllegalArgumentException("At least one rubric criteria is required");
         }
-        request.getCriteria().forEach(this::validateCriteriaRequest);
+        request.getCriteria().forEach(criteria -> validateCriteriaRequest(criteria, request.getRubricType()));
     }
 
-    private void validateUpdateRequest(RubricRequest request) {
+    private void validateUpdateRequest(RubricRequest request, RubricType existingRubricType) {
         if (request == null) {
             throw new IllegalArgumentException("Rubric request cannot be null");
         }
         if (request.getName() != null && request.getName().isBlank()) {
             throw new IllegalArgumentException("Rubric name cannot be blank");
         }
+
+        RubricType rubricTypeToUse = request.getRubricType() != null ? request.getRubricType() : existingRubricType;
         if (request.getCriteria() != null) {
             if (request.getCriteria().isEmpty()) {
                 throw new IllegalArgumentException("Rubric criteria list cannot be empty when provided");
             }
-            request.getCriteria().forEach(this::validateCriteriaRequest);
+            if (rubricTypeToUse == null) {
+                throw new IllegalArgumentException("Rubric type is required when updating criteria");
+            }
+            request.getCriteria().forEach(criteria -> validateCriteriaRequest(criteria, rubricTypeToUse));
         }
     }
 
-    private void validateCriteriaRequest(RubricCriteriaRequest request) {
+    private void validateCriteriaRequest(RubricCriteriaRequest request, RubricType rubricType) {
         if (request == null) {
             throw new IllegalArgumentException("Criteria cannot be null");
+        }
+        if (rubricType == null) {
+            throw new IllegalArgumentException("Rubric type is required for criteria validation");
         }
         if (request.getTitle() == null || request.getTitle().isBlank()) {
             throw new IllegalArgumentException("Criteria title is required");
         }
-        if (request.getSubCriteria() == null || request.getSubCriteria().isEmpty()) {
-            throw new IllegalArgumentException("At least one sub-criteria is required for each criteria");
+        boolean isUnweighted = RubricType.UNWEIGHTED.equals(rubricType);
+        if (isUnweighted) {
+            if (request.getPoints() == null || request.getPoints() <= 0) {
+                throw new IllegalArgumentException("Criteria points must be a positive number for unweighted rubrics");
+            }
+            if (request.getSubCriteria() != null) {
+                request.getSubCriteria().forEach(this::validateSubCriteriaRequest);
+            }
+        } else {
+            if (request.getSubCriteria() == null || request.getSubCriteria().isEmpty()) {
+                throw new IllegalArgumentException("At least one sub-criteria is required for each criteria");
+            }
+            request.getSubCriteria().forEach(this::validateSubCriteriaRequest);
         }
-        request.getSubCriteria().forEach(this::validateSubCriteriaRequest);
     }
 
     private void validateSubCriteriaRequest(RubricSubCriteriaRequest request) {
@@ -157,23 +187,34 @@ public class RubricService {
         if (criteriaRequests == null) {
             return;
         }
+        RubricType rubricType = rubric.getRubricType();
+        if (rubricType == null) {
+            throw new IllegalStateException("Rubric type must be set before assigning criteria");
+        }
         criteriaRequests.stream()
                 .filter(Objects::nonNull)
                 .forEach(criteriaRequest -> {
-                    validateCriteriaRequest(criteriaRequest);
+                    validateCriteriaRequest(criteriaRequest, rubricType);
                     RubricCriteria criteria = new RubricCriteria();
                     criteria.setTitle(criteriaRequest.getTitle());
+                    if (RubricType.UNWEIGHTED.equals(rubricType)) {
+                        criteria.setPoints(criteriaRequest.getPoints());
+                    } else {
+                        criteria.setPoints(null);
+                    }
                     criteria.setRubric(rubric);
-                    criteriaRequest.getSubCriteria().stream()
-                            .filter(Objects::nonNull)
-                            .forEach(subRequest -> {
-                                validateSubCriteriaRequest(subRequest);
-                                RubricSubCriteria sub = new RubricSubCriteria();
-                                sub.setDescription(subRequest.getDescription());
-                                sub.setMaxScore(subRequest.getMaxScore());
-                                sub.setWeight(subRequest.getWeight());
-                                criteria.addSubCriteria(sub);
-                            });
+                    if (criteriaRequest.getSubCriteria() != null) {
+                        criteriaRequest.getSubCriteria().stream()
+                                .filter(Objects::nonNull)
+                                .forEach(subRequest -> {
+                                    validateSubCriteriaRequest(subRequest);
+                                    RubricSubCriteria sub = new RubricSubCriteria();
+                                    sub.setDescription(subRequest.getDescription());
+                                    sub.setMaxScore(subRequest.getMaxScore());
+                                    sub.setWeight(subRequest.getWeight());
+                                    criteria.addSubCriteria(sub);
+                                });
+                    }
                     rubric.getCriteria().add(criteria);
                 });
     }
@@ -193,6 +234,7 @@ public class RubricService {
                 .map(criteria -> RubricCriteriaResponse.builder()
                         .id(criteria.getId())
                         .title(criteria.getTitle())
+                        .points(criteria.getPoints())
                         .subCriteria((criteria.getSubCriteria() == null ? List.<RubricSubCriteria>of() : criteria.getSubCriteria()).stream()
                                 .map(sub -> RubricSubCriteriaResponse.builder()
                                         .id(sub.getId())
@@ -209,6 +251,7 @@ public class RubricService {
                 .name(rubric.getName())
                 .description(rubric.getDescription())
                 .facultyId(rubric.getFaculty() != null ? rubric.getFaculty().getId() : null)
+                .rubricType(rubric.getRubricType())
                 .criteria(criteriaResponses)
                 .build();
     }

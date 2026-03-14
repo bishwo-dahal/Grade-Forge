@@ -13,6 +13,7 @@ import java.util.List;
 @AllArgsConstructor
 public class RubricCriteriaRequest {
     private String title;
+    private Integer points;
     private List<RubricSubCriteriaRequest> subCriteria;
 }
 

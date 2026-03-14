@@ -11,3 +11,9 @@ export function roundTo2(value: number): number {
 export function formatTo2Decimals(value: number): string {
   return roundTo2(value).toFixed(2);
 }
+
+/** Format to at most 2 decimal places (e.g. 2.35 → "2.35", 2.356 → "2.36", 2 → "2"). Use to enforce 2-decimal-only input. */
+export function formatMax2Decimals(value: number): string {
+  const r = roundTo2(value);
+  return r === Math.floor(r) ? String(Math.round(r)) : r.toFixed(2);
+}
