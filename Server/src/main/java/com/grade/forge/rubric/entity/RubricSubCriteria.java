@@ -25,7 +25,7 @@ public class RubricSubCriteria {
     @Column(nullable = false)
     private String description;
 
-    @Column(nullable = false)
+
     private Integer maxScore;
 
     private Double weight;

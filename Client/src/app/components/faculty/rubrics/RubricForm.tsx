@@ -133,7 +133,7 @@ export function RubricForm({
       if (!c.subCriteria.length) return false;
       for (const s of c.subCriteria) {
         const maxScore = Number(s.maxScore);
-        if (!Number.isFinite(maxScore) || maxScore <= 0) return false;
+        if (!Number.isFinite(maxScore)) return false;
         if (isWeighted) {
           const w = Number(s.weight);
           if (!Number.isFinite(w) || w < 0) return false;
@@ -452,9 +452,10 @@ export function RubricForm({
                               <td className="w-[110px] px-4 py-3 align-top">
                                 <input
                                   type="number"
-                                  min={1}
+                                  step="0.01"
                                   value={sub.maxScore}
                                   onChange={(e) => handleChangeSubCriterion(criterion.id, sub.id, "maxScore", e.target.value)}
+                                  placeholder="e.g. 5, -2, 0.25"
                                   className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-[13px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
                                 />
                               </td>

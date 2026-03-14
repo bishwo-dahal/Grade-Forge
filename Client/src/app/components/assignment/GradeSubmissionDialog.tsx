@@ -375,12 +375,12 @@ export function GradeSubmissionDialog({
                                         </td>
                                         <td className="w-[110px] px-3 py-3 align-middle">
                                           <div className="flex flex-col items-center gap-0.5">
-                                            <span className="text-[10px] text-gray-500">0–{max}</span>
+                                            <span className="text-[10px] text-gray-500">{max < 0 ? `${max}–0` : `0–${max}`}</span>
                                             <input
                                               type="number"
-                                              min={0}
-                                              max={max}
-                                              step="any"
+                                              min={max < 0 ? max : 0}
+                                              max={max < 0 ? 0 : max}
+                                              step="0.01"
                                               value={gradeStr}
                                               onChange={(e) => {
                                                 const raw = e.target.value;
@@ -399,8 +399,15 @@ export function GradeSubmissionDialog({
                                                 }
                                                 const parsed = parseFloat(raw);
                                                 if (!Number.isFinite(parsed)) return;
-                                                const clamped = Math.min(max, Math.max(0, parsed));
-                                                const display = clamped === Math.floor(clamped) ? String(Math.round(clamped)) : clamped.toFixed(2);
+                                                const minVal = max < 0 ? max : 0;
+                                                const clamped = Math.min(max, Math.max(minVal, parsed));
+                                                const inRange = parsed === clamped;
+                                                const display = inRange
+                                                  ? raw.trim()
+                                                  : (() => {
+                                                      const r = roundTo2(clamped);
+                                                      return r === Math.floor(r) ? String(Math.round(r)) : r.toFixed(2);
+                                                    })();
                                                 setCriterionScores((prev) => {
                                                   const next = [...prev];
                                                   next[flatIndex] = display;
@@ -458,7 +465,7 @@ export function GradeSubmissionDialog({
                                                     const gradeBack = Math.max(0, max > 0 ? Math.min(max, gradeFromPts(clamped, max, weight)) : gradeFromPts(clamped, max, weight));
                                                     setCriterionScores((prev) => {
                                                       const next = [...prev];
-                                                      next[flatIndex] = gradeBack % 1 === 0 ? String(Math.round(gradeBack)) : gradeBack.toFixed(2);
+                                                      next[flatIndex] = (() => { const r = roundTo2(gradeBack); return r === Math.floor(r) ? String(Math.round(r)) : r.toFixed(2); })();
                                                       return next;
                                                     });
                                                   }}
@@ -520,12 +527,12 @@ export function GradeSubmissionDialog({
                                   </td>
                                   <td className="w-[110px] px-3 py-3 align-middle">
                                     <div className="flex flex-col items-center gap-0.5">
-                                      <span className="text-[10px] text-gray-500">0–{max}</span>
+                                      <span className="text-[10px] text-gray-500">{max < 0 ? `${max}–0` : `0–${max}`}</span>
                                       <input
                                         type="number"
-                                        min={0}
-                                        max={max}
-                                        step="any"
+                                        min={max < 0 ? max : 0}
+                                        max={max < 0 ? 0 : max}
+                                        step="0.01"
                                         value={gradeStr}
                                         onChange={(e) => {
                                           const raw = e.target.value;
@@ -544,8 +551,15 @@ export function GradeSubmissionDialog({
                                           }
                                           const parsed = parseFloat(raw);
                                           if (!Number.isFinite(parsed)) return;
-                                          const clamped = Math.min(max, Math.max(0, parsed));
-                                          const display = clamped === Math.floor(clamped) ? String(Math.round(clamped)) : clamped.toFixed(2);
+                                          const minVal = max < 0 ? max : 0;
+                                          const clamped = Math.min(max, Math.max(minVal, parsed));
+                                          const inRange = parsed === clamped;
+                                          const display = inRange
+                                            ? raw.trim()
+                                            : (() => {
+                                                const r = roundTo2(clamped);
+                                                return r === Math.floor(r) ? String(Math.round(r)) : r.toFixed(2);
+                                              })();
                                           setCriterionScores((prev) => {
                                             const next = [...prev];
                                             next[flatIndex] = display;
@@ -603,7 +617,7 @@ export function GradeSubmissionDialog({
                                               const gradeBack = Math.max(0, max > 0 ? Math.min(max, gradeFromPts(clamped, max, weight)) : gradeFromPts(clamped, max, weight));
                                               setCriterionScores((prev) => {
                                                 const next = [...prev];
-                                                next[flatIndex] = gradeBack % 1 === 0 ? String(Math.round(gradeBack)) : gradeBack.toFixed(2);
+                                                next[flatIndex] = (() => { const r = roundTo2(gradeBack); return r === Math.floor(r) ? String(Math.round(r)) : r.toFixed(2); })();
                                                 return next;
                                               });
                                             }}
