@@ -10,6 +10,7 @@ import {
 } from "../ui/dialog";
 import type { RubricCategory } from "../../../types/grade";
 import type { Rubric } from "../../../types/rubric";
+import { roundTo2 } from "../../../utils/number";
 
 export interface GradeSubmissionDialogProps {
   open: boolean;
@@ -164,19 +165,26 @@ export function GradeSubmissionDialog({
       }, 0)
     : null;
 
-  /** Calculated Pts for row i (from grade, max, weight). Used when overridePts[i] is null. */
+  /** Calculated Pts for row i (from grade, max, weight). Used when overridePts[i] is null. Max 2 decimals. */
   const getCalculatedPts = (flatIndex: number, max: number, weight: number | null): number => {
     const grade = max > 0 ? Math.min(max, parseGrade(criterionScores[flatIndex] ?? "")) : parseGrade(criterionScores[flatIndex] ?? "");
-    if (weight != null && max > 0) return (grade / max) * (weight / 100) * maxPoints;
-    if (rubricMax > 0) return (grade * maxPoints) / rubricMax;
+    if (weight != null && max > 0) return roundTo2((grade / max) * (weight / 100) * maxPoints);
+    if (rubricMax > 0) return roundTo2((grade * maxPoints) / rubricMax);
     return 0;
   };
 
-  /** Back-calculate grade from Pts for a row (so Grade and Pts stay related) */
+  /** Back-calculate grade from Pts for a row (so Grade and Pts stay related). Max 2 decimals. */
   const gradeFromPts = (pts: number, max: number, weight: number | null): number => {
-    if (weight != null && weight > 0 && maxPoints > 0) return (pts * max * 100) / (weight * maxPoints);
-    if (rubricMax > 0 && maxPoints > 0) return (pts * rubricMax) / maxPoints;
+    if (weight != null && weight > 0 && maxPoints > 0) return roundTo2((pts * max * 100) / (weight * maxPoints));
+    if (rubricMax > 0 && maxPoints > 0) return roundTo2((pts * rubricMax) / maxPoints);
     return 0;
+  };
+
+  /** Max Pts for a row (cap so user cannot enter more than this). Max 2 decimals. */
+  const maxPtsForRow = (max: number, weight: number | null): number => {
+    if (weight != null && weight >= 0) return roundTo2((weight / 100) * maxPoints);
+    if (rubricMax > 0 && max > 0) return roundTo2((max / rubricMax) * maxPoints);
+    return maxPoints;
   };
 
   /** Total = sum of (override Pts or calculated Pts). So when faculty edit Pts, total updates. */
@@ -190,13 +198,18 @@ export function GradeSubmissionDialog({
       for (let i = 0; i < flatCriteria.length; i++) {
         const max = flatCriteria[i].maxPoints;
         const w = flatCriteria[i].weight ?? 0;
+        const rowMax = maxPtsForRow(max, flatCriteria[i].weight ?? null);
         const calculated = getCalculatedPts(i, max, w);
-        const pts = overridePts[i] != null && Number.isFinite(overridePts[i]) ? overridePts[i]! : calculated;
+        const pts = roundTo2(
+          overridePts[i] != null && Number.isFinite(overridePts[i])
+            ? Math.min(overridePts[i]!, rowMax)
+            : calculated,
+        );
         sum += pts;
       }
       return sum;
     }
-    if (rubricMax > 0) return ((computedMarks ?? 0) / rubricMax) * maxPoints;
+    if (rubricMax > 0) return roundTo2(((computedMarks ?? 0) / rubricMax) * maxPoints);
     return null;
   })();
 
@@ -248,7 +261,7 @@ export function GradeSubmissionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={hasRubric ? "sm:max-w-xl" : "sm:max-w-md"}
+        className={hasRubric ? "sm:max-w-4xl max-h-[90vh] flex flex-col" : "sm:max-w-md"}
         aria-describedby={undefined}
       >
         <DialogHeader className="space-y-1.5">
@@ -277,7 +290,7 @@ export function GradeSubmissionDialog({
             </div>
 
             {hasRubric ? (
-              <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-1 -mr-1">
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 -mr-1">
                 {rubricNested && hasNestedCriteria(rubricNested) && (
                   <div className="rounded-xl border border-[#E4E7EC] bg-[#F9FAFB] px-4 py-3">
                     {rubricNested.name ? (
@@ -293,9 +306,9 @@ export function GradeSubmissionDialog({
                     <thead className="bg-[#E4E7EC] text-[12px] font-semibold text-[#1F2430]">
                       <tr>
                         <th className="px-4 py-2 align-middle">Criterion</th>
-                        <th className="w-[80px] px-3 py-2 align-middle text-right">Grade</th>
-                        <th className="w-[80px] px-3 py-2 align-middle text-right">Weight (%)</th>
-                        <th className="w-[80px] px-3 py-2 align-middle text-right">Pts</th>
+                        <th className="w-[110px] px-3 py-2 align-middle text-right">Grade</th>
+                        <th className="w-[64px] px-2 py-2 align-middle text-right">Weight (%)</th>
+                        <th className="w-[110px] px-3 py-2 align-middle text-center">Pts</th>
                         <th className="px-4 py-2 align-middle">Instructor comments</th>
                       </tr>
                     </thead>
@@ -324,7 +337,9 @@ export function GradeSubmissionDialog({
                                     const weight = sub.weight ?? null;
                                     const percentOfMax = weight != null ? weight : (rubricMax > 0 && max > 0 ? (max / rubricMax) * 100 : 0);
                                     const calculatedPts = getCalculatedPts(flatIndex, max, weight);
-                                    const pts = overridePts[flatIndex] != null && Number.isFinite(overridePts[flatIndex]) ? overridePts[flatIndex]! : calculatedPts;
+                                    const rowMaxPts = maxPtsForRow(max, weight);
+                                    const rawPts = overridePts[flatIndex] != null && Number.isFinite(overridePts[flatIndex]) ? overridePts[flatIndex]! : calculatedPts;
+                                    const pts = Math.min(rawPts, rowMaxPts);
                                     const comment = criterionComments[flatIndex] ?? "";
                                     return (
                                       <tr
@@ -336,7 +351,7 @@ export function GradeSubmissionDialog({
                                             {sub.description ?? "—"}
                                           </div>
                                         </td>
-                                        <td className="w-[80px] px-3 py-3 align-middle">
+                                        <td className="w-[110px] px-3 py-3 align-middle">
                                           <div className="flex flex-col items-center gap-0.5">
                                             <span className="text-[10px] text-gray-500">0–{max}</span>
                                             <input
@@ -346,9 +361,27 @@ export function GradeSubmissionDialog({
                                               step="any"
                                               value={gradeStr}
                                               onChange={(e) => {
+                                                const raw = e.target.value;
+                                                if (raw === "") {
+                                                  setCriterionScores((prev) => {
+                                                    const next = [...prev];
+                                                    next[flatIndex] = "";
+                                                    return next;
+                                                  });
+                                                  setOverridePts((prev) => {
+                                                    const next = [...prev];
+                                                    next[flatIndex] = null;
+                                                    return next;
+                                                  });
+                                                  return;
+                                                }
+                                                const parsed = parseFloat(raw);
+                                                if (!Number.isFinite(parsed)) return;
+                                                const clamped = Math.min(max, Math.max(0, parsed));
+                                                const display = clamped === Math.floor(clamped) ? String(Math.round(clamped)) : clamped.toFixed(2);
                                                 setCriterionScores((prev) => {
                                                   const next = [...prev];
-                                                  next[flatIndex] = e.target.value;
+                                                  next[flatIndex] = display;
                                                   return next;
                                                 });
                                                 setOverridePts((prev) => {
@@ -358,52 +391,56 @@ export function GradeSubmissionDialog({
                                                 });
                                               }}
                                               placeholder="—"
-                                              className="h-8 w-14 rounded-lg border border-gray-300 bg-white px-2 text-right text-[13px] tabular-nums text-[#1F2430] focus:border-[#5A7ACD] focus:ring-1 focus:ring-[#5A7ACD]/30 outline-none"
+                                              className="h-8 w-16 rounded-lg border border-gray-300 bg-white px-2 text-right text-[13px] tabular-nums text-[#1F2430] focus:border-[#5A7ACD] focus:ring-1 focus:ring-[#5A7ACD]/30 outline-none"
                                             />
                                           </div>
                                         </td>
-                                        <td className="w-[80px] px-3 py-3 align-middle text-right">
+                                        <td className="w-[64px] px-2 py-3 align-middle text-right">
                                           <span className="text-[12px] text-gray-700">
                                             {weight != null ? `${weight}%` : (rubricMax > 0 && max > 0 ? `${percentOfMax.toFixed(1)}%` : "—")}
                                           </span>
                                         </td>
-                                        <td className="w-[80px] px-3 py-3 align-middle text-right">
-                                          <input
-                                            type="number"
-                                            min={0}
-                                            step="0.01"
-                                            value={overridePts[flatIndex] != null ? overridePts[flatIndex]! : pts}
-                                            onChange={(e) => {
-                                              const raw = e.target.value;
-                                              if (raw === "") {
+                                        <td className="w-[110px] px-3 py-3 align-middle">
+                                          <div className="flex justify-center">
+                                            <input
+                                              type="number"
+                                              min={0}
+                                              max={rowMaxPts}
+                                              step="0.01"
+                                              value={pts}
+                                              onChange={(e) => {
+                                                const raw = e.target.value;
+                                                if (raw === "") {
+                                                  setOverridePts((prev) => {
+                                                    const next = [...prev];
+                                                    next[flatIndex] = null;
+                                                    return next;
+                                                  });
+                                                  setCriterionScores((prev) => {
+                                                    const next = [...prev];
+                                                    next[flatIndex] = "";
+                                                    return next;
+                                                  });
+                                                  return;
+                                                }
+                                                const v = parseFloat(raw);
+                                                if (!Number.isFinite(v) || v < 0) return;
+                                                const clamped = Math.min(rowMaxPts, v);
                                                 setOverridePts((prev) => {
                                                   const next = [...prev];
-                                                  next[flatIndex] = null;
+                                                  next[flatIndex] = clamped;
                                                   return next;
                                                 });
+                                                const gradeBack = Math.max(0, max > 0 ? Math.min(max, gradeFromPts(clamped, max, weight)) : gradeFromPts(clamped, max, weight));
                                                 setCriterionScores((prev) => {
                                                   const next = [...prev];
-                                                  next[flatIndex] = "";
+                                                  next[flatIndex] = gradeBack % 1 === 0 ? String(Math.round(gradeBack)) : gradeBack.toFixed(2);
                                                   return next;
                                                 });
-                                                return;
-                                              }
-                                              const v = parseFloat(raw);
-                                              if (!Number.isFinite(v) || v < 0) return;
-                                              setOverridePts((prev) => {
-                                                const next = [...prev];
-                                                next[flatIndex] = v;
-                                                return next;
-                                              });
-                                              const gradeBack = Math.max(0, max > 0 ? Math.min(max, gradeFromPts(v, max, weight)) : gradeFromPts(v, max, weight));
-                                              setCriterionScores((prev) => {
-                                                const next = [...prev];
-                                                next[flatIndex] = gradeBack % 1 === 0 ? String(Math.round(gradeBack)) : gradeBack.toFixed(2);
-                                                return next;
-                                              });
-                                            }}
-                                            className="h-8 w-14 rounded-lg border border-gray-300 bg-white px-2 text-right text-[12px] tabular-nums text-[#1F2430] focus:border-[#5A7ACD] focus:ring-1 focus:ring-[#5A7ACD]/30 outline-none"
-                                          />
+                                              }}
+                                              className="h-8 w-20 rounded-lg border border-gray-300 bg-white px-2 text-center text-[12px] tabular-nums text-[#1F2430] focus:border-[#5A7ACD] focus:ring-1 focus:ring-[#5A7ACD]/30 outline-none"
+                                            />
+                                          </div>
                                         </td>
                                         <td className="px-4 py-3 align-middle">
                                           <textarea
@@ -437,7 +474,9 @@ export function GradeSubmissionDialog({
                               const weight = criterion.weight ?? null;
                               const percentOfMax = weight != null ? weight : (rubricMax > 0 && max > 0 ? (max / rubricMax) * 100 : 0);
                               const calculatedPts = getCalculatedPts(flatIndex, max, weight);
-                              const pts = overridePts[flatIndex] != null && Number.isFinite(overridePts[flatIndex]) ? overridePts[flatIndex]! : calculatedPts;
+                              const rowMaxPts = maxPtsForRow(max, weight);
+                              const rawPts = overridePts[flatIndex] != null && Number.isFinite(overridePts[flatIndex]) ? overridePts[flatIndex]! : calculatedPts;
+                              const pts = Math.min(rawPts, rowMaxPts);
                               const comment = criterionComments[flatIndex] ?? "";
 
                               return (
@@ -453,7 +492,7 @@ export function GradeSubmissionDialog({
                                       {category.name}
                                     </div>
                                   </td>
-                                  <td className="w-[80px] px-3 py-3 align-middle">
+                                  <td className="w-[110px] px-3 py-3 align-middle">
                                     <div className="flex flex-col items-center gap-0.5">
                                       <span className="text-[10px] text-gray-500">0–{max}</span>
                                       <input
@@ -463,9 +502,27 @@ export function GradeSubmissionDialog({
                                         step="any"
                                         value={gradeStr}
                                         onChange={(e) => {
+                                          const raw = e.target.value;
+                                          if (raw === "") {
+                                            setCriterionScores((prev) => {
+                                              const next = [...prev];
+                                              next[flatIndex] = "";
+                                              return next;
+                                            });
+                                            setOverridePts((prev) => {
+                                              const next = [...prev];
+                                              next[flatIndex] = null;
+                                              return next;
+                                            });
+                                            return;
+                                          }
+                                          const parsed = parseFloat(raw);
+                                          if (!Number.isFinite(parsed)) return;
+                                          const clamped = Math.min(max, Math.max(0, parsed));
+                                          const display = clamped === Math.floor(clamped) ? String(Math.round(clamped)) : clamped.toFixed(2);
                                           setCriterionScores((prev) => {
                                             const next = [...prev];
-                                            next[flatIndex] = e.target.value;
+                                            next[flatIndex] = display;
                                             return next;
                                           });
                                           setOverridePts((prev) => {
@@ -475,52 +532,56 @@ export function GradeSubmissionDialog({
                                           });
                                         }}
                                         placeholder="—"
-                                        className="h-8 w-14 rounded-lg border border-gray-300 bg-white px-2 text-right text-[13px] tabular-nums text-[#1F2430] focus:border-[#5A7ACD] focus:ring-1 focus:ring-[#5A7ACD]/30 outline-none"
+                                        className="h-8 w-16 rounded-lg border border-gray-300 bg-white px-2 text-right text-[13px] tabular-nums text-[#1F2430] focus:border-[#5A7ACD] focus:ring-1 focus:ring-[#5A7ACD]/30 outline-none"
                                       />
                                     </div>
                                   </td>
-                                  <td className="w-[80px] px-3 py-3 align-middle text-right">
+                                  <td className="w-[64px] px-2 py-3 align-middle text-right">
                                     <span className="text-[12px] text-gray-700">
                                       {weight != null ? `${weight}%` : (rubricMax > 0 && max > 0 ? `${percentOfMax.toFixed(1)}%` : "—")}
                                     </span>
                                   </td>
-                                  <td className="w-[80px] px-3 py-3 align-middle text-right">
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      step="0.01"
-                                      value={overridePts[flatIndex] != null ? overridePts[flatIndex]! : pts}
-                                      onChange={(e) => {
-                                        const raw = e.target.value;
-                                        if (raw === "") {
+                                  <td className="w-[110px] px-3 py-3 align-middle">
+                                    <div className="flex justify-center">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={rowMaxPts}
+                                        step="0.01"
+                                        value={pts}
+                                        onChange={(e) => {
+                                          const raw = e.target.value;
+                                          if (raw === "") {
+                                            setOverridePts((prev) => {
+                                              const next = [...prev];
+                                              next[flatIndex] = null;
+                                              return next;
+                                            });
+                                            setCriterionScores((prev) => {
+                                              const next = [...prev];
+                                              next[flatIndex] = "";
+                                              return next;
+                                            });
+                                            return;
+                                          }
+                                          const v = parseFloat(raw);
+                                          if (!Number.isFinite(v) || v < 0) return;
+                                          const clamped = Math.min(rowMaxPts, v);
                                           setOverridePts((prev) => {
                                             const next = [...prev];
-                                            next[flatIndex] = null;
+                                            next[flatIndex] = clamped;
                                             return next;
                                           });
+                                          const gradeBack = Math.max(0, max > 0 ? Math.min(max, gradeFromPts(clamped, max, weight)) : gradeFromPts(clamped, max, weight));
                                           setCriterionScores((prev) => {
                                             const next = [...prev];
-                                            next[flatIndex] = "";
+                                            next[flatIndex] = gradeBack % 1 === 0 ? String(Math.round(gradeBack)) : gradeBack.toFixed(2);
                                             return next;
                                           });
-                                          return;
-                                        }
-                                        const v = parseFloat(raw);
-                                        if (!Number.isFinite(v) || v < 0) return;
-                                        setOverridePts((prev) => {
-                                          const next = [...prev];
-                                          next[flatIndex] = v;
-                                          return next;
-                                        });
-                                        const gradeBack = Math.max(0, max > 0 ? Math.min(max, gradeFromPts(v, max, weight)) : gradeFromPts(v, max, weight));
-                                        setCriterionScores((prev) => {
-                                          const next = [...prev];
-                                          next[flatIndex] = gradeBack % 1 === 0 ? String(Math.round(gradeBack)) : gradeBack.toFixed(2);
-                                          return next;
-                                        });
-                                      }}
-                                      className="h-8 w-14 rounded-lg border border-gray-300 bg-white px-2 text-right text-[12px] tabular-nums text-[#1F2430] focus:border-[#5A7ACD] focus:ring-1 focus:ring-[#5A7ACD]/30 outline-none"
-                                    />
+                                        }}
+                                        className="h-8 w-20 rounded-lg border border-gray-300 bg-white px-2 text-center text-[12px] tabular-nums text-[#1F2430] focus:border-[#5A7ACD] focus:ring-1 focus:ring-[#5A7ACD]/30 outline-none"
+                                      />
+                                    </div>
                                   </td>
                                   <td className="px-4 py-3 align-middle">
                                     <textarea
