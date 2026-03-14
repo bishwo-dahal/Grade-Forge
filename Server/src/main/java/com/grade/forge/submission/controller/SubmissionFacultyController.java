@@ -27,7 +27,7 @@ public class SubmissionFacultyController {
         return new ResponseEntity<>(submissions, HttpStatus.OK);
     }
 
-    @PutMapping("/{submissionId}/grade")
+    @PatchMapping("/{submissionId}/grade")
     public ResponseEntity<SubmissionResponse> updateGrade(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                                           @PathVariable Long submissionId,
                                                           @RequestBody SubmissionGradeRequest request) {

@@ -380,40 +380,28 @@ export function AssignmentGradingPage() {
   }, [submissionId, isFaculty]);
 
   const handleSaveGrade = useCallback(
-    async (marks: number, feedback: string) => {
+    async (
+      marks: number,
+      feedback: string,
+      rubricGrades?: Array<{ criterionId: number; score: number; comment: string }>,
+    ) => {
       if (!submissionId) return;
       setGradeSubmitting(true);
       try {
         if (isFaculty) {
-          // If feedback is rubric JSON, persist per-criterion grades via batch API first.
-          try {
-            const parsed = JSON.parse(feedback) as {
-              criteria?: Array<{
-                criterionId?: number;
-                score: number;
-                comment?: string;
-              }>;
-            };
-            if (parsed && Array.isArray(parsed.criteria) && parsed.criteria.length > 0) {
-              const grades = parsed.criteria
-                .filter((item) => typeof item.criterionId === "number")
-                .map((item) => ({
-                  rubricSubCriteriaId: item.criterionId as number,
-                  awardedScore: Math.max(0, Math.round(item.score)),
-                  feedback: (item.comment?.trim() || undefined) ?? null,
-                }));
-              if (grades.length > 0) {
-                const request = { submissionId: Number(submissionId), grades };
-                const hasExisting = Object.keys(rubricExistingGrades).length > 0;
-                if (hasExisting) {
-                  await replaceSubmissionGrades(submissionId, request);
-                } else {
-                  await createGradesBatch(request);
-                }
-              }
+          if (rubricGrades && rubricGrades.length > 0) {
+            const grades = rubricGrades.map((item) => ({
+              rubricSubCriteriaId: item.criterionId,
+              awardedScore: Math.max(0, Math.round(item.score)),
+              feedback: (item.comment?.trim() || undefined) ?? null,
+            }));
+            const request = { submissionId: Number(submissionId), grades };
+            const hasExisting = Object.keys(rubricExistingGrades).length > 0;
+            if (hasExisting) {
+              await replaceSubmissionGrades(submissionId, request);
+            } else {
+              await createGradesBatch(request);
             }
-          } catch {
-            // Not rubric JSON or batch API failed; continue to update overall grade.
           }
 
           await submitFacultySubmissionGrade({

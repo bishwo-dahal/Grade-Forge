@@ -32,7 +32,12 @@ export interface GradeSubmissionDialogProps {
   maxPoints: number;
   currentMarks: number | null;
   currentFeedback: string;
-  onSubmit: (marks: number, feedback: string) => Promise<void>;
+  /** feedback = user-typed feedback (sent to PATCH grade). rubricGrades = per-criterion data for batch API only. */
+  onSubmit: (
+    marks: number,
+    feedback: string,
+    rubricGrades?: Array<{ criterionId: number; score: number; comment: string }>,
+  ) => Promise<void>;
   isSubmitting?: boolean;
 }
 
@@ -229,30 +234,25 @@ export function GradeSubmissionDialog({
       return;
     }
     try {
-      const feedbackPayload = hasRubric
-        ? JSON.stringify({
-            totalMarks: marks,
-            rubricMax,
-            criteria: rubricCategories.flatMap((category, catIndex) =>
-              category.criteria.map((criterion, critIndex) => {
-                const flatIndex =
-                  rubricCategories
-                    .slice(0, catIndex)
-                    .reduce((acc, c) => acc + c.criteria.length, 0) + critIndex;
-                return {
-                  criterionId: criterion.id,
-                  category: category.name,
-                  description: criterion.description,
-                  maxPoints: criterion.points,
-                  score: parseGrade(criterionScores[flatIndex] ?? ""),
-                  comment: criterionComments[flatIndex] ?? "",
-                };
-              }),
-            ),
-          })
-        : feedback.trim();
+      const userFeedback = feedback.trim();
+      const rubricGrades = hasRubric
+        ? rubricCategories.flatMap((category, catIndex) =>
+            category.criteria.map((criterion, critIndex) => {
+              const flatIndex =
+                rubricCategories
+                  .slice(0, catIndex)
+                  .reduce((acc, c) => acc + c.criteria.length, 0) + critIndex;
+              if (typeof criterion.id !== "number") return null;
+              return {
+                criterionId: criterion.id,
+                score: parseGrade(criterionScores[flatIndex] ?? ""),
+                comment: criterionComments[flatIndex] ?? "",
+              };
+            }),
+          ).filter((g): g is { criterionId: number; score: number; comment: string } => g != null)
+        : undefined;
 
-      await onSubmit(marks, feedbackPayload);
+      await onSubmit(marks, userFeedback, rubricGrades);
       onOpenChange(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save grade.");
