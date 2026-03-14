@@ -77,6 +77,7 @@ export function RubricForm({
     ];
   });
   const [localError, setLocalError] = useState<string | null>(null);
+  const rubricTypeLocked = mode === "edit" && (initialRubric?.rubricType === "WEIGHTED" || initialRubric?.rubricType === "UNWEIGHTED");
 
   const allSubWeights = useMemo(() => {
     const list: { criterionIndex: number; subIndex: number; weight: number }[] = [];
@@ -386,28 +387,34 @@ export function RubricForm({
 
             <div className="flex items-center gap-4">
               <span className="text-[14px] font-medium text-[#1F2430]">Scoring</span>
-              <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1">
+              <div className={`inline-flex rounded-xl border border-gray-200 p-1 ${rubricTypeLocked ? "cursor-not-allowed bg-gray-100 opacity-90" : "bg-gray-50"}`}>
                 <button
                   type="button"
-                  onClick={() => setIsWeighted(true)}
-                  className={`rounded-lg px-4 py-2 text-[13px] font-medium transition-colors ${
+                  disabled={rubricTypeLocked}
+                  onClick={() => !rubricTypeLocked && setIsWeighted(true)}
+                  className={`rounded-lg px-4 py-2 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${
                     isWeighted ? "bg-white text-[#1F2430] shadow-sm" : "text-[#5D6A80] hover:text-[#1F2430]"
-                  }`}
+                  } ${rubricTypeLocked ? "disabled:opacity-100" : ""}`}
                 >
                   Weighted
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsWeighted(false)}
-                  className={`rounded-lg px-4 py-2 text-[13px] font-medium transition-colors ${
+                  disabled={rubricTypeLocked}
+                  onClick={() => !rubricTypeLocked && setIsWeighted(false)}
+                  className={`rounded-lg px-4 py-2 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${
                     !isWeighted ? "bg-white text-[#1F2430] shadow-sm" : "text-[#5D6A80] hover:text-[#1F2430]"
-                  }`}
+                  } ${rubricTypeLocked ? "disabled:opacity-100" : ""}`}
                 >
                   Unweighted
                 </button>
               </div>
               <span className="text-[12px] text-[#7C879A]">
-                {isWeighted ? "Weights must total 100%." : "No weight percentages; score by points only."}
+                {rubricTypeLocked
+                  ? "Scoring type cannot be changed when editing."
+                  : isWeighted
+                    ? "Weights must total 100%."
+                    : "No weight percentages; score by points only."}
               </span>
             </div>
 

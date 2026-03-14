@@ -200,7 +200,7 @@ public class RubricService {
                     if (RubricType.UNWEIGHTED.equals(rubricType)) {
                         criteria.setPoints(criteriaRequest.getPoints());
                     } else {
-                        criteria.setPoints(0);
+                        criteria.setPoints(criteriaRequest.getPoints() == null ? 0 : criteriaRequest.getPoints());
                     }
                     criteria.setRubric(rubric);
                     if (criteriaRequest.getSubCriteria() != null) {
