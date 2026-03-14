@@ -13,7 +13,7 @@ import lombok.Setter;
 @Builder
 public class SubmissionGradeItemResponse {
     private Long rubricSubCriteriaId;
-    private Integer awardedScore;
+    private Double awardedScore;
     private String feedback;
 }
 

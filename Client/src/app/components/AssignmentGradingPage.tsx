@@ -35,7 +35,11 @@ import {
   listSubmissionsByAssignment,
   updateSubmissionGrade,
 } from "../../services/gradingAssistantSubmissionService";
-import { getGASubmissionGrades } from "../../services/gradingAssistantSubmissionGradeService";
+import {
+  getGASubmissionGrades,
+  createGASubmissionGradesBatch,
+  replaceGASubmissionGrades,
+} from "../../services/gradingAssistantSubmissionGradeService";
 import { clearAuthenticated, getAuthenticatedUser, getAuthenticatedRole } from "../auth";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
@@ -533,6 +537,23 @@ export function AssignmentGradingPage() {
             marks,
             feedback,
           });
+        } else if (isGA) {
+          if (rubricGrades && rubricGrades.length > 0) {
+            const grades = rubricGrades.map((item) => ({
+              rubricSubCriteriaId: item.criterionId,
+              awardedScore: Math.max(0, Math.round(item.score)),
+              feedback: (item.comment?.trim() || undefined) ?? null,
+            }));
+            const request = { submissionId: Number(submissionId), grades };
+            const hasExisting = Object.keys(rubricExistingGrades).length > 0;
+            if (hasExisting) {
+              await replaceGASubmissionGrades(submissionId, request);
+            } else {
+              await createGASubmissionGradesBatch(request);
+            }
+          }
+
+          await updateSubmissionGrade(Number(submissionId), { marks, feedback });
         } else {
           await updateSubmissionGrade(Number(submissionId), { marks, feedback });
         }

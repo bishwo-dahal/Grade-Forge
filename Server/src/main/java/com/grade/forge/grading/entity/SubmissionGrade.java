@@ -33,7 +33,7 @@ public class SubmissionGrade {
     private RubricSubCriteria rubricSubCriteria;
 
     @Column(name = "awarded_score", nullable = false)
-    private Integer awardedScore;
+    private Double awardedScore;
 
     @Column(columnDefinition = "TEXT")
     private String feedback;

@@ -14,7 +14,7 @@ import lombok.Setter;
 public class SubmissionGradeRequest {
     private Long submissionId;
     private Long rubricSubCriteriaId;
-    private Integer awardedScore;
+    private Double awardedScore;
     private String feedback;
 }
 

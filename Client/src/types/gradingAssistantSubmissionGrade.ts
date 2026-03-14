@@ -15,3 +15,23 @@ export interface SubmissionGradeResponse {
   awardedScore: number;
   feedback?: string | null;
 }
+
+/** GET /api/v1/grading-assistant/submission-grades/{submissionId} response */
+export interface GASubmissionGradesResponse {
+  submissionId: number;
+  grades: Array<{
+    rubricSubCriteriaId: number;
+    awardedScore: number;
+    feedback?: string | null;
+  }>;
+}
+
+/** POST batch / PUT .../{submissionId} — same shape as faculty */
+export interface GASubmissionGradeBatchRequest {
+  submissionId: number;
+  grades: Array<{
+    rubricSubCriteriaId: number;
+    awardedScore: number;
+    feedback?: string | null;
+  }>;
+}

@@ -18,7 +18,7 @@ public class SubmissionGradeResponse {
     private String rubricSubCriteriaDescription;
     private Long rubricCriteriaId;
     private String rubricCriteriaTitle;
-    private Integer awardedScore;
+    private Double awardedScore;
     private String feedback;
 }
 
