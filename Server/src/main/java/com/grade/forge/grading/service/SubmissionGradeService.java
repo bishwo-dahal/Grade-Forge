@@ -7,6 +7,7 @@ import com.grade.forge.grading.entity.SubmissionGrade;
 import com.grade.forge.grading.repository.SubmissionGradeRepository;
 import com.grade.forge.rubric.entity.Rubric;
 import com.grade.forge.rubric.entity.RubricCriteria;
+import com.grade.forge.rubric.entity.RubricSubCriteria;
 import com.grade.forge.rubric.repository.RubricCriteriaRepository;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.enums.SubmissionStatus;
@@ -147,8 +148,13 @@ public class SubmissionGradeService {
         if (score < 0) {
             throw new IllegalArgumentException("awardedScore cannot be negative");
         }
-        if (criteria.getMaxScore() != null && score > criteria.getMaxScore()) {
-            throw new IllegalArgumentException("awardedScore cannot exceed criteria maxScore");
+        int maxAllowed = (criteria.getSubCriteria() == null ? List.<RubricSubCriteria>of() : criteria.getSubCriteria())
+                .stream()
+                .filter(Objects::nonNull)
+                .mapToInt(sub -> sub.getMaxScore() != null ? sub.getMaxScore() : 0)
+                .sum();
+        if (maxAllowed > 0 && score > maxAllowed) {
+            throw new IllegalArgumentException("awardedScore cannot exceed criteria total maxScore");
         }
     }
 

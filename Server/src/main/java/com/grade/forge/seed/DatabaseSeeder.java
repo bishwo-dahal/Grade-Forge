@@ -478,9 +478,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         RubricCriteria criteria = new RubricCriteria();
         criteria.setRubric(rubric);
         criteria.setTitle(title);
-        criteria.setDescription(description);
-        criteria.setMaxScore(maxScore);
-        criteria.setWeight(null);
+
         return criteria;
     }
 

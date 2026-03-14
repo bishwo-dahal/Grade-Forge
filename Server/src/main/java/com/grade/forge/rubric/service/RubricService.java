@@ -7,8 +7,11 @@ import com.grade.forge.rubric.dto.RubricCriteriaRequest;
 import com.grade.forge.rubric.dto.RubricCriteriaResponse;
 import com.grade.forge.rubric.dto.RubricRequest;
 import com.grade.forge.rubric.dto.RubricResponse;
+import com.grade.forge.rubric.dto.RubricSubCriteriaRequest;
+import com.grade.forge.rubric.dto.RubricSubCriteriaResponse;
 import com.grade.forge.rubric.entity.Rubric;
 import com.grade.forge.rubric.entity.RubricCriteria;
+import com.grade.forge.rubric.entity.RubricSubCriteria;
 import com.grade.forge.rubric.repository.RubricRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -130,11 +132,24 @@ public class RubricService {
         if (request.getTitle() == null || request.getTitle().isBlank()) {
             throw new IllegalArgumentException("Criteria title is required");
         }
+        if (request.getSubCriteria() == null || request.getSubCriteria().isEmpty()) {
+            throw new IllegalArgumentException("At least one sub-criteria is required for each criteria");
+        }
+        request.getSubCriteria().forEach(this::validateSubCriteriaRequest);
+    }
+
+    private void validateSubCriteriaRequest(RubricSubCriteriaRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Sub-criteria cannot be null");
+        }
+        if (request.getDescription() == null || request.getDescription().isBlank()) {
+            throw new IllegalArgumentException("Sub-criteria description is required");
+        }
         if (request.getMaxScore() == null || request.getMaxScore() <= 0) {
-            throw new IllegalArgumentException("Criteria maxScore must be positive");
+            throw new IllegalArgumentException("Sub-criteria maxScore must be positive");
         }
         if (request.getWeight() != null && request.getWeight() < 0) {
-            throw new IllegalArgumentException("Criteria weight cannot be negative");
+            throw new IllegalArgumentException("Sub-criteria weight cannot be negative");
         }
     }
 
@@ -148,10 +163,18 @@ public class RubricService {
                     validateCriteriaRequest(criteriaRequest);
                     RubricCriteria criteria = new RubricCriteria();
                     criteria.setTitle(criteriaRequest.getTitle());
-                    criteria.setDescription(criteriaRequest.getDescription());
-                    criteria.setMaxScore(criteriaRequest.getMaxScore());
-                    criteria.setWeight(criteriaRequest.getWeight());
                     criteria.setRubric(rubric);
+                    criteriaRequest.getSubCriteria().stream()
+                            .filter(Objects::nonNull)
+                            .forEach(subRequest -> {
+                                validateSubCriteriaRequest(subRequest);
+                                RubricSubCriteria sub = new RubricSubCriteria();
+                                sub.setDescription(subRequest.getDescription());
+                                sub.setMaxScore(subRequest.getMaxScore());
+                                sub.setWeight(subRequest.getWeight());
+                                sub.setCriteria(criteria);
+                                criteria.getSubCriteria().add(sub);
+                            });
                     rubric.getCriteria().add(criteria);
                 });
     }
@@ -171,9 +194,14 @@ public class RubricService {
                 .map(criteria -> RubricCriteriaResponse.builder()
                         .id(criteria.getId())
                         .title(criteria.getTitle())
-                        .description(criteria.getDescription())
-                        .maxScore(criteria.getMaxScore())
-                        .weight(criteria.getWeight())
+                        .subCriteria((criteria.getSubCriteria() == null ? List.<RubricSubCriteria>of() : criteria.getSubCriteria()).stream()
+                                .map(sub -> RubricSubCriteriaResponse.builder()
+                                        .id(sub.getId())
+                                        .description(sub.getDescription())
+                                        .maxScore(sub.getMaxScore())
+                                        .weight(sub.getWeight())
+                                        .build())
+                                .collect(Collectors.toList()))
                         .build())
                 .collect(Collectors.toList());
 

@@ -1,6 +1,5 @@
 package com.grade.forge.rubric.entity;
 
-import com.grade.forge.grading.entity.SubmissionGrade;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -25,17 +24,8 @@ public class RubricCriteria {
     @Column(nullable = false)
     private String title;
 
-    @Column(columnDefinition = "TEXT")
-    private String description;
-
-    @Column(nullable = false)
-    private Integer maxScore;
-
-    private Double weight;
-
-    // All grades for this criterion
-    @OneToMany(mappedBy = "rubricCriteria")
-    private List<SubmissionGrade> submissionGrades = new ArrayList<>();
+    @OneToMany(mappedBy = "criteria", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RubricSubCriteria> subCriteria = new ArrayList<>();
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "rubric_id", nullable = false)
