@@ -25,9 +25,10 @@ import {
 } from "../../services/submissionService";
 import {
   createGradesBatch,
-  getFacultyGradesBySubmission,
+  getSubmissionGrades,
+  replaceSubmissionGrades,
 } from "../../services/facultySubmissionGradeService";
-import type { FacultySubmissionGradeResponse } from "../../types/facultySubmissionGrade";
+import type { SubmissionGradeResponse } from "../../types/facultySubmissionGrade";
 import { getRunTestsLatest, requestRunTests, runTestsWithFiles, pollRunTestsUntilDone } from "../../services/runTestsService";
 import { getAssignmentByCourse } from "../../services/gradingAssistantAssignmentService";
 import { getRubric } from "../../services/gradingAssistantRubricService";
@@ -176,23 +177,23 @@ export function AssignmentGradingPage() {
     setSubmissionLanguage(resolvePreviewLanguage(files[0].fileName, assignData.language));
     setSubmissionMarks(row.marks ?? null);
     setSubmissionFeedback("");
-    // Preload existing rubric grades for this submission (faculty path).
+    // Preload existing rubric grades for this submission (GET .../submission-grades/{submissionId}).
     try {
-      const facultyGrades = await getFacultyGradesBySubmission(sId);
-      const byCriteriaId: Record<
+      const grades: SubmissionGradeResponse[] = await getSubmissionGrades(sId);
+      const bySubCriteriaId: Record<
         number,
         {
           awardedScore: number;
           feedback?: string | null;
         }
       > = {};
-      for (const g of facultyGrades) {
-        byCriteriaId[g.rubricCriteriaId] = {
+      for (const g of grades) {
+        bySubCriteriaId[g.rubricSubCriteriaId] = {
           awardedScore: g.awardedScore,
           feedback: g.feedback ?? null,
         };
       }
-      setRubricExistingGrades(byCriteriaId);
+      setRubricExistingGrades(bySubCriteriaId);
     } catch {
       setRubricExistingGrades({});
     }
@@ -382,10 +383,13 @@ export function AssignmentGradingPage() {
                   feedback: (item.comment?.trim() || undefined) ?? null,
                 }));
               if (grades.length > 0) {
-                await createGradesBatch({
-                  submissionId: Number(submissionId),
-                  grades,
-                });
+                const request = { submissionId: Number(submissionId), grades };
+                const hasExisting = Object.keys(rubricExistingGrades).length > 0;
+                if (hasExisting) {
+                  await replaceSubmissionGrades(submissionId, request);
+                } else {
+                  await createGradesBatch(request);
+                }
               }
             }
           } catch {
@@ -415,7 +419,7 @@ export function AssignmentGradingPage() {
         setGradeSubmitting(false);
       }
     },
-    [submissionId, isFaculty],
+    [submissionId, isFaculty, rubricExistingGrades],
   );
 
   const codeWorkspaceAssignment = useMemo(
