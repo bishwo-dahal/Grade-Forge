@@ -189,6 +189,14 @@ export function ResultsPanel({
         </div>
       </div>
 
+      {/* Feedback (from submission) — below circle, before rubric */}
+      {results.submissionFeedback != null && results.submissionFeedback !== "" && (
+        <div className="mb-6 p-4 rounded-lg border border-gray-200 bg-gray-50">
+          <p className="text-[12px] font-medium text-[#2B2A2A] mb-1">Feedback</p>
+          <p className="text-[12px] text-gray-700 whitespace-pre-wrap">{results.submissionFeedback}</p>
+        </div>
+      )}
+
       {/* Rubric Breakdown — combined table when studentRubric + grades, else list or placeholder */}
       <div className="mb-6">
         <h3 className="text-[13px] font-semibold text-[#5A7ACD] mb-3 flex items-center gap-2 uppercase tracking-wide">
@@ -200,8 +208,50 @@ export function ResultsPanel({
           {studentRubric && studentSubmissionGrades?.grades && studentSubmissionGrades.grades.length > 0 ? (
             (() => {
               const isWeighted = studentRubric.rubricType === "WEIGHTED";
-              const colCount = isWeighted ? 5 : 4;
+              const rubricMax = studentRubric.criteria.reduce((sum, c) => {
+                if (c.subCriteria?.length) return sum + c.subCriteria!.reduce((s, sub) => s + sub.maxScore, 0);
+                return sum + (c.maxScore ?? c.points ?? 0);
+              }, 0);
+              const maxPointsForScale = (results?.totalPoints ?? rubricMax) || 100;
+              const round2 = (x: number) => Math.round(x * 100) / 100;
+              /** Row points: unweighted = awarded; weighted = (awarded/max)*(weight/100)*scale */
+              const rowPts = (
+                awarded: number,
+                max: number,
+                weight: number | null,
+              ): number | null => {
+                if (!Number.isFinite(awarded)) return null;
+                if (!isWeighted) return round2(awarded);
+                if (max <= 0 || weight == null) return null;
+                return round2((awarded / max) * (weight / 100) * maxPointsForScale);
+              };
+              /** Sum of all row points (computed from rubric + grades). */
+              const totalPts = (() => {
+                let sum = 0;
+                for (const criterion of studentRubric.criteria) {
+                  const hasSub = criterion.subCriteria && criterion.subCriteria.length > 0;
+                  if (hasSub) {
+                    for (const sub of criterion.subCriteria!) {
+                      const g = sub.id != null ? gradesBySubCriteriaId.get(sub.id) : undefined;
+                      if (g != null) {
+                        const p = rowPts(g.awardedScore, sub.maxScore, sub.weight ?? null);
+                        if (p != null) sum += p;
+                      }
+                    }
+                  } else {
+                    const g = criterion.id != null ? gradesBySubCriteriaId.get(criterion.id) : undefined;
+                    const max = criterion.maxScore ?? criterion.points ?? 0;
+                    if (g != null) {
+                      const p = rowPts(g.awardedScore, max, criterion.weight ?? null);
+                      if (p != null) sum += p;
+                    }
+                  }
+                }
+                return sum;
+              })();
+              const colCount = isWeighted ? 6 : 5;
               return (
+                <>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -219,6 +269,9 @@ export function ResultsPanel({
                         )}
                         <th className="py-3 px-4 text-[12px] font-semibold text-[#2B2A2A] uppercase tracking-wide w-24 text-right">
                           Awarded
+                        </th>
+                        <th className="py-3 px-4 text-[12px] font-semibold text-[#2B2A2A] uppercase tracking-wide w-20 text-right">
+                          Pts
                         </th>
                         <th className="py-3 px-4 text-[12px] font-semibold text-[#2B2A2A] uppercase tracking-wide">
                           Feedback
@@ -248,6 +301,10 @@ export function ResultsPanel({
                               </tr>
                               {criterion.subCriteria!.map((sub) => {
                                 const grade = sub.id != null ? gradesBySubCriteriaId.get(sub.id) : undefined;
+                                const awarded = grade?.awardedScore ?? 0;
+                                const max = sub.maxScore;
+                                const w = sub.weight ?? null;
+                                const pts = grade != null ? rowPts(awarded, max, w) : null;
                                 return (
                                   <tr key={sub.id ?? sub.description ?? ""} className="border-b border-gray-100">
                                     <td className="py-2.5 px-4 pl-6 text-[12px] text-[#2B2A2A]">
@@ -264,6 +321,9 @@ export function ResultsPanel({
                                     <td className="py-2.5 px-4 text-[12px] font-semibold text-[#2B2A2A] text-right">
                                       {grade != null ? grade.awardedScore.toFixed(2) : "—"}
                                     </td>
+                                    <td className="py-2.5 px-4 text-[12px] text-[#5A7ACD] text-right font-medium">
+                                      {pts != null ? pts.toFixed(2) : "—"}
+                                    </td>
                                     <td className="py-2.5 px-4 text-[11px] text-gray-600 italic">
                                       {grade?.feedback ?? "—"}
                                     </td>
@@ -275,6 +335,9 @@ export function ResultsPanel({
                         }
                         const grade = criterion.id != null ? gradesBySubCriteriaId.get(criterion.id) : undefined;
                         const max = criterion.maxScore ?? criterion.points ?? 0;
+                        const awarded = grade?.awardedScore ?? 0;
+                        const w = criterion.weight ?? null;
+                        const pts = grade != null ? rowPts(awarded, max, w) : null;
                         return (
                           <tr key={criterion.id ?? criterion.title} className="border-b border-gray-100">
                             <td className="py-2.5 px-4 text-[12px] text-[#2B2A2A]">
@@ -293,6 +356,9 @@ export function ResultsPanel({
                             <td className="py-2.5 px-4 text-[12px] font-semibold text-[#2B2A2A] text-right">
                               {grade != null ? grade.awardedScore.toFixed(2) : "—"}
                             </td>
+                            <td className="py-2.5 px-4 text-[12px] text-[#5A7ACD] text-right font-medium">
+                              {pts != null ? pts.toFixed(2) : "—"}
+                            </td>
                             <td className="py-2.5 px-4 text-[11px] text-gray-600 italic">
                               {grade?.feedback ?? "—"}
                             </td>
@@ -302,20 +368,26 @@ export function ResultsPanel({
                       <tr className="bg-gray-50 border-t-2 border-gray-200">
                         <td className="py-3 px-4 text-[13px] font-semibold text-[#2B2A2A]">Total</td>
                         <td className="py-3 px-4 text-[12px] text-gray-600 text-right">
-                          {studentRubric.criteria.reduce((sum, c) => {
-                            if (c.subCriteria?.length) return sum + c.subCriteria!.reduce((s, sub) => s + sub.maxScore, 0);
-                            return sum + (c.maxScore ?? c.points ?? 0);
-                          }, 0)}
+                          {rubricMax}
                         </td>
                         {isWeighted && <td className="py-3 px-4" />}
-                        <td className="py-3 px-4 text-[14px] font-bold text-[#5A7ACD] text-right">
+                        <td className="py-3 px-4 text-[12px] text-gray-600 text-right">
                           {studentSubmissionGrades.grades.reduce((sum, g) => sum + g.awardedScore, 0).toFixed(2)}
+                        </td>
+                        <td className="py-3 px-4 text-[14px] font-bold text-[#5A7ACD] text-right">
+                          {totalPts.toFixed(2)}
+                          {maxPointsForScale > 0 && (
+                            <span className="ml-1.5 text-[11px] font-normal text-gray-500">
+                              / {maxPointsForScale} ({(totalPts / maxPointsForScale * 100).toFixed(1)}%)
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-4" />
                       </tr>
                     </tbody>
                   </table>
                 </div>
+              </>
               );
             })()
           ) : studentSubmissionGrades?.grades && studentSubmissionGrades.grades.length > 0 ? (
@@ -367,6 +439,12 @@ export function ResultsPanel({
                   {studentSubmissionGrades.grades.reduce((sum, g) => sum + g.awardedScore, 0).toFixed(2)}
                 </span>
               </div>
+              {(results?.submissionFeedback != null && results.submissionFeedback !== "") && (
+                <div className="mt-4 p-4 rounded-lg border border-gray-200 bg-gray-50">
+                  <p className="text-[12px] font-medium text-[#2B2A2A] mb-1">Feedback</p>
+                  <p className="text-[12px] text-gray-700 whitespace-pre-wrap">{results.submissionFeedback}</p>
+                </div>
+              )}
             </>
           ) : (
             results.rubricBreakdown.map((item, index) => (
@@ -402,6 +480,12 @@ export function ResultsPanel({
                 </div>
               </div>
             ))
+          )}
+          {results?.submissionFeedback != null && results.submissionFeedback !== "" && !studentSubmissionGrades?.grades?.length && (
+            <div className="mt-4 p-4 rounded-lg border border-gray-200 bg-gray-50 mx-4 mb-4">
+              <p className="text-[12px] font-medium text-[#2B2A2A] mb-1">Feedback</p>
+              <p className="text-[12px] text-gray-700 whitespace-pre-wrap">{results.submissionFeedback}</p>
+            </div>
           )}
         </div>
       </div>

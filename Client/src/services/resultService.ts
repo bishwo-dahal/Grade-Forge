@@ -162,6 +162,8 @@ interface SubmissionApiResponse {
   assignmentId: number;
   marks: number | null;
   submittedAt: string;
+  /** Submission-level feedback from grader (GET /api/v1/student/submissions/assignment). */
+  feedback?: string | null;
 }
 
 interface StudentEnrolledCourseApiResponse {
@@ -504,6 +506,7 @@ export async function getAssignmentResult(assignmentId: string): Promise<Assignm
       },
     ],
     latestSubmissionId: latest?.id ?? null,
+    submissionFeedback: latest?.feedback ?? null,
   };
 }
 
