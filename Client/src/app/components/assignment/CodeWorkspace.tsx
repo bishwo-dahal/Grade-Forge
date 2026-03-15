@@ -34,8 +34,12 @@ interface CodeWorkspaceProps {
     languageAllowedExtensions?: string | null;
   };
   codeExamples: EditorCodeExamples;
-  /** Called when Run Tests is clicked. Receives current workspace files (empty if none) so student can run without submitting. */
-  onRunTests: (files?: File[]) => void;
+  /** Called when Run Tests is clicked. Receives current workspace files and optional custom stdin (students only). */
+  onRunTests: (files?: File[], customStdin?: string) => void;
+  /** When true, pass customStdin when Run Tests is clicked (students; value comes from Test Cases tab). */
+  showCustomStdin?: boolean;
+  /** Custom stdin from Test Cases tab; used when Run Tests is clicked. */
+  customStdin?: string;
   onSubmit: (files: File[]) => Promise<void> | void;
   showUploadControls?: boolean;
   showFacultyGradeControls?: boolean;
@@ -111,6 +115,8 @@ export function CodeWorkspace({
   onSubmit,
   showUploadControls = false,
   showFacultyGradeControls = false,
+  showCustomStdin = false,
+  customStdin: customStdinProp = "",
   facultySubmissionRows = [],
   onSubmitFacultyGrade,
   maxGradePoints,
@@ -433,11 +439,15 @@ export function CodeWorkspace({
     if (runResult) {
       const lines: string[] = ["Running tests...\n"];
       runResult.results.forEach((r, i) => {
-        const status = r.passed ? "PASSED \u2713" : "FAILED \u2717";
+        const status =
+          r.passed === true ? "PASSED \u2713" : r.passed === false ? "FAILED \u2717" : "Custom input";
         lines.push(`Test ${i + 1}: ${r.testCaseTitle} - ${status}`);
-        if (!r.passed) {
+        if (r.passed === false) {
           if (r.expectedOutput != null) lines.push(`  Expected: ${r.expectedOutput}`);
           if (r.actualOutput != null) lines.push(`  Got: ${r.actualOutput}`);
+          if (r.errorMessage) lines.push(`  Error: ${r.errorMessage}`);
+        } else if (r.passed === null && (r.actualOutput != null || r.errorMessage)) {
+          if (r.actualOutput != null) lines.push(`  Output: ${r.actualOutput}`);
           if (r.errorMessage) lines.push(`  Error: ${r.errorMessage}`);
         }
         if (r.runtimeMs != null) lines.push(`  (${r.runtimeMs}ms)`);
@@ -579,7 +589,7 @@ export function CodeWorkspace({
     setConsoleOutput("Running tests...\n");
     const fileNodes = nodes.filter((n) => !(n.metadata as { isFolder?: boolean })?.isFolder);
     const files = fileNodes.map((n) => new File([fileContents[String(n.id)] ?? ""], n.name));
-    onRunTests(files);
+    onRunTests(files, showCustomStdin ? (customStdinProp.trim() || undefined) : undefined);
   };
 
   const handleSubmit = () => {
@@ -923,7 +933,7 @@ export function CodeWorkspace({
                       )}
                       <button
                         onClick={handleRunTests}
-                        className="px-3 py-1.5 text-[12px] text-gray-300 hover:text-white hover:bg-[#3c3c3c] rounded transition-colors flex items-center gap-1.5 border border-[#3c3c3c]"
+                        className="px-3 py-1.5 text-[12px] text-gray-300 hover:text-white hover:bg-[#3c3c3c] rounded transition-colors flex items-center gap-1.5 border border-[#3c3c3c] flex-shrink-0"
                       >
                         <Play className="w-3.5 h-3.5" strokeWidth={2} />
                         <span>Run Tests</span>

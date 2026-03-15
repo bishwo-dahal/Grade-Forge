@@ -7,15 +7,16 @@ export interface RunTestsResponse {
 }
 
 export interface TestCaseResultItem {
-  testCaseId: number;
+  testCaseId: number | null;
   testCaseTitle: string;
-  passed: boolean;
+  /** null for custom-stdin runs (no pass/fail). */
+  passed: boolean | null;
   actualOutput: string | null;
   expectedOutput: string | null;
   timedOut: boolean;
   errorMessage: string | null;
   runtimeMs: number | null;
-  isPrivate?: boolean;
+  isPrivate?: boolean | null;
 }
 
 export interface TestRunJobStatusResponse {

@@ -88,6 +88,8 @@ export function AssignmentPage() {
   const [runLoading, setRunLoading] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [runResult, setRunResult] = useState<TestRunJobStatusResponse | null>(null);
+  /** Custom stdin for "run with my input" (students); lives in Test Cases tab, used when Run Tests is clicked. */
+  const [customStdin, setCustomStdin] = useState("");
 
   const facultySubmissionFileOptions = useMemo(() => {
     if (!isFacultyRole) {
@@ -254,7 +256,7 @@ export function AssignmentPage() {
   };
 
   const handleRunTests = useCallback(
-    async (files?: File[]) => {
+    async (files?: File[], customStdin?: string) => {
       const assignmentIdForRun = assignmentId ?? assignment?.id;
       const hasFiles = files != null && files.length > 0;
       const submissionIdForRun = results?.latestSubmissionId ?? null;
@@ -263,7 +265,7 @@ export function AssignmentPage() {
         setRunLoading(true);
         setRunError(null);
         try {
-          const result = await runTestsWithFiles(assignmentIdForRun, files);
+          const result = await runTestsWithFiles(assignmentIdForRun, files, customStdin);
           setRunResult(result);
           setActiveTab("tests");
         } catch (e) {
@@ -437,7 +439,7 @@ export function AssignmentPage() {
                                     return {
                                       id: r.testCaseId ?? i,
                                       name: r.testCaseTitle,
-                                      passed: r.passed,
+                                      passed: r.passed ?? undefined,
                                       input: suiteCase?.input ?? "",
                                       inputFileName: suiteCase?.fileName ?? null,
                                       expectedOutput: r.expectedOutput ?? suiteCase?.output ?? "",
@@ -451,6 +453,9 @@ export function AssignmentPage() {
                           : null
                       }
                       runStatus={runResult?.status ?? null}
+                      showCustomStdin={isStudentRole}
+                      customStdin={customStdin}
+                      onCustomStdinChange={setCustomStdin}
                     />
                   ) : (
                     <div className="p-6">
@@ -493,6 +498,8 @@ export function AssignmentPage() {
               onRunTests={handleRunTests}
               onSubmit={handleStudentSubmit}
               showUploadControls={isStudentRole}
+              showCustomStdin={isStudentRole}
+              customStdin={customStdin}
               showFacultyGradeControls={isFacultyRole}
               facultySubmissionRows={isFacultyRole ? facultySubmissionRows : undefined}
               onSubmitFacultyGrade={isFacultyRole ? handleFacultySubmissionGrade : undefined}

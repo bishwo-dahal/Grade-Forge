@@ -434,7 +434,7 @@ export function AssignmentGradingPage() {
   );
 
   const handleRunTests = useCallback(
-    async (files?: File[]) => {
+    async (files?: File[], _customStdin?: string) => {
       const hasFiles = files != null && files.length > 0;
       if (hasFiles && assignmentId) {
         setRunLoading(true);
@@ -791,7 +791,7 @@ export function AssignmentGradingPage() {
                                 (r, i): PublicTestCase => ({
                                   id: r.testCaseId ?? i,
                                   name: r.testCaseTitle,
-                                  passed: r.passed,
+                                  passed: r.passed ?? undefined,
                                   input: "",
                                   inputFileName: null,
                                   expectedOutput: r.expectedOutput ?? "",

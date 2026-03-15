@@ -19,7 +19,8 @@ export interface SubmissionTestResult {
 export interface PublicTestCase {
   id: number;
   name: string;
-  passed: boolean;
+  /** undefined for custom-stdin runs (no pass/fail). */
+  passed?: boolean;
   input: string;
   /** If set, input is provided as a file with this name (not stdin). */
   inputFileName?: string | null;
