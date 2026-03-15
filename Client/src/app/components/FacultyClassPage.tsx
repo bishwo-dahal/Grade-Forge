@@ -65,7 +65,6 @@ import { SegmentedFilter } from "./ui/SegmentedFilter";
 const SECTION_PATH_SEGMENTS = [
   "dashboard",
   "assignments",
-  "submissions",
   "grades",
   "students",
   "assistants",
@@ -98,7 +97,6 @@ export function FacultyClassPage() {
   const navigate = useNavigate();
   const resolvedClassId = classId ?? "1";
   const activeSection: SectionType = isValidSection(sectionParam) ? sectionParam : "dashboard";
-  const [submissionBadgeCount, setSubmissionBadgeCount] = useState(0);
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
 
   // Redirect invalid section to dashboard
@@ -114,14 +112,6 @@ export function FacultyClassPage() {
   useEffect(() => {
     const resolvedId = classId || "1";
     getFacultyClassHeaderById(resolvedId).then(setClassHeader);
-  }, [classId]);
-
-  useEffect(() => {
-    const resolvedId = classId || "1";
-    // NOTE: Sidebar submissions badge now reflects live ungraded submission count for this class.
-    listClassSubmissions(resolvedId).then((submissions) => {
-      setSubmissionBadgeCount(submissions.filter((submission) => submission.status === "ungraded").length);
-    });
   }, [classId]);
 
   useEffect(() => {
@@ -173,13 +163,6 @@ export function FacultyClassPage() {
                 label="Assignments"
                 active={activeSection === "assignments"}
                 to={`/faculty/class/${resolvedClassId}/assignments`}
-              />
-              <NavItem
-                icon={<Send className="w-4 h-4" strokeWidth={2} />}
-                label="Submissions"
-                active={activeSection === "submissions"}
-                to={`/faculty/class/${resolvedClassId}/submissions`}
-                badge={submissionBadgeCount > 0 ? submissionBadgeCount : undefined}
               />
               <NavItem
                 icon={<BarChart3 className="w-4 h-4" strokeWidth={2} />}
@@ -264,7 +247,6 @@ export function FacultyClassPage() {
           <div className="max-w-7xl mx-auto px-8 py-6">
             {activeSection === 'dashboard' && <DashboardSection />}
             {activeSection === 'assignments' && <AssignmentsSection />}
-            {activeSection === 'submissions' && <SubmissionsSection />}
             {activeSection === 'grades' && <GradesSection />}
             {activeSection === 'students' && (
               <StudentsSection

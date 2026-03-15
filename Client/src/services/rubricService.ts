@@ -103,6 +103,17 @@ export async function getRubric(id: number | string): Promise<Rubric> {
   return mapRubric(data);
 }
 
+/** GET /api/v1/student/rubrics/{rubricId} — full rubric for student view (same shape as faculty). */
+export async function getStudentRubric(rubricId: number | string): Promise<Rubric | null> {
+  try {
+    const id = Number(rubricId);
+    const { data } = await api.get<RubricApiResponse>(`/api/v1/student/rubrics/${id}`);
+    return data ? mapRubric(data) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function createRubric(payload: RubricCreatePayload): Promise<Rubric> {
   const { data } = await api.post<RubricApiResponse>("/api/v1/faculty/rubrics", payload);
   return mapRubric(data);

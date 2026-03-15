@@ -13,6 +13,7 @@ import { ChevronLeft, GripVertical } from "lucide-react";
 import type { AssignmentDescription, AssignmentDetail, EditorCodeExamples } from "../../types/assignment";
 import type { PublicTestCase } from "../../types/submission";
 import type { AssignmentResult, RubricCategory } from "../../types/grade";
+import type { StudentSubmissionGradesResponse } from "../../types/studentSubmissionGrade";
 import {
   getAssignmentDescription,
   getAssignmentDetailById,
@@ -21,6 +22,8 @@ import {
   listRubricCategories,
 } from "../../services/assignmentService";
 import { getAssignmentResult, invalidateAssignmentResultCache } from "../../services/resultService";
+import { getStudentRubric } from "../../services/rubricService";
+import { getStudentSubmissionGrades } from "../../services/studentSubmissionGradeService";
 import {
   fetchSubmissionFileText,
   listFacultyAssignmentSubmissionFiles,
@@ -40,6 +43,7 @@ import type {
   FacultyEditorPreviewPayload,
   FacultySubmissionGradePayload,
 } from "../../types/submission";
+import type { Rubric } from "../../types/rubric";
 import type { TestSuiteDetail } from "../../types/testSuite";
 import type { TestRunJobStatusResponse } from "../../types/runTests";
 
@@ -77,6 +81,8 @@ export function AssignmentPage() {
   const [description, setDescription] = useState<AssignmentDescription | null>(null);
   const [rubricCategories, setRubricCategories] = useState<RubricCategory[]>([]);
   const [results, setResults] = useState<AssignmentResult | null>(null);
+  const [studentSubmissionGrades, setStudentSubmissionGrades] = useState<StudentSubmissionGradesResponse | null>(null);
+  const [studentRubric, setStudentRubric] = useState<Rubric | null>(null);
   const [facultySubmissionRows, setFacultySubmissionRows] = useState<FacultyAssignmentSubmissionRow[]>([]);
   const [facultyEditorPreviewPayload, setFacultyEditorPreviewPayload] = useState<FacultyEditorPreviewPayload | null>(null);
   const [facultyPreviewLoadingOptionId, setFacultyPreviewLoadingOptionId] = useState<string | null>(null);
@@ -129,6 +135,20 @@ export function AssignmentPage() {
     setFacultySubmissionRows(facultyRows);
     // FIX: Results tab now reflects whether at least one real submission exists for this assignment.
     setHasSubmitted(assignmentData.submissionsUsed > 0);
+    // Student result section: fetch rubric grades for latest submission when graded.
+    if (isStudentRole && resultsData?.latestSubmissionId) {
+      const grades = await getStudentSubmissionGrades(resultsData.latestSubmissionId);
+      setStudentSubmissionGrades(grades);
+    } else {
+      setStudentSubmissionGrades(null);
+    }
+    // Student result section: fetch full rubric from student API to match with grades.
+    if (isStudentRole && assignmentData.rubricId != null) {
+      const rubric = await getStudentRubric(assignmentData.rubricId);
+      setStudentRubric(rubric);
+    } else {
+      setStudentRubric(null);
+    }
     // Load test suite: faculty by assignment id, student by course + assignment (student needs courseId from assignment).
     try {
       const suite = isFacultyRole
@@ -141,7 +161,7 @@ export function AssignmentPage() {
     } catch {
       setTestSuite(null);
     }
-  }, [isFacultyRole]);
+  }, [isFacultyRole, isStudentRole]);
 
   useEffect(() => {
     const resolvedId = assignmentId || "1";
@@ -469,6 +489,9 @@ export function AssignmentPage() {
                     onPreviewFacultyFile={isFacultyRole ? handleFacultyPreviewFromSubmissions : undefined}
                     facultyPreviewLoadingOptionId={isFacultyRole ? facultyPreviewLoadingOptionId : null}
                     facultyPreviewErrorMessage={isFacultyRole ? facultyPreviewErrorMessage : null}
+                    studentSubmissionGrades={isStudentRole ? studentSubmissionGrades : undefined}
+                    rubricCategories={isStudentRole ? rubricCategories : undefined}
+                    studentRubric={isStudentRole ? studentRubric : undefined}
                   />
                 )}
               </div>

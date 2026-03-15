@@ -1,6 +1,9 @@
+import React, { useMemo } from "react";
 import { CheckCircle, XCircle, Lock, Eye, Loader2 } from "lucide-react";
-import type { AssignmentResult } from "../../../types/grade";
+import type { AssignmentResult, RubricCategory } from "../../../types/grade";
 import type { FacultyAssignmentSubmissionRow } from "../../../types/submission";
+import type { StudentSubmissionGradesResponse } from "../../../types/studentSubmissionGrade";
+import type { Rubric } from "../../../types/rubric";
 
 interface ResultsPanelProps {
   // NOTE: Results are provided by the page so this panel stays view-only.
@@ -9,6 +12,12 @@ interface ResultsPanelProps {
   onPreviewFacultyFile?: (optionId: string) => void;
   facultyPreviewLoadingOptionId?: string | null;
   facultyPreviewErrorMessage?: string | null;
+  /** Student view: rubric grades from GET /api/v1/student/submission-grades */
+  studentSubmissionGrades?: StudentSubmissionGradesResponse | null;
+  /** Student view: assignment rubric to resolve sub-criterion labels (fallback when no studentRubric) */
+  rubricCategories?: RubricCategory[];
+  /** Student view: full rubric from GET /api/v1/student/rubrics/{id} — used to build combined table with grades */
+  studentRubric?: Rubric | null;
 }
 
 export function ResultsPanel({
@@ -17,7 +26,31 @@ export function ResultsPanel({
   onPreviewFacultyFile,
   facultyPreviewLoadingOptionId,
   facultyPreviewErrorMessage,
+  studentSubmissionGrades,
+  rubricCategories = [],
+  studentRubric,
 }: ResultsPanelProps) {
+  const gradesBySubCriteriaId = useMemo(() => {
+    const map = new Map<number, { awardedScore: number; feedback: string | null }>();
+    if (studentSubmissionGrades?.grades) {
+      for (const g of studentSubmissionGrades.grades) {
+        map.set(g.rubricSubCriteriaId, { awardedScore: g.awardedScore, feedback: g.feedback ?? null });
+      }
+    }
+    return map;
+  }, [studentSubmissionGrades]);
+
+  const subCriteriaMap = useMemo(() => {
+    const map = new Map<number, { description: string; maxPoints: number }>();
+    for (const cat of rubricCategories) {
+      for (const c of cat.criteria) {
+        if (c.id != null) {
+          map.set(c.id, { description: c.description, maxPoints: c.points });
+        }
+      }
+    }
+    return map;
+  }, [rubricCategories]);
   const getStatusMessage = (score: number) => {
     if (score >= 95) return "Excellent Work!";
     if (score >= 85) return "Good Effort!";
@@ -156,49 +189,220 @@ export function ResultsPanel({
         </div>
       </div>
 
-      {/* Rubric Breakdown */}
+      {/* Rubric Breakdown — combined table when studentRubric + grades, else list or placeholder */}
       <div className="mb-6">
         <h3 className="text-[13px] font-semibold text-[#5A7ACD] mb-3 flex items-center gap-2 uppercase tracking-wide">
           <div className="w-0.5 h-4 bg-[#5A7ACD] rounded-full"></div>
-          Rubric Breakdown
+          {studentRubric?.name ? `${studentRubric.name} — Breakdown` : "Rubric Breakdown"}
         </h3>
         
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          {results.rubricBreakdown.map((item, index) => (
-            <div 
-              key={index}
-              className={`p-4 ${index !== results.rubricBreakdown.length - 1 ? 'border-b border-gray-100' : ''}`}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1">
-                  <div className="text-[13px] font-semibold text-[#2B2A2A] mb-0.5">
-                    {item.category}
-                  </div>
-                  {item.feedback && (
-                    <div className="text-[11px] text-gray-600 italic mt-0.5">
-                      {item.feedback}
+          {studentRubric && studentSubmissionGrades?.grades && studentSubmissionGrades.grades.length > 0 ? (
+            (() => {
+              const isWeighted = studentRubric.rubricType === "WEIGHTED";
+              const colCount = isWeighted ? 5 : 4;
+              return (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-gray-200 bg-gray-50">
+                        <th className="py-3 px-4 text-[12px] font-semibold text-[#2B2A2A] uppercase tracking-wide">
+                          Criterion / Sub-criterion
+                        </th>
+                        <th className="py-3 px-4 text-[12px] font-semibold text-[#2B2A2A] uppercase tracking-wide w-20 text-right">
+                          Max
+                        </th>
+                        {isWeighted && (
+                          <th className="py-3 px-4 text-[12px] font-semibold text-[#2B2A2A] uppercase tracking-wide w-20 text-right">
+                            Weight %
+                          </th>
+                        )}
+                        <th className="py-3 px-4 text-[12px] font-semibold text-[#2B2A2A] uppercase tracking-wide w-24 text-right">
+                          Awarded
+                        </th>
+                        <th className="py-3 px-4 text-[12px] font-semibold text-[#2B2A2A] uppercase tracking-wide">
+                          Feedback
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {studentRubric.criteria.map((criterion) => {
+                        const hasSub = criterion.subCriteria && criterion.subCriteria.length > 0;
+                        if (hasSub) {
+                          return (
+                            <React.Fragment key={criterion.id ?? criterion.title}>
+                              <tr className="border-b border-gray-100 bg-gray-50/50">
+                                <td colSpan={colCount} className="py-2.5 px-4 text-[13px] font-semibold text-[#2B2A2A]">
+                                  {criterion.title}
+                                  {!isWeighted && criterion.points != null && (
+                                    <span className="ml-2 text-[11px] font-normal text-gray-500">
+                                      ({criterion.points} pts)
+                                    </span>
+                                  )}
+                                  {isWeighted && criterion.weight != null && (
+                                    <span className="ml-2 text-[11px] font-normal text-gray-500">
+                                      ({criterion.weight}%)
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                              {criterion.subCriteria!.map((sub) => {
+                                const grade = sub.id != null ? gradesBySubCriteriaId.get(sub.id) : undefined;
+                                return (
+                                  <tr key={sub.id ?? sub.description ?? ""} className="border-b border-gray-100">
+                                    <td className="py-2.5 px-4 pl-6 text-[12px] text-[#2B2A2A]">
+                                      {sub.description ?? criterion.title}
+                                    </td>
+                                    <td className="py-2.5 px-4 text-[12px] text-gray-600 text-right">
+                                      {sub.maxScore}
+                                    </td>
+                                    {isWeighted && (
+                                      <td className="py-2.5 px-4 text-[12px] text-gray-600 text-right">
+                                        {sub.weight != null ? `${sub.weight}%` : "—"}
+                                      </td>
+                                    )}
+                                    <td className="py-2.5 px-4 text-[12px] font-semibold text-[#2B2A2A] text-right">
+                                      {grade != null ? grade.awardedScore.toFixed(2) : "—"}
+                                    </td>
+                                    <td className="py-2.5 px-4 text-[11px] text-gray-600 italic">
+                                      {grade?.feedback ?? "—"}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </React.Fragment>
+                          );
+                        }
+                        const grade = criterion.id != null ? gradesBySubCriteriaId.get(criterion.id) : undefined;
+                        const max = criterion.maxScore ?? criterion.points ?? 0;
+                        return (
+                          <tr key={criterion.id ?? criterion.title} className="border-b border-gray-100">
+                            <td className="py-2.5 px-4 text-[12px] text-[#2B2A2A]">
+                              {criterion.title}
+                              {criterion.description ? ` — ${criterion.description}` : ""}
+                              {!isWeighted && criterion.points != null && (
+                                <span className="ml-1 text-[11px] text-gray-500">({criterion.points} pts)</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-4 text-[12px] text-gray-600 text-right">{max}</td>
+                            {isWeighted && (
+                              <td className="py-2.5 px-4 text-[12px] text-gray-600 text-right">
+                                {criterion.weight != null ? `${criterion.weight}%` : "—"}
+                              </td>
+                            )}
+                            <td className="py-2.5 px-4 text-[12px] font-semibold text-[#2B2A2A] text-right">
+                              {grade != null ? grade.awardedScore.toFixed(2) : "—"}
+                            </td>
+                            <td className="py-2.5 px-4 text-[11px] text-gray-600 italic">
+                              {grade?.feedback ?? "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      <tr className="bg-gray-50 border-t-2 border-gray-200">
+                        <td className="py-3 px-4 text-[13px] font-semibold text-[#2B2A2A]">Total</td>
+                        <td className="py-3 px-4 text-[12px] text-gray-600 text-right">
+                          {studentRubric.criteria.reduce((sum, c) => {
+                            if (c.subCriteria?.length) return sum + c.subCriteria!.reduce((s, sub) => s + sub.maxScore, 0);
+                            return sum + (c.maxScore ?? c.points ?? 0);
+                          }, 0)}
+                        </td>
+                        {isWeighted && <td className="py-3 px-4" />}
+                        <td className="py-3 px-4 text-[14px] font-bold text-[#5A7ACD] text-right">
+                          {studentSubmissionGrades.grades.reduce((sum, g) => sum + g.awardedScore, 0).toFixed(2)}
+                        </td>
+                        <td className="py-3 px-4" />
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()
+          ) : studentSubmissionGrades?.grades && studentSubmissionGrades.grades.length > 0 ? (
+            <>
+              {studentSubmissionGrades.grades.map((grade, index) => {
+                const meta = subCriteriaMap.get(grade.rubricSubCriteriaId);
+                const label = meta?.description ?? `Criterion ${index + 1}`;
+                const maxPoints = meta?.maxPoints ?? null;
+                const scoreText = maxPoints != null ? `${grade.awardedScore}/${maxPoints}` : String(grade.awardedScore);
+                return (
+                  <div
+                    key={grade.rubricSubCriteriaId}
+                    className={`p-4 ${index !== studentSubmissionGrades.grades.length - 1 ? "border-b border-gray-100" : ""}`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <div className="text-[13px] font-semibold text-[#2B2A2A] mb-0.5">
+                          {label}
+                        </div>
+                        {grade.feedback && (
+                          <div className="text-[11px] text-gray-600 italic mt-0.5">
+                            {grade.feedback}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right ml-6">
+                        <div className="text-[14px] font-bold text-[#2B2A2A]">
+                          {scoreText}
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
-                <div className="text-right ml-6">
-                  <div className="text-[14px] font-bold text-[#2B2A2A]">
-                    {item.earned}/{item.total}
+                    {maxPoints != null && maxPoints > 0 && (
+                      <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2">
+                        <div
+                          className="h-1.5 rounded-full transition-all duration-1000"
+                          style={{
+                            width: `${Math.min(100, (grade.awardedScore / maxPoints) * 100)}%`,
+                            backgroundColor: grade.awardedScore >= maxPoints ? "#5A7ACD" : "#FEB05D",
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <div className="p-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                <span className="text-[13px] font-semibold text-[#2B2A2A]">Total</span>
+                <span className="text-[15px] font-bold text-[#5A7ACD]">
+                  {studentSubmissionGrades.grades.reduce((sum, g) => sum + g.awardedScore, 0).toFixed(2)}
+                </span>
+              </div>
+            </>
+          ) : (
+            results.rubricBreakdown.map((item, index) => (
+              <div
+                key={index}
+                className={`p-4 ${index !== results.rubricBreakdown.length - 1 ? "border-b border-gray-100" : ""}`}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1">
+                    <div className="text-[13px] font-semibold text-[#2B2A2A] mb-0.5">
+                      {item.category}
+                    </div>
+                    {item.feedback && (
+                      <div className="text-[11px] text-gray-600 italic mt-0.5">
+                        {item.feedback}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right ml-6">
+                    <div className="text-[14px] font-bold text-[#2B2A2A]">
+                      {item.earned}/{item.total}
+                    </div>
                   </div>
                 </div>
+                <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2">
+                  <div
+                    className="h-1.5 rounded-full transition-all duration-1000"
+                    style={{
+                      width: `${item.total ? (item.earned / item.total) * 100 : 0}%`,
+                      backgroundColor: item.earned === item.total ? "#5A7ACD" : "#FEB05D",
+                    }}
+                  />
+                </div>
               </div>
-              
-              {/* Progress Bar */}
-              <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2">
-                <div 
-                  className="h-1.5 rounded-full transition-all duration-1000"
-                  style={{ 
-                    width: `${(item.earned / item.total) * 100}%`,
-                    backgroundColor: item.earned === item.total ? '#5A7ACD' : '#FEB05D'
-                  }}
-                />
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 

@@ -126,7 +126,7 @@ public class SubmissionGradeService {
     }
 
     @Transactional(readOnly = true)
-    public SubmissionGradeResponse getGradeForCurrentStudent(String userEmail, Long id) {
+    public SubmissionGradeBatchResponse getGradeForCurrentStudent(String userEmail, Long id) {
         SubmissionGrade grade = submissionGradeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission grade not found with id: " + id));
 
@@ -134,11 +134,13 @@ public class SubmissionGradeService {
             throw new IllegalArgumentException("You are not allowed to access this grade");
         }
 
-        return mapToResponse(grade);
+        Long submissionId = grade.getSubmission().getId();
+        List<SubmissionGrade> grades = submissionGradeRepository.findBySubmission_Id(submissionId);
+        return mapToBatchResponse(submissionId, grades);
     }
 
     @Transactional(readOnly = true)
-    public List<SubmissionGradeResponse> getGradesForCurrentStudent(String userEmail, Long submissionId) {
+    public SubmissionGradeBatchResponse getGradesForCurrentStudent(String userEmail, Long submissionId) {
         Submission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
 
@@ -146,9 +148,8 @@ public class SubmissionGradeService {
             throw new IllegalArgumentException("You are not allowed to view grades for this submission");
         }
 
-        return submissionGradeRepository.findBySubmission_Id(submissionId).stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        List<SubmissionGrade> grades = submissionGradeRepository.findBySubmission_Id(submissionId);
+        return mapToBatchResponse(submissionId, grades);
     }
 
     public void deleteGrade(Long id) {
