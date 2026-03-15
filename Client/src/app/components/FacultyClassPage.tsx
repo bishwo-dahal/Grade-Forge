@@ -891,22 +891,21 @@ function GradesSection() {
     if (q) {
       list = list.filter((s) => s.studentName.toLowerCase().includes(q));
     }
-    if (statusFilter !== "all") {
-      list = list.filter((s) =>
-        s.assignments.some((a) => a.status === statusFilter)
-      );
-    }
     return list;
-  }, [courseReport, studentSearch, statusFilter]);
+  }, [courseReport, studentSearch]);
 
   const filteredStudentsAssignment = useMemo(() => {
     if (!assignmentReport?.students) return [];
+    let list = assignmentReport.students;
     const q = studentSearch.trim().toLowerCase();
-    if (!q) return assignmentReport.students;
-    return assignmentReport.students.filter((s) =>
-      s.studentName.toLowerCase().includes(q)
-    );
-  }, [assignmentReport, studentSearch]);
+    if (q) {
+      list = list.filter((s) => s.studentName.toLowerCase().includes(q));
+    }
+    if (statusFilter !== "all") {
+      list = list.filter((s) => s.status === statusFilter);
+    }
+    return list;
+  }, [assignmentReport, studentSearch, statusFilter]);
 
   const statusLabel: Record<string, string> = {
     NOT_SUBMITTED: "Not submitted",
@@ -961,21 +960,6 @@ function GradesSection() {
                   onValueChange={(v) => setViewMode(v)}
                 />
               </div>
-              {viewMode === "course" && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Status</span>
-                  <SegmentedFilter
-                    items={[
-                      { id: "all" as const, label: "All" },
-                      { id: "NOT_SUBMITTED" as const, label: "Not submitted" },
-                      { id: "SUBMITTED" as const, label: "Submitted" },
-                      { id: "GRADED" as const, label: "Graded" },
-                    ]}
-                    value={statusFilter}
-                    onValueChange={(v) => setStatusFilter(v)}
-                  />
-                </div>
-              )}
               {viewMode === "assignment" && assignmentOptions.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Assignment</span>
@@ -991,6 +975,21 @@ function GradesSection() {
                       </option>
                     ))}
                   </select>
+                </div>
+              )}
+              {viewMode === "assignment" && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Status</span>
+                  <SegmentedFilter
+                    items={[
+                      { id: "all" as const, label: "All" },
+                      { id: "NOT_SUBMITTED" as const, label: "Not submitted" },
+                      { id: "SUBMITTED" as const, label: "Submitted" },
+                      { id: "GRADED" as const, label: "Graded" },
+                    ]}
+                    value={statusFilter}
+                    onValueChange={(v) => setStatusFilter(v)}
+                  />
                 </div>
               )}
               <div className="flex-1 min-w-[180px] max-w-[280px] relative ml-auto">
