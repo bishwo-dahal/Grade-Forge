@@ -109,7 +109,7 @@ public class TestRunJobConsumer {
             }
 
             Long assignmentId = job.getAssignment().getId();
-            TestRunJobStatusResponse response = runTestsSyncService.runTests(assignmentId, multipartFiles);
+            TestRunJobStatusResponse response = runTestsSyncService.runTests(assignmentId, multipartFiles, null);
 
             job.setStatus(response.getStatus() == TestRunJobStatus.COMPLETED
                     ? TestRunJobStatus.COMPLETED

@@ -52,14 +52,19 @@ function getRunTestsWithFilesPath(): string {
  * Run tests on the provided files (current workspace). No submission, no S3.
  * Backend keeps files temporarily, runs tests, returns result in the response.
  * Works for student, faculty, and GA. Use long timeout; request may take 30–120s.
+ * customStdin: optional (students only); when set, one extra run with this stdin is included in results.
  */
 export async function runTestsWithFiles(
   assignmentId: number | string,
-  files: File[]
+  files: File[],
+  customStdin?: string | null
 ): Promise<TestRunJobStatusResponse> {
   const base = getRunTestsWithFilesPath();
   const formData = new FormData();
   files.forEach((file) => formData.append("files", file));
+  if (customStdin != null && customStdin.trim() !== "") {
+    formData.append("customStdin", customStdin.trim());
+  }
   const { data } = await api.post<TestRunJobStatusResponse>(
     `${base}/${assignmentId}/run-tests`,
     formData,

@@ -39,7 +39,7 @@ public class RunTestsGradingAssistantAssignmentController {
             @org.springframework.web.bind.annotation.PathVariable Long assignmentId,
             @RequestPart("files") List<MultipartFile> files) {
         ensureGradingAssistantCanAccessAssignment(user, assignmentId);
-        TestRunJobStatusResponse result = runTestsSyncService.runTests(assignmentId, files);
+        TestRunJobStatusResponse result = runTestsSyncService.runTests(assignmentId, files, null);
         return ResponseEntity.ok(result);
     }
 
