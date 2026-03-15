@@ -128,17 +128,22 @@ public class GradeReportServiceImpl implements GradeReportService {
 
             if (submission != null) {
                 List<SubmissionGrade> grades = submissionGradeRepository.findBySubmission_Id(submission.getId());
-                boolean hasGrades = !grades.isEmpty();
-                Double score = hasGrades ? grades.stream()
-                        .filter(grade -> grade.getAwardedScore() != null)
-                        .mapToDouble(SubmissionGrade::getAwardedScore)
-                        .sum() : submission.getMarks();
+                Double score = null;
+                if (!grades.isEmpty()) {
+                    score = grades.stream()
+                            .filter(grade -> grade.getAwardedScore() != null)
+                            .mapToDouble(SubmissionGrade::getAwardedScore)
+                            .sum();
+                } else if (submission.getMarks() != null) {
+                    score = submission.getMarks();
+                }
+                String status = score != null ? STATUS_GRADED : STATUS_UNGRADED;
                 studentStatuses.add(new StudentAssignmentStatusDTO(
                         student.getId(),
                         student.getUser() != null ? student.getUser().getName() : null,
                         score,
                         assignment.getTotalPoints() != null ? assignment.getTotalPoints().doubleValue() : null,
-                        hasGrades ? STATUS_GRADED : STATUS_UNGRADED
+                        status
                 ));
             } else {
                 String status = determineMissingStatus(assignment, now);
@@ -181,17 +186,22 @@ public class GradeReportServiceImpl implements GradeReportService {
 
         if (submission != null) {
             List<SubmissionGrade> grades = submissionGradeRepository.findBySubmission_Id(submission.getId());
-            boolean hasGrades = !grades.isEmpty();
-            Double score = hasGrades ? grades.stream()
-                    .filter(grade -> grade.getAwardedScore() != null)
-                    .mapToDouble(SubmissionGrade::getAwardedScore)
-                    .sum() : submission.getMarks();
+            Double score = null;
+            if (!grades.isEmpty()) {
+                score = grades.stream()
+                        .filter(grade -> grade.getAwardedScore() != null)
+                        .mapToDouble(SubmissionGrade::getAwardedScore)
+                        .sum();
+            } else if (submission.getMarks() != null) {
+                score = submission.getMarks();
+            }
+            String status = score != null ? STATUS_GRADED : STATUS_UNGRADED;
             return new AssignmentGradeDTO(
                     assignment.getId(),
                     assignment.getName(),
                     score,
                     assignment.getTotalPoints() != null ? assignment.getTotalPoints().doubleValue() : null,
-                    hasGrades ? STATUS_GRADED : STATUS_UNGRADED
+                    status
             );
         }
 
