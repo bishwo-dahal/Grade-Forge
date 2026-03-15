@@ -439,12 +439,6 @@ export function ResultsPanel({
                   {studentSubmissionGrades.grades.reduce((sum, g) => sum + g.awardedScore, 0).toFixed(2)}
                 </span>
               </div>
-              {(results?.submissionFeedback != null && results.submissionFeedback !== "") && (
-                <div className="mt-4 p-4 rounded-lg border border-gray-200 bg-gray-50">
-                  <p className="text-[12px] font-medium text-[#2B2A2A] mb-1">Feedback</p>
-                  <p className="text-[12px] text-gray-700 whitespace-pre-wrap">{results.submissionFeedback}</p>
-                </div>
-              )}
             </>
           ) : (
             results.rubricBreakdown.map((item, index) => (
@@ -480,12 +474,6 @@ export function ResultsPanel({
                 </div>
               </div>
             ))
-          )}
-          {results?.submissionFeedback != null && results.submissionFeedback !== "" && !studentSubmissionGrades?.grades?.length && (
-            <div className="mt-4 p-4 rounded-lg border border-gray-200 bg-gray-50 mx-4 mb-4">
-              <p className="text-[12px] font-medium text-[#2B2A2A] mb-1">Feedback</p>
-              <p className="text-[12px] text-gray-700 whitespace-pre-wrap">{results.submissionFeedback}</p>
-            </div>
           )}
         </div>
       </div>
