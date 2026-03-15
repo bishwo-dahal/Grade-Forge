@@ -122,7 +122,7 @@ public class RunTestsSyncService {
             Path baseDir = Path.of(workDirBaseDir).toAbsolutePath().normalize();
             Files.createDirectories(baseDir);
             workDir = Files.createTempDirectory(baseDir, "run-tests-");
-            setWorldReadableAndExecutable(workDir);
+            setWorldWritableForRun(workDir);
         } catch (Exception e) {
             throw new RuntimeException("Failed to create temp directory", e);
         }
@@ -365,7 +365,7 @@ public class RunTestsSyncService {
         return out.toString(StandardCharsets.UTF_8);
     }
 
-    /** Make file readable and executable by all so container user can run it when backend runs on host. */
+    /** Make path world-readable and -executable (e.g. for run.sh, stdin.txt). */
     private static void setWorldReadableAndExecutable(Path path) {
         try {
             Set<PosixFilePermission> perms = EnumSet.of(
@@ -378,6 +378,25 @@ public class RunTestsSyncService {
             // Non-POSIX filesystem (e.g. Windows); skip, container may still work
         } catch (Exception e) {
             log.debug("Could not set permissions on {}: {}", path, e.getMessage());
+        }
+    }
+
+    /**
+     * Make directory world-writable (rwxrwxrwx) so the container user can write build outputs (e.g. .class files).
+     * Used only for the temp run directory; it is deleted immediately after the run.
+     */
+    private static void setWorldWritableForRun(Path dir) {
+        try {
+            Set<PosixFilePermission> perms = EnumSet.of(
+                    PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE,
+                    PosixFilePermission.GROUP_READ, PosixFilePermission.GROUP_WRITE, PosixFilePermission.GROUP_EXECUTE,
+                    PosixFilePermission.OTHERS_READ, PosixFilePermission.OTHERS_WRITE, PosixFilePermission.OTHERS_EXECUTE
+            );
+            Files.setPosixFilePermissions(dir, perms);
+        } catch (UnsupportedOperationException e) {
+            // Non-POSIX filesystem (e.g. Windows); skip
+        } catch (Exception e) {
+            log.debug("Could not set permissions on {}: {}", dir, e.getMessage());
         }
     }
 
