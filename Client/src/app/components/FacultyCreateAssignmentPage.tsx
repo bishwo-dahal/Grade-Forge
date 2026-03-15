@@ -6,6 +6,7 @@ import {
   createFacultyAssignmentDraft,
   getFacultyAssignmentCreatePageData,
 } from "../../services/assignmentService";
+import { getRubric, getUnweightedRubricTotalPoints } from "../../services/rubricService";
 import { createTestSuite } from "../../services/testSuiteService";
 import type { AssignmentCreateFormData, FacultyAssignmentCreatePageData } from "../../types/assignment";
 import type { TestSuitePayload } from "../../types/testSuite";
@@ -25,6 +26,8 @@ interface FacultyCreateAssignmentViewProps {
   showSuccessModal: boolean;
   testCasesAdded?: boolean;
   onFieldChange: <K extends keyof AssignmentCreateFormData>(field: K, value: AssignmentCreateFormData[K]) => void;
+  onRubricChange: (rubricId: string) => void;
+  totalPointsLockedByRubric: boolean;
   onTestSuiteTitleChange: (title: string) => void;
   onTestSuiteDescriptionChange: (description: string) => void;
   onTestCaseAdd: () => void;
@@ -61,6 +64,8 @@ function FacultyCreateAssignmentView({
   errorMessage,
   showSuccessModal,
   onFieldChange,
+  onRubricChange,
+  totalPointsLockedByRubric,
   onTestSuiteTitleChange,
   onTestSuiteDescriptionChange,
   onTestCaseAdd,
@@ -254,8 +259,14 @@ function FacultyCreateAssignmentView({
                       min={1}
                       value={form.totalPoints}
                       onChange={(event) => onFieldChange("totalPoints", Number(event.target.value))}
-                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                      disabled={totalPointsLockedByRubric}
+                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-600"
                     />
+                    {totalPointsLockedByRubric ? (
+                      <p className="mt-1.5 text-[12px] text-[#6D7B91]">
+                        From unweighted rubric; change rubric to edit points.
+                      </p>
+                    ) : null}
                   </div>
 
                   <div>
@@ -275,7 +286,7 @@ function FacultyCreateAssignmentView({
                     <select
                       id="assignment-rubric"
                       value={form.rubricId}
-                      onChange={(event) => onFieldChange("rubricId", event.target.value)}
+                      onChange={(event) => onRubricChange(event.target.value)}
                       className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
                     >
                       <option value="">No rubric</option>
@@ -544,6 +555,7 @@ export function FacultyCreateAssignmentPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [testCasesAdded, setTestCasesAdded] = useState(false);
+  const [totalPointsLockedByRubric, setTotalPointsLockedByRubric] = useState(false);
 
   useEffect(() => {
     setIsLoading(true);
@@ -709,6 +721,29 @@ export function FacultyCreateAssignmentPage() {
     navigate(`/settings?section=${section}`);
   };
 
+  const handleRubricChange = (rubricId: string) => {
+    onFieldChange("rubricId", rubricId);
+    if (!rubricId.trim()) {
+      onFieldChange("totalPoints", 100);
+      setTotalPointsLockedByRubric(false);
+      return;
+    }
+    getRubric(rubricId)
+      .then((rubric) => {
+        const total = getUnweightedRubricTotalPoints(rubric);
+        if (total != null) {
+          onFieldChange("totalPoints", total);
+          setTotalPointsLockedByRubric(true);
+        } else {
+          onFieldChange("totalPoints", 100);
+          setTotalPointsLockedByRubric(false);
+        }
+      })
+      .catch(() => {
+        setTotalPointsLockedByRubric(false);
+      });
+  };
+
   const handleCreateRubric = () => {
     // NOTE: Create-rubric route lets faculty add multiple rubric templates, then return and select one.
     navigate("/faculty/rubrics/new");
@@ -751,6 +786,8 @@ export function FacultyCreateAssignmentPage() {
           showSuccessModal={showSuccessModal}
           testCasesAdded={testCasesAdded}
           onFieldChange={onFieldChange}
+          onRubricChange={handleRubricChange}
+          totalPointsLockedByRubric={totalPointsLockedByRubric}
           onTestSuiteTitleChange={onTestSuiteTitleChange}
           onTestSuiteDescriptionChange={onTestSuiteDescriptionChange}
           onTestCaseAdd={onTestCaseAdd}

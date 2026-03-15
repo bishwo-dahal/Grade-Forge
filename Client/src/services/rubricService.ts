@@ -103,6 +103,28 @@ export async function getRubric(id: number | string): Promise<Rubric> {
   return mapRubric(data);
 }
 
+/**
+ * For unweighted rubrics (rubricType null or UNWEIGHTED), returns the sum of criterion points.
+ * Each criterion contributes its `points` if set, otherwise the sum of its subCriteria maxScore.
+ * Returns null if the rubric is weighted (so assignment total should not be driven by rubric).
+ */
+export function getUnweightedRubricTotalPoints(rubric: Rubric): number | null {
+  if (rubric.rubricType != null && rubric.rubricType !== "UNWEIGHTED") {
+    return null;
+  }
+  const criteria = rubric.criteria ?? [];
+  const total = criteria.reduce((sum, c) => {
+    if (c.points != null && Number.isFinite(c.points)) {
+      return sum + c.points;
+    }
+    if (c.subCriteria?.length) {
+      return sum + c.subCriteria.reduce((s, sub) => s + (sub.maxScore ?? 0), 0);
+    }
+    return sum + (c.maxScore ?? 0);
+  }, 0);
+  return total;
+}
+
 /** GET /api/v1/student/rubrics/{rubricId} — full rubric for student view (same shape as faculty). */
 export async function getStudentRubric(rubricId: number | string): Promise<Rubric | null> {
   try {
