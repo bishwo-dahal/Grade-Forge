@@ -222,6 +222,14 @@ public class RunTestsSyncService {
             Path stdinPath = workDir.resolve(DOCKER_STDIN_FILE);
             Files.writeString(stdinPath, input, StandardCharsets.UTF_8);
             setWorldReadableAndExecutable(stdinPath);
+            // If test case specifies a file name, create that file with the same input (for file-based reading).
+            String inputFileName = tc.getFileName();
+            if (inputFileName != null && !inputFileName.isBlank()) {
+                String safeName = sanitizeFilename(inputFileName);
+                Path inputFilePath = workDir.resolve(safeName);
+                Files.writeString(inputFilePath, input, StandardCharsets.UTF_8);
+                setWorldReadableAndExecutable(inputFilePath);
+            }
         } catch (Exception e) {
             return failResult(tc, start, "Failed to write stdin: " + e.getMessage());
         }
