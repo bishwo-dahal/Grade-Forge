@@ -1,5 +1,6 @@
 package com.grade.forge.rubric.dto;
 
+import com.grade.forge.rubric.RubricType;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -15,5 +16,6 @@ public class RubricRequest {
     private String name;
     private String description;
     private Long facultyId;
+    private RubricType  rubricType;
     private List<RubricCriteriaRequest> criteria;
 }

@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
+import { Copy, Trash2 } from "lucide-react";
 import type { Rubric, RubricCreatePayload } from "../../../../types/rubric";
+import { roundTo2, formatMax2Decimals } from "../../../../utils/number";
 
 export interface RubricFormProps {
   mode: "create" | "edit";
@@ -10,12 +12,25 @@ export interface RubricFormProps {
   onCancel: () => void;
 }
 
-interface CriterionRow {
+interface SubCriterionRow {
   id: string;
-  title: string;
   description: string;
   maxScore: string;
   weight: string;
+}
+
+interface CriterionRow {
+  id: string;
+  title: string;
+  /** Criterion-level points (unweighted). Sub-criteria max scores must not exceed this. */
+  points: string;
+  subCriteria: SubCriterionRow[];
+}
+
+function getAllSubCriteriaFlat(criteria: CriterionRow[]): { criterionIndex: number; subIndex: number }[] {
+  const out: { criterionIndex: number; subIndex: number }[] = [];
+  criteria.forEach((c, i) => c.subCriteria.forEach((_, j) => out.push({ criterionIndex: i, subIndex: j })));
+  return out;
 }
 
 export function RubricForm({
@@ -28,42 +43,122 @@ export function RubricForm({
 }: RubricFormProps) {
   const [name, setName] = useState(initialRubric?.name ?? "");
   const [description, setDescription] = useState(initialRubric?.description ?? "");
+  const [isWeighted, setIsWeighted] = useState(() => {
+    if (initialRubric?.rubricType === "UNWEIGHTED") return false;
+    if (initialRubric?.rubricType === "WEIGHTED") return true;
+    if (!initialRubric?.criteria?.length) return true;
+    const hasWeight = initialRubric.criteria.some(
+      (c) => (c.subCriteria ?? []).some((s) => s.weight != null && s.weight > 0),
+    );
+    return hasWeight;
+  });
+  const [autoAdjustWeights, setAutoAdjustWeights] = useState(true);
   const [criteria, setCriteria] = useState<CriterionRow[]>(() => {
-    if (initialRubric && initialRubric.criteria.length > 0) {
-      return initialRubric.criteria.map((c) => ({
-        id: String(c.id ?? `${c.title}-${Math.random().toString(36).slice(2)}`),
-        title: c.title,
-        description: c.description ?? "",
-        maxScore: String(c.maxScore),
-        weight: c.weight != null ? String(c.weight) : "",
+    if (initialRubric?.criteria?.length) {
+      return initialRubric.criteria.map((c, i) => ({
+        id: String(c.id ?? `c-${i}-${Date.now()}`),
+        title: c.title ?? "",
+        points: c.points != null ? String(c.points) : "",
+        subCriteria: (c.subCriteria ?? (c.maxScore != null ? [{ description: c.description ?? "", maxScore: c.maxScore, weight: c.weight ?? null }] : [])).map((s, j) => ({
+          id: `s-${i}-${j}-${Date.now()}`,
+          description: s.description ?? "",
+          maxScore: String(s.maxScore ?? ""),
+          weight: s.weight != null ? String(s.weight) : "",
+        })),
       }));
     }
     return [
       {
-        id: "criterion-1",
+        id: `criterion-1-${Date.now()}`,
         title: "",
-        description: "",
-        maxScore: "",
-        weight: "",
+        points: "",
+        subCriteria: [{ id: `sub-1-${Date.now()}`, description: "", maxScore: "", weight: "" }],
       },
     ];
   });
   const [localError, setLocalError] = useState<string | null>(null);
+  const rubricTypeLocked = mode === "edit" && (initialRubric?.rubricType === "WEIGHTED" || initialRubric?.rubricType === "UNWEIGHTED");
+
+  const allSubWeights = useMemo(() => {
+    const list: { criterionIndex: number; subIndex: number; weight: number }[] = [];
+    criteria.forEach((c, i) =>
+      c.subCriteria.forEach((s, j) => {
+        const w = Number(s.weight);
+        list.push({ criterionIndex: i, subIndex: j, weight: Number.isFinite(w) && w >= 0 ? w : 0 });
+      }),
+    );
+    return list;
+  }, [criteria]);
+
+  const totalWeight = useMemo(() => allSubWeights.reduce((sum, x) => sum + x.weight, 0), [allSubWeights]);
+
+  const rebalanceWeightsToHundred = useCallback((rows: CriterionRow[]): CriterionRow[] => {
+    const flat = getAllSubCriteriaFlat(rows);
+    if (flat.length === 0) return rows;
+    const weights = flat.map(({ criterionIndex, subIndex }) => {
+      const w = Number(rows[criterionIndex].subCriteria[subIndex].weight);
+      return Number.isFinite(w) && w >= 0 ? w : 0;
+    });
+    const sum = weights.reduce((a, b) => a + b, 0);
+    const epsilon = 0.0001;
+    const next = rows.map((c) => ({ ...c, subCriteria: c.subCriteria.map((s) => ({ ...s })) }));
+
+    if (Math.abs(sum - 100) <= 0.01) return rows;
+
+    if (sum > 100 + epsilon) {
+      let excess = sum - 100;
+      for (let i = flat.length - 1; i >= 0 && excess > epsilon; i--) {
+        const { criterionIndex, subIndex } = flat[i];
+        const cur = weights[i];
+        if (cur <= 0) continue;
+        const reduceBy = Math.min(cur, excess);
+        weights[i] = cur - reduceBy;
+        const rounded = Math.round(weights[i] * 100) / 100;
+        next[criterionIndex].subCriteria[subIndex] = { ...next[criterionIndex].subCriteria[subIndex], weight: String(rounded) };
+        excess -= reduceBy;
+      }
+    } else if (sum < 100 - epsilon) {
+      const deficit = 100 - sum;
+      const last = flat[flat.length - 1];
+      if (last) {
+        weights[flat.length - 1] = (weights[flat.length - 1] ?? 0) + deficit;
+        const rounded = Math.round(weights[flat.length - 1] * 100) / 100;
+        next[last.criterionIndex].subCriteria[last.subIndex] = {
+          ...next[last.criterionIndex].subCriteria[last.subIndex],
+          weight: String(rounded),
+        };
+      }
+    }
+    return next;
+  }, []);
 
   const canSubmit = useMemo(() => {
     if (!name.trim()) return false;
     if (criteria.length === 0) return false;
-    return criteria.every((c) => {
+    for (const c of criteria) {
       if (!c.title.trim()) return false;
-      const maxScore = Number(c.maxScore);
-      if (!Number.isFinite(maxScore) || maxScore <= 0) return false;
-      if (c.weight.trim().length > 0) {
-        const w = Number(c.weight);
-        if (!Number.isFinite(w) || w < 0) return false;
+      if (!c.subCriteria.length) return false;
+      if (!isWeighted) {
+        const criterionPoints = Number(c.points);
+        if (!Number.isFinite(criterionPoints)) return false;
+        const subSum = c.subCriteria.reduce(
+          (sum, s) => sum + (Number.isFinite(Number(s.maxScore)) ? Number(s.maxScore) : 0),
+          0,
+        );
+        if (roundTo2(subSum) > roundTo2(criterionPoints)) return false;
       }
-      return true;
-    });
-  }, [name, criteria]);
+      for (const s of c.subCriteria) {
+        const maxScore = Number(s.maxScore);
+        if (!Number.isFinite(maxScore)) return false;
+        if (isWeighted) {
+          const w = Number(s.weight);
+          if (!Number.isFinite(w) || w < 0) return false;
+        }
+      }
+    }
+    if (isWeighted && Math.abs(totalWeight - 100) > 0.01) return false;
+    return true;
+  }, [name, criteria, totalWeight, isWeighted]);
 
   const handleAddCriterion = () => {
     setCriteria((prev) => [
@@ -71,53 +166,174 @@ export function RubricForm({
       {
         id: `criterion-${prev.length + 1}-${Date.now()}`,
         title: "",
-        description: "",
-        maxScore: "",
-        weight: "",
+        points: "",
+        subCriteria: [{ id: `sub-${Date.now()}`, description: "", maxScore: "", weight: "" }],
       },
     ]);
   };
 
-  const handleRemoveCriterion = (id: string) => {
-    setCriteria((prev) => prev.filter((c) => c.id !== id));
+  const handleRemoveCriterion = (criterionId: string) => {
+    setCriteria((prev) => prev.filter((c) => c.id !== criterionId));
   };
 
-  const handleDuplicateCriterion = (id: string) => {
+  const handleAddSubCriterion = (criterionId: string) => {
+    setCriteria((prev) =>
+      prev.map((c) =>
+        c.id === criterionId
+          ? { ...c, subCriteria: [...c.subCriteria, { id: `sub-${Date.now()}`, description: "", maxScore: "", weight: "" }] }
+          : c,
+      ),
+    );
+  };
+
+  const handleRemoveSubCriterion = (criterionId: string, subId: string) => {
+    setCriteria((prev) =>
+      prev.map((c) =>
+        c.id === criterionId ? { ...c, subCriteria: c.subCriteria.filter((s) => s.id !== subId) } : c,
+      ),
+    );
+  };
+
+  const handleDuplicateCriterion = (criterionId: string) => {
     setCriteria((prev) => {
-      const index = prev.findIndex((c) => c.id === id);
+      const index = prev.findIndex((c) => c.id === criterionId);
       if (index === -1) return prev;
-      const original = prev[index];
-      const copy: CriterionRow = {
-        ...original,
-        id: `criterion-${prev.length + 1}-${Date.now()}`,
+      const source = prev[index];
+      const duplicate: CriterionRow = {
+        id: `criterion-${Date.now()}-${index}`,
+        title: source.title,
+        points: source.points,
+        subCriteria: source.subCriteria.map((s, j) => ({
+          id: `sub-${Date.now()}-${index}-${j}`,
+          description: s.description,
+          maxScore: s.maxScore,
+          weight: s.weight,
+        })),
       };
       const next = [...prev];
-      next.splice(index + 1, 0, copy);
-      return next;
+      next.splice(index + 1, 0, duplicate);
+      return autoAdjustWeights ? rebalanceWeightsToHundred(next) : next;
     });
   };
 
-  const handleChangeCriterion = (id: string, field: keyof CriterionRow, value: string) => {
-    setCriteria((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)),
-    );
+  const handleDuplicateSubCriterion = (criterionId: string, subId: string) => {
+    setCriteria((prev) => {
+      const next = prev.map((c) => {
+        if (c.id !== criterionId) return c;
+        const subIndex = c.subCriteria.findIndex((s) => s.id === subId);
+        if (subIndex === -1) return c;
+        const source = c.subCriteria[subIndex];
+        const duplicate: SubCriterionRow = {
+          id: `sub-${Date.now()}`,
+          description: source.description,
+          maxScore: source.maxScore,
+          weight: source.weight,
+        };
+        const newSubCriteria = [...c.subCriteria];
+        newSubCriteria.splice(subIndex + 1, 0, duplicate);
+        return { ...c, subCriteria: newSubCriteria };
+      });
+      return autoAdjustWeights ? rebalanceWeightsToHundred(next) : next;
+    });
+  };
+
+  const handleChangeCriterionTitle = (criterionId: string, value: string) => {
+    setCriteria((prev) => prev.map((c) => (c.id === criterionId ? { ...c, title: value } : c)));
+  };
+
+  const handleChangeCriterionPoints = (criterionId: string, value: string) => {
+    const normalized =
+      value.trim() !== "" && Number.isFinite(Number(value)) && roundTo2(Number(value)) !== Number(value)
+        ? formatMax2Decimals(roundTo2(Number(value)))
+        : value;
+    setCriteria((prev) => prev.map((c) => (c.id === criterionId ? { ...c, points: normalized } : c)));
+  };
+
+  const handleChangeSubCriterion = (
+    criterionId: string,
+    subId: string,
+    field: keyof SubCriterionRow,
+    value: string,
+  ) => {
+    const normalized =
+      (field === "maxScore" || field === "weight") &&
+      value.trim() !== "" &&
+      Number.isFinite(Number(value)) &&
+      roundTo2(Number(value)) !== Number(value)
+        ? formatMax2Decimals(roundTo2(Number(value)))
+        : value;
+    setCriteria((prev) => {
+      let next = prev.map((c) => {
+        if (c.id !== criterionId) return c;
+        return {
+          ...c,
+          subCriteria: c.subCriteria.map((s) => (s.id === subId ? { ...s, [field]: normalized } : s)),
+        };
+      });
+      if (field === "weight" && autoAdjustWeights) {
+        const editedCriterionIndex = next.findIndex((c) => c.id === criterionId);
+        if (editedCriterionIndex === -1) return next;
+        const editedSubIndex = next[editedCriterionIndex].subCriteria.findIndex((s) => s.id === subId);
+        if (editedSubIndex === -1) return next;
+        const editedWeight = Number(value);
+        if (!Number.isFinite(editedWeight) || editedWeight < 0) return next;
+        if (editedWeight === 0) return next;
+        return rebalanceWeightsToHundred(next);
+      }
+      if (field === "maxScore" && !isWeighted) {
+        const cIdx = next.findIndex((c) => c.id === criterionId);
+        if (cIdx === -1) return next;
+        const criterion = next[cIdx];
+        const criterionPoints = Number(criterion.points);
+        if (!Number.isFinite(criterionPoints)) return next;
+        const sumOthers = criterion.subCriteria
+          .filter((s) => s.id !== subId)
+          .reduce((sum, s) => sum + (Number.isFinite(Number(s.maxScore)) ? Number(s.maxScore) : 0), 0);
+        const maxAllowed = roundTo2(criterionPoints - sumOthers);
+        const entered = Number(normalized);
+        if (Number.isFinite(entered) && entered > maxAllowed) {
+          const clamped = maxAllowed;
+          const clampedStr = clamped === Math.floor(clamped) ? String(Math.round(clamped)) : clamped.toFixed(2);
+          next = next.map((c) => {
+            if (c.id !== criterionId) return c;
+            return {
+              ...c,
+              subCriteria: c.subCriteria.map((s) => (s.id === subId ? { ...s, maxScore: clampedStr } : s)),
+            };
+          });
+        }
+      }
+      return next;
+    });
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!canSubmit) {
-      setLocalError("Please fill in the rubric name and ensure all criteria are valid.");
+      setLocalError(
+        isWeighted
+          ? "Please fill in the rubric name and ensure every criterion has at least one sub-criterion and weights sum to 100%."
+          : "Please fill in the rubric name and criterion points. Each criterion must have points, and the sum of sub-criteria max points must not exceed the criterion points.",
+      );
       return;
     }
     setLocalError(null);
     const payload: RubricCreatePayload = {
       name: name.trim(),
       description: description.trim() || undefined,
+      facultyId: undefined,
+      rubricType: isWeighted ? "WEIGHTED" : "UNWEIGHTED",
       criteria: criteria.map((c) => ({
         title: c.title.trim(),
-        description: c.description.trim() || undefined,
-        maxScore: Number(c.maxScore),
-        weight: c.weight.trim().length > 0 ? Number(c.weight) : undefined,
+        points:
+          !isWeighted && c.points.trim() !== ""
+            ? roundTo2(Number(c.points))
+            : undefined,
+        subCriteria: c.subCriteria.map((s) => ({
+          description: s.description.trim() || undefined,
+          maxScore: Number(s.maxScore),
+          weight: isWeighted && s.weight.trim() !== "" ? roundTo2(Number(s.weight)) : undefined,
+        })),
       })),
     };
     await onSubmit(payload);
@@ -130,56 +346,76 @@ export function RubricForm({
           {mode === "create" ? "Create Rubric" : "Edit Rubric"}
         </h1>
         <p className="mt-2 text-[14px] text-[#5D6A80]">
-          Define criteria and points to grade assignments consistently.
+          Main rubric has a title and description. Add criteria (title only), then under each criterion add sub-criteria with description and max points. Use Weighted to assign weight percentages (must total 100%).
         </p>
 
         {errorMessage ? (
-          <p className="mt-5 rounded-xl border border-[#F3CDD1] bg-[#FDEBEC] px-3 py-2 text-[13px] text-[#C23A42]">
-            {errorMessage}
-          </p>
+          <p className="mt-5 rounded-xl border border-[#F3CDD1] bg-[#FDEBEC] px-3 py-2 text-[13px] text-[#C23A42]">{errorMessage}</p>
         ) : null}
         {localError ? (
-          <p className="mt-3 rounded-xl border border-[#F3CDD1] bg-[#FDEBEC] px-3 py-2 text-[13px] text-[#C23A42]">
-            {localError}
-          </p>
+          <p className="mt-3 rounded-xl border border-[#F3CDD1] bg-[#FDEBEC] px-3 py-2 text-[13px] text-[#C23A42]">{localError}</p>
         ) : null}
 
-        <form
-          onSubmit={handleSubmit}
-          className="mt-8 rounded-3xl border border-gray-200 bg-white p-6"
-        >
+        <form onSubmit={handleSubmit} className="mt-8 rounded-3xl border border-gray-200 bg-white p-6">
           <div className="space-y-5">
             <div>
-              <label
-                htmlFor="rubric-name"
-                className="mb-2 block text-[14px] font-medium text-[#1F2430]"
-              >
+              <label htmlFor="rubric-name" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
                 Rubric Name <span className="text-[#D84E57]">*</span>
               </label>
               <input
                 id="rubric-name"
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., Project Rubric"
                 className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="rubric-description"
-                className="mb-2 block text-[14px] font-medium text-[#1F2430]"
-              >
+              <label htmlFor="rubric-description" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
                 Description
               </label>
               <textarea
                 id="rubric-description"
                 value={description}
-                onChange={(event) => setDescription(event.target.value)}
+                onChange={(e) => setDescription(e.target.value)}
                 rows={3}
                 placeholder="Optional: describe how this rubric should be used."
                 className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
               />
+            </div>
+
+            <div className="flex items-center gap-4">
+              <span className="text-[14px] font-medium text-[#1F2430]">Scoring</span>
+              <div className={`inline-flex rounded-xl border border-gray-200 p-1 ${rubricTypeLocked ? "cursor-not-allowed bg-gray-100 opacity-90" : "bg-gray-50"}`}>
+                <button
+                  type="button"
+                  disabled={rubricTypeLocked}
+                  onClick={() => !rubricTypeLocked && setIsWeighted(true)}
+                  className={`rounded-lg px-4 py-2 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${
+                    isWeighted ? "bg-white text-[#1F2430] shadow-sm" : "text-[#5D6A80] hover:text-[#1F2430]"
+                  } ${rubricTypeLocked ? "disabled:opacity-100" : ""}`}
+                >
+                  Weighted
+                </button>
+                <button
+                  type="button"
+                  disabled={rubricTypeLocked}
+                  onClick={() => !rubricTypeLocked && setIsWeighted(false)}
+                  className={`rounded-lg px-4 py-2 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${
+                    !isWeighted ? "bg-white text-[#1F2430] shadow-sm" : "text-[#5D6A80] hover:text-[#1F2430]"
+                  } ${rubricTypeLocked ? "disabled:opacity-100" : ""}`}
+                >
+                  Unweighted
+                </button>
+              </div>
+              <span className="text-[12px] text-[#7C879A]">
+                {rubricTypeLocked
+                  ? "Scoring type cannot be changed when editing."
+                  : isWeighted
+                    ? "Weights must total 100%."
+                    : "No weight percentages; score by points only."}
+              </span>
             </div>
 
             <section>
@@ -193,125 +429,179 @@ export function RubricForm({
                   Add Criterion
                 </button>
               </div>
-              <p className="text-[12px] text-[#7C879A] mb-3">
-                Each criterion should have a title and max points. Weight is optional and can be
-                used to emphasize certain criteria.
-              </p>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-[12px] text-[#7C879A]">
+                  {isWeighted
+                    ? "Each criterion has a title only. Under it add sub-criteria with description, max points, and weight. Total weight must be 100%."
+                    : "Each criterion has a title and total points. Sub-criteria max points must not exceed the criterion points."}
+                </p>
+                {isWeighted && (
+                  <label className="inline-flex items-center gap-2 text-[12px] font-medium text-[#1F2430]">
+                    <input
+                      type="checkbox"
+                      checked={autoAdjustWeights}
+                      onChange={(e) => {
+                        const nextValue = e.target.checked;
+                        setAutoAdjustWeights(nextValue);
+                        if (nextValue) setCriteria((prev) => rebalanceWeightsToHundred(prev));
+                      }}
+                      className="h-4 w-4 accent-[#5A7ACD]"
+                    />
+                    Auto-adjust weights
+                  </label>
+                )}
+              </div>
 
-              <div className="space-y-3">
-                {criteria.map((criterion, index) => (
-                  <div
-                    key={criterion.id}
-                    className="rounded-2xl border border-gray-200 bg-[#F9FAFB] p-4"
-                  >
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div className="text-[12px] font-medium text-[#6D7B91]">
-                        Criterion {index + 1}
+              <div className="space-y-6">
+                {criteria.map((criterion, cIndex) => (
+                  <div key={criterion.id} className="rounded-2xl border border-gray-200 bg-[#F9FAFB] overflow-hidden">
+                    <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-[#E4E7EC] px-4 py-3">
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <label className="shrink-0 text-[12px] font-semibold text-[#1F2430]">Criterion {cIndex + 1}</label>
+                        <input
+                          value={criterion.title}
+                          onChange={(e) => handleChangeCriterionTitle(criterion.id, e.target.value)}
+                          placeholder="e.g., Correctness"
+                          className="h-9 min-w-[200px] flex-1 rounded-xl border border-gray-200 bg-white px-3 text-[13px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                        />
+                        {!isWeighted && (
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <label className="text-[12px] font-medium text-[#1F2430]">Points</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={criterion.points}
+                              onChange={(e) => handleChangeCriterionPoints(criterion.id, e.target.value)}
+                              placeholder="e.g. 10"
+                              className="h-9 w-[88px] rounded-xl border border-gray-200 bg-white px-3 text-[13px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                            />
+                            {criterion.subCriteria.length > 0 && (() => {
+                              const cp = Number(criterion.points);
+                              const subSum = criterion.subCriteria.reduce(
+                                (s, sub) => s + (Number.isFinite(Number(sub.maxScore)) ? Number(sub.maxScore) : 0),
+                                0,
+                              );
+                              const valid = Number.isFinite(cp) && roundTo2(subSum) <= roundTo2(cp);
+                              return !valid && criterion.points.trim() !== "" ? (
+                                <span className="text-[11px] text-[#C23A42]">Sum ≤ {criterion.points || "?"}</span>
+                              ) : null;
+                            })()}
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex shrink-0 items-center gap-2">
                         <button
                           type="button"
                           onClick={() => handleDuplicateCriterion(criterion.id)}
-                          className="text-[11px] text-[#5A7ACD] hover:underline"
+                          title="Duplicate criterion"
+                          className="rounded-lg border border-gray-300 bg-white p-1.5 text-[#5D6A80] hover:bg-gray-50 hover:text-[#1F2430]"
                         >
-                          Duplicate
+                          <Copy className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddSubCriterion(criterion.id)}
+                          className="rounded-xl border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50"
+                        >
+                          Add sub-criterion
                         </button>
                         {criteria.length > 1 && (
                           <button
                             type="button"
                             onClick={() => handleRemoveCriterion(criterion.id)}
-                            className="text-[11px] text-[#C23A42] hover:underline"
+                            title="Remove criterion"
+                            className="rounded-lg border border-gray-300 bg-white p-1.5 text-[#C23A42] hover:bg-[#FDEBEC]"
                           >
-                            Remove
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         )}
                       </div>
                     </div>
 
-                    <div className="space-y-3">
-                      <div>
-                        <label className="mb-1 block text-[13px] font-medium text-[#1F2430]">
-                          Title <span className="text-[#D84E57]">*</span>
-                        </label>
-                        <input
-                          value={criterion.title}
-                          onChange={(event) =>
-                            handleChangeCriterion(criterion.id, "title", event.target.value)
-                          }
-                          placeholder="e.g., Correctness"
-                          className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-[13px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-1 block text-[13px] font-medium text-[#1F2430]">
-                          Description
-                        </label>
-                        <textarea
-                          value={criterion.description}
-                          onChange={(event) =>
-                            handleChangeCriterion(criterion.id, "description", event.target.value)
-                          }
-                          rows={2}
-                          placeholder="Optional: explain what you are looking for in this criterion."
-                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[13px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div>
-                          <label className="mb-1 block text-[13px] font-medium text-[#1F2430]">
-                            Max Points <span className="text-[#D84E57]">*</span>
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="number"
-                              min={1}
-                              value={criterion.maxScore}
-                              onChange={(event) =>
-                                handleChangeCriterion(criterion.id, "maxScore", event.target.value)
-                              }
-                              className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 pr-10 text-[13px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                            />
-                            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-[#7C879A]">
-                              points
-                            </span>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-[13px] font-medium text-[#1F2430]">
-                            Weight
-                            <span className="ml-1 text-[11px] font-normal text-[#7C879A]">
-                              (optional)
-                            </span>
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            value={criterion.weight}
-                            onChange={(event) =>
-                              handleChangeCriterion(criterion.id, "weight", event.target.value)
-                            }
-                            placeholder="e.g., 1.0"
-                            className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-[13px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                          />
-                        </div>
-                      </div>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full border-separate border-spacing-0 text-left">
+                        <thead className="bg-[#E4E7EC] text-[12px] font-semibold text-[#1F2430]">
+                          <tr>
+                            <th className="px-4 py-2 align-middle">Description</th>
+                            <th className="w-[110px] px-4 py-2 align-middle">Max Points *</th>
+                            {isWeighted && <th className="w-[100px] px-4 py-2 align-middle">Weight (%)</th>}
+                            <th className="w-[72px] px-2 py-2 align-middle text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-[13px] text-[#1F2430]">
+                          {criterion.subCriteria.map((sub) => (
+                            <tr key={sub.id} className="border-t border-gray-200 bg-white">
+                              <td className="px-4 py-3 align-top">
+                                <textarea
+                                  value={sub.description}
+                                  onChange={(e) => handleChangeSubCriterion(criterion.id, sub.id, "description", e.target.value)}
+                                  rows={2}
+                                  placeholder="Sub-criterion description"
+                                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[13px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                                />
+                              </td>
+                              <td className="w-[110px] px-4 py-3 align-top">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={sub.maxScore}
+                                  onChange={(e) => handleChangeSubCriterion(criterion.id, sub.id, "maxScore", e.target.value)}
+                                  placeholder="e.g. 5, -2, 0.25"
+                                  className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-[13px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                                />
+                              </td>
+                              {isWeighted && (
+                                <td className="w-[100px] px-4 py-3 align-top">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step="any"
+                                    value={sub.weight}
+                                    onChange={(e) => handleChangeSubCriterion(criterion.id, sub.id, "weight", e.target.value)}
+                                    placeholder="0"
+                                    className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-[13px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                                  />
+                                </td>
+                              )}
+                              <td className="w-[72px] px-2 py-3 align-top">
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDuplicateSubCriterion(criterion.id, sub.id)}
+                                    title="Duplicate sub-criterion"
+                                    className="rounded-lg border border-gray-200 bg-white p-1.5 text-[#5D6A80] hover:bg-gray-50 hover:text-[#1F2430]"
+                                  >
+                                    <Copy className="h-4 w-4" />
+                                  </button>
+                                  {criterion.subCriteria.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveSubCriterion(criterion.id, sub.id)}
+                                      title="Remove sub-criterion"
+                                      className="rounded-lg border border-gray-200 bg-white p-1.5 text-[#C23A42] hover:bg-[#FDEBEC]"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 ))}
               </div>
+              {isWeighted && (
+                <p className="mt-2 text-[12px] text-[#7C879A]">Total weight: {totalWeight.toFixed(2)}% (must be 100%)</p>
+              )}
             </section>
           </div>
 
           <div className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 pt-5">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50"
-            >
+            <button type="button" onClick={onCancel} className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50">
               Cancel
             </button>
             <button
@@ -327,4 +617,3 @@ export function RubricForm({
     </main>
   );
 }
-

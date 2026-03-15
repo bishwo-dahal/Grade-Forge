@@ -15,12 +15,19 @@ import {
   getAssignmentDetailById,
   listRubricCategories,
 } from "../../services/assignmentService";
+import { getRubric as getRubricFaculty } from "../../services/rubricService";
+import type { Rubric } from "../../types/rubric";
 import {
   fetchSubmissionFileText,
-  listFacultyAssignmentSubmissionFiles,
+  getFacultySubmissionById,
   resolvePreviewLanguage,
   submitFacultySubmissionGrade,
 } from "../../services/submissionService";
+import {
+  createGradesBatch,
+  getSubmissionGrades,
+  replaceSubmissionGrades,
+} from "../../services/facultySubmissionGradeService";
 import { getRunTestsLatest, requestRunTests, runTestsWithFiles, pollRunTestsUntilDone } from "../../services/runTestsService";
 import { getAssignmentByCourse } from "../../services/gradingAssistantAssignmentService";
 import { getRubric } from "../../services/gradingAssistantRubricService";
@@ -28,6 +35,11 @@ import {
   listSubmissionsByAssignment,
   updateSubmissionGrade,
 } from "../../services/gradingAssistantSubmissionService";
+import {
+  getGASubmissionGrades,
+  createGASubmissionGradesBatch,
+  replaceGASubmissionGrades,
+} from "../../services/gradingAssistantSubmissionGradeService";
 import { clearAuthenticated, getAuthenticatedUser, getAuthenticatedRole } from "../auth";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
@@ -36,6 +48,7 @@ import type { AssignmentDetail, AssignmentDescription } from "../../types/assign
 import type { RubricCategory } from "../../types/grade";
 import type { GradingAssistantRubricResponse } from "../../types/gradingAssistantRubric";
 import type { TestRunJobStatusResponse } from "../../types/runTests";
+import { roundTo2 } from "../../utils/number";
 import type { PublicTestCase } from "../../types/submission";
 
 type GradingTabType = "description" | "tests" | "plagiarism" | "rubric";
@@ -52,18 +65,102 @@ function formatDate(iso: string | null | undefined): string {
   }
 }
 
-/** Map GA rubric to RubricCategory[] for GradingRubricPanel */
+/** Map GA rubric (flat) to RubricCategory[] for GradingRubricPanel */
 function mapGARubricToCategories(rubric: GradingAssistantRubricResponse | null): RubricCategory[] {
   if (!rubric?.criteria?.length) return [];
-  const points = rubric.criteria.reduce((sum, c) => sum + (c.maxScore ?? 0), 0);
+  const points = rubric.criteria.reduce((sum, c) => {
+    const cr = c as { maxScore?: number };
+    return sum + (cr.maxScore ?? 0);
+  }, 0);
   return [
     {
       name: rubric.name ?? "Rubric",
       points,
-      criteria: rubric.criteria.map((c) => ({
-        description: c.title ?? "Criterion",
-        points: c.maxScore ?? 0,
-      })),
+      criteria: rubric.criteria.map((c) => {
+        const cr = c as { id?: number; title?: string; maxScore?: number; weight?: number | null };
+        return {
+          id: cr.id,
+          description: cr.title ?? "Criterion",
+          points: cr.maxScore ?? 0,
+          weight: cr.weight ?? null,
+        };
+      }),
+    },
+  ];
+}
+
+/** Check if GA rubric has nested criteria (subCriteria). */
+function gaRubricHasNestedCriteria(rubric: GradingAssistantRubricResponse | null): boolean {
+  return (
+    (rubric?.criteria?.some((c) => {
+      const cr = c as { subCriteria?: unknown[] };
+      return (cr.subCriteria?.length ?? 0) > 0;
+    }) ?? false)
+  );
+}
+
+/** Map GA rubric response (with rubricType, criteria[].points, subCriteria) to faculty Rubric type for same grading UI. */
+function mapGARubricToRubric(ga: GradingAssistantRubricResponse | null): Rubric | null {
+  if (!ga?.criteria?.length || !gaRubricHasNestedCriteria(ga)) return null;
+  return {
+    id: ga.id,
+    name: ga.name ?? "Rubric",
+    description: ga.description ?? null,
+    facultyId: ga.facultyId ?? null,
+    rubricType: ga.rubricType,
+    criteria: ga.criteria.map((c) => {
+      const cr = c as {
+        id?: number;
+        title?: string;
+        points?: number | null;
+        subCriteria?: Array<{ id?: number; description?: string; maxScore: number; weight?: number | null }>;
+      };
+      return {
+        id: cr.id,
+        title: cr.title ?? "Criterion",
+        points: cr.points ?? null,
+        subCriteria: (cr.subCriteria ?? []).map((s) => ({
+          id: s.id,
+          description: s.description ?? null,
+          maxScore: s.maxScore,
+          weight: s.weight ?? null,
+        })),
+      };
+    }),
+  };
+}
+
+/** Build RubricCategory[] from full Rubric (flatten subCriteria) so dialog flat state matches. */
+function rubricToCategories(rubric: Rubric): RubricCategory[] {
+  const flatCriteria: Array<{ id?: number; description: string; points: number; weight?: number | null }> = [];
+  let totalPoints = 0;
+  for (const criterion of rubric.criteria) {
+    if (criterion.subCriteria?.length) {
+      for (const sub of criterion.subCriteria) {
+        flatCriteria.push({
+          id: sub.id,
+          description: sub.description?.trim() ? sub.description : criterion.title,
+          points: sub.maxScore,
+          weight: sub.weight ?? null,
+        });
+        totalPoints += sub.maxScore;
+      }
+    } else {
+      const maxScore = criterion.maxScore ?? 0;
+      flatCriteria.push({
+        id: criterion.id,
+        description: criterion.description?.trim() ? `${criterion.title}: ${criterion.description}` : criterion.title,
+        points: maxScore,
+        weight: criterion.weight ?? null,
+      });
+      totalPoints += maxScore;
+    }
+  }
+  return [
+    {
+      name: rubric.name,
+      points: totalPoints,
+      criteria: flatCriteria,
     },
   ];
 }
@@ -103,6 +200,7 @@ export function AssignmentGradingPage() {
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [description, setDescription] = useState<AssignmentDescription | null>(null);
   const [rubricCategories, setRubricCategories] = useState<RubricCategory[]>([]);
+  const [rubricNested, setRubricNested] = useState<Rubric | null>(null);
   const [submissionFiles, setSubmissionFiles] = useState<{ fileName: string; content: string }[]>([]);
   const [submissionFileLinks, setSubmissionFileLinks] = useState<{ fileName: string; downloadUrl: string | null }[]>([]);
   const [submissionLanguage, setSubmissionLanguage] = useState<string>("Python");
@@ -118,30 +216,47 @@ export function AssignmentGradingPage() {
   const [runLoading, setRunLoading] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [runResult, setRunResult] = useState<TestRunJobStatusResponse | null>(null);
+  const [rubricExistingGrades, setRubricExistingGrades] = useState<
+    Record<
+      number,
+      {
+        awardedScore: number;
+        feedback?: string | null;
+      }
+    >
+  >({});
 
   const backToAssignmentUrl = isFaculty
     ? `/faculty/class/${classId}/assignment/${assignmentId}`
     : `/grading-assistant/class/${classId}/assignment/${assignmentId}`;
   const backLabel = "Back to assignment";
 
+  const resolvedSubmissionId =
+    submissionId != null && submissionId !== "" && Number.isFinite(Number(submissionId))
+      ? String(submissionId)
+      : null;
+
   const loadFacultyData = useCallback(async () => {
     if (!assignmentId || !submissionId) return;
     const aId = assignmentId;
     const sId = submissionId;
-    const [assignData, descData, rubricData, rows] = await Promise.all([
-      getAssignmentDetailById(aId),
-      getAssignmentDescription(aId),
-      listRubricCategories(aId),
-      listFacultyAssignmentSubmissionFiles(aId),
-    ]);
-    const row = rows.find((r) => r.submissionId === sId) ?? rows.find((r) => String(r.submissionId) === String(sId));
-    if (!row) {
-      setError("Submission not found.");
-      return;
-    }
-    setAssignment(assignData);
+    try {
+      const [assignData, descData, rubricData, row] = await Promise.all([
+        getAssignmentDetailById(aId),
+        getAssignmentDescription(aId),
+        listRubricCategories(aId),
+        getFacultySubmissionById(sId),
+      ]);
+      setAssignment(assignData);
     setDescription(descData);
     setRubricCategories(rubricData);
+    if (assignData.rubricId != null) {
+      getRubricFaculty(assignData.rubricId)
+        .then(setRubricNested)
+        .catch(() => setRubricNested(null));
+    } else {
+      setRubricNested(null);
+    }
     const files = row.files ?? [];
     if (!files.length) {
       setError("Submission or files not found.");
@@ -151,7 +266,27 @@ export function AssignmentGradingPage() {
     setSubmittedAt(formatDate(row.submittedAt));
     setSubmissionLanguage(resolvePreviewLanguage(files[0].fileName, assignData.language));
     setSubmissionMarks(row.marks ?? null);
-    setSubmissionFeedback("");
+    setSubmissionFeedback(row.feedback ?? "");
+    // Preload existing rubric grades for this submission (GET .../submission-grades/{submissionId}).
+    try {
+      const grades = await getSubmissionGrades(sId);
+      const bySubCriteriaId: Record<
+        number,
+        {
+          awardedScore: number;
+          feedback?: string | null;
+        }
+      > = {};
+      for (const g of grades) {
+        bySubCriteriaId[g.rubricSubCriteriaId] = {
+          awardedScore: g.awardedScore,
+          feedback: g.feedback ?? null,
+        };
+      }
+      setRubricExistingGrades(bySubCriteriaId);
+    } catch {
+      setRubricExistingGrades({});
+    }
     const filesWithContent = await Promise.all(
       files.map(async (f) => {
         const content = await fetchSubmissionFileText(f.downloadUrl ?? "", f.fileName);
@@ -165,6 +300,9 @@ export function AssignmentGradingPage() {
         downloadUrl: f.downloadUrl ?? null,
       }))
     );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load submission.");
+    }
   }, [assignmentId, submissionId]);
 
   const loadGAData = useCallback(async () => {
@@ -177,7 +315,7 @@ export function AssignmentGradingPage() {
       getAssignmentByCourse(cId, aId),
       listSubmissionsByAssignment(aId),
     ]);
-    const sub = list.find((s) => s.id === sId) ?? null;
+    const sub = list.find((s) => (s.submissionId ?? s.id) === sId) ?? null;
     if (!sub) {
       setError("Submission not found.");
       return;
@@ -185,12 +323,30 @@ export function AssignmentGradingPage() {
     const rubricId = assignData.rubricId ?? null;
     let totalPoints = assignData.totalPoints ?? null;
     if (rubricId != null) {
-      const rubric = await getRubric(rubricId);
-      setRubricCategories(mapGARubricToCategories(rubric));
-      if (totalPoints == null && rubric?.criteria?.length) {
-        totalPoints = rubric.criteria.reduce((sum, c) => sum + (c.maxScore ?? 0), 0);
+      const gaRubric = await getRubric(rubricId);
+      const mappedRubric = mapGARubricToRubric(gaRubric);
+      if (mappedRubric) {
+        setRubricNested(mappedRubric);
+        setRubricCategories(rubricToCategories(mappedRubric));
+        if (totalPoints == null) {
+          totalPoints = mappedRubric.criteria.reduce(
+            (sum, c) =>
+              sum + (c.subCriteria?.reduce((s, sub) => s + sub.maxScore, 0) ?? c.maxScore ?? 0),
+            0,
+          );
+        }
+      } else {
+        setRubricNested(null);
+        setRubricCategories(mapGARubricToCategories(gaRubric));
+        if (totalPoints == null && gaRubric?.criteria?.length) {
+          totalPoints = (gaRubric.criteria as { maxScore?: number }[]).reduce(
+            (sum, c) => sum + (c.maxScore ?? 0),
+            0,
+          );
+        }
       }
     } else {
+      setRubricNested(null);
       setRubricCategories([]);
     }
     setAssignment(
@@ -209,7 +365,7 @@ export function AssignmentGradingPage() {
       rubric: [],
       constraints: [],
     });
-    setStudentName(sub.studentName ?? sub.studentEmail ?? `Submission #${sub.id}`);
+    setStudentName(sub.studentName ?? sub.studentEmail ?? `Submission #${sub.submissionId ?? sub.id}`);
     setStudentEmail(sub.studentEmail ?? null);
     setSubmittedAt(formatDate(sub.submittedAt ?? undefined));
     setSubmissionLanguage(assignData.languageName ?? "Python");
@@ -250,22 +406,23 @@ export function AssignmentGradingPage() {
 
   // Load latest test run for this submission (created on student submit or manual "Run tests").
   useEffect(() => {
-    if (!submissionId) return;
-    getRunTestsLatest(submissionId)
+    if (!resolvedSubmissionId) return;
+    getRunTestsLatest(resolvedSubmissionId)
       .then((data) => data && setRunResult(data))
       .catch(() => setRunResult(null));
-  }, [submissionId]);
+  }, [resolvedSubmissionId]);
 
   // Poll while queued/running so faculty/GA sees results as soon as the consumer finishes.
   useEffect(() => {
-    if (!runResult || runResult.status === "COMPLETED" || runResult.status === "FAILED") return;
+    if (!resolvedSubmissionId || !runResult || runResult.status === "COMPLETED" || runResult.status === "FAILED")
+      return;
     const interval = setInterval(() => {
-      getRunTestsLatest(submissionId!)
+      getRunTestsLatest(resolvedSubmissionId)
         .then((data) => data && setRunResult(data))
         .catch(() => {});
     }, 10000);
     return () => clearInterval(interval);
-  }, [submissionId, runResult?.status]);
+  }, [resolvedSubmissionId, runResult?.status]);
 
   const scoreItems = useMemo(
     () => [
@@ -295,12 +452,12 @@ export function AssignmentGradingPage() {
         }
         return;
       }
-      if (!submissionId) return;
+      if (!resolvedSubmissionId) return;
       setRunLoading(true);
       setRunError(null);
       try {
-        await requestRunTests(submissionId);
-        const job = await pollRunTestsUntilDone(submissionId);
+        await requestRunTests(resolvedSubmissionId);
+        const job = await pollRunTestsUntilDone(resolvedSubmissionId);
         setRunResult(job);
         setActiveTab("tests");
       } catch (e) {
@@ -311,20 +468,93 @@ export function AssignmentGradingPage() {
         setRunLoading(false);
       }
     },
-    [assignmentId, submissionId]
+    [assignmentId, resolvedSubmissionId]
   );
 
+  const handleOpenGradeClick = useCallback(async () => {
+    if (submissionId) {
+      try {
+        if (isFaculty) {
+          const grades = await getSubmissionGrades(submissionId);
+          const bySubCriteriaId: Record<
+            number,
+            { awardedScore: number; feedback?: string | null }
+          > = {};
+          for (const g of grades) {
+            bySubCriteriaId[g.rubricSubCriteriaId] = {
+              awardedScore: g.awardedScore,
+              feedback: g.feedback ?? null,
+            };
+          }
+          setRubricExistingGrades(bySubCriteriaId);
+        } else if (isGA) {
+          const grades = await getGASubmissionGrades(submissionId);
+          const bySubCriteriaId: Record<
+            number,
+            { awardedScore: number; feedback?: string | null }
+          > = {};
+          for (const g of grades) {
+            bySubCriteriaId[g.rubricSubCriteriaId] = {
+              awardedScore: g.awardedScore,
+              feedback: g.feedback ?? null,
+            };
+          }
+          setRubricExistingGrades(bySubCriteriaId);
+        }
+      } catch {
+        setRubricExistingGrades({});
+      }
+    }
+    setGradeDialogOpen(true);
+  }, [submissionId, isFaculty, isGA]);
+
   const handleSaveGrade = useCallback(
-    async (marks: number, feedback: string) => {
+    async (
+      marks: number,
+      feedback: string,
+      rubricGrades?: Array<{ criterionId: number; score: number; comment: string }>,
+    ) => {
       if (!submissionId) return;
       setGradeSubmitting(true);
       try {
         if (isFaculty) {
+          if (rubricGrades && rubricGrades.length > 0) {
+            const grades = rubricGrades.map((item) => ({
+              rubricSubCriteriaId: item.criterionId,
+              awardedScore: roundTo2(Math.max(0, item.score)),
+              feedback: (item.comment?.trim() || undefined) ?? null,
+            }));
+            const request = { submissionId: Number(submissionId), grades };
+            const hasExisting = Object.keys(rubricExistingGrades).length > 0;
+            if (hasExisting) {
+              await replaceSubmissionGrades(submissionId, request);
+            } else {
+              await createGradesBatch(request);
+            }
+          }
+
           await submitFacultySubmissionGrade({
             submissionId,
             marks,
             feedback,
           });
+        } else if (isGA) {
+          if (rubricGrades && rubricGrades.length > 0) {
+            const grades = rubricGrades.map((item) => ({
+              rubricSubCriteriaId: item.criterionId,
+              awardedScore: roundTo2(Math.max(0, item.score)),
+              feedback: (item.comment?.trim() || undefined) ?? null,
+            }));
+            const request = { submissionId: Number(submissionId), grades };
+            const hasExisting = Object.keys(rubricExistingGrades).length > 0;
+            if (hasExisting) {
+              await replaceGASubmissionGrades(submissionId, request);
+            } else {
+              await createGASubmissionGradesBatch(request);
+            }
+          }
+
+          await updateSubmissionGrade(Number(submissionId), { marks, feedback });
         } else {
           await updateSubmissionGrade(Number(submissionId), { marks, feedback });
         }
@@ -337,13 +567,13 @@ export function AssignmentGradingPage() {
                 status: "graded",
                 points: { ...prev.points, earned: marks },
               }
-            : prev
+            : prev,
         );
       } finally {
         setGradeSubmitting(false);
       }
     },
-    [submissionId, isFaculty]
+    [submissionId, isFaculty, rubricExistingGrades],
   );
 
   const codeWorkspaceAssignment = useMemo(
@@ -497,6 +727,23 @@ export function AssignmentGradingPage() {
                       ? `File: ${submissionFiles[0]?.fileName ?? "—"}`
                       : `Files: ${submissionFiles.length} files`}
                   </div>
+                  {isFaculty && (submissionMarks != null || (submissionFeedback != null && submissionFeedback.trim() !== "")) ? (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="text-[12px] font-medium text-gray-500 uppercase tracking-wide mb-1">Grade & feedback</div>
+                      <div className="text-[13px] text-[#2B2A2A]">
+                        <span className="font-medium">
+                          {submissionMarks != null
+                            ? `${submissionMarks} / ${assignment.points?.total ?? "—"}`
+                            : "—"}
+                        </span>
+                      </div>
+                      {submissionFeedback != null && submissionFeedback.trim() !== "" ? (
+                        <div className="mt-1.5 text-[12px] text-gray-600 line-clamp-3 break-words">
+                          {submissionFeedback.trim()}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Tabs */}
@@ -571,7 +818,7 @@ export function AssignmentGradingPage() {
                     <span className="text-[13px] font-medium text-[#2B2A2A]">Grade</span>
                     <button
                       type="button"
-                      onClick={() => setGradeDialogOpen(true)}
+                      onClick={handleOpenGradeClick}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2B2A2A] hover:bg-[#3a3939] text-white text-[13px] font-medium"
                     >
                       <CheckSquare className="w-3.5 h-3.5" strokeWidth={2} />
@@ -621,6 +868,8 @@ export function AssignmentGradingPage() {
         onOpenChange={setGradeDialogOpen}
         hasRubric={rubricCategories.length > 0}
         rubricCategories={rubricCategories}
+        rubricNested={rubricNested ?? undefined}
+        rubricExistingGrades={rubricExistingGrades}
         maxPoints={assignment.points?.total ?? 100}
         currentMarks={submissionMarks}
         currentFeedback={submissionFeedback}

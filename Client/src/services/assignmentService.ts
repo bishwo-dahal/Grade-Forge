@@ -730,17 +730,35 @@ export async function listRubricCategories(assignmentId: string): Promise<Rubric
             `/api/v1/student/assignments/course/${workspaceSource.course.id}/${workspaceSource.assignment.id}/rubric`,
           )
         ).data;
-    const totalPoints = rubric.criteria.reduce((sum, criterion) => sum + criterion.maxScore, 0);
+    const flatCriteria: Array<{ id?: number; description: string; points: number; weight?: number | null }> = [];
+    let totalPoints = 0;
+    for (const criterion of rubric.criteria) {
+      if (criterion.subCriteria?.length) {
+        for (const sub of criterion.subCriteria) {
+          flatCriteria.push({
+            id: sub.id,
+            description: sub.description?.trim() ? sub.description : criterion.title,
+            points: sub.maxScore,
+            weight: sub.weight ?? null,
+          });
+          totalPoints += sub.maxScore;
+        }
+      } else {
+        const maxScore = criterion.maxScore ?? 0;
+        flatCriteria.push({
+          id: criterion.id,
+          description: criterion.description?.trim() ? `${criterion.title}: ${criterion.description}` : criterion.title,
+          points: maxScore,
+          weight: criterion.weight ?? null,
+        });
+        totalPoints += maxScore;
+      }
+    }
     return [
       {
         name: rubric.name,
         points: totalPoints,
-        criteria: rubric.criteria.map((criterion) => ({
-          description: criterion.description?.trim()
-            ? `${criterion.title}: ${criterion.description}`
-            : criterion.title,
-          points: criterion.maxScore,
-        })),
+        criteria: flatCriteria,
       },
     ];
   } catch {
@@ -830,7 +848,8 @@ export async function createFacultyAssignmentDraft(
     availableFrom: buildOptionalDateTimePayload(form.availableFromDate, form.availableFromTime, "available-from date/time"),
     dueDate: buildDueDateTimePayload(form.dueDate, form.dueTime),
     lateDueDate: buildOptionalDateTimePayload(form.lateDueDate, form.lateDueTime, "late due date/time"),
-    rubricId: form.rubricId.trim() ? Number(form.rubricId) : null,
+    // When "No rubric" is selected, omit rubricId from the request entirely.
+    ...(form.rubricId.trim() ? { rubricId: Number(form.rubricId) } : {}),
   };
 
   // NOTE: Creation now calls backend directly so the assignment is persisted and visible to enrolled students.

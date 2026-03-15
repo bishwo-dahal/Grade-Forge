@@ -6,6 +6,7 @@ import type {
   SubmissionFileItem,
   SubmissionConsoleData,
   SubmissionDetail,
+  SubmissionGradeRequest,
   SubmissionSummary,
 } from "../types/submission";
 import api from "../api/axios";
@@ -209,14 +210,33 @@ interface AssignmentApiResponse {
   name: string;
 }
 
-interface FacultySubmissionApiResponse {
+/** Slim list item from GET /api/v1/faculty/submissions?assignmentId= (fast, no files) */
+interface FacultySubmissionListResponse {
+  submissionId: number;
+  studentId: number;
+  studentName: string;
+  studentEmail: string | null;
+  grade: number | null;
+  feedback: string | null;
+  status: string;
+  submittedAt?: string | null;
+}
+
+/** GET /api/v1/faculty/submissions/{submissionId} — full SubmissionResponse for a single submission */
+interface FacultySubmissionDetailResponse {
   id: number;
   assignmentId: number;
   assignmentName: string;
+  courseId: number;
+  courseName: string;
+  studentId: number;
   studentName: string;
-  submittedAt: string;
-  marks: number | null;
+  studentEmail: string | null;
   files: SubmissionFileApiResponse[] | null;
+  marks: number | null;
+  feedback: string | null;
+  submittedAt: string;
+  status: string;
 }
 
 interface SubmissionFileApiResponse {
@@ -358,37 +378,54 @@ export async function listClassSubmissions(classId: string): Promise<ClassSubmis
     });
 }
 
+/** List submissions for an assignment (slim response: no files, fast). */
 export async function listFacultyAssignmentSubmissionFiles(
   assignmentId: string,
 ): Promise<FacultyAssignmentSubmissionRow[]> {
   const parsedAssignmentId = parseAssignmentId(assignmentId);
-  const { data } = await api.get<FacultySubmissionApiResponse[]>(
+  const { data } = await api.get<FacultySubmissionListResponse[]>(
     `/api/v1/faculty/submissions?assignmentId=${parsedAssignmentId}`,
   );
 
-  // NOTE: Faculty results tab requires full file lists per submission for direct downloads.
-  return data
-    .sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime())
-    .map((submission) => ({
-      submissionId: String(submission.id),
-      studentName: submission.studentName,
-      submittedAt: submission.submittedAt,
-      marks: typeof submission.marks === "number" ? submission.marks : null,
-      files: mapSubmissionFiles(submission.files),
-    }));
+  return (data ?? []).map((sub) => ({
+    submissionId: String(sub.submissionId),
+    studentName: sub.studentName,
+    submittedAt: sub.submittedAt ?? "",
+    marks: typeof sub.grade === "number" ? sub.grade : null,
+    files: [],
+  }));
 }
 
+/** Full submission by id (call when user selects a submission for grading). Includes feedback for prefill. */
+export async function getFacultySubmissionById(
+  submissionId: string,
+): Promise<FacultyAssignmentSubmissionRow & { feedback?: string | null }> {
+  const id = parseSubmissionId(submissionId);
+  const { data } = await api.get<FacultySubmissionDetailResponse>(
+    `/api/v1/faculty/submissions/${id}`,
+  );
+  return {
+    submissionId: String(data.id),
+    studentName: data.studentName,
+    submittedAt: data.submittedAt ?? "",
+    marks: typeof data.marks === "number" ? data.marks : null,
+    files: mapSubmissionFiles(data.files),
+    feedback: data.feedback ?? null,
+  };
+}
+
+/** PATCH /api/v1/faculty/submissions/{submissionId}/grade — updates marks and feedback for the submission. */
 export async function submitFacultySubmissionGrade(payload: FacultySubmissionGradePayload): Promise<void> {
   const parsedSubmissionId = parseSubmissionId(payload.submissionId);
   if (!Number.isFinite(payload.marks) || payload.marks < 0) {
     throw new Error("Grade must be zero or higher.");
   }
 
-  // NOTE: Faculty grade updates map directly to backend submission grade endpoint used for final marks/feedback.
-  await api.put(`/api/v1/faculty/submissions/${parsedSubmissionId}/grade`, {
+  const body: SubmissionGradeRequest = {
     marks: payload.marks,
     feedback: payload.feedback,
-  });
+  };
+  await api.patch(`/api/v1/faculty/submissions/${parsedSubmissionId}/grade`, body);
 }
 
 export function resolvePreviewLanguage(fileName: string, fallbackLanguage: string): string {

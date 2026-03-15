@@ -14,9 +14,11 @@ import lombok.Setter;
 public class SubmissionGradeResponse {
     private Long id;
     private Long submissionId;
+    private Long rubricSubCriteriaId;
+    private String rubricSubCriteriaDescription;
     private Long rubricCriteriaId;
     private String rubricCriteriaTitle;
-    private Integer awardedScore;
+    private Double awardedScore;
     private String feedback;
 }
 

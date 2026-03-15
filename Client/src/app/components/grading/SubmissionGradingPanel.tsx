@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircle, FileText, Save } from "lucide-react";
+import { roundTo2 } from "../../../utils/number";
 
 interface SubmissionFileLike {
   id?: number;
@@ -12,6 +13,7 @@ interface RubricCriterionLike {
   title?: string | null;
   description?: string | null;
   maxScore?: number | null;
+  weight?: number | null;
 }
 
 interface RubricGradeLike {
@@ -60,59 +62,6 @@ interface CriterionRowProps {
   feedback: string;
   onScoreChange: (value: string) => void;
   onFeedbackChange: (value: string) => void;
-}
-
-function CriterionRow({
-  criterion,
-  awardedScore,
-  feedback,
-  onScoreChange,
-  onFeedbackChange,
-}: CriterionRowProps) {
-  const maxScore = criterion.maxScore ?? 0;
-
-  return (
-    <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-      <div>
-        <h4 className="text-[14px] font-medium text-[#2B2A2A]">
-          {criterion.title ?? "Criterion"}
-        </h4>
-        {criterion.description && (
-          <p className="text-[13px] text-gray-600 mt-0.5">{criterion.description}</p>
-        )}
-        {maxScore > 0 && (
-          <p className="text-[12px] text-gray-500 mt-1">Max score: {maxScore}</p>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-4 items-start">
-        <div>
-          <label className="block text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-            Score
-          </label>
-          <input
-            type="number"
-            min={0}
-            max={maxScore}
-            value={awardedScore}
-            onChange={(e) => onScoreChange(e.target.value)}
-            className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]"
-          />
-        </div>
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-            Feedback
-          </label>
-          <textarea
-            rows={2}
-            value={feedback}
-            onChange={(e) => onFeedbackChange(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]"
-            placeholder="Optional"
-          />
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export function SubmissionGradingPanel({
@@ -397,21 +346,124 @@ export function SubmissionGradingPanel({
             <h2 className="text-[16px] font-semibold text-[#2B2A2A]">
               Grade by rubric — {rubric.name ?? "Rubric"}
             </h2>
+            <p className="mt-1 text-[12px] text-gray-500">
+              Each row represents a rubric criterion. Provide a score from 0 up to the max; total
+              points are calculated automatically.
+            </p>
           </div>
-          <form onSubmit={handleSaveRubricClick} className="px-6 py-5 space-y-5">
-            {error && (
-              <p className="text-[14px] text-red-600">{error}</p>
-            )}
-            {rubric.criteria.map((c) => (
-              <CriterionRow
-                key={c.id}
-                criterion={c}
-                awardedScore={criteriaScores[c.id]?.awardedScore ?? ""}
-                feedback={criteriaScores[c.id]?.feedback ?? ""}
-                onScoreChange={(v) => setCriterionScore(c.id, "awardedScore", v)}
-                onFeedbackChange={(v) => setCriterionScore(c.id, "feedback", v)}
-              />
-            ))}
+          <form onSubmit={handleSaveRubricClick} className="px-6 py-5 space-y-4">
+            {error && <p className="text-[14px] text-red-600">{error}</p>}
+
+            <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-[#F9FAFB]">
+              <table className="min-w-full border-separate border-spacing-0 text-left">
+                <thead className="bg-[#E4E7EC] text-[12px] font-semibold text-[#1F2430]">
+                  <tr>
+                    <th className="px-4 py-2 align-middle">Criterion</th>
+                    <th className="px-4 py-2 align-middle">Description</th>
+                    <th className="w-[110px] px-4 py-2 align-middle">
+                      Max Points <span className="text-[#D84E57]">*</span>
+                    </th>
+                    <th className="w-[90px] px-4 py-2 align-middle">Weight (%)</th>
+                    <th className="w-[150px] px-4 py-2 align-middle text-right">
+                      Awarded points
+                    </th>
+                    <th className="w-[150px] px-4 py-2 align-middle text-right">
+                      Weighted points
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="text-[13px] text-[#1F2430]">
+                  {rubric.criteria.map((c, index) => {
+                    const maxScore = c.maxScore ?? 0;
+                    const weight = c.weight ?? null;
+                    const state = criteriaScores[c.id] ?? { awardedScore: "", feedback: "" };
+                    const numericAwarded =
+                      state.awardedScore.trim() === ""
+                        ? 0
+                        : Number.parseFloat(state.awardedScore) || 0;
+                    const weightedPoints =
+                      weight != null ? (numericAwarded * weight) / 100 : null;
+
+                    return (
+                      <tr
+                        key={c.id}
+                        className="border-t border-gray-200 bg-white last:rounded-b-2xl [&:last-child>td:first-child]:rounded-bl-2xl [&:last-child>td:last-child]:rounded-br-2xl"
+                      >
+                        <td className="px-4 py-3 align-top">
+                          <div className="mb-1 text-[11px] font-medium text-[#6D7B91]">
+                            Criterion {index + 1}
+                          </div>
+                          <div className="text-[13px] font-semibold text-[#2B2A2A]">
+                            {c.title ?? "Criterion"}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 align-top">
+                          {c.description ? (
+                            <p className="text-[12px] text-gray-700 whitespace-pre-line">
+                              {c.description}
+                            </p>
+                          ) : (
+                            <span className="text-[12px] text-gray-400">No description</span>
+                          )}
+                          <div className="mt-2">
+                            <label className="mb-1 block text-[11px] font-medium text-gray-500">
+                              Feedback
+                            </label>
+                            <textarea
+                              rows={2}
+                              value={state.feedback}
+                              onChange={(e) =>
+                                setCriterionScore(c.id, "feedback", e.target.value)
+                              }
+                              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]"
+                              placeholder="Optional"
+                            />
+                          </div>
+                        </td>
+                        <td className="w-[110px] px-4 py-3 align-top">
+                          <div className="text-[13px] font-semibold text-[#2B2A2A]">
+                            {maxScore}
+                          </div>
+                        </td>
+                        <td className="w-[90px] px-4 py-3 align-top">
+                          <div className="text-[13px] text-[#2B2A2A]">
+                            {weight != null ? roundTo2(weight).toFixed(2) : "—"}
+                          </div>
+                        </td>
+                        <td className="w-[150px] px-4 py-3 align-top">
+                          <div className="flex flex-col items-end gap-1">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min={0}
+                                max={maxScore}
+                                value={state.awardedScore}
+                                onChange={(e) =>
+                                  setCriterionScore(c.id, "awardedScore", e.target.value)
+                                }
+                                className="h-8 w-20 rounded-md border border-gray-300 bg-white px-2 text-right text-[13px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                              />
+                              <span className="text-[11px] text-gray-500">
+                                / {maxScore || "—"}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-gray-500">
+                              Earned: {roundTo2(numericAwarded).toFixed(2)} pts
+                            </div>
+                          </div>
+                        </td>
+                        <td className="w-[150px] px-4 py-3 align-top">
+                          <div className="text-right text-[13px] text-[#2B2A2A]">
+                            {weightedPoints != null ? roundTo2(weightedPoints).toFixed(2) : "—"}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
             <button
               type="submit"
               disabled={savingRubric}

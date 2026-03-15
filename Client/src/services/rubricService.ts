@@ -1,52 +1,85 @@
 import api from "../api/axios";
-import type { Rubric, RubricCreatePayload, RubricSummary, RubricCriterion } from "../types/rubric";
+import type { Rubric, RubricCreatePayload, RubricSummary, RubricCriterion, RubricType } from "../types/rubric";
 
+/** Flat criterion (legacy API). */
 interface RubricCriteriaApiResponse {
   id: number;
   title: string;
-  description: string | null;
-  maxScore: number;
-  weight: number | null;
+  description?: string | null;
+  maxScore?: number;
+  weight?: number | null;
+  points?: number | null;
+  subCriteria?: RubricSubCriteriaApiResponse[];
 }
 
+/** API response for get rubric by id. */
 interface RubricApiResponse {
   id: number;
   name: string;
   description: string | null;
   facultyId: number | null;
+  rubricType?: RubricType;
   criteria: RubricCriteriaApiResponse[];
 }
 
-function mapCriterion(api: RubricCriteriaApiResponse): RubricCriterion {
+interface RubricSubCriteriaApiResponse {
+  id?: number;
+  description?: string | null;
+  maxScore: number;
+  weight?: number | null;
+}
+
+function mapCriterion(c: RubricCriteriaApiResponse): RubricCriterion {
+  if (c.subCriteria && c.subCriteria.length > 0) {
+    return {
+      id: c.id,
+      title: c.title,
+      points: c.points ?? null,
+      subCriteria: c.subCriteria.map((s) => ({
+        id: s.id,
+        description: s.description ?? null,
+        maxScore: s.maxScore,
+        weight: s.weight ?? null,
+      })),
+    };
+  }
   return {
-    id: api.id,
-    title: api.title,
-    description: api.description,
-    maxScore: api.maxScore,
-    weight: api.weight,
+    id: c.id,
+    title: c.title,
+    description: c.description ?? null,
+    maxScore: c.maxScore ?? 0,
+    weight: c.weight ?? null,
+    points: c.points ?? null,
+    subCriteria: [{ description: c.description, maxScore: c.maxScore ?? 0, weight: c.weight }],
   };
 }
 
-function mapRubric(api: RubricApiResponse): Rubric {
+function mapRubric(apiData: RubricApiResponse): Rubric {
   return {
-    id: api.id,
-    name: api.name,
-    description: api.description,
-    facultyId: api.facultyId,
-    criteria: (api.criteria ?? []).map(mapCriterion),
+    id: apiData.id,
+    name: apiData.name,
+    description: apiData.description,
+    facultyId: apiData.facultyId,
+    rubricType: apiData.rubricType,
+    criteria: (apiData.criteria ?? []).map(mapCriterion),
   };
 }
 
 function mapRubricToSummary(api: RubricApiResponse): RubricSummary {
-  const criteria = api.criteria ?? [];
-  const totalMaxScore = criteria.reduce((sum, c) => sum + (c.maxScore ?? 0), 0);
+  const criteria = (api.criteria ?? []).map(mapCriterion);
+  const totalMaxScore = criteria.reduce(
+    (sum, c) =>
+      sum +
+      (c.subCriteria?.reduce((s, sub) => s + (sub.maxScore ?? 0), 0) ?? (c.maxScore ?? 0)),
+    0,
+  );
   return {
     id: api.id,
     name: api.name,
     description: api.description,
     criteriaCount: criteria.length,
     totalMaxScore,
-    criteria: criteria.map(mapCriterion),
+    criteria,
   };
 }
 
@@ -68,6 +101,39 @@ export async function getRubric(id: number | string): Promise<Rubric> {
   const numericId = Number(id);
   const { data } = await api.get<RubricApiResponse>(`/api/v1/faculty/rubrics/${numericId}`);
   return mapRubric(data);
+}
+
+/**
+ * For unweighted rubrics (rubricType null or UNWEIGHTED), returns the sum of criterion points.
+ * Each criterion contributes its `points` if set, otherwise the sum of its subCriteria maxScore.
+ * Returns null if the rubric is weighted (so assignment total should not be driven by rubric).
+ */
+export function getUnweightedRubricTotalPoints(rubric: Rubric): number | null {
+  if (rubric.rubricType != null && rubric.rubricType !== "UNWEIGHTED") {
+    return null;
+  }
+  const criteria = rubric.criteria ?? [];
+  const total = criteria.reduce((sum, c) => {
+    if (c.points != null && Number.isFinite(c.points)) {
+      return sum + c.points;
+    }
+    if (c.subCriteria?.length) {
+      return sum + c.subCriteria.reduce((s, sub) => s + (sub.maxScore ?? 0), 0);
+    }
+    return sum + (c.maxScore ?? 0);
+  }, 0);
+  return total;
+}
+
+/** GET /api/v1/student/rubrics/{rubricId} — full rubric for student view (same shape as faculty). */
+export async function getStudentRubric(rubricId: number | string): Promise<Rubric | null> {
+  try {
+    const id = Number(rubricId);
+    const { data } = await api.get<RubricApiResponse>(`/api/v1/student/rubrics/${id}`);
+    return data ? mapRubric(data) : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function createRubric(payload: RubricCreatePayload): Promise<Rubric> {
