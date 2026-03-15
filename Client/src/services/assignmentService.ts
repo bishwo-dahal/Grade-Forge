@@ -848,7 +848,8 @@ export async function createFacultyAssignmentDraft(
     availableFrom: buildOptionalDateTimePayload(form.availableFromDate, form.availableFromTime, "available-from date/time"),
     dueDate: buildDueDateTimePayload(form.dueDate, form.dueTime),
     lateDueDate: buildOptionalDateTimePayload(form.lateDueDate, form.lateDueTime, "late due date/time"),
-    rubricId: form.rubricId.trim() ? Number(form.rubricId) : null,
+    // When "No rubric" is selected, omit rubricId from the request entirely.
+    ...(form.rubricId.trim() ? { rubricId: Number(form.rubricId) } : {}),
   };
 
   // NOTE: Creation now calls backend directly so the assignment is persisted and visible to enrolled students.
