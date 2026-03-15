@@ -261,7 +261,12 @@ export function FacultyClassPage() {
           <div className="max-w-7xl mx-auto px-8 py-6">
             {activeSection === 'dashboard' && <DashboardSection />}
             {activeSection === 'assignments' && <AssignmentsSection />}
-            {activeSection === 'grades' && <GradesSection />}
+            {activeSection === 'grades' && (
+              <GradesSection
+                courseFullName={classData.code && classData.name ? `${classData.code}: ${classData.name}` : classData.name || classData.code || ""}
+                facultyName={classData.instructor || ""}
+              />
+            )}
             {activeSection === 'students' && (
               <StudentsSection
                 isAddStudentModalOpen={isAddStudentModalOpen}
@@ -834,7 +839,13 @@ function SubmissionsSection() {
 type GradeViewMode = "course" | "assignment";
 type GradeStatusFilter = "all" | "NOT_SUBMITTED" | "SUBMITTED" | "GRADED";
 
-function GradesSection() {
+function GradesSection({
+  courseFullName,
+  facultyName,
+}: {
+  courseFullName: string;
+  facultyName: string;
+}) {
   const { classId } = useParams();
   const courseId = useMemo(() => Number(classId || "0") || 0, [classId]);
 
@@ -913,6 +924,76 @@ function GradesSection() {
     GRADED: "Graded",
   };
 
+  const exportGradesCsv = useCallback(() => {
+    const escapeCsv = (value: string | number): string => {
+      const s = String(value);
+      if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+
+    const downloadCsv = (csvContent: string, filename: string) => {
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    const safeName = (name: string) => name.replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").slice(0, 80) || "grades";
+    const date = new Date().toISOString().slice(0, 10);
+
+    const courseAndFacultyHeader = [
+      [escapeCsv("Course"), escapeCsv(courseFullName)].join(","),
+      [escapeCsv("Faculty"), escapeCsv(facultyName)].join(","),
+      "",
+    ].join("\r\n");
+
+    if (viewMode === "course" && courseReport && assignmentOptions.length > 0) {
+      const headers = ["Student", ...assignmentOptions.map((a) => a.assignmentName)];
+      const rows = filteredStudentsCourse.map((s) => {
+        const cells = [s.studentName];
+        s.assignments.forEach((a) => {
+          const scoreStr = a.score != null ? a.score.toFixed(2) : "—";
+          const statusStr = statusLabel[a.status] ?? a.status;
+          cells.push(`${scoreStr} / ${a.maxScore.toFixed(1)} (${statusStr})`);
+        });
+        return cells.map(escapeCsv).join(",");
+      });
+      const tableCsv = [headers.map(escapeCsv).join(","), ...rows].join("\r\n");
+      const csv = courseAndFacultyHeader + "\r\n" + tableCsv;
+      const filename = `grades-${safeName(courseReport.courseName)}-overview-${date}.csv`;
+      downloadCsv(csv, filename);
+      return;
+    }
+
+    if (viewMode === "assignment" && assignmentReport) {
+      const titleRow = escapeCsv(assignmentReport.assignmentName);
+      const headers = ["Student", "Score", "Max", "Status"];
+      const rows = filteredStudentsAssignment.map((s) => [
+        s.studentName,
+        s.score != null ? s.score.toFixed(2) : "—",
+        s.maxScore.toFixed(1),
+        statusLabel[s.status] ?? s.status,
+      ]);
+      const tableCsv = [titleRow, headers.map(escapeCsv).join(","), ...rows.map((r) => r.map(escapeCsv).join(","))].join("\r\n");
+      const csv = courseAndFacultyHeader + "\r\n" + tableCsv;
+      const filename = `grades-${safeName(courseReport?.courseName ?? "course")}-${safeName(assignmentReport.assignmentName)}-${date}.csv`;
+      downloadCsv(csv, filename);
+    }
+  }, [
+    viewMode,
+    courseReport,
+    assignmentReport,
+    assignmentOptions,
+    filteredStudentsCourse,
+    filteredStudentsAssignment,
+    statusLabel,
+    courseFullName,
+    facultyName,
+  ]);
+
   return (
     <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
@@ -924,7 +1005,9 @@ function GradesSection() {
         </div>
         <button
           type="button"
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors shrink-0"
+          onClick={exportGradesCsv}
+          disabled={!courseReport || (viewMode === "assignment" && !assignmentReport)}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Download className="w-4 h-4" strokeWidth={2} />
           <span>Export Grades</span>
@@ -1011,13 +1094,13 @@ function GradesSection() {
                 <table className="w-full min-w-[600px] border-collapse">
                   <thead>
                     <tr className="border-b-2 border-gray-200 bg-[#F8F9FB]">
-                      <th className="text-left px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide sticky left-0 bg-[#F8F9FB] z-10 min-w-[200px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
+                      <th className="text-left px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide sticky left-0 bg-[#F8F9FB] z-10 min-w-[200px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)] border-r border-gray-200">
                         Student
                       </th>
                       {assignmentOptions.map((a) => (
                         <th
                           key={a.assignmentId}
-                          className="text-left px-4 py-4 text-[12px] font-semibold text-gray-600 min-w-[140px] max-w-[220px] align-top"
+                          className="text-left px-4 py-4 text-[12px] font-semibold text-gray-600 min-w-[140px] max-w-[220px] align-top border-r border-gray-200 last:border-r-0"
                         >
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1050,11 +1133,11 @@ function GradesSection() {
                           key={student.studentId}
                           className={`border-b border-gray-100 transition-colors hover:bg-[#F8F9FB]/80 ${idx % 2 === 1 ? "bg-gray-50/40" : ""}`}
                         >
-                          <td className="px-5 py-3.5 text-[13px] font-medium text-[#2B2A2A] sticky left-0 bg-inherit z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.04)]">
+                          <td className="px-5 py-3.5 text-[13px] font-medium text-[#2B2A2A] sticky left-0 bg-inherit z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.04)] border-r border-gray-200">
                             {student.studentName}
                           </td>
                           {student.assignments.map((a) => (
-                            <td key={a.assignmentId} className="px-4 py-3.5">
+                            <td key={a.assignmentId} className="px-4 py-3.5 border-r border-gray-200 last:border-r-0">
                               <GradeCell assignment={a} statusLabel={statusLabel} />
                             </td>
                           ))}
@@ -1079,13 +1162,13 @@ function GradesSection() {
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="border-b-2 border-gray-200 bg-[#F8F9FB]">
-                        <th className="text-left px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide min-w-[200px]">
+                        <th className="text-left px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide min-w-[200px] border-r border-gray-200">
                           Student
                         </th>
-                        <th className="text-right px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide w-24">
+                        <th className="text-right px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide w-24 border-r border-gray-200">
                           Score
                         </th>
-                        <th className="text-right px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide w-20">
+                        <th className="text-right px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide w-20 border-r border-gray-200">
                           Max
                         </th>
                         <th className="text-left px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide w-32">
@@ -1107,13 +1190,13 @@ function GradesSection() {
                             key={s.studentId}
                             className={`border-b border-gray-100 transition-colors hover:bg-[#F8F9FB]/80 ${idx % 2 === 1 ? "bg-gray-50/40" : ""}`}
                           >
-                            <td className="px-5 py-3.5 text-[13px] font-medium text-[#2B2A2A]">
+                            <td className="px-5 py-3.5 text-[13px] font-medium text-[#2B2A2A] border-r border-gray-200">
                               {s.studentName}
                             </td>
-                            <td className="px-5 py-3.5 text-right text-[13px] font-medium text-[#2B2A2A]">
+                            <td className="px-5 py-3.5 text-right text-[13px] font-medium text-[#2B2A2A] border-r border-gray-200">
                               {s.score != null ? s.score.toFixed(2) : "—"}
                             </td>
-                            <td className="px-5 py-3.5 text-right text-[13px] text-gray-600">
+                            <td className="px-5 py-3.5 text-right text-[13px] text-gray-600 border-r border-gray-200">
                               {s.maxScore.toFixed(1)}
                             </td>
                             <td className="px-5 py-3.5">
