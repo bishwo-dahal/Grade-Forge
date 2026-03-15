@@ -70,6 +70,11 @@ import type {
 import type { GradingAssistantResponse } from "../../types/gradingAssistant";
 import type { CourseAssistantResponse } from "../../types/courseAssistant";
 import { SegmentedFilter } from "./ui/SegmentedFilter";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "./ui/tooltip";
 
 const SECTION_PATH_SEGMENTS = [
   "dashboard",
@@ -943,107 +948,117 @@ function GradesSection() {
         </div>
       ) : courseReport ? (
         <>
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            <SegmentedFilter
-              items={[
-                { id: "course" as const, label: "Course overview" },
-                { id: "assignment" as const, label: "By assignment" },
-              ]}
-              value={viewMode}
-              onValueChange={(v) => setViewMode(v)}
-            />
-            {viewMode === "course" && (
-              <SegmentedFilter
-                items={[
-                  { id: "all" as const, label: "All statuses" },
-                  { id: "NOT_SUBMITTED" as const, label: "Not submitted" },
-                  { id: "SUBMITTED" as const, label: "Submitted" },
-                  { id: "GRADED" as const, label: "Graded" },
-                ]}
-                value={statusFilter}
-                onValueChange={(v) => setStatusFilter(v)}
-              />
-            )}
-            <div className="flex-1 min-w-[200px] relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={2} />
-              <input
-                type="text"
-                placeholder="Search students…"
-                value={studentSearch}
-                onChange={(e) => setStudentSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-[13px] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/30 focus:border-[#5A7ACD]"
-              />
+          <div className="bg-white rounded-xl border border-gray-200 p-4 mb-5 shadow-sm">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">View</span>
+                <SegmentedFilter
+                  items={[
+                    { id: "course" as const, label: "Course overview" },
+                    { id: "assignment" as const, label: "By assignment" },
+                  ]}
+                  value={viewMode}
+                  onValueChange={(v) => setViewMode(v)}
+                />
+              </div>
+              {viewMode === "course" && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Status</span>
+                  <SegmentedFilter
+                    items={[
+                      { id: "all" as const, label: "All" },
+                      { id: "NOT_SUBMITTED" as const, label: "Not submitted" },
+                      { id: "SUBMITTED" as const, label: "Submitted" },
+                      { id: "GRADED" as const, label: "Graded" },
+                    ]}
+                    value={statusFilter}
+                    onValueChange={(v) => setStatusFilter(v)}
+                  />
+                </div>
+              )}
+              {viewMode === "assignment" && assignmentOptions.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Assignment</span>
+                  <select
+                    value={selectedAssignmentId ?? ""}
+                    onChange={(e) => setSelectedAssignmentId(Number(e.target.value) || null)}
+                    className="min-w-[220px] px-3 py-2 border border-gray-200 rounded-lg text-[13px] text-[#2B2A2A] bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/30 focus:border-[#5A7ACD] focus:bg-white"
+                  >
+                    <option value="">Select assignment</option>
+                    {assignmentOptions.map((a) => (
+                      <option key={a.assignmentId} value={a.assignmentId}>
+                        {a.assignmentName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="flex-1 min-w-[180px] max-w-[280px] relative ml-auto">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={2} />
+                <input
+                  type="text"
+                  placeholder="Search students…"
+                  value={studentSearch}
+                  onChange={(e) => setStudentSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-[13px] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/30 focus:border-[#5A7ACD] bg-gray-50/50 focus:bg-white"
+                />
+              </div>
             </div>
-            {viewMode === "assignment" && assignmentOptions.length > 0 && (
-              <select
-                value={selectedAssignmentId ?? ""}
-                onChange={(e) => setSelectedAssignmentId(Number(e.target.value) || null)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-[13px] text-[#2B2A2A] bg-white focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/30 focus:border-[#5A7ACD]"
-              >
-                <option value="">Select assignment</option>
-                {assignmentOptions.map((a) => (
-                  <option key={a.assignmentId} value={a.assignmentId}>
-                    {a.assignmentName}
-                  </option>
-                ))}
-              </select>
-            )}
           </div>
 
           {viewMode === "course" && (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[600px]">
+                <table className="w-full min-w-[600px] border-collapse">
                   <thead>
-                    <tr className="border-b border-gray-200 bg-[#F8F9FB]">
-                      <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide sticky left-0 bg-[#F8F9FB] z-10 min-w-[180px]">
+                    <tr className="border-b-2 border-gray-200 bg-[#F8F9FB]">
+                      <th className="text-left px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide sticky left-0 bg-[#F8F9FB] z-10 min-w-[200px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]">
                         Student
                       </th>
                       {assignmentOptions.map((a) => (
                         <th
                           key={a.assignmentId}
-                          className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap max-w-[160px] truncate"
-                          title={a.assignmentName}
+                          className="text-left px-4 py-4 text-[12px] font-semibold text-gray-600 min-w-[140px] max-w-[220px] align-top"
                         >
-                          {a.assignmentName}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="block line-clamp-3 text-gray-700 cursor-help py-0.5">
+                                {a.assignmentName}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-[320px] text-left whitespace-normal">
+                              {a.assignmentName}
+                            </TooltipContent>
+                          </Tooltip>
                         </th>
                       ))}
-                      <th className="text-right px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap">
-                        Total
-                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredStudentsCourse.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={(assignmentOptions.length ?? 0) + 2}
-                          className="px-4 py-8 text-center text-[13px] text-gray-500"
+                          colSpan={(assignmentOptions.length ?? 0) + 1}
+                          className="px-5 py-12 text-center"
                         >
-                          No students match the current filters.
+                          <p className="text-[14px] text-gray-500">No students match the current filters.</p>
+                          <p className="text-[12px] text-gray-400 mt-1">Try changing the search or status filter.</p>
                         </td>
                       </tr>
                     ) : (
-                      filteredStudentsCourse.map((student) => (
+                      filteredStudentsCourse.map((student, idx) => (
                         <tr
                           key={student.studentId}
-                          className="border-b border-gray-100 hover:bg-gray-50/80 transition-colors"
+                          className={`border-b border-gray-100 transition-colors hover:bg-[#F8F9FB]/80 ${idx % 2 === 1 ? "bg-gray-50/40" : ""}`}
                         >
-                          <td className="px-4 py-3 text-[13px] font-medium text-[#2B2A2A] sticky left-0 bg-white hover:bg-gray-50/80 z-10">
+                          <td className="px-5 py-3.5 text-[13px] font-medium text-[#2B2A2A] sticky left-0 bg-inherit z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.04)]">
                             {student.studentName}
                           </td>
                           {student.assignments.map((a) => (
-                            <td key={a.assignmentId} className="px-4 py-3">
+                            <td key={a.assignmentId} className="px-4 py-3.5">
                               <GradeCell assignment={a} statusLabel={statusLabel} />
                             </td>
                           ))}
-                          <td className="px-4 py-3 text-right">
-                            <span className="text-[13px] font-semibold text-[#2B2A2A]">
-                              {typeof student.totalScore === "number"
-                                ? student.totalScore.toFixed(2)
-                                : "—"}
-                            </span>
-                          </td>
                         </tr>
                       ))
                     )}
@@ -1056,25 +1071,25 @@ function GradesSection() {
           {viewMode === "assignment" && (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
               {assignmentReportLoading ? (
-                <div className="p-8 flex items-center justify-center gap-2 text-[13px] text-gray-600">
-                  <RefreshCcw className="w-4 h-4 animate-spin" strokeWidth={2} />
-                  Loading assignment grades…
+                <div className="p-12 flex flex-col items-center justify-center gap-3 text-[13px] text-gray-600">
+                  <RefreshCcw className="w-8 h-8 text-gray-400 animate-spin" strokeWidth={2} />
+                  <span>Loading assignment grades…</span>
                 </div>
               ) : assignmentReport && selectedAssignmentId != null ? (
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="w-full border-collapse">
                     <thead>
-                      <tr className="border-b border-gray-200 bg-[#F8F9FB]">
-                        <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                      <tr className="border-b-2 border-gray-200 bg-[#F8F9FB]">
+                        <th className="text-left px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide min-w-[200px]">
                           Student
                         </th>
-                        <th className="text-right px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                        <th className="text-right px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide w-24">
                           Score
                         </th>
-                        <th className="text-right px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                        <th className="text-right px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide w-20">
                           Max
                         </th>
-                        <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                        <th className="text-left px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide w-32">
                           Status
                         </th>
                       </tr>
@@ -1082,26 +1097,27 @@ function GradesSection() {
                     <tbody>
                       {filteredStudentsAssignment.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="px-4 py-8 text-center text-[13px] text-gray-500">
-                            No students match the current filters.
+                          <td colSpan={4} className="px-5 py-12 text-center">
+                            <p className="text-[14px] text-gray-500">No students match the current filters.</p>
+                            <p className="text-[12px] text-gray-400 mt-1">Try a different search.</p>
                           </td>
                         </tr>
                       ) : (
-                        filteredStudentsAssignment.map((s) => (
+                        filteredStudentsAssignment.map((s, idx) => (
                           <tr
                             key={s.studentId}
-                            className="border-b border-gray-100 hover:bg-gray-50/80 transition-colors"
+                            className={`border-b border-gray-100 transition-colors hover:bg-[#F8F9FB]/80 ${idx % 2 === 1 ? "bg-gray-50/40" : ""}`}
                           >
-                            <td className="px-4 py-3 text-[13px] font-medium text-[#2B2A2A]">
+                            <td className="px-5 py-3.5 text-[13px] font-medium text-[#2B2A2A]">
                               {s.studentName}
                             </td>
-                            <td className="px-4 py-3 text-right text-[13px] text-[#2B2A2A]">
+                            <td className="px-5 py-3.5 text-right text-[13px] font-medium text-[#2B2A2A]">
                               {s.score != null ? s.score.toFixed(2) : "—"}
                             </td>
-                            <td className="px-4 py-3 text-right text-[13px] text-gray-600">
+                            <td className="px-5 py-3.5 text-right text-[13px] text-gray-600">
                               {s.maxScore.toFixed(1)}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-5 py-3.5">
                               <StatusPill status={s.status} statusLabel={statusLabel} />
                             </td>
                           </tr>
@@ -1111,8 +1127,8 @@ function GradesSection() {
                   </table>
                 </div>
               ) : (
-                <div className="p-8 text-center text-[13px] text-gray-500">
-                  Select an assignment to view grades.
+                <div className="p-12 text-center">
+                  <p className="text-[14px] text-gray-500">Select an assignment above to view grades by student.</p>
                 </div>
               )}
             </div>
@@ -1131,8 +1147,8 @@ function GradeCell({
   statusLabel: Record<string, string>;
 }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[13px] text-[#2B2A2A]">
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[13px] text-[#2B2A2A] tabular-nums">
         {assignment.score != null
           ? `${assignment.score.toFixed(2)} / ${assignment.maxScore.toFixed(1)}`
           : "— / " + assignment.maxScore.toFixed(1)}
