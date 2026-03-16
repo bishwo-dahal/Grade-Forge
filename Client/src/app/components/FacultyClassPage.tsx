@@ -27,6 +27,7 @@ import {
   Search,
   X,
   RefreshCcw,
+  FileUp,
 } from "lucide-react";
 import type {
   ClassHeader,
@@ -112,6 +113,7 @@ export function FacultyClassPage() {
   const resolvedClassId = classId ?? "1";
   const activeSection: SectionType = isValidSection(sectionParam) ? sectionParam : "dashboard";
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [isAddFromFileModalOpen, setIsAddFromFileModalOpen] = useState(false);
 
   // Redirect invalid section to dashboard
   useEffect(() => {
@@ -129,9 +131,10 @@ export function FacultyClassPage() {
   }, [classId]);
 
   useEffect(() => {
-    // NOTE: Close add-student modal when user navigates away from Students section to avoid stale overlay state.
+    // NOTE: Close add-student and add-from-file modals when user navigates away from Students section to avoid stale overlay state.
     if (activeSection !== "students") {
       setIsAddStudentModalOpen(false);
+      setIsAddFromFileModalOpen(false);
     }
   }, [activeSection]);
 
@@ -237,12 +240,15 @@ export function FacultyClassPage() {
             {activeSection === "students" ? (
               <div className="flex flex-wrap items-center gap-2">
                 <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
-                  <Upload className="w-4 h-4" strokeWidth={2} />
-                  <span>Export Roster</span>
-                </button>
-                <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
                   <Download className="w-4 h-4" strokeWidth={2} />
                   <span>Import from Canvas</span>
+                </button>
+                <button
+                  onClick={() => setIsAddFromFileModalOpen(true)}
+                  className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors"
+                >
+                  <FileUp className="w-4 h-4" strokeWidth={2} />
+                  <span>Add students from file</span>
                 </button>
                 <button
                   onClick={() => setIsAddStudentModalOpen(true)}
@@ -271,6 +277,8 @@ export function FacultyClassPage() {
               <StudentsSection
                 isAddStudentModalOpen={isAddStudentModalOpen}
                 onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
+                isAddFromFileModalOpen={isAddFromFileModalOpen}
+                onCloseAddFromFileModal={() => setIsAddFromFileModalOpen(false)}
               />
             )}
             {activeSection === 'assistants' && <AssistantsSection />}
@@ -1263,12 +1271,36 @@ function StatusPill({
   );
 }
 
+/** Parse a file (CSV or plain text) into rows of { name, email }. Supports "name,email" or "email,name" or one email per line. */
+function parseStudentFile(text: string): { name: string; email: string }[] {
+  const rows: { name: string; email: string }[] = [];
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  for (const line of lines) {
+    const parts = line.split(",").map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      const hasEmail = (s: string) => /@/.test(s);
+      const emailPart = parts.find(hasEmail);
+      const namePart = parts.find((p) => !hasEmail(p)) ?? parts[0];
+      if (emailPart) {
+        rows.push({ name: namePart === emailPart ? emailPart : namePart, email: emailPart });
+      }
+    } else if (parts.length === 1 && /@/.test(parts[0])) {
+      rows.push({ name: parts[0], email: parts[0] });
+    }
+  }
+  return rows;
+}
+
 function StudentsSection({
   isAddStudentModalOpen,
   onCloseAddStudentModal,
+  isAddFromFileModalOpen,
+  onCloseAddFromFileModal,
 }: {
   isAddStudentModalOpen: boolean;
   onCloseAddStudentModal: () => void;
+  isAddFromFileModalOpen: boolean;
+  onCloseAddFromFileModal: () => void;
 }) {
   const { classId } = useParams();
   const resolvedId = classId || "1";
@@ -1292,6 +1324,12 @@ function StudentsSection({
   const [dropConfirm, setDropConfirm] = useState<FacultyRosterStudentRow | null>(null);
   const [dropping, setDropping] = useState(false);
   const [dropError, setDropError] = useState<string | null>(null);
+
+  // Add students from file: parsed rows and batch enroll results
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [parsedFileRows, setParsedFileRows] = useState<{ name: string; email: string }[] | null>(null);
+  const [fileImportResults, setFileImportResults] = useState<{ email: string; name: string; status: "success" | "error"; message?: string }[]>([]);
+  const [isFileImporting, setIsFileImporting] = useState(false);
 
   const courseId = useMemo(() => Number(resolvedId) || 0, [resolvedId]);
 
@@ -1324,6 +1362,45 @@ function StudentsSection({
     resetAddStudentState();
     onCloseAddStudentModal();
   };
+
+  const closeAddFromFileModal = () => {
+    setParsedFileRows(null);
+    setFileImportResults([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    onCloseAddFromFileModal();
+  };
+
+  const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result ?? "");
+      const rows = parseStudentFile(text);
+      setParsedFileRows(rows);
+      setFileImportResults([]);
+    };
+    reader.readAsText(file, "UTF-8");
+    event.target.value = "";
+  }, []);
+
+  const handleEnrollFromFile = useCallback(async () => {
+    if (!parsedFileRows?.length) return;
+    setIsFileImporting(true);
+    setFileImportResults([]);
+    const results: { email: string; name: string; status: "success" | "error"; message?: string }[] = [];
+    for (const row of parsedFileRows) {
+      try {
+        await enrollStudentByEmail(resolvedId, row.email);
+        results.push({ email: row.email, name: row.name, status: "success" });
+      } catch (err) {
+        results.push({ email: row.email, name: row.name, status: "error", message: getErrorMessage(err) });
+      }
+    }
+    setFileImportResults(results);
+    setIsFileImporting(false);
+    await loadRoster();
+  }, [parsedFileRows, resolvedId]);
 
   useEffect(() => {
     void loadRoster();
@@ -1806,6 +1883,95 @@ function StudentsSection({
                   {feedbackMessage.text}
                 </p>
               ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isAddFromFileModalOpen ? (
+        <div className="fixed inset-0 z-40 bg-black/35 flex items-center justify-center p-4" onClick={closeAddFromFileModal}>
+          <div
+            className="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white shadow-2xl max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <h3 className="text-[18px] font-semibold text-[#2B2A2A]">Add students from file</h3>
+              <button
+                type="button"
+                onClick={closeAddFromFileModal}
+                className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4 text-gray-500" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="p-5 overflow-y-auto flex-1">
+              <p className="text-[13px] text-gray-600 mb-3">
+                Upload a CSV or text file with one student per line. Use <strong>name, email</strong> or <strong>email</strong> only. Header row (e.g. &quot;name,email&quot;) is ignored.
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.txt,text/csv,text/plain"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              {!parsedFileRows ? (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 px-4 py-3 border border-gray-300 rounded-xl text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 transition-colors"
+                >
+                  <FileUp className="w-4 h-4" strokeWidth={2} />
+                  Choose file
+                </button>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <span className="text-[13px] text-gray-600">{parsedFileRows.length} student(s) found</span>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-[13px] text-[#5A7ACD] hover:underline"
+                    >
+                      Choose another file
+                    </button>
+                  </div>
+                  <ul className="mb-4 max-h-48 overflow-y-auto rounded-xl border border-gray-200 divide-y divide-gray-100">
+                    {parsedFileRows.map((row, i) => (
+                      <li key={i} className="px-3 py-2 flex justify-between items-center text-[13px]">
+                        <span className="text-[#2B2A2A]">{row.name}</span>
+                        <span className="text-gray-500 truncate ml-2">{row.email}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    onClick={() => void handleEnrollFromFile()}
+                    disabled={isFileImporting}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#5A7ACD] text-white rounded-xl text-[14px] font-medium hover:bg-[#4e6fbd] disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {isFileImporting ? "Enrolling…" : "Enroll all"}
+                  </button>
+                  {fileImportResults.length > 0 && (
+                    <div className="mt-4 rounded-xl border border-gray-200 divide-y divide-gray-100 max-h-40 overflow-y-auto">
+                      {fileImportResults.map((r, i) => (
+                        <div key={i} className="px-3 py-2 flex items-center justify-between gap-2 text-[13px]">
+                          <span className="truncate text-[#2B2A2A]">{r.name}</span>
+                          {r.status === "success" ? (
+                            <span className="flex items-center gap-1 text-green-700 shrink-0">
+                              <CheckCircle2 className="w-4 h-4" strokeWidth={2} />
+                              Enrolled
+                            </span>
+                          ) : (
+                            <span className="text-red-600 shrink-0" title={r.message}>{r.message ?? "Failed"}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
