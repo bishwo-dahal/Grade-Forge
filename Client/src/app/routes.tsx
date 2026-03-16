@@ -22,7 +22,6 @@ import { FacultyGradingAssignmentDetailPage } from "./components/FacultyGradingA
 import CompleteStudentRegistrationPage from "./components/CompleteStudentRegistrationPage";
 import {
   FacultyDiscussionsPage,
-  FacultyGradingHubPage,
   FacultyMaterialsPage,
   FacultyMyClassesPage,
   FacultySchedulePage,
@@ -174,7 +173,8 @@ export const router = createBrowserRouter([
     path: "/faculty/grading",
     element: (
       <ProtectedRoute allowedRoles={["FACULTY"]}>
-        <FacultyGradingHubPage />
+        {/* CLEANUP: Redirect legacy grading hub links because faculty grading now lives only inside class assignment flows. */}
+        <Navigate to="/faculty/my-classes" replace />
       </ProtectedRoute>
     ),
   },

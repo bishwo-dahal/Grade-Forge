@@ -7,7 +7,6 @@ import {
   MessageSquare,
   Users,
   UserPlus,
-  ClipboardCheck,
   Code2,
   ListChecks,
 } from "lucide-react";
@@ -42,7 +41,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
   const facultyItems: SidebarNavItem[] = [
     { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard" },
     { icon: BookOpen, label: "My Classes", to: "/faculty/my-classes" },
-    { icon: ClipboardCheck, label: "Grading", to: "/faculty/grading" },
+    // CLEANUP: Standalone faculty grading hub was removed so grading stays scoped to each class/assignment workflow.
     { icon: ListChecks, label: "Rubrics", to: "/faculty/rubrics" },
     { icon: UserPlus, label: "Grading Assistants", to: "/faculty/grading-assistants" },
     { icon: Users, label: "Students", to: "/faculty/students" },
