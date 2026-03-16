@@ -161,11 +161,17 @@ export function FacultySpeedGradingPage() {
   const [pageError, setPageError] = useState<string | null>(null);
 
   const rubricScoreFields = useMemo<RubricScoreField[]>(() => {
-    return rubricCategories.map((category, categoryIndex) => ({
-      id: `rubric-${categoryIndex}`,
-      label: category.name,
-      maxPoints: category.points,
-    }));
+    // FIX: Speed grading scores each rubric criterion separately, even when assignment service returns one flattened rubric category.
+    return rubricCategories.flatMap((category, categoryIndex) =>
+      category.criteria.map((criterion, criterionIndex) => ({
+        id: `rubric-${categoryIndex}-${criterionIndex}`,
+        label:
+          rubricCategories.length > 1
+            ? `${category.name}: ${criterion.description}`
+            : criterion.description,
+        maxPoints: criterion.points,
+      })),
+    );
   }, [rubricCategories]);
 
   const rubricMaxPoints = useMemo(
