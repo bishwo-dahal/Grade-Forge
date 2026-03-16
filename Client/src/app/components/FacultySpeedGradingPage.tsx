@@ -519,152 +519,158 @@ export function FacultySpeedGradingPage() {
             )}
           </section>
 
-          <section className="min-h-0 overflow-y-auto rounded-[22px] border border-gray-200 bg-white p-4 shadow-[0_20px_55px_rgba(15,23,42,0.08)]">
-            <div className="space-y-4">
-              <div className="rounded-xl border border-gray-200 p-3">
-                <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">Queue</p>
+          <section className="min-h-0 rounded-[22px] border border-gray-200 bg-white p-4 shadow-[0_20px_55px_rgba(15,23,42,0.08)]">
+            <div className="flex h-full min-h-0 flex-col gap-4">
+              <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.15fr_0.85fr]">
+                <div className="rounded-xl border border-gray-200 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">Queue</p>
+                    <button
+                      type="button"
+                      onClick={handleGoToNextStudent}
+                      disabled={!nextUngradedSubmissionId}
+                      className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-[11px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+                      Next
+                    </button>
+                  </div>
 
-                <div className="mt-3 space-y-2">
-                  <label className="block text-[12px] font-medium text-[#2B2A2A]">Student</label>
-                  <select
-                    value={selectedSubmissionId}
-                    onChange={(event) => setSelectedSubmissionId(event.target.value)}
-                    className="h-10 w-full rounded-lg border border-gray-300 px-3 text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]/30"
-                  >
-                    {queueRows.map((row) => (
-                      <option key={row.submissionId} value={row.submissionId}>
-                        {row.studentName} - {isUngradedSubmission(row) ? "Ungraded" : "Graded"}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+                    <select
+                      value={selectedSubmissionId}
+                      onChange={(event) => setSelectedSubmissionId(event.target.value)}
+                      className="h-10 w-full rounded-lg border border-gray-300 px-3 text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]/30"
+                    >
+                      {queueRows.map((row) => (
+                        <option key={row.submissionId} value={row.submissionId}>
+                          {row.studentName} - {isUngradedSubmission(row) ? "Ungraded" : "Graded"}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="rounded-lg bg-[#F8FAFC] px-3 py-2 text-[11px] text-gray-600">
+                      {fileOptions.length} file{fileOptions.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="mt-3 rounded-lg bg-[#F8FAFC] px-3 py-2">
-                  <p className="text-[12px] font-medium text-[#2B2A2A]">Workspace files</p>
-                  <p className="mt-1 text-[12px] text-gray-600">
-                    {fileOptions.length > 0
-                      ? `${fileOptions.length} file${fileOptions.length === 1 ? "" : "s"} available in the editor file tree.`
-                      : "No files available for this submission."}
-                  </p>
+                <div className="rounded-xl border border-gray-200 p-3">
+                  <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">Test results</p>
+                  {isTestSummaryLoading ? (
+                    <div className="mt-2 flex h-10 items-center text-[12px] text-gray-600">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={2} />
+                      Loading latest run...
+                    </div>
+                  ) : testSummaryError ? (
+                    <p className="mt-2 text-[12px] text-[#C23A42]">{testSummaryError}</p>
+                  ) : testSummary.hasRun ? (
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <div className="rounded-lg bg-[#EEF3FF] px-3 py-2">
+                        <p className="text-[10px] uppercase tracking-wide text-gray-600">Public</p>
+                        <p className="text-[13px] font-semibold text-[#2B2A2A]">
+                          {testSummary.publicPassed}/{testSummary.publicTotal}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-[#FFF3E3] px-3 py-2">
+                        <p className="text-[10px] uppercase tracking-wide text-gray-600">Private</p>
+                        <p className="text-[13px] font-semibold text-[#2B2A2A]">
+                          {testSummary.privatePassed}/{testSummary.privateTotal}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-[12px] text-gray-600">No test run available yet.</p>
+                  )}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleGoToNextStudent}
-                  disabled={!nextUngradedSubmissionId}
-                  className="mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <ArrowRight className="h-4 w-4" strokeWidth={2} />
-                  Next ungraded student
-                </button>
               </div>
 
-              <div className="rounded-xl border border-gray-200 p-3">
-                <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">Test results</p>
-                {isTestSummaryLoading ? (
-                  <div className="mt-3 flex items-center text-[12px] text-gray-600">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={2} />
-                    Loading latest run...
-                  </div>
-                ) : testSummaryError ? (
-                  <p className="mt-3 text-[12px] text-[#C23A42]">{testSummaryError}</p>
-                ) : testSummary.hasRun ? (
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-lg bg-[#EEF3FF] px-3 py-2">
-                      <p className="text-[11px] text-gray-600">Public</p>
-                      <p className="text-[14px] font-semibold text-[#2B2A2A]">
-                        {testSummary.publicPassed}/{testSummary.publicTotal}
-                      </p>
-                    </div>
-                    <div className="rounded-lg bg-[#FFF3E3] px-3 py-2">
-                      <p className="text-[11px] text-gray-600">Private</p>
-                      <p className="text-[14px] font-semibold text-[#2B2A2A]">
-                        {testSummary.privatePassed}/{testSummary.privateTotal}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="mt-3 text-[12px] text-gray-600">No test run available for this submission yet.</p>
-                )}
-              </div>
-
-              <div className="rounded-xl border border-gray-200 p-3">
-                <div className="flex items-center justify-between gap-3">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200">
+                <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-3 py-3">
                   <div>
                     <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">Rubric grading</p>
-                    <p className="mt-1 text-[12px] text-gray-600">Score each rubric row and the total grade updates automatically.</p>
-                  </div>
-                  <div className="rounded-xl border border-[#E4E7EC] bg-[#F8FAFC] px-3 py-2 text-right">
-                    <p className="text-[11px] uppercase tracking-wide text-gray-500">Auto total</p>
-                    <p className="text-[17px] font-semibold text-[#2B2A2A]">{computedRubricMarks} / {rubricMaxPoints || assignment.points.total}</p>
+                    <p className="mt-1 text-[12px] text-gray-600">Score rubric rows, scroll through the full list, and submit once the total looks right.</p>
                   </div>
                 </div>
 
                 {rubricScoreFields.length > 0 ? (
-                  <div className="mt-4 space-y-2">
-                    {rubricScoreFields.map((rubric, index) => (
-                      <div
-                        key={rubric.id}
-                        className="grid grid-cols-[minmax(0,1fr)_86px_110px] items-center gap-3 rounded-xl border border-gray-100 bg-[#FBFCFE] px-3 py-3"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-[13px] font-medium text-[#2B2A2A]">{rubric.label}</p>
+                  <div className="flex-1 overflow-y-auto px-3 py-3">
+                    <div className="space-y-2">
+                      {rubricScoreFields.map((rubric, index) => (
+                        <div
+                          key={rubric.id}
+                          className="grid grid-cols-[minmax(0,1fr)_78px_96px] items-center gap-3 rounded-xl border border-gray-100 bg-[#FBFCFE] px-3 py-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] font-medium text-[#2B2A2A]">{rubric.label}</p>
+                          </div>
+                          <p className="text-right text-[12px] text-gray-500">/ {rubric.maxPoints}</p>
+                          <input
+                            type="number"
+                            min={0}
+                            max={rubric.maxPoints}
+                            value={rubricScores[index] ?? 0}
+                            onChange={(event) => {
+                              const parsed = Number.parseInt(event.target.value, 10);
+                              setRubricScores((previousScores) => {
+                                const nextScores = [...previousScores];
+                                nextScores[index] = Number.isFinite(parsed)
+                                  ? Math.max(0, Math.min(rubric.maxPoints, parsed))
+                                  : 0;
+                                return nextScores;
+                              });
+                            }}
+                            className="h-10 w-full rounded-lg border border-gray-300 px-3 text-right text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#DCE5F8]"
+                          />
                         </div>
-                        <p className="text-right text-[12px] text-gray-500">/ {rubric.maxPoints}</p>
-                        <input
-                          type="number"
-                          min={0}
-                          max={rubric.maxPoints}
-                          value={rubricScores[index] ?? 0}
-                          onChange={(event) => {
-                            const parsed = Number.parseInt(event.target.value, 10);
-                            setRubricScores((previousScores) => {
-                              const nextScores = [...previousScores];
-                              nextScores[index] = Number.isFinite(parsed)
-                                ? Math.max(0, Math.min(rubric.maxPoints, parsed))
-                                : 0;
-                              return nextScores;
-                            });
-                          }}
-                          className="h-10 w-full rounded-lg border border-gray-300 px-3 text-right text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#DCE5F8]"
-                        />
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 ) : (
-                  <div className="mt-4 rounded-xl border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-[12px] text-[#C23A42]">
-                    This assignment does not have rubric categories available for speed grading yet.
+                  <div className="px-3 py-3">
+                    <div className="rounded-xl border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-[12px] text-[#C23A42]">
+                      This assignment does not have rubric categories available for speed grading yet.
+                    </div>
                   </div>
                 )}
 
-                <div className="mt-3 space-y-2">
-                  <label className="block text-[12px] font-medium text-[#2B2A2A]">Feedback</label>
-                  <textarea
-                    rows={4}
-                    value={feedbackInput}
-                    onChange={(event) => setFeedbackInput(event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none"
-                    placeholder="Add feedback for the student..."
-                  />
+                <div className="border-t border-gray-200 bg-white px-3 py-3">
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="rounded-xl border border-[#E4E7EC] bg-[#F8FAFC] px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-wide text-gray-500">Auto total</p>
+                      <p className="text-[18px] font-semibold text-[#2B2A2A]">
+                        {computedRubricMarks} / {rubricMaxPoints || assignment.points.total}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleSubmitGrade()}
+                      disabled={!selectedSubmission || isGradeSubmitting || rubricScoreFields.length === 0}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#2B2A2A] px-5 text-[13px] font-medium text-white hover:bg-[#3a3939] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isGradeSubmitting ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} /> : null}
+                      <span>{isGradeSubmitting ? "Saving..." : "Grade"}</span>
+                    </button>
+                  </div>
+
+                  <div className="mt-3 space-y-2">
+                    <label className="block text-[12px] font-medium text-[#2B2A2A]">Feedback</label>
+                    <textarea
+                      rows={3}
+                      value={feedbackInput}
+                      onChange={(event) => setFeedbackInput(event.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none"
+                      placeholder="Add feedback for the student..."
+                    />
+                  </div>
+
+                  {gradeError ? <p className="mt-3 text-[12px] text-[#C23A42]">{gradeError}</p> : null}
+                  {gradeStatusMessage ? (
+                    <p className="mt-3 inline-flex items-center gap-1.5 text-[12px] text-[#1E7A3F]">
+                      <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
+                      {gradeStatusMessage}
+                    </p>
+                  ) : null}
                 </div>
-
-                {gradeError ? <p className="mt-3 text-[12px] text-[#C23A42]">{gradeError}</p> : null}
-                {gradeStatusMessage ? (
-                  <p className="mt-3 inline-flex items-center gap-1.5 text-[12px] text-[#1E7A3F]">
-                    <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
-                    {gradeStatusMessage}
-                  </p>
-                ) : null}
-
-                <button
-                  type="button"
-                  onClick={() => void handleSubmitGrade()}
-                  disabled={!selectedSubmission || isGradeSubmitting || rubricScoreFields.length === 0}
-                  className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#2B2A2A] text-[13px] font-medium text-white hover:bg-[#3a3939] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isGradeSubmitting ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} /> : null}
-                  <span>{isGradeSubmitting ? "Saving..." : "Grade"}</span>
-                </button>
               </div>
 
               {queueRows.length === 0 ? (
