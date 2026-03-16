@@ -127,6 +127,15 @@ function buildTestSummaryFromRun(run: Awaited<ReturnType<typeof getRunTestsLates
   };
 }
 
+function buildQueueStats(rows: FacultyAssignmentSubmissionRow[]): { total: number; graded: number; ungraded: number } {
+  const graded = rows.filter((row) => !isUngradedSubmission(row)).length;
+  return {
+    total: rows.length,
+    graded,
+    ungraded: rows.length - graded,
+  };
+}
+
 export function FacultySpeedGradingPage() {
   const { classId, assignmentId } = useParams();
   const navigate = useNavigate();
@@ -135,6 +144,7 @@ export function FacultySpeedGradingPage() {
 
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [rubricCategories, setRubricCategories] = useState<RubricCategory[]>([]);
+  const [allSubmissionRows, setAllSubmissionRows] = useState<FacultyAssignmentSubmissionRow[]>([]);
   const [queueRows, setQueueRows] = useState<FacultyAssignmentSubmissionRow[]>([]);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string>("");
   const [workspacePreviewPayload, setWorkspacePreviewPayload] = useState<FacultyEditorPreviewPayload | null>(null);
@@ -179,10 +189,26 @@ export function FacultySpeedGradingPage() {
     [rubricScoreFields],
   );
 
+  const queueStats = useMemo(() => buildQueueStats(queueRows), [queueRows]);
+
   const selectedSubmission = useMemo(
-    () => queueRows.find((row) => row.submissionId === selectedSubmissionId) ?? null,
-    [queueRows, selectedSubmissionId],
+    () => allSubmissionRows.find((row) => row.submissionId === selectedSubmissionId) ?? null,
+    [allSubmissionRows, selectedSubmissionId],
   );
+
+  const studentAttemptOptions = useMemo(() => {
+    if (!selectedSubmission) {
+      return [];
+    }
+
+    const normalizedStudentName = selectedSubmission.studentName.trim().toLowerCase();
+    return allSubmissionRows
+      .filter((row) => row.studentName.trim().toLowerCase() === normalizedStudentName)
+      .map((row, index, rows) => ({
+        submissionId: row.submissionId,
+        label: `Attempt ${rows.length - index}`,
+      }));
+  }, [allSubmissionRows, selectedSubmission]);
 
   const fileOptions = useMemo<SubmissionFileOption[]>(() => {
     if (!selectedSubmission) {
@@ -219,6 +245,7 @@ export function FacultySpeedGradingPage() {
     const queue = buildLatestSubmissionQueue(rows);
     setAssignment(assignmentData);
     setRubricCategories(rubricData);
+    setAllSubmissionRows(rows);
     setQueueRows(queue);
 
     const initialSelection = queue.find((row) => isUngradedSubmission(row)) ?? queue[0] ?? null;
@@ -234,6 +261,7 @@ export function FacultySpeedGradingPage() {
         setPageError(getErrorMessage(error));
         setAssignment(null);
         setRubricCategories([]);
+        setAllSubmissionRows([]);
         setQueueRows([]);
         setSelectedSubmissionId("");
       })
@@ -404,6 +432,7 @@ export function FacultySpeedGradingPage() {
       });
 
       let nextSubmissionId: string | null = null;
+      let nextAllRows: FacultyAssignmentSubmissionRow[] = [];
       setQueueRows((previousRows) => {
         const updatedRows = previousRows.map((row) =>
           row.submissionId === selectedSubmission.submissionId
@@ -415,6 +444,17 @@ export function FacultySpeedGradingPage() {
         );
         nextSubmissionId = findNextUngradedSubmissionId(updatedRows, selectedSubmission.submissionId);
         return updatedRows;
+      });
+      setAllSubmissionRows((previousRows) => {
+        nextAllRows = previousRows.map((row) =>
+          row.submissionId === selectedSubmission.submissionId
+            ? {
+                ...row,
+                marks,
+              }
+            : row,
+        );
+        return nextAllRows;
       });
 
       setGradeStatusMessage("Grade saved successfully.");
@@ -479,13 +519,44 @@ export function FacultySpeedGradingPage() {
             <span className="text-gray-300">/</span>
             <span className="font-medium text-[#2B2A2A]">Speed Grading</span>
           </div>
-          <button
-            type="button"
-            onClick={() => navigate(`/faculty/class/${resolvedClassId}/assignment/${resolvedAssignmentId}`)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50"
-          >
-            Assignment details
-          </button>
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedSubmission?.studentName ?? ""}
+              onChange={(event) => {
+                const nextQueueRow = queueRows.find((row) => row.studentName === event.target.value);
+                if (nextQueueRow) {
+                  setSelectedSubmissionId(nextQueueRow.submissionId);
+                }
+              }}
+              className="h-9 min-w-[210px] rounded-lg border border-gray-300 bg-white px-3 text-[12px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]/30"
+            >
+              {queueRows.map((row) => (
+                <option key={row.submissionId} value={row.studentName}>
+                  {row.studentName}
+                </option>
+              ))}
+            </select>
+            <select
+              value={selectedSubmissionId}
+              onChange={(event) => setSelectedSubmissionId(event.target.value)}
+              disabled={studentAttemptOptions.length === 0}
+              className="h-9 min-w-[130px] rounded-lg border border-gray-300 bg-white px-3 text-[12px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]/30 disabled:cursor-not-allowed disabled:bg-gray-100"
+            >
+              {studentAttemptOptions.length === 0 ? <option value="">No attempts</option> : null}
+              {studentAttemptOptions.map((attempt) => (
+                <option key={attempt.submissionId} value={attempt.submissionId}>
+                  {attempt.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => navigate(`/faculty/class/${resolvedClassId}/assignment/${resolvedAssignmentId}`)}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50"
+            >
+              Assignment details
+            </button>
+          </div>
         </div>
       </div>
 
@@ -530,7 +601,7 @@ export function FacultySpeedGradingPage() {
               <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.15fr_0.85fr]">
                 <div className="rounded-xl border border-gray-200 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">Queue</p>
+                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">Progress</p>
                     <button
                       type="button"
                       onClick={handleGoToNextStudent}
@@ -542,21 +613,19 @@ export function FacultySpeedGradingPage() {
                     </button>
                   </div>
 
-                  <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-                    <select
-                      value={selectedSubmissionId}
-                      onChange={(event) => setSelectedSubmissionId(event.target.value)}
-                      className="h-10 w-full rounded-lg border border-gray-300 px-3 text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]/30"
-                    >
-                      {queueRows.map((row) => (
-                        <option key={row.submissionId} value={row.submissionId}>
-                          {row.studentName} - {isUngradedSubmission(row) ? "Ungraded" : "Graded"}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="rounded-lg bg-[#F8FAFC] px-3 py-2 text-[11px] text-gray-600">
-                      {fileOptions.length} file{fileOptions.length === 1 ? "" : "s"}
-                    </span>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    <div className="rounded-lg bg-[#F8FAFC] px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-wide text-gray-500">Total</p>
+                      <p className="mt-1 text-[14px] font-semibold text-[#2B2A2A]">{queueStats.total}</p>
+                    </div>
+                    <div className="rounded-lg bg-[#F4FBF6] px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-wide text-gray-500">Graded</p>
+                      <p className="mt-1 text-[14px] font-semibold text-[#1E7A3F]">{queueStats.graded}</p>
+                    </div>
+                    <div className="rounded-lg bg-[#FFF8ED] px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-wide text-gray-500">Left</p>
+                      <p className="mt-1 text-[14px] font-semibold text-[#B26A00]">{queueStats.ungraded}</p>
+                    </div>
                   </div>
                 </div>
 
