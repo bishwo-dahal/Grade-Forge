@@ -449,47 +449,11 @@ function StatCard({
 
 function AssignmentsSection() {
   const { classId } = useParams();
-  const navigate = useNavigate();
   const resolvedClassId = classId || "1";
   const [selectedAssignments, setSelectedAssignments] = useState<string[]>([]);
   // NOTE: Assignments now load from backend-driven class service mapping.
   const [assignments, setAssignments] = useState<FacultyAssignment[]>([]);
   const [isAssignmentsLoading, setIsAssignmentsLoading] = useState(true);
-  // NOTE: Speed grading still depends on submission data because the queue is built from submitted work, not assignment headers alone.
-  const [submissions, setSubmissions] = useState<ClassSubmissionItem[]>([]);
-  const [isSpeedGradingModalOpen, setIsSpeedGradingModalOpen] = useState(false);
-  const [isSpeedGradingLoading, setIsSpeedGradingLoading] = useState(false);
-  const [speedGradingError, setSpeedGradingError] = useState<string | null>(null);
-  const [selectedSpeedAssignmentId, setSelectedSpeedAssignmentId] = useState("");
-
-  const speedGradingOptions = useMemo<SpeedGradingAssignmentOption[]>(() => {
-    const groupedAssignments = new Map<string, SpeedGradingAssignmentOption>();
-
-    for (const submission of submissions) {
-      const existingOption = groupedAssignments.get(submission.assignmentId);
-      if (existingOption) {
-        existingOption.totalSubmissions += 1;
-        if (submission.status === "ungraded") {
-          existingOption.ungradedSubmissions += 1;
-        }
-        continue;
-      }
-
-      groupedAssignments.set(submission.assignmentId, {
-        assignmentId: submission.assignmentId,
-        assignmentName: submission.assignmentName,
-        totalSubmissions: 1,
-        ungradedSubmissions: submission.status === "ungraded" ? 1 : 0,
-      });
-    }
-
-    return Array.from(groupedAssignments.values()).sort((left, right) => {
-      if (left.ungradedSubmissions !== right.ungradedSubmissions) {
-        return right.ungradedSubmissions - left.ungradedSubmissions;
-      }
-      return left.assignmentName.localeCompare(right.assignmentName);
-    });
-  }, [submissions]);
 
   const loadAssignments = useCallback(async () => {
     // FIX: Centralize assignment reload so header/footer actions reuse the same backend-driven refresh path.
@@ -504,49 +468,9 @@ function AssignmentsSection() {
     }
   }, [resolvedClassId]);
 
-  const loadSpeedGradingOptions = useCallback(async () => {
-    // NOTE: The speed grading launcher needs latest submission status counts before faculty picks an assignment queue.
-    setIsSpeedGradingLoading(true);
-    setSpeedGradingError(null);
-    try {
-      const rows = await listClassSubmissions(resolvedClassId);
-      setSubmissions(rows);
-    } catch (error) {
-      setSpeedGradingError(getErrorMessage(error));
-    } finally {
-      setIsSpeedGradingLoading(false);
-    }
-  }, [resolvedClassId]);
-
   useEffect(() => {
     void loadAssignments();
   }, [loadAssignments]);
-
-  useEffect(() => {
-    if (!isSpeedGradingModalOpen) {
-      return;
-    }
-
-    const selectedExists = speedGradingOptions.some((option) => option.assignmentId === selectedSpeedAssignmentId);
-    if (!selectedExists) {
-      setSelectedSpeedAssignmentId(speedGradingOptions[0]?.assignmentId ?? "");
-    }
-  }, [isSpeedGradingModalOpen, selectedSpeedAssignmentId, speedGradingOptions]);
-
-  const handleOpenSpeedGradingModal = () => {
-    setIsSpeedGradingModalOpen(true);
-    void loadSpeedGradingOptions();
-  };
-
-  const handleStartSpeedGrading = () => {
-    if (!selectedSpeedAssignmentId) {
-      return;
-    }
-
-    // NOTE: Speed grading stays assignment-scoped so faculty grade one queue at a time from the assignments workspace.
-    navigate(`/faculty/class/${resolvedClassId}/speed-grading/${selectedSpeedAssignmentId}`);
-    setIsSpeedGradingModalOpen(false);
-  };
 
   return (
     <div>
@@ -712,15 +636,6 @@ function AssignmentsSection() {
       <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
         <button
           type="button"
-          onClick={handleOpenSpeedGradingModal}
-          disabled={isSpeedGradingLoading}
-          className="flex items-center gap-2 px-3 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] rounded-lg text-[13px] font-medium text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          <Clock className="w-4 h-4" strokeWidth={2} />
-          <span>{isSpeedGradingLoading ? "Loading..." : "Speed Grading"}</span>
-        </button>
-        <button
-          type="button"
           onClick={() => void loadAssignments()}
           disabled={isAssignmentsLoading}
           className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
@@ -736,79 +651,6 @@ function AssignmentsSection() {
           <span>Filter</span>
         </button>
       </div>
-
-      {isSpeedGradingModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4">
-          <div className="w-full max-w-[540px] rounded-[20px] bg-white shadow-[0_32px_80px_rgba(17,24,39,0.22)]">
-            <div className="flex items-start justify-between border-b border-[#E5E7EB] px-6 py-5">
-              <div>
-                <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Start Speed Grading</h3>
-                <p className="mt-1 text-[13px] text-[#6B7280]">
-                  Pick an assignment queue to open the read-only grading workspace.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsSpeedGradingModalOpen(false)}
-                className="rounded-full p-1 text-[#6B7280] transition-colors hover:bg-[#F3F4F6] hover:text-[#2B2A2A]"
-                aria-label="Close speed grading modal"
-              >
-                <X className="h-4 w-4" strokeWidth={2} />
-              </button>
-            </div>
-
-            <div className="space-y-4 px-6 py-5">
-              {speedGradingError ? (
-                <div className="rounded-lg border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-[12px] text-[#C23A42]">
-                  {speedGradingError}
-                </div>
-              ) : null}
-
-              <label className="block">
-                <span className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-[#8D97AC]">
-                  Assignment queue
-                </span>
-                <select
-                  value={selectedSpeedAssignmentId}
-                  onChange={(event) => setSelectedSpeedAssignmentId(event.target.value)}
-                  disabled={isSpeedGradingLoading || speedGradingOptions.length === 0}
-                  className="w-full rounded-xl border border-[#D4D7DE] bg-white px-3 py-3 text-[14px] text-[#2B2A2A] outline-none transition focus:border-[#5A7ACD] focus:ring-2 focus:ring-[#DCE5F8] disabled:cursor-not-allowed disabled:bg-[#F9FAFB] disabled:text-[#9CA3AF]"
-                >
-                  {speedGradingOptions.length === 0 ? (
-                    <option value="">
-                      {isSpeedGradingLoading ? "Loading submissions..." : "No submitted assignments available"}
-                    </option>
-                  ) : (
-                    speedGradingOptions.map((option) => (
-                      <option key={option.assignmentId} value={option.assignmentId}>
-                        {option.assignmentName} ({option.ungradedSubmissions} ungraded / {option.totalSubmissions} submitted)
-                      </option>
-                    ))
-                  )}
-                </select>
-              </label>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 border-t border-[#E5E7EB] px-6 py-4">
-              <button
-                type="button"
-                onClick={() => setIsSpeedGradingModalOpen(false)}
-                className="rounded-lg border border-[#D4D7DE] px-4 py-2 text-[13px] font-medium text-[#374151] transition-colors hover:bg-[#F9FAFB]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleStartSpeedGrading}
-                disabled={!selectedSpeedAssignmentId}
-                className="rounded-lg bg-[#2B2A2A] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#3A3939] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Open Speed Grading
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
