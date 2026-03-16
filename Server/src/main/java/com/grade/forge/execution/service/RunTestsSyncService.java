@@ -76,9 +76,10 @@ public class RunTestsSyncService {
     /**
      * Run tests on the given files for the assignment. Uses the assignment's programming language
      * (docker image, compile command, execution code) to run code; no hardcoded Python/Java.
+     * When customStdin is non-blank, one additional run with that input is appended to results (for students).
      */
     @Transactional(readOnly = true)
-    public TestRunJobStatusResponse runTests(Long assignmentId, List<MultipartFile> files) {
+    public TestRunJobStatusResponse runTests(Long assignmentId, List<MultipartFile> files, String customStdin) {
         Assignment assignment = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found: " + assignmentId));
 
@@ -105,8 +106,9 @@ public class RunTestsSyncService {
 
         // Run all test cases (public + private). Student-facing APIs filter private elsewhere.
         List<TestCase> testCases = testCaseRepository.findByTestSuite_Id(assignment.getTestSuite().getId());
+        boolean hasCustomStdin = customStdin != null && !customStdin.isBlank();
 
-        if (testCases.isEmpty()) {
+        if (testCases.isEmpty() && !hasCustomStdin) {
             return TestRunJobStatusResponse.builder()
                     .id(null)
                     .submissionId(null)
@@ -122,7 +124,7 @@ public class RunTestsSyncService {
             Path baseDir = Path.of(workDirBaseDir).toAbsolutePath().normalize();
             Files.createDirectories(baseDir);
             workDir = Files.createTempDirectory(baseDir, "run-tests-");
-            setWorldReadableAndExecutable(workDir);
+            setWorldWritableForRun(workDir);
         } catch (Exception e) {
             throw new RuntimeException("Failed to create temp directory", e);
         }
@@ -149,15 +151,20 @@ public class RunTestsSyncService {
             for (TestCase tc : testCases) {
                 results.add(runOneTest(workDir, language, mainFile, mainClass, tc));
             }
+            // Optional custom stdin run (e.g. for students to try their own input).
+            if (customStdin != null && !customStdin.isBlank()) {
+                results.add(runOneCustomRun(workDir, language, mainFile, mainClass, customStdin));
+            }
 
             int passed = (int) results.stream().filter(r -> Boolean.TRUE.equals(r.getPassed())).count();
+            int totalCount = results.size();
             return TestRunJobStatusResponse.builder()
                     .id(null)
                     .submissionId(null)
                     .status(TestRunJobStatus.COMPLETED)
                     .results(results)
                     .passedCount(passed)
-                    .totalCount(results.size())
+                    .totalCount(totalCount)
                     .build();
         } catch (Exception e) {
             log.warn("Run tests failed for assignment {}", assignmentId, e);
@@ -201,17 +208,76 @@ public class RunTestsSyncService {
     private TestCaseResultItem runOneTest(Path workDir, ProgrammingLanguage language, String mainFile, String mainClass, TestCase tc) {
         String input = tc.getInput() != null ? tc.getInput() : "";
         long start = System.currentTimeMillis();
-        return runOneTestInDocker(workDir, language, mainFile, mainClass, input, tc, start);
+        String inputFileName = tc.getFileName();
+        DockerRunResult run = executeInDocker(workDir, language, mainFile, mainClass, input,
+                (inputFileName != null && !inputFileName.isBlank()) ? inputFileName : null, start);
+        if (run.setupError != null) {
+            return failResult(tc, start, run.setupError);
+        }
+        String actual = run.output != null ? run.output.trim() : "";
+        String expected = (tc.getOutput() != null ? tc.getOutput() : "").trim();
+        boolean passed = run.exitCode == 0 && actual.equals(expected);
+        return TestCaseResultItem.builder()
+                .testCaseId(tc.getId())
+                .testCaseTitle(tc.getTitle())
+                .passed(passed)
+                .actualOutput(actual)
+                .expectedOutput(tc.getOutput())
+                .timedOut(run.timedOut)
+                .errorMessage(run.errorMessage)
+                .runtimeMs(run.runtimeMs)
+                .isPrivate(Boolean.TRUE.equals(tc.getIsPrivate()))
+                .build();
     }
 
     /**
-     * Run compile + execution inside the language's Docker image. Writes stdin to a file and runs a script in the container.
+     * Run once with custom stdin (no test case). Used for student "try my own input" runs.
+     * Returns a result with title "Custom input", no expected output, and passed=null.
      */
-    private TestCaseResultItem runOneTestInDocker(Path workDir, ProgrammingLanguage language, String mainFile, String mainClass, String input, TestCase tc, long start) {
+    private TestCaseResultItem runOneCustomRun(Path workDir, ProgrammingLanguage language, String mainFile, String mainClass, String customStdin) {
+        long start = System.currentTimeMillis();
+        DockerRunResult run = executeInDocker(workDir, language, mainFile, mainClass, customStdin, null, start);
+        if (run.setupError != null) {
+            return customRunFailResult(start, run.setupError);
+        }
+        String actual = run.output != null ? run.output.trim() : "";
+        return TestCaseResultItem.builder()
+                .testCaseId(null)
+                .testCaseTitle("Custom input")
+                .passed(null)
+                .actualOutput(actual)
+                .expectedOutput(null)
+                .timedOut(run.timedOut)
+                .errorMessage(run.errorMessage)
+                .runtimeMs(run.runtimeMs)
+                .isPrivate(null)
+                .build();
+    }
+
+    private static TestCaseResultItem customRunFailResult(long start, String errorMessage) {
+        return TestCaseResultItem.builder()
+                .testCaseId(null)
+                .testCaseTitle("Custom input")
+                .passed(null)
+                .actualOutput(null)
+                .expectedOutput(null)
+                .timedOut(false)
+                .errorMessage(errorMessage)
+                .runtimeMs(System.currentTimeMillis() - start)
+                .isPrivate(null)
+                .build();
+    }
+
+    /**
+     * Single place for Docker run: write stdin (and optional input file), build script, run container.
+     * Returns a result with setupError set if something failed before or during run; otherwise output/exitCode/timedOut/runtimeMs.
+     */
+    private DockerRunResult executeInDocker(Path workDir, ProgrammingLanguage language, String mainFile, String mainClass,
+                                            String input, String inputFileNameForFile, long start) {
         String compileCommand = language.getCompileCommand();
         String executionCode = language.getExecutionCode();
         if (executionCode == null || executionCode.isBlank()) {
-            return failResult(tc, start, "Language has no execution code configured.");
+            return new DockerRunResult("Language has no execution code configured.", null, -1, false, System.currentTimeMillis() - start);
         }
         String compileCmd = (compileCommand != null && !compileCommand.isBlank())
                 ? substitute(compileCommand, mainFile, mainClass)
@@ -222,11 +288,16 @@ public class RunTestsSyncService {
             Path stdinPath = workDir.resolve(DOCKER_STDIN_FILE);
             Files.writeString(stdinPath, input, StandardCharsets.UTF_8);
             setWorldReadableAndExecutable(stdinPath);
+            if (inputFileNameForFile != null && !inputFileNameForFile.isBlank()) {
+                String safeName = sanitizeFilename(inputFileNameForFile);
+                Path inputFilePath = workDir.resolve(safeName);
+                Files.writeString(inputFilePath, input, StandardCharsets.UTF_8);
+                setWorldReadableAndExecutable(inputFilePath);
+            }
         } catch (Exception e) {
-            return failResult(tc, start, "Failed to write stdin: " + e.getMessage());
+            return new DockerRunResult("Failed to write stdin: " + e.getMessage(), null, -1, false, System.currentTimeMillis() - start);
         }
 
-        // Script: compile (if any) then run with stdin; inside container /work is the mounted workDir
         StringBuilder script = new StringBuilder("set -e\n");
         if (compileCmd != null) {
             script.append(compileCmd).append("\n");
@@ -237,13 +308,12 @@ public class RunTestsSyncService {
             Files.writeString(scriptPath, script.toString(), StandardCharsets.UTF_8);
             setWorldReadableAndExecutable(scriptPath);
         } catch (Exception e) {
-            return failResult(tc, start, "Failed to write run script: " + e.getMessage());
+            return new DockerRunResult("Failed to write run script: " + e.getMessage(), null, -1, false, System.currentTimeMillis() - start);
         }
 
         String workDirAbs = workDir.toAbsolutePath().normalize().toString();
         String memoryLimit = dockerMemoryMb + "m";
         String containerName = "run-tests-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-        // Lowest privilege: non-root user, no new privileges, drop all caps, read-only root, resource limits
         List<String> cmd = new ArrayList<>();
         cmd.add("docker");
         cmd.add("run");
@@ -288,36 +358,42 @@ public class RunTestsSyncService {
             if (!finished) {
                 process.destroyForcibly();
                 killContainer(containerName);
-                return TestCaseResultItem.builder()
-                        .testCaseId(tc.getId())
-                        .testCaseTitle(tc.getTitle())
-                        .passed(false)
-                        .actualOutput(null)
-                        .expectedOutput(tc.getOutput())
-                        .timedOut(true)
-                        .errorMessage("Execution timed out after " + RUN_TIMEOUT_SECONDS + "s")
-                        .runtimeMs(runtime)
-                        .isPrivate(Boolean.TRUE.equals(tc.getIsPrivate()))
-                        .build();
+                String timeoutMsg = "Execution timed out after " + RUN_TIMEOUT_SECONDS + "s";
+                return new DockerRunResult(timeoutMsg, null, -1, true, runtime, timeoutMsg);
             }
             String output = readStream(process.getInputStream());
-            String actual = output != null ? output.trim() : "";
-            String expected = (tc.getOutput() != null ? tc.getOutput() : "").trim();
             int exit = process.exitValue();
-            return TestCaseResultItem.builder()
-                    .testCaseId(tc.getId())
-                    .testCaseTitle(tc.getTitle())
-                    .passed(exit == 0 && actual.equals(expected))
-                    .actualOutput(actual)
-                    .expectedOutput(tc.getOutput())
-                    .timedOut(false)
-                    .errorMessage(exit != 0 ? "Container exited with code " + exit + (output != null && !output.isBlank() ? ": " + output.trim() : "") : null)
-                    .runtimeMs(runtime)
-                    .isPrivate(Boolean.TRUE.equals(tc.getIsPrivate()))
-                    .build();
+            String runError = exit != 0 ? "Container exited with code " + exit + (output != null && !output.isBlank() ? ": " + output.trim() : "") : null;
+            return new DockerRunResult(null, output, exit, false, runtime, runError);
         } catch (Exception e) {
             killContainer(containerName);
-            return failResult(tc, start, "Docker execution failed: " + e.getMessage());
+            String msg = "Docker execution failed: " + e.getMessage();
+            return new DockerRunResult(msg, null, -1, false, System.currentTimeMillis() - start, msg);
+        }
+    }
+
+    /** Result of a single Docker run. setupError non-null = setup or run failed before producing a result. */
+    private static final class DockerRunResult {
+        final String setupError;
+        final String output;
+        final int exitCode;
+        final boolean timedOut;
+        final long runtimeMs;
+        /** Error message when exitCode != 0 or timedOut (for display in result). */
+        final String errorMessage;
+
+        DockerRunResult(String setupError, String output, int exitCode, boolean timedOut, long runtimeMs, String errorMessage) {
+            this.setupError = setupError;
+            this.output = output;
+            this.exitCode = exitCode;
+            this.timedOut = timedOut;
+            this.runtimeMs = runtimeMs;
+            this.errorMessage = errorMessage;
+        }
+
+        /** For setup failures we only have setupError; errorMessage is derived. */
+        DockerRunResult(String setupError, String output, int exitCode, boolean timedOut, long runtimeMs) {
+            this(setupError, output, exitCode, timedOut, runtimeMs, setupError);
         }
     }
 
@@ -365,7 +441,7 @@ public class RunTestsSyncService {
         return out.toString(StandardCharsets.UTF_8);
     }
 
-    /** Make file readable and executable by all so container user can run it when backend runs on host. */
+    /** Make path world-readable and -executable (e.g. for run.sh, stdin.txt). */
     private static void setWorldReadableAndExecutable(Path path) {
         try {
             Set<PosixFilePermission> perms = EnumSet.of(
@@ -378,6 +454,25 @@ public class RunTestsSyncService {
             // Non-POSIX filesystem (e.g. Windows); skip, container may still work
         } catch (Exception e) {
             log.debug("Could not set permissions on {}: {}", path, e.getMessage());
+        }
+    }
+
+    /**
+     * Make directory world-writable (rwxrwxrwx) so the container user can write build outputs (e.g. .class files).
+     * Used only for the temp run directory; it is deleted immediately after the run.
+     */
+    private static void setWorldWritableForRun(Path dir) {
+        try {
+            Set<PosixFilePermission> perms = EnumSet.of(
+                    PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE,
+                    PosixFilePermission.GROUP_READ, PosixFilePermission.GROUP_WRITE, PosixFilePermission.GROUP_EXECUTE,
+                    PosixFilePermission.OTHERS_READ, PosixFilePermission.OTHERS_WRITE, PosixFilePermission.OTHERS_EXECUTE
+            );
+            Files.setPosixFilePermissions(dir, perms);
+        } catch (UnsupportedOperationException e) {
+            // Non-POSIX filesystem (e.g. Windows); skip
+        } catch (Exception e) {
+            log.debug("Could not set permissions on {}: {}", dir, e.getMessage());
         }
     }
 

@@ -1,10 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import JSZip from "jszip";
 import {
   ChevronLeft,
   Download,
-  DownloadCloud,
   FileText,
   Filter,
   Inbox,
@@ -14,6 +12,7 @@ import {
 } from "lucide-react";
 import type { AssignmentDetailResponse } from "../../types/gradingAssistantAssignment";
 import type { GradingAssistantRubricResponse } from "../../types/gradingAssistantRubric";
+import { roundTo2 } from "../../utils/number";
 import type { GradingAssistantSubmissionResponse } from "../../types/gradingAssistantSubmission";
 import { getAssignmentByCourse } from "../../services/gradingAssistantAssignmentService";
 import { getRubric } from "../../services/gradingAssistantRubricService";
@@ -40,7 +39,7 @@ export interface AssignmentDetailPageAssignment {
   rubricName?: string | null;
 }
 
-/** Single rubric criterion for display. */
+/** Single rubric criterion for display (flat, used when no subCriteria). */
 export interface AssignmentDetailPageRubricCriterion {
   title: string;
   maxScore?: number | null;
@@ -48,11 +47,27 @@ export interface AssignmentDetailPageRubricCriterion {
   weight?: number | null;
 }
 
+/** Sub-criterion for hierarchical rubric display. */
+export interface AssignmentDetailPageRubricSubCriterion {
+  description?: string | null;
+  maxScore: number;
+  weight?: number | null;
+}
+
+/** Criterion with nested sub-criteria (faculty rubric from API). */
+export interface AssignmentDetailPageRubricCriterionNested {
+  title: string;
+  subCriteria: AssignmentDetailPageRubricSubCriterion[];
+}
+
 /** Rubric section passed from either faculty (categories) or GA (criteria) API. */
 export interface AssignmentDetailPageRubricSection {
   name?: string | null;
   description?: string | null;
+  /** Flat criteria (GA or legacy). */
   criteria: AssignmentDetailPageRubricCriterion[];
+  /** Nested criteria (faculty rubric with criteria → subCriteria). When set, UI shows hierarchy. */
+  criteriaNested?: AssignmentDetailPageRubricCriterionNested[] | null;
   loading?: boolean;
 }
 
@@ -116,53 +131,6 @@ export function AssignmentDetailPage({
   testCasesLink,
   testSuiteSection,
 }: AssignmentDetailPageProps) {
-  const [downloadAllLoading, setDownloadAllLoading] = useState(false);
-
-  const canDownloadAll = useMemo(() => {
-    if (!submissions.length) return false;
-    return submissions.some((row) => row.files && row.files.length > 0);
-  }, [submissions]);
-
-  const sanitizeFolderName = useCallback((name: string, submissionId: string): string => {
-    const sanitized = name
-      .replace(/[/\\:*?"<>|]/g, "_")
-      .replace(/\s+/g, " ")
-      .trim();
-    return sanitized || `Student_${submissionId}`;
-  }, []);
-
-  const handleDownloadAll = useCallback(async () => {
-    if (!canDownloadAll || downloadAllLoading) return;
-    const rowsWithFiles = submissions.filter((row) => row.files && row.files.length > 0);
-    if (!rowsWithFiles.length) return;
-    setDownloadAllLoading(true);
-    try {
-      const zip = new JSZip();
-      for (const row of rowsWithFiles) {
-        const folderName = sanitizeFolderName(row.studentName, row.submissionId);
-        for (const file of row.files!) {
-          try {
-            const res = await fetch(file.downloadUrl);
-            if (!res.ok) continue;
-            const blob = await res.blob();
-            zip.file(`${folderName}/${file.fileName}`, blob);
-          } catch {
-            // Skip file on fetch error
-          }
-        }
-      }
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(zipBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = assignment?.title ? `submissions-${assignment.title.replace(/[/\\:*?"<>|]/g, "_")}.zip` : "submissions.zip";
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setDownloadAllLoading(false);
-    }
-  }, [canDownloadAll, downloadAllLoading, submissions, sanitizeFolderName, assignment?.title]);
-
   if (loading) {
     return (
       <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
@@ -319,6 +287,49 @@ export function AssignmentDetailPage({
                   </h3>
                   {rubricSection.loading ? (
                     <p className="text-[14px] text-gray-500">Loading rubric…</p>
+                  ) : (rubricSection.criteriaNested?.length ?? 0) > 0 ? (
+                    <div className="space-y-4">
+                      {rubricSection.name ? (
+                        <p className="text-[14px] font-medium text-[#2B2A2A]">{rubricSection.name}</p>
+                      ) : null}
+                      {rubricSection.description ? (
+                        <p className="text-[13px] text-gray-600">{rubricSection.description}</p>
+                      ) : null}
+                      <div className="space-y-5">
+                        {(rubricSection.criteriaNested ?? []).map((criterion, cIdx) => (
+                          <div
+                            key={cIdx}
+                            className="rounded-xl border-2 border-[#E4E7EC] bg-white shadow-sm overflow-hidden"
+                          >
+                            <div className="px-4 py-3 bg-[#F3F6FB] border-b-2 border-[#E4E7EC]">
+                              <span className="text-[14px] font-semibold text-[#1F2430]">
+                                {criterion.title || `Criterion ${cIdx + 1}`}
+                              </span>
+                            </div>
+                            <div className="px-4 py-3">
+                              <ul className="space-y-3">
+                                {criterion.subCriteria.map((sub, sIdx) => (
+                                  <li
+                                    key={sIdx}
+                                    className="text-[13px] text-[#2B2A2A] pl-3 border-l-2 border-[#EEF3FF]"
+                                  >
+                                    {sub.description ? (
+                                      <p className="text-[#2B2A2A]">{sub.description}</p>
+                                    ) : null}
+                                    <p className="mt-0.5 text-[12px] text-gray-500">
+                                      Max {sub.maxScore} pts
+                                      {sub.weight != null ? (
+                                        <span> · Weight {roundTo2(sub.weight)}%</span>
+                                      ) : null}
+                                    </p>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   ) : rubricSection.criteria.length > 0 ? (
                     <div className="space-y-3">
                       {rubricSection.name ? (
@@ -338,7 +349,7 @@ export function AssignmentDetailPage({
                               <span className="text-gray-500"> — max {c.maxScore} pts</span>
                             )}
                             {c.weight != null && (
-                              <span className="text-gray-500"> (weight {c.weight})</span>
+                              <span className="text-gray-500"> (weight {roundTo2(c.weight)})</span>
                             )}
                             {c.description ? (
                               <p className="text-gray-600 mt-0.5">{c.description}</p>
@@ -414,16 +425,6 @@ export function AssignmentDetailPage({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={handleDownloadAll}
-                disabled={!canDownloadAll || downloadAllLoading || submissionsLoading}
-                title={canDownloadAll ? "Download all submissions as a ZIP (one folder per student)" : "No submissions with files to download"}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#5A7ACD] text-white rounded-lg text-[12px] font-medium hover:bg-[#4a6abd] disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <DownloadCloud className={`w-4 h-4 ${downloadAllLoading ? "animate-pulse" : ""}`} strokeWidth={2} />
-                <span>{downloadAllLoading ? "Preparing…" : "Download all"}</span>
-              </button>
-              <button
-                type="button"
                 onClick={onRefreshSubmissions}
                 disabled={submissionsLoading}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
@@ -449,10 +450,9 @@ export function AssignmentDetailPage({
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50 text-left text-[12px] font-semibold text-gray-500 uppercase tracking-wide">
                   <th className="px-6 py-3">Student</th>
-                  <th className="px-6 py-3">Submitted</th>
-                  <th className="px-6 py-3">Files</th>
                   <th className="px-6 py-3">Status</th>
                   <th className="px-6 py-3">Score</th>
+                  <th className="px-6 py-3">Submitted</th>
                   <th className="px-6 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -467,16 +467,13 @@ export function AssignmentDetailPage({
                         <div className="h-4 w-32 rounded bg-gray-200 animate-pulse" />
                       </td>
                       <td className="px-6 py-4">
-                        <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" />
-                      </td>
-                      <td className="px-6 py-4">
                         <div className="h-6 w-20 rounded-md bg-gray-100 animate-pulse" />
                       </td>
                       <td className="px-6 py-4">
                         <div className="h-4 w-10 rounded bg-gray-200 animate-pulse" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
                       </td>
                       <td className="px-6 py-4">
                         <div className="ml-auto h-8 w-20 rounded-lg bg-gray-100 animate-pulse" />
@@ -504,25 +501,6 @@ export function AssignmentDetailPage({
                             {row.studentName}
                           </Link>
                         </td>
-                        <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">
-                          {row.submittedAt}
-                        </td>
-                        <td className="px-6 py-4">
-                          {row.primaryFileName ? (
-                            <div className="flex flex-col">
-                              <span className="text-[13px] text-[#2B2A2A]">
-                                {row.primaryFileName}
-                              </span>
-                              {row.additionalFileCount > 0 ? (
-                                <span className="text-[11px] text-gray-500">
-                                  +{row.additionalFileCount} more
-                                </span>
-                              ) : null}
-                            </div>
-                          ) : (
-                            <span className="text-[13px] text-gray-400">—</span>
-                          )}
-                        </td>
                         <td className="px-6 py-4">
                           <span
                             className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium ${
@@ -536,6 +514,9 @@ export function AssignmentDetailPage({
                         </td>
                         <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">
                           {row.marks != null ? String(row.marks) : "—"}
+                        </td>
+                        <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">
+                          {row.submittedAt ?? "—"}
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -581,7 +562,7 @@ export function AssignmentDetailPage({
                 ) : (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={5}
                       className="px-6 py-6 text-center text-[13px] text-gray-600"
                     >
                       No submissions yet.
@@ -676,13 +657,14 @@ function mapGASubmissions(
         downloadUrl: f.downloadUrl ?? f.url ?? "",
       }))
       .filter((f) => Boolean(f.downloadUrl));
-    const status = s.marks == null ? "Ungraded" : "Graded";
+    const status = (s.marks ?? s.grade) == null ? "Ungraded" : "Graded";
+    const subId = s.submissionId ?? s.id;
     return {
-      submissionId: String(s.id),
-      studentName: s.studentName ?? s.studentEmail ?? `Submission #${s.id}`,
+      submissionId: String(subId ?? ""),
+      studentName: s.studentName ?? s.studentEmail ?? `Submission #${subId ?? "?"}`,
       submittedAt: formatSubmissionDisplayDate(s.submittedAt ?? undefined),
       status,
-      marks: s.marks ?? null,
+      marks: s.marks ?? s.grade ?? null,
       primaryFileName: primary?.fileName ?? null,
       additionalFileCount: Math.max(0, files.length - 1),
       primaryDownloadUrl: primary?.downloadUrl ?? primary?.url ?? null,

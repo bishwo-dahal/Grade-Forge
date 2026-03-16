@@ -70,8 +70,10 @@ export interface RubricCategory {
   name: string;
   points: number;
   criteria: Array<{
+    id?: number;
     description: string;
     points: number;
+    weight?: number | null;
   }>;
 }
 
@@ -100,4 +102,6 @@ export interface AssignmentResult {
   rubricBreakdown: RubricBreakdownItem[];
   /** Latest submission id for this assignment (student); used for Run tests. */
   latestSubmissionId?: number | null;
+  /** Submission-level feedback from GET /api/v1/student/submissions/assignment (latest submission). */
+  submissionFeedback?: string | null;
 }

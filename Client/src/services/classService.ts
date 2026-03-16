@@ -25,6 +25,7 @@ import type {
   TeachingAssistantProfile,
 } from "../types/class";
 import api from "../api/axios";
+import { roundTo2 } from "../utils/number";
 
 // NOTE: Centralized mock class/course data to create a single integration seam.
 // TODO(backend): Replace mock service with real API calls. Keep return shapes stable for the UI.
@@ -1103,7 +1104,7 @@ export async function listClassOverviewStats(classId: string): Promise<ClassOver
   return [
     {
       label: "Overall Grade",
-      value: `${percentage.toFixed(1)}%`,
+      value: `${roundTo2(percentage).toFixed(2)}%`,
       subtitle: toLetterGrade(percentage),
       subtitleColor: percentage >= 70 ? "text-green-600" : "text-[#C23A42]",
     },

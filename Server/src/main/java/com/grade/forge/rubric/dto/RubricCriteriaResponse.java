@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -14,8 +16,7 @@ import lombok.Setter;
 public class RubricCriteriaResponse {
     private Long id;
     private String title;
-    private String description;
-    private Integer maxScore;
-    private Double weight;
+    private double points;
+    private List<RubricSubCriteriaResponse> subCriteria;
 }
 

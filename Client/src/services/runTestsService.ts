@@ -19,9 +19,15 @@ function getBasePath(): string {
 /**
  * Request a test run for the given submission. Returns job id; poll getRunTestsLatest or getRunTestsByJobId for status.
  */
+function toSubmissionId(submissionId: number | string): number {
+  const id = Number(submissionId);
+  if (!Number.isFinite(id)) throw new Error("Invalid submission id for run tests.");
+  return id;
+}
+
 export async function requestRunTests(submissionId: number | string): Promise<RunTestsResponse> {
   const base = getBasePath();
-  const id = Number(submissionId);
+  const id = toSubmissionId(submissionId);
   const { data } = await api.post<RunTestsResponse>(`${base}/${id}/run-tests`);
   return data;
 }
@@ -46,14 +52,19 @@ function getRunTestsWithFilesPath(): string {
  * Run tests on the provided files (current workspace). No submission, no S3.
  * Backend keeps files temporarily, runs tests, returns result in the response.
  * Works for student, faculty, and GA. Use long timeout; request may take 30–120s.
+ * customStdin: optional (students only); when set, one extra run with this stdin is included in results.
  */
 export async function runTestsWithFiles(
   assignmentId: number | string,
-  files: File[]
+  files: File[],
+  customStdin?: string | null
 ): Promise<TestRunJobStatusResponse> {
   const base = getRunTestsWithFilesPath();
   const formData = new FormData();
   files.forEach((file) => formData.append("files", file));
+  if (customStdin != null && customStdin.trim() !== "") {
+    formData.append("customStdin", customStdin.trim());
+  }
   const { data } = await api.post<TestRunJobStatusResponse>(
     `${base}/${assignmentId}/run-tests`,
     formData,
@@ -69,8 +80,9 @@ export async function runTestsWithFiles(
  * Get the latest test run for a submission (for polling).
  */
 export async function getRunTestsLatest(submissionId: number | string): Promise<TestRunJobStatusResponse | null> {
-  const base = getBasePath();
   const id = Number(submissionId);
+  if (!Number.isFinite(id)) return null;
+  const base = getBasePath();
   try {
     const { data } = await api.get<TestRunJobStatusResponse>(`${base}/${id}/run-tests/latest`);
     return data;

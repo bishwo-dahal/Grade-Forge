@@ -14,6 +14,12 @@ interface PublicTestsPanelProps {
   runStatus?: TestRunJobStatus | null;
   /** When true, show the student-facing 'public tests only' note. Hide for faculty/GA views. */
   showPublicNote?: boolean;
+  /** When true, show "Custom input" section so students can enter stdin for an extra run. */
+  showCustomStdin?: boolean;
+  /** Controlled value for custom stdin (used when Run tests is clicked in the workspace). */
+  customStdin?: string;
+  /** Called when the user edits the custom stdin textarea. */
+  onCustomStdinChange?: (value: string) => void;
 }
 
 export function PublicTestsPanel({
@@ -24,6 +30,9 @@ export function PublicTestsPanel({
   runResult = null,
   runStatus = null,
   showPublicNote = true,
+  showCustomStdin = false,
+  customStdin = "",
+  onCustomStdinChange,
 }: PublicTestsPanelProps) {
   const [expandedTests, setExpandedTests] = useState<Set<number>>(new Set([0]));
 
@@ -71,6 +80,25 @@ export function PublicTestsPanel({
         )}
       </div>
 
+      {/* Custom input (students): run tests with this stdin for an extra result row */}
+      {showCustomStdin && (
+        <div className="mb-6 p-4 border border-gray-200 rounded-xl bg-gray-50">
+          <label className="block text-[13px] font-medium text-[#2B2A2A] mb-2">
+            Custom input (optional)
+          </label>
+          <p className="text-[12px] text-gray-600 mb-2">
+            Add input here to run your code with it once after the test cases. Click &quot;Run Tests&quot; in the code workspace to run.
+          </p>
+          <textarea
+            value={customStdin}
+            onChange={(e) => onCustomStdinChange?.(e.target.value)}
+            placeholder="e.g. 1 2 3 or hello"
+            className="w-full min-h-[80px] px-3 py-2 text-[13px] text-[#2B2A2A] bg-white border border-gray-200 rounded-lg resize-y placeholder-gray-400"
+            aria-label="Custom stdin for run tests"
+          />
+        </div>
+      )}
+
       {/* Test Cases */}
       <div className="space-y-3">
         {displayTests.map((test, index) => (
@@ -82,11 +110,13 @@ export function PublicTestsPanel({
               onClick={() => toggleTest(test.id ?? index)}
               className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
             >
-              {/* Pass/Fail Icon */}
-              {test.passed ? (
+              {/* Pass/Fail/Custom Icon */}
+              {test.passed === true ? (
                 <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" strokeWidth={2} />
-              ) : (
+              ) : test.passed === false ? (
                 <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" strokeWidth={2} />
+              ) : (
+                <Terminal className="w-5 h-5 text-amber-500 flex-shrink-0" strokeWidth={2} title="Custom input run" />
               )}
 
               {/* Input source: file or console */}
@@ -130,23 +160,25 @@ export function PublicTestsPanel({
                   </div>
                 </div>
 
-                {/* Expected Output */}
-                <div>
-                  <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Expected Output
+                {/* Expected Output (hidden for custom input runs) */}
+                {test.passed !== undefined && (
+                  <div>
+                    <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                      Expected Output
+                    </div>
+                    <div className="bg-white rounded-lg p-3 border border-gray-200">
+                      <code className="text-[13px] text-[#2B2A2A] font-mono">{test.expectedOutput}</code>
+                    </div>
                   </div>
-                  <div className="bg-white rounded-lg p-3 border border-gray-200">
-                    <code className="text-[13px] text-[#2B2A2A] font-mono">{test.expectedOutput}</code>
-                  </div>
-                </div>
+                )}
 
                 {/* Actual Output */}
                 <div>
                   <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Your Output
+                    {test.passed === undefined ? "Output" : "Your Output"}
                   </div>
-                  <div className={`bg-white rounded-lg p-3 border ${test.passed ? 'border-green-200' : 'border-red-200'}`}>
-                    <code className={`text-[13px] font-mono ${test.passed ? 'text-green-700' : 'text-red-700'}`}>
+                  <div className={`bg-white rounded-lg p-3 border ${test.passed === true ? "border-green-200" : test.passed === false ? "border-red-200" : "border-gray-200"}`}>
+                    <code className={`text-[13px] font-mono ${test.passed === true ? "text-green-700" : test.passed === false ? "text-red-700" : "text-[#2B2A2A]"}`}>
                       {test.actualOutput}
                     </code>
                   </div>

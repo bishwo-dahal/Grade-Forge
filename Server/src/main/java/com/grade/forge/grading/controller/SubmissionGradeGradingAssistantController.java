@@ -1,16 +1,15 @@
 package com.grade.forge.grading.controller;
 
-import com.grade.forge.grading.dto.SubmissionGradeRequest;
-import com.grade.forge.grading.dto.SubmissionGradeResponse;
+import com.grade.forge.grading.dto.SubmissionGradeBatchRequest;
+import com.grade.forge.grading.dto.SubmissionGradeBatchResponse;
 import com.grade.forge.grading.service.SubmissionGradeService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
-
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/grading-assistant/submission-grades")
 @RequiredArgsConstructor
@@ -19,27 +18,30 @@ public class SubmissionGradeGradingAssistantController {
     private final SubmissionGradeService submissionGradeService;
 
     @PostMapping
-    public ResponseEntity<SubmissionGradeResponse> create(@RequestBody SubmissionGradeRequest request) {
-        SubmissionGradeResponse created = submissionGradeService.createGrade(request);
+    public ResponseEntity<SubmissionGradeBatchResponse> create(@RequestBody SubmissionGradeBatchRequest request) {
+        SubmissionGradeBatchResponse created = submissionGradeService.createGrades(request);
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<SubmissionGradeResponse> update(@PathVariable Long id, @RequestBody SubmissionGradeRequest request) {
-        SubmissionGradeResponse updated = submissionGradeService.updateGrade(id, request);
+    public ResponseEntity<SubmissionGradeBatchResponse> update(@PathVariable("id") Long submissionId,
+                                                               @RequestBody SubmissionGradeBatchRequest request) {
+
+        SubmissionGradeBatchResponse updated = submissionGradeService.replaceGrades(submissionId, request);
         return new ResponseEntity<>(updated, HttpStatus.OK);
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<SubmissionGradeResponse> get(@PathVariable Long id) {
-        SubmissionGradeResponse response = submissionGradeService.getGrade(id);
+    @GetMapping("/{submissionId}")
+    public ResponseEntity<SubmissionGradeBatchResponse> getBySubmissionPath(@PathVariable("submissionId") Long submissionId) {
+        SubmissionGradeBatchResponse response = submissionGradeService.getGradesBySubmission(submissionId);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @GetMapping
-    public ResponseEntity<List<SubmissionGradeResponse>> getBySubmission(@RequestParam("submissionId") Long submissionId) {
-        List<SubmissionGradeResponse> responses = submissionGradeService.getGradesBySubmission(submissionId);
+    public ResponseEntity<SubmissionGradeBatchResponse> getBySubmission(@RequestParam("submissionId") Long submissionId) {
+        SubmissionGradeBatchResponse responses = submissionGradeService.getGradesBySubmission(submissionId);
         return new ResponseEntity<>(responses, HttpStatus.OK);
     }
 
 }
+

@@ -58,14 +58,27 @@ import {
   removeCourseAssistant,
 } from "../../services/courseAssistantService";
 import { getAllGradingAssistants } from "../../services/gradingAssistantService";
+import {
+  getCourseGradeReport,
+  getAssignmentGradeReport,
+} from "../../services/gradeReportService";
+import type {
+  CourseGradeReportResponse,
+  CourseGradeReportStudent,
+  AssignmentGradeReportResponse,
+} from "../../types/gradeReport";
 import type { GradingAssistantResponse } from "../../types/gradingAssistant";
 import type { CourseAssistantResponse } from "../../types/courseAssistant";
 import { SegmentedFilter } from "./ui/SegmentedFilter";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "./ui/tooltip";
 
 const SECTION_PATH_SEGMENTS = [
   "dashboard",
   "assignments",
-  "submissions",
   "grades",
   "students",
   "assistants",
@@ -98,7 +111,6 @@ export function FacultyClassPage() {
   const navigate = useNavigate();
   const resolvedClassId = classId ?? "1";
   const activeSection: SectionType = isValidSection(sectionParam) ? sectionParam : "dashboard";
-  const [submissionBadgeCount, setSubmissionBadgeCount] = useState(0);
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
 
   // Redirect invalid section to dashboard
@@ -114,14 +126,6 @@ export function FacultyClassPage() {
   useEffect(() => {
     const resolvedId = classId || "1";
     getFacultyClassHeaderById(resolvedId).then(setClassHeader);
-  }, [classId]);
-
-  useEffect(() => {
-    const resolvedId = classId || "1";
-    // NOTE: Sidebar submissions badge now reflects live ungraded submission count for this class.
-    listClassSubmissions(resolvedId).then((submissions) => {
-      setSubmissionBadgeCount(submissions.filter((submission) => submission.status === "ungraded").length);
-    });
   }, [classId]);
 
   useEffect(() => {
@@ -173,13 +177,6 @@ export function FacultyClassPage() {
                 label="Assignments"
                 active={activeSection === "assignments"}
                 to={`/faculty/class/${resolvedClassId}/assignments`}
-              />
-              <NavItem
-                icon={<Send className="w-4 h-4" strokeWidth={2} />}
-                label="Submissions"
-                active={activeSection === "submissions"}
-                to={`/faculty/class/${resolvedClassId}/submissions`}
-                badge={submissionBadgeCount > 0 ? submissionBadgeCount : undefined}
               />
               <NavItem
                 icon={<BarChart3 className="w-4 h-4" strokeWidth={2} />}
@@ -264,8 +261,12 @@ export function FacultyClassPage() {
           <div className="max-w-7xl mx-auto px-8 py-6">
             {activeSection === 'dashboard' && <DashboardSection />}
             {activeSection === 'assignments' && <AssignmentsSection />}
-            {activeSection === 'submissions' && <SubmissionsSection />}
-            {activeSection === 'grades' && <GradesSection />}
+            {activeSection === 'grades' && (
+              <GradesSection
+                courseFullName={classData.code && classData.name ? `${classData.code}: ${classData.name}` : classData.name || classData.code || ""}
+                facultyName={classData.instructor || ""}
+              />
+            )}
             {activeSection === 'students' && (
               <StudentsSection
                 isAddStudentModalOpen={isAddStudentModalOpen}
@@ -956,26 +957,430 @@ function SubmissionsSection() {
   );
 }
 
-function GradesSection() {
+type GradeViewMode = "course" | "assignment";
+type GradeStatusFilter = "all" | "NOT_SUBMITTED" | "SUBMITTED" | "GRADED";
+
+function GradesSection({
+  courseFullName,
+  facultyName,
+}: {
+  courseFullName: string;
+  facultyName: string;
+}) {
+  const { classId } = useParams();
+  const courseId = useMemo(() => Number(classId || "0") || 0, [classId]);
+
+  const [courseReport, setCourseReport] = useState<CourseGradeReportResponse | null>(null);
+  const [assignmentReport, setAssignmentReport] = useState<AssignmentGradeReportResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [viewMode, setViewMode] = useState<GradeViewMode>("course");
+  const [statusFilter, setStatusFilter] = useState<GradeStatusFilter>("all");
+  const [studentSearch, setStudentSearch] = useState("");
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<number | null>(null);
+  const [assignmentReportLoading, setAssignmentReportLoading] = useState(false);
+
+  // Load course grade report only when Grades section is shown (component mounted).
+  useEffect(() => {
+    if (courseId <= 0) return;
+    setIsLoading(true);
+    setLoadError(null);
+    getCourseGradeReport(courseId)
+      .then((data) => {
+        setCourseReport(data);
+        if (data.students.length > 0 && data.students[0].assignments.length > 0 && selectedAssignmentId == null) {
+          setSelectedAssignmentId(data.students[0].assignments[0].assignmentId);
+        }
+      })
+      .catch((err) => setLoadError(getErrorMessage(err)))
+      .finally(() => setIsLoading(false));
+  }, [courseId]);
+
+  // Load assignment-specific report when view is "assignment" and an assignment is selected.
+  useEffect(() => {
+    if (viewMode !== "assignment" || selectedAssignmentId == null || courseId <= 0) {
+      setAssignmentReport(null);
+      return;
+    }
+    setAssignmentReportLoading(true);
+    getAssignmentGradeReport(courseId, selectedAssignmentId)
+      .then(setAssignmentReport)
+      .catch(() => setAssignmentReport(null))
+      .finally(() => setAssignmentReportLoading(false));
+  }, [viewMode, selectedAssignmentId, courseId]);
+
+  const assignmentOptions = useMemo(() => {
+    if (!courseReport?.students?.length) return [];
+    const first = courseReport.students[0];
+    return first.assignments ?? [];
+  }, [courseReport]);
+
+  const filteredStudentsCourse = useMemo(() => {
+    if (!courseReport?.students) return [];
+    let list = courseReport.students;
+    const q = studentSearch.trim().toLowerCase();
+    if (q) {
+      list = list.filter((s) => s.studentName.toLowerCase().includes(q));
+    }
+    return list;
+  }, [courseReport, studentSearch]);
+
+  const filteredStudentsAssignment = useMemo(() => {
+    if (!assignmentReport?.students) return [];
+    let list = assignmentReport.students;
+    const q = studentSearch.trim().toLowerCase();
+    if (q) {
+      list = list.filter((s) => s.studentName.toLowerCase().includes(q));
+    }
+    if (statusFilter !== "all") {
+      list = list.filter((s) => s.status === statusFilter);
+    }
+    return list;
+  }, [assignmentReport, studentSearch, statusFilter]);
+
+  const statusLabel: Record<string, string> = {
+    NOT_SUBMITTED: "Not submitted",
+    SUBMITTED: "Submitted",
+    GRADED: "Graded",
+  };
+
+  const exportGradesCsv = useCallback(() => {
+    const escapeCsv = (value: string | number): string => {
+      const s = String(value);
+      if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+
+    const downloadCsv = (csvContent: string, filename: string) => {
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    const safeName = (name: string) => name.replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").slice(0, 80) || "grades";
+    const date = new Date().toISOString().slice(0, 10);
+
+    const courseAndFacultyHeader = [
+      [escapeCsv("Course"), escapeCsv(courseFullName)].join(","),
+      [escapeCsv("Faculty"), escapeCsv(facultyName)].join(","),
+      "",
+    ].join("\r\n");
+
+    if (viewMode === "course" && courseReport && assignmentOptions.length > 0) {
+      const headers = ["Student", ...assignmentOptions.map((a) => a.assignmentName)];
+      const rows = filteredStudentsCourse.map((s) => {
+        const cells = [s.studentName];
+        s.assignments.forEach((a) => {
+          const scoreStr = a.score != null ? a.score.toFixed(2) : "—";
+          const statusStr = statusLabel[a.status] ?? a.status;
+          cells.push(`${scoreStr} / ${a.maxScore.toFixed(1)} (${statusStr})`);
+        });
+        return cells.map(escapeCsv).join(",");
+      });
+      const tableCsv = [headers.map(escapeCsv).join(","), ...rows].join("\r\n");
+      const csv = courseAndFacultyHeader + "\r\n" + tableCsv;
+      const filename = `grades-${safeName(courseReport.courseName)}-overview-${date}.csv`;
+      downloadCsv(csv, filename);
+      return;
+    }
+
+    if (viewMode === "assignment" && assignmentReport) {
+      const titleRow = escapeCsv(assignmentReport.assignmentName);
+      const headers = ["Student", "Score", "Max", "Status"];
+      const rows = filteredStudentsAssignment.map((s) => [
+        s.studentName,
+        s.score != null ? s.score.toFixed(2) : "—",
+        s.maxScore.toFixed(1),
+        statusLabel[s.status] ?? s.status,
+      ]);
+      const tableCsv = [titleRow, headers.map(escapeCsv).join(","), ...rows.map((r) => r.map(escapeCsv).join(","))].join("\r\n");
+      const csv = courseAndFacultyHeader + "\r\n" + tableCsv;
+      const filename = `grades-${safeName(courseReport?.courseName ?? "course")}-${safeName(assignmentReport.assignmentName)}-${date}.csv`;
+      downloadCsv(csv, filename);
+    }
+  }, [
+    viewMode,
+    courseReport,
+    assignmentReport,
+    assignmentOptions,
+    filteredStudentsCourse,
+    filteredStudentsAssignment,
+    statusLabel,
+    courseFullName,
+    facultyName,
+  ]);
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
           <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Grades</h2>
           <p className="text-[13px] text-gray-600">
-            View and manage student grades
+            View and manage student grades for this course
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors">
+        <button
+          type="button"
+          onClick={exportGradesCsv}
+          disabled={!courseReport || (viewMode === "assignment" && !assignmentReport)}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <Download className="w-4 h-4" strokeWidth={2} />
           <span>Export Grades</span>
         </button>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <p className="text-[14px] text-gray-600">Spreadsheet-style gradebook will be displayed here</p>
-      </div>
+      {loadError && (
+        <div className="mb-4 p-4 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-700 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={2} />
+          {loadError}
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="p-8 flex flex-col items-center justify-center gap-3">
+            <RefreshCcw className="w-8 h-8 text-gray-400 animate-spin" strokeWidth={2} />
+            <p className="text-[14px] text-gray-600">Loading grade report…</p>
+          </div>
+        </div>
+      ) : courseReport ? (
+        <>
+          <div className="bg-white rounded-xl border border-gray-200 p-4 mb-5 shadow-sm">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">View</span>
+                <SegmentedFilter
+                  items={[
+                    { id: "course" as const, label: "Course overview" },
+                    { id: "assignment" as const, label: "By assignment" },
+                  ]}
+                  value={viewMode}
+                  onValueChange={(v) => setViewMode(v)}
+                />
+              </div>
+              {viewMode === "assignment" && assignmentOptions.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Assignment</span>
+                  <select
+                    value={selectedAssignmentId ?? ""}
+                    onChange={(e) => setSelectedAssignmentId(Number(e.target.value) || null)}
+                    className="min-w-[220px] px-3 py-2 border border-gray-200 rounded-lg text-[13px] text-[#2B2A2A] bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/30 focus:border-[#5A7ACD] focus:bg-white"
+                  >
+                    <option value="">Select assignment</option>
+                    {assignmentOptions.map((a) => (
+                      <option key={a.assignmentId} value={a.assignmentId}>
+                        {a.assignmentName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {viewMode === "assignment" && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Status</span>
+                  <SegmentedFilter
+                    items={[
+                      { id: "all" as const, label: "All" },
+                      { id: "NOT_SUBMITTED" as const, label: "Not submitted" },
+                      { id: "SUBMITTED" as const, label: "Submitted" },
+                      { id: "GRADED" as const, label: "Graded" },
+                    ]}
+                    value={statusFilter}
+                    onValueChange={(v) => setStatusFilter(v)}
+                  />
+                </div>
+              )}
+              <div className="flex-1 min-w-[180px] max-w-[280px] relative ml-auto">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={2} />
+                <input
+                  type="text"
+                  placeholder="Search students…"
+                  value={studentSearch}
+                  onChange={(e) => setStudentSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-[13px] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/30 focus:border-[#5A7ACD] bg-gray-50/50 focus:bg-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          {viewMode === "course" && (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[600px] border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-gray-200 bg-[#F8F9FB]">
+                      <th className="text-left px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide sticky left-0 bg-[#F8F9FB] z-10 min-w-[200px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)] border-r border-gray-200">
+                        Student
+                      </th>
+                      {assignmentOptions.map((a) => (
+                        <th
+                          key={a.assignmentId}
+                          className="text-left px-4 py-4 text-[12px] font-semibold text-gray-600 min-w-[140px] max-w-[220px] align-top border-r border-gray-200 last:border-r-0"
+                        >
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="block line-clamp-3 text-gray-700 cursor-help py-0.5">
+                                {a.assignmentName}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-[320px] text-left whitespace-normal">
+                              {a.assignmentName}
+                            </TooltipContent>
+                          </Tooltip>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredStudentsCourse.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={(assignmentOptions.length ?? 0) + 1}
+                          className="px-5 py-12 text-center"
+                        >
+                          <p className="text-[14px] text-gray-500">No students match the current filters.</p>
+                          <p className="text-[12px] text-gray-400 mt-1">Try changing the search or status filter.</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredStudentsCourse.map((student, idx) => (
+                        <tr
+                          key={student.studentId}
+                          className={`border-b border-gray-100 transition-colors hover:bg-[#F8F9FB]/80 ${idx % 2 === 1 ? "bg-gray-50/40" : ""}`}
+                        >
+                          <td className="px-5 py-3.5 text-[13px] font-medium text-[#2B2A2A] sticky left-0 bg-inherit z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.04)] border-r border-gray-200">
+                            {student.studentName}
+                          </td>
+                          {student.assignments.map((a) => (
+                            <td key={a.assignmentId} className="px-4 py-3.5 border-r border-gray-200 last:border-r-0">
+                              <GradeCell assignment={a} statusLabel={statusLabel} />
+                            </td>
+                          ))}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {viewMode === "assignment" && (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+              {assignmentReportLoading ? (
+                <div className="p-12 flex flex-col items-center justify-center gap-3 text-[13px] text-gray-600">
+                  <RefreshCcw className="w-8 h-8 text-gray-400 animate-spin" strokeWidth={2} />
+                  <span>Loading assignment grades…</span>
+                </div>
+              ) : assignmentReport && selectedAssignmentId != null ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b-2 border-gray-200 bg-[#F8F9FB]">
+                        <th className="text-left px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide min-w-[200px] border-r border-gray-200">
+                          Student
+                        </th>
+                        <th className="text-right px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide w-24 border-r border-gray-200">
+                          Score
+                        </th>
+                        <th className="text-right px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide w-20 border-r border-gray-200">
+                          Max
+                        </th>
+                        <th className="text-left px-5 py-4 text-[12px] font-semibold text-gray-600 uppercase tracking-wide w-32">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredStudentsAssignment.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-5 py-12 text-center">
+                            <p className="text-[14px] text-gray-500">No students match the current filters.</p>
+                            <p className="text-[12px] text-gray-400 mt-1">Try a different search.</p>
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredStudentsAssignment.map((s, idx) => (
+                          <tr
+                            key={s.studentId}
+                            className={`border-b border-gray-100 transition-colors hover:bg-[#F8F9FB]/80 ${idx % 2 === 1 ? "bg-gray-50/40" : ""}`}
+                          >
+                            <td className="px-5 py-3.5 text-[13px] font-medium text-[#2B2A2A] border-r border-gray-200">
+                              {s.studentName}
+                            </td>
+                            <td className="px-5 py-3.5 text-right text-[13px] font-medium text-[#2B2A2A] border-r border-gray-200">
+                              {s.score != null ? s.score.toFixed(2) : "—"}
+                            </td>
+                            <td className="px-5 py-3.5 text-right text-[13px] text-gray-600 border-r border-gray-200">
+                              {s.maxScore.toFixed(1)}
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <StatusPill status={s.status} statusLabel={statusLabel} />
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-12 text-center">
+                  <p className="text-[14px] text-gray-500">Select an assignment above to view grades by student.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      ) : null}
     </div>
+  );
+}
+
+function GradeCell({
+  assignment,
+  statusLabel,
+}: {
+  assignment: { score: number | null; maxScore: number; status: string };
+  statusLabel: Record<string, string>;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[13px] text-[#2B2A2A] tabular-nums">
+        {assignment.score != null
+          ? `${assignment.score.toFixed(2)} / ${assignment.maxScore.toFixed(1)}`
+          : "— / " + assignment.maxScore.toFixed(1)}
+      </span>
+      <StatusPill status={assignment.status} statusLabel={statusLabel} />
+    </div>
+  );
+}
+
+function StatusPill({
+  status,
+  statusLabel,
+}: {
+  status: string;
+  statusLabel: Record<string, string>;
+}) {
+  const label = statusLabel[status] ?? status;
+  const style =
+    status === "GRADED"
+      ? "bg-emerald-100 text-emerald-800"
+      : status === "SUBMITTED"
+        ? "bg-amber-100 text-amber-800"
+        : "bg-gray-100 text-gray-600";
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium w-fit ${style}`}
+    >
+      {label}
+    </span>
   );
 }
 
