@@ -166,6 +166,7 @@ export function FacultySpeedGradingPage() {
   const [gradeError, setGradeError] = useState<string | null>(null);
   const [gradeStatusMessage, setGradeStatusMessage] = useState<string | null>(null);
   const [isGradeSubmitting, setIsGradeSubmitting] = useState(false);
+  const [isRegradeConfirmOpen, setIsRegradeConfirmOpen] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -398,7 +399,7 @@ export function FacultySpeedGradingPage() {
     setGradeStatusMessage(null);
   }, [nextUngradedSubmissionId]);
 
-  const handleSubmitGrade = useCallback(async () => {
+  const persistGrade = useCallback(async () => {
     if (!assignment || !selectedSubmission) {
       setGradeError("Select a submission before grading.");
       return;
@@ -475,6 +476,16 @@ export function FacultySpeedGradingPage() {
     rubricMaxPoints,
     selectedSubmission,
   ]);
+
+  const handleSubmitGrade = useCallback(async () => {
+    if (selectedSubmission?.marks != null) {
+      // FIX: Re-grading is destructive to the previous manual mark, so require explicit confirmation before overwriting it.
+      setIsRegradeConfirmOpen(true);
+      return;
+    }
+
+    await persistGrade();
+  }, [persistGrade, selectedSubmission?.marks]);
 
   if (isLoading) {
     return (
@@ -760,6 +771,38 @@ export function FacultySpeedGradingPage() {
           </section>
         </div>
       </div>
+
+      {isRegradeConfirmOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4">
+          <div className="w-full max-w-[420px] rounded-[20px] bg-white shadow-[0_32px_80px_rgba(17,24,39,0.22)]">
+            <div className="border-b border-[#E5E7EB] px-6 py-5">
+              <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Update existing grade?</h3>
+              <p className="mt-1 text-[13px] text-[#6B7280]">
+                This submission was already graded. Do you want to update the saved grade?
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setIsRegradeConfirmOpen(false)}
+                className="rounded-lg border border-[#D4D7DE] px-4 py-2 text-[13px] font-medium text-[#374151] transition-colors hover:bg-[#F9FAFB]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRegradeConfirmOpen(false);
+                  void persistGrade();
+                }}
+                className="rounded-lg bg-[#2B2A2A] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#3A3939]"
+              >
+                Update grade
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
