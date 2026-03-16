@@ -682,3 +682,59 @@ Scope: Implemented simple faculty grading flow in assignment workspace: open sub
 ### Backend impact
 - Backend unchanged.
 - Feature uses existing faculty grade endpoint and existing student submission grade-read paths.
+
+## Backend Fix - Load `.env` During Spring Boot Tests
+
+Date: 2026-03-15  
+Scope: Fixed backend test startup so `mvn test` can resolve datasource settings from `Server/.env` during `@SpringBootTest`.
+
+### Problem
+- Backend tests were failing in `ForgeApplicationTests.contextLoads`.
+- Root cause:
+  - `application.properties` expects datasource values from environment placeholders:
+    - `SPRING_DATASOURCE_URL`
+    - `SPRING_DATASOURCE_USERNAME`
+    - `SPRING_DATASOURCE_PASSWORD`
+  - Existing `.env` loading lived inside `ForgeApplication.main(...)`.
+  - `@SpringBootTest` does not start the app through `main()`, so those values were never loaded for tests.
+- Failure symptom:
+  - Spring tried to build the datasource with the literal unresolved placeholder `${SPRING_DATASOURCE_URL}`.
+
+### Backend changes made
+
+#### `Server/src/main/java/com/grade/forge/ForgeApplication.java`
+- Removed ad-hoc `.env` loading responsibility from the application entrypoint.
+- Kept the class focused on normal Spring Boot startup only.
+- Why:
+  - `.env` loading in `main()` does not help test startup paths.
+  - Environment resolution belongs earlier in the Spring bootstrap lifecycle.
+
+#### `Server/src/main/java/com/grade/forge/configuration/DotenvEnvironmentPostProcessor.java`
+- Added a new `EnvironmentPostProcessor` to load `.env` before Spring resolves `application.properties` placeholders.
+- Behavior:
+  - Looks for `.env` in either:
+    - current working directory
+    - `Server/.env` when running from repo root
+  - Parses simple `KEY=value` lines.
+  - Ignores blank lines and comments.
+  - Preserves higher-priority values from real environment variables, JVM system properties, and existing Spring sources.
+- Why:
+  - This makes backend startup consistent for:
+    - `mvn test`
+    - IDE test runs
+    - running from `Server/`
+    - running from repo root
+
+#### `Server/src/main/resources/META-INF/spring.factories`
+- Registered the new `DotenvEnvironmentPostProcessor`.
+- Why:
+  - Ensures `.env` fallback values are available during Spring bootstrap, including test context initialization.
+
+### Verification
+- Backend tests:
+  - `cd Server && mvn test` -> success
+
+### Backend impact summary
+- No database schema changes.
+- No controller/service/repository contract changes.
+- Fix is bootstrap-only and limited to environment property loading for local/test startup.
