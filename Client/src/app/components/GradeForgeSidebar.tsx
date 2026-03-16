@@ -92,23 +92,27 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
   };
 
   const sidebarShellClass = isAutoCollapsed
-    ? "group/sidebar w-[74px] hover:w-60 focus-within:w-60"
+    ? "group/sidebar w-[78px] hover:w-60 focus-within:w-60"
     : "w-60";
   const collapsibleTextClass = isAutoCollapsed
-    ? "w-0 overflow-hidden opacity-0 group-hover/sidebar:w-auto group-hover/sidebar:opacity-100 group-focus-within/sidebar:w-auto group-focus-within/sidebar:opacity-100"
+    // FIX: Animate labels with max-width instead of toggling to w-auto so hover expansion feels smoother and less abrupt.
+    ? "max-w-0 overflow-hidden opacity-0 translate-x-1.5 transition-[max-width,opacity,transform] duration-300 ease-out group-hover/sidebar:max-w-[160px] group-hover/sidebar:translate-x-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:max-w-[160px] group-focus-within/sidebar:translate-x-0 group-focus-within/sidebar:opacity-100"
     : "";
   const collapsibleHeadingClass = isAutoCollapsed
-    ? "hidden group-hover/sidebar:block group-focus-within/sidebar:block"
+    // FIX: Keep section headings in flow and fade them in so the collapsed rail expands without a visual pop.
+    ? "max-h-0 overflow-hidden opacity-0 transition-[max-height,opacity] duration-300 ease-out group-hover/sidebar:max-h-8 group-hover/sidebar:opacity-100 group-focus-within/sidebar:max-h-8 group-focus-within/sidebar:opacity-100"
     : "";
   const navLinkLayoutClass = isAutoCollapsed
-    ? "justify-center px-0 py-2.5 group-hover/sidebar:justify-start group-hover/sidebar:px-3 group-focus-within/sidebar:justify-start group-focus-within/sidebar:px-3"
+    // FIX: Restore icon-label spacing during hover expansion while keeping the collapsed icon rail centered.
+    ? "justify-center gap-0 px-0 py-2.5 group-hover/sidebar:justify-start group-hover/sidebar:gap-3 group-hover/sidebar:px-3 group-focus-within/sidebar:justify-start group-focus-within/sidebar:gap-3 group-focus-within/sidebar:px-3"
     : "gap-3 px-3 py-2.5";
   const navLabelClass = isAutoCollapsed
-    ? "w-0 overflow-hidden opacity-0 group-hover/sidebar:w-auto group-hover/sidebar:opacity-100 group-focus-within/sidebar:w-auto group-focus-within/sidebar:opacity-100"
+    // FIX: Match nav label motion with the sidebar shell so icon/text spacing stays stable while the rail opens.
+    ? "max-w-0 overflow-hidden opacity-0 translate-x-1.5 transition-[max-width,opacity,transform] duration-300 ease-out group-hover/sidebar:max-w-[160px] group-hover/sidebar:translate-x-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:max-w-[160px] group-focus-within/sidebar:translate-x-0 group-focus-within/sidebar:opacity-100"
     : "";
 
   return (
-    <aside className={`${sidebarShellClass} bg-white border-r border-[#CFD2D9] flex-shrink-0 flex flex-col transition-[width] duration-200 ease-out`}>
+    <aside className={`${sidebarShellClass} bg-white border-r border-[#CFD2D9] flex-shrink-0 flex flex-col transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}>
       {/* NOTE: Role switcher was removed intentionally; access is controlled by auth role + route guards. */}
       {viewMode === "university" ? (
         <div className="px-4 py-4 border-b border-[#CFD2D9]">
@@ -123,11 +127,12 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
         <div className={`py-6 ${isAutoCollapsed ? "px-0 flex justify-center" : "px-6"}`}>
           <Link
             to="/dashboard"
-            className={`flex items-center hover:opacity-90 transition-opacity ${isAutoCollapsed ? "justify-center w-10 h-10 rounded-2xl bg-[#2B2A2A]" : "gap-2"}`}
+            className={`flex items-center hover:opacity-90 transition-[opacity,transform] duration-300 ease-out ${isAutoCollapsed ? "justify-center w-12 h-12 rounded-[18px] bg-[#2B2A2A]" : "gap-3"}`}
             aria-label="Go to dashboard"
           >
-            <div className={`w-7 h-7 ${isAutoCollapsed ? "bg-transparent" : "bg-[#2B2A2A]"} rounded-lg flex items-center justify-center`}>
-              <div className="w-4 h-4 border-2 border-white rounded" />
+            {/* FIX: Keep one consistent logo mark in both expanded and collapsed states so the icon does not shift or clip. */}
+            <div className={`h-8 w-8 flex-shrink-0 rounded-xl flex items-center justify-center ${isAutoCollapsed ? "bg-transparent" : "bg-[#2B2A2A]"}`}>
+              <div className={`h-[18px] w-[18px] rounded-[6px] border-[1.8px] ${isAutoCollapsed ? "border-white" : "border-white"}`} />
             </div>
             <span className={`text-[15px] font-semibold text-[#2B2A2A] whitespace-nowrap ${collapsibleTextClass}`}>Grade Forge</span>
           </Link>
@@ -157,7 +162,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
                       : "text-[#44506B] hover:text-[#2B2A2A] hover:bg-[#EEF2FB]"
                   }`}
                 >
-                  <item.icon className="w-[18px] h-[18px]" strokeWidth={2} />
+                  <item.icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />
                   <span className={`text-[14px] whitespace-nowrap ${navLabelClass}`}>{item.label}</span>
                 </Link>
               </li>
@@ -184,7 +189,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
                         : "text-[#44506B] hover:text-[#2B2A2A] hover:bg-[#EEF2FB]"
                     }`}
                   >
-                    <item.icon className="w-[18px] h-[18px]" strokeWidth={2} />
+                    <item.icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />
                     <span className={`text-[14px] whitespace-nowrap ${navLabelClass}`}>{item.label}</span>
                   </Link>
                 </li>
