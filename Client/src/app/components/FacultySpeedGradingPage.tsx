@@ -14,11 +14,10 @@ import type { AssignmentDetail } from "../../types/assignment";
 import type { RubricCategory } from "../../types/grade";
 import type {
   FacultyAssignmentSubmissionRow,
-  SpeedGradingQueueStats,
   SpeedGradingTestSummary,
 } from "../../types/submission";
 
-interface RubricCriterionField {
+interface RubricScoreField {
   id: string;
   label: string;
   maxPoints: number;
@@ -58,15 +57,6 @@ function buildLatestSubmissionQueue(rows: FacultyAssignmentSubmissionRow[]): Fac
   });
 }
 
-function buildQueueStats(rows: FacultyAssignmentSubmissionRow[]): SpeedGradingQueueStats {
-  const graded = rows.filter((row) => !isUngradedSubmission(row)).length;
-  return {
-    total: rows.length,
-    graded,
-    ungraded: rows.length - graded,
-  };
-}
-
 function findNextUngradedSubmissionId(
   rows: FacultyAssignmentSubmissionRow[],
   currentSubmissionId: string,
@@ -89,20 +79,20 @@ function findNextUngradedSubmissionId(
   return headMatch?.submissionId ?? null;
 }
 
-function distributeMarksAcrossCriteria(criteria: RubricCriterionField[], totalMarks: number): number[] {
-  const maxTotal = criteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0);
+function distributeMarksAcrossRubrics(rubrics: RubricScoreField[], totalMarks: number): number[] {
+  const maxTotal = rubrics.reduce((sum, rubric) => sum + rubric.maxPoints, 0);
   if (maxTotal <= 0 || totalMarks <= 0) {
-    return criteria.map(() => 0);
+    return rubrics.map(() => 0);
   }
 
-  const seeded = criteria.map((criterion) => {
-    const weighted = (criterion.maxPoints / maxTotal) * totalMarks;
-    return Math.min(criterion.maxPoints, Math.floor(weighted));
+  const seeded = rubrics.map((rubric) => {
+    const weighted = (rubric.maxPoints / maxTotal) * totalMarks;
+    return Math.min(rubric.maxPoints, Math.floor(weighted));
   });
 
   let remainder = totalMarks - seeded.reduce((sum, score) => sum + score, 0);
-  for (let index = 0; remainder > 0 && index < criteria.length; index += 1) {
-    const remainingCap = criteria[index].maxPoints - seeded[index];
+  for (let index = 0; remainder > 0 && index < rubrics.length; index += 1) {
+    const remainingCap = rubrics[index].maxPoints - seeded[index];
     const additional = Math.min(remainder, remainingCap);
     if (additional > 0) {
       seeded[index] += additional;
@@ -164,8 +154,7 @@ export function FacultySpeedGradingPage() {
   const [isTestSummaryLoading, setIsTestSummaryLoading] = useState(false);
   const [testSummaryError, setTestSummaryError] = useState<string | null>(null);
 
-  const [criterionScores, setCriterionScores] = useState<number[]>([]);
-  const [marksInput, setMarksInput] = useState<string>("");
+  const [rubricScores, setRubricScores] = useState<number[]>([]);
   const [feedbackInput, setFeedbackInput] = useState<string>("");
   const [gradeError, setGradeError] = useState<string | null>(null);
   const [gradeStatusMessage, setGradeStatusMessage] = useState<string | null>(null);
@@ -174,22 +163,18 @@ export function FacultySpeedGradingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
 
-  const rubricCriteria = useMemo<RubricCriterionField[]>(() => {
-    return rubricCategories.flatMap((category, categoryIndex) =>
-      category.criteria.map((criterion, criterionIndex) => ({
-        id: `${categoryIndex}-${criterionIndex}`,
-        label: criterion.description,
-        maxPoints: criterion.points,
-      })),
-    );
+  const rubricScoreFields = useMemo<RubricScoreField[]>(() => {
+    return rubricCategories.map((category, categoryIndex) => ({
+      id: `rubric-${categoryIndex}`,
+      label: category.name,
+      maxPoints: category.points,
+    }));
   }, [rubricCategories]);
 
   const rubricMaxPoints = useMemo(
-    () => rubricCriteria.reduce((sum, criterion) => sum + criterion.maxPoints, 0),
-    [rubricCriteria],
+    () => rubricScoreFields.reduce((sum, rubric) => sum + rubric.maxPoints, 0),
+    [rubricScoreFields],
   );
-
-  const queueStats = useMemo(() => buildQueueStats(queueRows), [queueRows]);
 
   const selectedSubmission = useMemo(
     () => queueRows.find((row) => row.submissionId === selectedSubmissionId) ?? null,
@@ -213,8 +198,8 @@ export function FacultySpeedGradingPage() {
   );
 
   const computedRubricMarks = useMemo(
-    () => criterionScores.reduce((sum, score) => sum + score, 0),
-    [criterionScores],
+    () => rubricScores.reduce((sum, score) => sum + score, 0),
+    [rubricScores],
   );
 
   const nextUngradedSubmissionId = useMemo(
@@ -282,22 +267,21 @@ export function FacultySpeedGradingPage() {
     });
 
     const marks = selectedSubmission.marks;
-    if (rubricCriteria.length > 0) {
+    if (rubricScoreFields.length > 0) {
       if (marks != null && marks > 0) {
-        setCriterionScores(distributeMarksAcrossCriteria(rubricCriteria, Math.round(marks)));
+        // NOTE: Existing submission marks are distributed across rubric rows so faculty see an editable starting state.
+        setRubricScores(distributeMarksAcrossRubrics(rubricScoreFields, Math.round(marks)));
       } else {
-        setCriterionScores(rubricCriteria.map(() => 0));
+        setRubricScores(rubricScoreFields.map(() => 0));
       }
-      setMarksInput("");
     } else {
-      setCriterionScores([]);
-      setMarksInput(marks != null ? String(Math.round(marks)) : "");
+      setRubricScores([]);
     }
 
     setFeedbackInput("");
     setGradeError(null);
     setGradeStatusMessage(null);
-  }, [selectedSubmission, rubricCriteria]);
+  }, [selectedSubmission, rubricScoreFields]);
 
   useEffect(() => {
     if (!selectedSubmissionId) {
@@ -379,8 +363,13 @@ export function FacultySpeedGradingPage() {
       return;
     }
 
-    const marks = rubricCriteria.length > 0 ? computedRubricMarks : Number.parseFloat(marksInput);
-    const maxMarks = rubricCriteria.length > 0 ? rubricMaxPoints : assignment.points.total;
+    const marks = rubricScoreFields.length > 0 ? computedRubricMarks : Number.NaN;
+    const maxMarks = rubricScoreFields.length > 0 ? rubricMaxPoints : assignment.points.total;
+
+    if (rubricScoreFields.length === 0) {
+      setGradeError("This assignment has no rubric categories available for speed grading.");
+      return;
+    }
 
     if (!Number.isFinite(marks) || marks < 0) {
       setGradeError("Enter a valid grade (0 or higher).");
@@ -429,8 +418,7 @@ export function FacultySpeedGradingPage() {
     assignment,
     computedRubricMarks,
     feedbackInput,
-    marksInput,
-    rubricCriteria.length,
+    rubricScoreFields.length,
     rubricMaxPoints,
     selectedSubmission,
   ]);
@@ -452,11 +440,11 @@ export function FacultySpeedGradingPage() {
         <div className="max-w-md rounded-xl border border-[#F2C9CC] bg-white p-5 text-center">
           <p className="text-[14px] text-[#C23A42]">{pageError ?? "Unable to load speed grading."}</p>
           <Link
-            to={`/faculty/class/${resolvedClassId}/submissions`}
+            to={`/faculty/class/${resolvedClassId}/assignment/${resolvedAssignmentId}`}
             className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-[#5A7ACD]"
           >
             <ChevronLeft className="h-4 w-4" strokeWidth={2} />
-            Back to submissions
+            Back to assignment
           </Link>
         </div>
       </div>
@@ -469,11 +457,11 @@ export function FacultySpeedGradingPage() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-[13px]">
             <Link
-              to={`/faculty/class/${resolvedClassId}/submissions`}
+              to={`/faculty/class/${resolvedClassId}/assignment/${resolvedAssignmentId}`}
               className="flex items-center gap-1 text-gray-500 hover:text-[#2B2A2A]"
             >
               <ChevronLeft className="h-4 w-4" strokeWidth={2} />
-              Submissions
+              Assignment
             </Link>
             <span className="text-gray-300">/</span>
             <span className="font-medium text-[#2B2A2A]">Speed Grading</span>
@@ -490,7 +478,7 @@ export function FacultySpeedGradingPage() {
 
       <div className="flex-1 overflow-hidden p-4">
         <div className="grid h-full grid-cols-1 gap-4 xl:grid-cols-[1.45fr_0.95fr]">
-          <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-[#1e1e1e]">
+          <section className="flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-gray-200 bg-[#1e1e1e] shadow-[0_26px_70px_rgba(15,23,42,0.28)]">
             <div className="flex items-center justify-between gap-3 border-b border-[#3c3c3c] bg-[#252526] px-4 py-2">
               <div className="min-w-0">
                 <p className="truncate text-[13px] font-medium text-gray-200">{assignment.title}</p>
@@ -527,23 +515,8 @@ export function FacultySpeedGradingPage() {
             </div>
           </section>
 
-          <section className="min-h-0 overflow-y-auto rounded-xl border border-gray-200 bg-white p-4">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-lg border border-gray-200 bg-[#F9FAFC] px-3 py-2">
-                <p className="text-[11px] uppercase tracking-wide text-gray-500">Total</p>
-                <p className="mt-1 text-[18px] font-semibold text-[#2B2A2A]">{queueStats.total}</p>
-              </div>
-              <div className="rounded-lg border border-gray-200 bg-[#F4FBF6] px-3 py-2">
-                <p className="text-[11px] uppercase tracking-wide text-gray-500">Graded</p>
-                <p className="mt-1 text-[18px] font-semibold text-[#1E7A3F]">{queueStats.graded}</p>
-              </div>
-              <div className="rounded-lg border border-gray-200 bg-[#FFF8ED] px-3 py-2">
-                <p className="text-[11px] uppercase tracking-wide text-gray-500">Left</p>
-                <p className="mt-1 text-[18px] font-semibold text-[#B26A00]">{queueStats.ungraded}</p>
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-4">
+          <section className="min-h-0 overflow-y-auto rounded-[22px] border border-gray-200 bg-white p-4 shadow-[0_20px_55px_rgba(15,23,42,0.08)]">
+            <div className="space-y-4">
               <div className="rounded-xl border border-gray-200 p-3">
                 <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">Queue</p>
 
@@ -620,61 +593,53 @@ export function FacultySpeedGradingPage() {
               </div>
 
               <div className="rounded-xl border border-gray-200 p-3">
-                <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">Grade submission</p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">Rubric grading</p>
+                    <p className="mt-1 text-[12px] text-gray-600">Score each rubric row and the total grade updates automatically.</p>
+                  </div>
+                  <div className="rounded-xl border border-[#E4E7EC] bg-[#F8FAFC] px-3 py-2 text-right">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-500">Auto total</p>
+                    <p className="text-[17px] font-semibold text-[#2B2A2A]">{computedRubricMarks} / {rubricMaxPoints || assignment.points.total}</p>
+                  </div>
+                </div>
 
-                {rubricCriteria.length > 0 ? (
-                  <div className="mt-3 space-y-2 max-h-56 overflow-y-auto pr-1">
-                    {rubricCriteria.map((criterion, index) => (
-                      <div key={criterion.id} className="rounded-lg border border-gray-100 px-2.5 py-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-[12px] text-[#2B2A2A]">{criterion.label}</p>
-                          <input
-                            type="number"
-                            min={0}
-                            max={criterion.maxPoints}
-                            value={criterionScores[index] ?? 0}
-                            onChange={(event) => {
-                              const parsed = Number.parseInt(event.target.value, 10);
-                              if (!Number.isFinite(parsed)) {
-                                return;
-                              }
-                              setCriterionScores((previousScores) => {
-                                const nextScores = [...previousScores];
-                                nextScores[index] = Math.max(0, Math.min(criterion.maxPoints, parsed));
-                                return nextScores;
-                              });
-                            }}
-                            className="h-8 w-16 rounded-md border border-gray-300 px-2 text-right text-[12px] focus:border-[#5A7ACD] focus:outline-none"
-                          />
+                {rubricScoreFields.length > 0 ? (
+                  <div className="mt-4 space-y-2">
+                    {rubricScoreFields.map((rubric, index) => (
+                      <div
+                        key={rubric.id}
+                        className="grid grid-cols-[minmax(0,1fr)_86px_110px] items-center gap-3 rounded-xl border border-gray-100 bg-[#FBFCFE] px-3 py-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-medium text-[#2B2A2A]">{rubric.label}</p>
                         </div>
-                        <p className="mt-1 text-[11px] text-gray-500">max {criterion.maxPoints} pts</p>
+                        <p className="text-right text-[12px] text-gray-500">/ {rubric.maxPoints}</p>
+                        <input
+                          type="number"
+                          min={0}
+                          max={rubric.maxPoints}
+                          value={rubricScores[index] ?? 0}
+                          onChange={(event) => {
+                            const parsed = Number.parseInt(event.target.value, 10);
+                            setRubricScores((previousScores) => {
+                              const nextScores = [...previousScores];
+                              nextScores[index] = Number.isFinite(parsed)
+                                ? Math.max(0, Math.min(rubric.maxPoints, parsed))
+                                : 0;
+                              return nextScores;
+                            });
+                          }}
+                          className="h-10 w-full rounded-lg border border-gray-300 px-3 text-right text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#DCE5F8]"
+                        />
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="mt-3 space-y-2">
-                    <label className="block text-[12px] font-medium text-[#2B2A2A]">
-                      Marks (max {assignment.points.total})
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={assignment.points.total}
-                      value={marksInput}
-                      onChange={(event) => setMarksInput(event.target.value)}
-                      className="h-10 w-full rounded-lg border border-gray-300 px-3 text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none"
-                    />
+                  <div className="mt-4 rounded-xl border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-[12px] text-[#C23A42]">
+                    This assignment does not have rubric categories available for speed grading yet.
                   </div>
                 )}
-
-                <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2">
-                  <p className="text-[12px] text-gray-600">Total</p>
-                  <p className="text-[15px] font-semibold text-[#2B2A2A]">
-                    {rubricCriteria.length > 0
-                      ? `${computedRubricMarks} / ${rubricMaxPoints}`
-                      : `${marksInput.trim() || 0} / ${assignment.points.total}`}
-                  </p>
-                </div>
 
                 <div className="mt-3 space-y-2">
                   <label className="block text-[12px] font-medium text-[#2B2A2A]">Feedback</label>
@@ -698,7 +663,7 @@ export function FacultySpeedGradingPage() {
                 <button
                   type="button"
                   onClick={() => void handleSubmitGrade()}
-                  disabled={!selectedSubmission || isGradeSubmitting}
+                  disabled={!selectedSubmission || isGradeSubmitting || rubricScoreFields.length === 0}
                   className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#2B2A2A] text-[13px] font-medium text-white hover:bg-[#3a3939] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isGradeSubmitting ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} /> : null}
