@@ -1,7 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { AlertCircle, ArrowRight, CheckCircle2, ChevronLeft, Loader2 } from "lucide-react";
-import { MonacoEditor } from "./editors";
+import { CodeWorkspace } from "./assignment/CodeWorkspace";
 import { getAssignmentDetailById, listRubricCategories } from "../../services/assignmentService";
 import {
   fetchSubmissionFileText,
@@ -13,6 +13,7 @@ import { getRunTestsLatest } from "../../services/runTestsService";
 import type { AssignmentDetail } from "../../types/assignment";
 import type { RubricCategory } from "../../types/grade";
 import type {
+  FacultyEditorPreviewPayload,
   FacultyAssignmentSubmissionRow,
   SpeedGradingTestSummary,
 } from "../../types/submission";
@@ -136,13 +137,9 @@ export function FacultySpeedGradingPage() {
   const [rubricCategories, setRubricCategories] = useState<RubricCategory[]>([]);
   const [queueRows, setQueueRows] = useState<FacultyAssignmentSubmissionRow[]>([]);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string>("");
-  const [selectedFileId, setSelectedFileId] = useState<string>("");
-
-  const [editorFileName, setEditorFileName] = useState<string | null>(null);
-  const [editorLanguage, setEditorLanguage] = useState<string>("Python");
-  const [editorContent, setEditorContent] = useState<string>("");
-  const [isEditorLoading, setIsEditorLoading] = useState(false);
-  const [editorError, setEditorError] = useState<string | null>(null);
+  const [workspacePreviewPayload, setWorkspacePreviewPayload] = useState<FacultyEditorPreviewPayload | null>(null);
+  const [isWorkspacePreviewLoading, setIsWorkspacePreviewLoading] = useState(false);
+  const [workspacePreviewError, setWorkspacePreviewError] = useState<string | null>(null);
 
   const [testSummary, setTestSummary] = useState<SpeedGradingTestSummary>({
     hasRun: false,
@@ -192,11 +189,6 @@ export function FacultySpeedGradingPage() {
     }));
   }, [selectedSubmission]);
 
-  const selectedFile = useMemo(
-    () => fileOptions.find((file) => file.id === selectedFileId) ?? null,
-    [fileOptions, selectedFileId],
-  );
-
   const computedRubricMarks = useMemo(
     () => rubricScores.reduce((sum, score) => sum + score, 0),
     [rubricScores],
@@ -244,9 +236,8 @@ export function FacultySpeedGradingPage() {
 
   useEffect(() => {
     if (!selectedSubmission) {
-      setSelectedFileId("");
-      setEditorContent("");
-      setEditorFileName(null);
+      setWorkspacePreviewPayload(null);
+      setWorkspacePreviewError(null);
       setTestSummary({
         hasRun: false,
         publicPassed: 0,
@@ -256,15 +247,6 @@ export function FacultySpeedGradingPage() {
       });
       return;
     }
-
-    const defaultFileId =
-      selectedSubmission.files.find((file) => Boolean(file.downloadUrl))?.id ??
-      selectedSubmission.files[0]?.id ??
-      "";
-    setSelectedFileId((previous) => {
-      const exists = selectedSubmission.files.some((file) => file.id === previous);
-      return exists ? previous : defaultFileId;
-    });
 
     const marks = selectedSubmission.marks;
     if (rubricScoreFields.length > 0) {
@@ -317,36 +299,61 @@ export function FacultySpeedGradingPage() {
   }, [selectedSubmissionId]);
 
   useEffect(() => {
-    if (!selectedFile) {
-      setEditorContent("");
-      setEditorFileName(null);
-      setEditorError(null);
+    if (!selectedSubmission) {
+      setWorkspacePreviewPayload(null);
+      setWorkspacePreviewError(null);
       return;
     }
 
-    if (!selectedFile.downloadUrl) {
-      setEditorContent("");
-      setEditorFileName(selectedFile.fileName);
-      setEditorError("Download link is unavailable for this file.");
+    const downloadableFiles = selectedSubmission.files.filter((file) => Boolean(file.downloadUrl));
+    if (downloadableFiles.length === 0) {
+      setWorkspacePreviewPayload(null);
+      setWorkspacePreviewError("No downloadable files are available for this submission.");
       return;
     }
 
-    setIsEditorLoading(true);
-    setEditorError(null);
-    // FIX: Always fetch selected submission file text from presigned URL so faculty previews the exact uploaded source.
-    fetchSubmissionFileText(selectedFile.downloadUrl, selectedFile.fileName)
-      .then((content) => {
-        setEditorFileName(selectedFile.fileName);
-        setEditorLanguage(resolvePreviewLanguage(selectedFile.fileName, assignment?.language ?? "Python"));
-        setEditorContent(content);
+    let cancelled = false;
+    setIsWorkspacePreviewLoading(true);
+    setWorkspacePreviewError(null);
+
+    // FIX: Load all submission files into the shared assignment workspace so speed grading matches the normal editor with file tabs and tree navigation.
+    Promise.all(
+      downloadableFiles.map(async (file) => ({
+        fileName: file.fileName,
+        content: await fetchSubmissionFileText(file.downloadUrl as string, file.fileName),
+      })),
+    )
+      .then((previewFiles) => {
+        if (cancelled || previewFiles.length === 0) {
+          return;
+        }
+
+        const primaryFile = previewFiles[0];
+        setWorkspacePreviewPayload({
+          optionId: selectedSubmission.submissionId,
+          fileName: primaryFile.fileName,
+          language: resolvePreviewLanguage(primaryFile.fileName, assignment?.language ?? "Python"),
+          content: primaryFile.content,
+          files: previewFiles,
+        });
       })
       .catch((error) => {
-        setEditorFileName(selectedFile.fileName);
-        setEditorContent("");
-        setEditorError(getErrorMessage(error));
+        if (cancelled) {
+          return;
+        }
+        setWorkspacePreviewPayload(null);
+        setWorkspacePreviewError(getErrorMessage(error));
       })
-      .finally(() => setIsEditorLoading(false));
-  }, [assignment?.language, selectedFile]);
+      .finally(() => {
+        if (!cancelled) {
+          setIsWorkspacePreviewLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [assignment?.language, selectedSubmission]);
 
   const handleGoToNextStudent = useCallback(() => {
     if (!nextUngradedSubmissionId) {
@@ -477,42 +484,39 @@ export function FacultySpeedGradingPage() {
       </div>
 
       <div className="flex-1 overflow-hidden p-4">
-        <div className="grid h-full grid-cols-1 gap-4 xl:grid-cols-[1.45fr_0.95fr]">
-          <section className="flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-gray-200 bg-[#1e1e1e] shadow-[0_26px_70px_rgba(15,23,42,0.28)]">
-            <div className="flex items-center justify-between gap-3 border-b border-[#3c3c3c] bg-[#252526] px-4 py-2">
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-medium text-gray-200">{assignment.title}</p>
-                <p className="truncate text-[11px] text-gray-400">
-                  {selectedSubmission ? selectedSubmission.studentName : "No student selected"}
-                  {editorFileName ? ` - ${editorFileName}` : ""}
-                </p>
+        <div className="grid h-full grid-cols-1 gap-4 xl:grid-cols-[1.95fr_0.7fr]">
+          <section className="min-h-0 overflow-hidden rounded-[22px] border border-gray-200 bg-[#111827] shadow-[0_26px_70px_rgba(15,23,42,0.28)]">
+            {isWorkspacePreviewLoading ? (
+              <div className="flex h-full items-center justify-center text-[13px] text-gray-300">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={2} />
+                Loading submission workspace...
               </div>
-              <span className="rounded-full border border-[#3c3c3c] px-2 py-0.5 text-[11px] font-medium text-gray-300">
-                Read-only
-              </span>
-            </div>
-            <div className="flex-1 min-h-0">
-              {isEditorLoading ? (
-                <div className="flex h-full items-center justify-center text-[13px] text-gray-400">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={2} />
-                  Loading file preview...
+            ) : workspacePreviewError ? (
+              <div className="flex h-full items-center justify-center p-4">
+                <div className="max-w-md rounded-lg border border-[#5a2327] bg-[#2d1f21] px-4 py-3 text-[13px] text-red-300">
+                  {workspacePreviewError}
                 </div>
-              ) : editorError ? (
-                <div className="flex h-full items-center justify-center p-4">
-                  <div className="max-w-md rounded-lg border border-[#5a2327] bg-[#2d1f21] px-4 py-3 text-[13px] text-red-300">
-                    {editorError}
-                  </div>
-                </div>
-              ) : (
-                <MonacoEditor
-                  value={editorContent}
-                  language={editorLanguage}
-                  readOnly
-                  height="100%"
-                  className="h-full"
-                />
-              )}
-            </div>
+              </div>
+            ) : workspacePreviewPayload ? (
+              <CodeWorkspace
+                assignmentId={`speed-grading-${resolvedAssignmentId}-${selectedSubmissionId}`}
+                assignment={{
+                  language: assignment.language,
+                  hasStarterCode: false,
+                  submissionsUsed: 0,
+                  submissionsAllowed: null,
+                }}
+                codeExamples={{}}
+                // NOTE: Speed grading reuses the same workspace shell as the assignment page, but grading actions stay in the right-hand review panel.
+                onRunTests={() => {}}
+                onSubmit={async () => {}}
+                facultyEditorPreviewPayload={workspacePreviewPayload}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-[13px] text-gray-300">
+                Select a submission to load the workspace.
+              </div>
+            )}
           </section>
 
           <section className="min-h-0 overflow-y-auto rounded-[22px] border border-gray-200 bg-white p-4 shadow-[0_20px_55px_rgba(15,23,42,0.08)]">
@@ -535,21 +539,13 @@ export function FacultySpeedGradingPage() {
                   </select>
                 </div>
 
-                <div className="mt-3 space-y-2">
-                  <label className="block text-[12px] font-medium text-[#2B2A2A]">File</label>
-                  <select
-                    value={selectedFileId}
-                    onChange={(event) => setSelectedFileId(event.target.value)}
-                    disabled={fileOptions.length === 0}
-                    className="h-10 w-full rounded-lg border border-gray-300 px-3 text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]/30 disabled:cursor-not-allowed disabled:bg-gray-100"
-                  >
-                    {fileOptions.length === 0 ? <option value="">No files</option> : null}
-                    {fileOptions.map((file) => (
-                      <option key={file.id} value={file.id}>
-                        {file.fileName}
-                      </option>
-                    ))}
-                  </select>
+                <div className="mt-3 rounded-lg bg-[#F8FAFC] px-3 py-2">
+                  <p className="text-[12px] font-medium text-[#2B2A2A]">Workspace files</p>
+                  <p className="mt-1 text-[12px] text-gray-600">
+                    {fileOptions.length > 0
+                      ? `${fileOptions.length} file${fileOptions.length === 1 ? "" : "s"} available in the editor file tree.`
+                      : "No files available for this submission."}
+                  </p>
                 </div>
 
                 <button
