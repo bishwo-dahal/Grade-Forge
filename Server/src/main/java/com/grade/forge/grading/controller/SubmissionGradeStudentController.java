@@ -1,7 +1,7 @@
 package com.grade.forge.grading.controller;
 
 import com.grade.forge.configuration.security.CustomUserDetails;
-import com.grade.forge.grading.dto.SubmissionGradeResponse;
+import com.grade.forge.grading.dto.SubmissionGradeBatchResponse;
 import com.grade.forge.grading.service.SubmissionGradeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -14,8 +14,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/v1/student/submission-grades")
 @RequiredArgsConstructor
@@ -25,16 +23,16 @@ public class SubmissionGradeStudentController {
     private final SubmissionGradeService submissionGradeService;
 
     @GetMapping
-    public ResponseEntity<List<SubmissionGradeResponse>> getGradesForSubmission(@AuthenticationPrincipal CustomUserDetails customUserDetails,
-                                                                                @RequestParam("submissionId") Long submissionId) {
-        List<SubmissionGradeResponse> responses = submissionGradeService.getGradesForCurrentStudent(customUserDetails.getUsername(), submissionId);
-        return new ResponseEntity<>(responses, HttpStatus.OK);
+    public ResponseEntity<SubmissionGradeBatchResponse> getGradesForSubmission(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                                               @RequestParam("submissionId") Long submissionId) {
+        SubmissionGradeBatchResponse response = submissionGradeService.getGradesForCurrentStudent(customUserDetails.getUsername(), submissionId);
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<SubmissionGradeResponse> getGrade(@AuthenticationPrincipal CustomUserDetails customUserDetails,
-                                                            @PathVariable Long id) {
-        SubmissionGradeResponse response = submissionGradeService.getGradeForCurrentStudent(customUserDetails.getUsername(), id);
+    public ResponseEntity<SubmissionGradeBatchResponse> getGrade(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                                 @PathVariable Long id) {
+        SubmissionGradeBatchResponse response = submissionGradeService.getGradeForCurrentStudent(customUserDetails.getUsername(), id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 }

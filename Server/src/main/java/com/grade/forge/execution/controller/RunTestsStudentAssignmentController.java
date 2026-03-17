@@ -39,9 +39,10 @@ public class RunTestsStudentAssignmentController {
     public ResponseEntity<TestRunJobStatusResponse> runTestsWithFiles(
             @AuthenticationPrincipal CustomUserDetails user,
             @org.springframework.web.bind.annotation.PathVariable Long assignmentId,
-            @RequestPart("files") List<MultipartFile> files) {
+            @RequestPart("files") List<MultipartFile> files,
+            @RequestPart(value = "customStdin", required = false) String customStdin) {
         ensureStudentCanAccessAssignment(user, assignmentId);
-        TestRunJobStatusResponse result = runTestsSyncService.runTests(assignmentId, files);
+        TestRunJobStatusResponse result = runTestsSyncService.runTests(assignmentId, files, customStdin);
         // Students should never see private tests; filter them out and recompute summary.
         List<TestCaseResultItem> publicResults = result.getResults() == null
                 ? List.of()

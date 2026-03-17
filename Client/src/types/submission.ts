@@ -19,7 +19,8 @@ export interface SubmissionTestResult {
 export interface PublicTestCase {
   id: number;
   name: string;
-  passed: boolean;
+  /** undefined for custom-stdin runs (no pass/fail). */
+  passed?: boolean;
   input: string;
   /** If set, input is provided as a file with this name (not stdin). */
   inputFileName?: string | null;
@@ -142,6 +143,12 @@ export interface FacultySubmissionGradeOption {
 
 export interface FacultySubmissionGradePayload {
   submissionId: string;
+  marks: number;
+  feedback: string;
+}
+
+/** PATCH /api/v1/faculty/submissions/{submissionId}/grade request body (SubmissionGradeRequest: marks, feedback). */
+export interface SubmissionGradeRequest {
   marks: number;
   feedback: string;
 }

@@ -1,9 +1,12 @@
 /** GET /api/v1/grading-assistant/submissions?assignmentId= */
 export interface GradingAssistantSubmissionResponse {
-  id: number;
-  assignmentId: number;
+  /** Backend may send submissionId; use for links and API calls. */
+  submissionId?: number;
+  /** Legacy/alternate; prefer submissionId when present. */
+  id?: number;
+  assignmentId?: number;
   assignmentName?: string | null;
-  courseId: number;
+  courseId?: number;
   courseName?: string | null;
   studentId: number;
   studentName?: string | null;
@@ -11,6 +14,7 @@ export interface GradingAssistantSubmissionResponse {
   files?: SubmissionFileResponse[] | null;
   marks?: number | null;
   feedback?: string | null;
+  grade?: number | null;
   submittedAt?: string | null;
   status?: string | null;
 }

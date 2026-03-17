@@ -7,6 +7,7 @@ import { AuthShell } from "../../layout/AuthShell";
 import { AuthTopBar } from "../../layout/AuthTopBar";
 import type { SettingsSection } from "../../layout/AuthTopBar";
 import { Copy, Pencil, Trash2 } from "lucide-react";
+import { roundTo2 } from "../../../../utils/number";
 
 interface FacultyRubricsViewProps {
   rubrics: RubricSummary[];
@@ -172,7 +173,7 @@ function FacultyRubricsView({
                                   <div className="text-right text-[11px] text-[#6D7B91]">
                                     <div>{criterion.maxScore} pts</div>
                                     {criterion.weight != null && (
-                                      <div className="mt-0.5">weight {criterion.weight}</div>
+                                      <div className="mt-0.5">weight {roundTo2(criterion.weight)}</div>
                                     )}
                                   </div>
                                 </div>

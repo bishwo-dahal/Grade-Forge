@@ -37,7 +37,7 @@ public class RunTestsFacultyAssignmentController {
             @org.springframework.web.bind.annotation.PathVariable Long assignmentId,
             @RequestPart("files") List<MultipartFile> files) {
         ensureFacultyCanAccessAssignment(user, assignmentId);
-        TestRunJobStatusResponse result = runTestsSyncService.runTests(assignmentId, files);
+        TestRunJobStatusResponse result = runTestsSyncService.runTests(assignmentId, files, null);
         return ResponseEntity.ok(result);
     }
 

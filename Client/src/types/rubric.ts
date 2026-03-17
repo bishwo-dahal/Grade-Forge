@@ -1,9 +1,46 @@
+/** Sub-criterion under a criterion: description, maxScore, weight. */
+export interface RubricSubCriteriaRequest {
+  description?: string | null;
+  maxScore: number;
+  weight?: number | null;
+}
+
+/** Criterion: title; optional points (for unweighted); sub-criteria hold the grading details. */
+export interface RubricCriteriaRequest {
+  title: string;
+  /** Total points for this criterion (unweighted rubrics). Sub-criteria max scores must not exceed this. */
+  points?: number | null;
+  subCriteria: RubricSubCriteriaRequest[];
+}
+
+/** Matches backend RubricType enum. */
+export type RubricType = "WEIGHTED" | "UNWEIGHTED";
+
+/** Request body for create/update rubric (matches backend RubricRequest). */
+export interface RubricRequest {
+  name: string;
+  description?: string | null;
+  facultyId?: number | null;
+  rubricType?: RubricType;
+  criteria: RubricCriteriaRequest[];
+}
+
+/** Single criterion from API (may include id, points, and nested subCriteria). */
 export interface RubricCriterion {
   id?: number;
   title: string;
   description?: string | null;
-  maxScore: number;
+  maxScore?: number;
   weight?: number | null;
+  /** Total points for this criterion (unweighted rubrics). */
+  points?: number | null;
+  /** Nested sub-criteria when API returns new structure. */
+  subCriteria?: Array<{
+    id?: number;
+    description?: string | null;
+    maxScore: number;
+    weight?: number | null;
+  }>;
 }
 
 export interface Rubric {
@@ -11,6 +48,7 @@ export interface Rubric {
   name: string;
   description?: string | null;
   facultyId: number | null;
+  rubricType?: RubricType;
   criteria: RubricCriterion[];
 }
 
@@ -21,20 +59,9 @@ export interface RubricSummary {
   description?: string | null;
   criteriaCount: number;
   totalMaxScore: number;
-  /** Full criteria list is available for inline previews without extra API calls. */
   criteria: RubricCriterion[];
 }
 
 /** Payload used when creating or updating a rubric from the faculty UI. */
-export interface RubricCreatePayload {
-  name: string;
-  description?: string | null;
-  /** Criteria list; backend requires at least one and validates each item. */
-  criteria: Array<{
-    title: string;
-    description?: string | null;
-    maxScore: number;
-    weight?: number | null;
-  }>;
-}
+export type RubricCreatePayload = RubricRequest;
 

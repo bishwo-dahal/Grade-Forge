@@ -56,15 +56,31 @@ function mapToAssignment(assignment: AssignmentDetail | null, description: Assig
 
 function mapToRubricSection(rubric: Rubric | null, loading: boolean): AssignmentDetailPageRubricSection | null {
   if (!rubric && !loading) return null;
+  const criteria = rubric?.criteria ?? [];
+  const hasNested = criteria.some((c) => (c.subCriteria?.length ?? 0) > 0);
   return {
     name: rubric?.name ?? null,
     description: rubric?.description ?? null,
-    criteria: (rubric?.criteria ?? []).map((c) => ({
-      title: c.title ?? "Criterion",
-      maxScore: c.maxScore ?? null,
-      description: c.description ?? null,
-      weight: c.weight ?? null,
-    })),
+    criteria: hasNested
+      ? []
+      : criteria.map((c) => ({
+          title: c.title ?? "Criterion",
+          maxScore: c.maxScore ?? null,
+          description: c.description ?? null,
+          weight: c.weight ?? null,
+        })),
+    criteriaNested: hasNested
+      ? criteria
+          .filter((c) => (c.subCriteria?.length ?? 0) > 0)
+          .map((c) => ({
+            title: c.title ?? "Criterion",
+            subCriteria: (c.subCriteria ?? []).map((s) => ({
+              description: s.description ?? null,
+              maxScore: s.maxScore,
+              weight: s.weight ?? null,
+            })),
+          }))
+      : null,
     loading,
   };
 }
