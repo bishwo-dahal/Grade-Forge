@@ -1434,14 +1434,10 @@ function StudentGradesModal({
     GRADED: "Graded",
   };
 
-  const gradedAssignments = studentReport?.assignments.filter((assignment) => assignment.status === "GRADED").length ?? 0;
-  const submittedAssignments = studentReport?.assignments.filter((assignment) => assignment.status === "SUBMITTED").length ?? 0;
-  const assignmentCount = studentReport?.assignments.length ?? 0;
-
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 p-4" onClick={onClose}>
       <div
-        className="w-full max-w-5xl rounded-2xl border border-gray-200 bg-white shadow-2xl"
+        className="flex max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
@@ -1460,28 +1456,9 @@ function StudentGradesModal({
           </button>
         </div>
 
-        <div className="space-y-5 px-6 py-5">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <div className="rounded-xl border border-gray-200 bg-[#F8FAFC] px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8D97AC]">Average</p>
-              <p className="mt-1 text-[20px] font-semibold text-[#2B2A2A]">
-                {studentReport ? `${studentReport.totalScore.toFixed(2)}%` : `${student.avgScore}%`}
-              </p>
-            </div>
-            <div className="rounded-xl border border-gray-200 bg-[#F4FBF6] px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8D97AC]">Graded</p>
-              <p className="mt-1 text-[20px] font-semibold text-[#1E7A3F]">{gradedAssignments}</p>
-            </div>
-            <div className="rounded-xl border border-gray-200 bg-[#FFF8ED] px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8D97AC]">Submitted</p>
-              <p className="mt-1 text-[20px] font-semibold text-[#B26A00]">
-                {submittedAssignments} / {assignmentCount}
-              </p>
-            </div>
-          </div>
-
+        <div className="flex-1 overflow-y-auto px-6 py-5">
           {errorMessage ? (
-            <div className="rounded-xl border border-[#F2C9CC] bg-[#FFF5F5] px-4 py-3 text-[13px] text-[#C23A42]">
+            <div className="mb-5 rounded-xl border border-[#F2C9CC] bg-[#FFF5F5] px-4 py-3 text-[13px] text-[#C23A42]">
               {errorMessage}
             </div>
           ) : null}
@@ -1721,6 +1698,19 @@ function StudentsSection({
       null
     );
   }, [selectedGradeStudent, studentGradeReport]);
+
+  useEffect(() => {
+    if (!selectedGradeStudent) {
+      return;
+    }
+
+    // FIX: Lock background page scroll while the student grade modal is open so wheel and trackpad scrolling stay inside the dialog.
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [selectedGradeStudent]);
 
   const handleLookup = async (suggestedEmail?: string) => {
     const resolvedEmail = (suggestedEmail ?? lookupEmail).trim();
