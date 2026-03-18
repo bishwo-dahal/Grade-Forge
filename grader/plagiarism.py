@@ -6,6 +6,7 @@ Produces per-student results and comparison pairs for frontend side-by-side view
 import os
 from copydetect import CopyDetector
 from data_parser import Assignment
+from structured_similarity import structural_similarity
 
 # Highlight markers used by copydetect in get_copied_code_list().
 # Frontend can split on these to render highlighted segments (e.g. red left, green right).
@@ -13,7 +14,18 @@ HIGHLIGHT_START = ">>"
 HIGHLIGHT_END = "<<"
 
 # Minimum similarity (0–1) to report a pair. Raise to 0.6–0.7 to reduce false positives.
-DISPLAY_THRESHOLD = 0.5
+# Can be overridden via environment for tuning in different environments:
+#   GRADER_SIMILARITY_THRESHOLD=0.6
+def _get_display_threshold() -> float:
+    raw = os.environ.get("GRADER_SIMILARITY_THRESHOLD")
+    if not raw:
+        return 0.5
+    try:
+        value = float(raw)
+        # Clamp to a safe range [0, 1].
+        return max(0.0, min(1.0, value))
+    except ValueError:
+        return 0.5
 
 
 def _path_matches(sub_path, reported_path):
@@ -49,8 +61,15 @@ def run_similarity_check(assignment: Assignment):
     )
     detector = CopyDetector(
         extensions=[ext],
-        display_t=DISPLAY_THRESHOLD,
+        display_t=_get_display_threshold(),
         silent=True,
+    )
+
+    # Precompute structural signatures per file path (lazy: only when needed).
+    struct_sim_enabled = os.environ.get("GRADER_STRUCT_SIM_ENABLED", "true").lower() in (
+        "1",
+        "true",
+        "yes",
     )
 
     for sub in assignment.submissions:
@@ -64,8 +83,10 @@ def run_similarity_check(assignment: Assignment):
     detector.run()
     copied_list = detector.get_copied_code_list()
 
-    # Best match per student (student_id -> (score, match_file))
-    best_match = {s.student_id: (0.0, None) for s in assignment.submissions}
+    # Best match per student (student_id -> (score, match_file, partner_student_id))
+    best_match = {s.student_id: (0.0, None, None) for s in assignment.submissions}
+    # Count of how many suspicious matches each student appears in (as suspect).
+    matches_count = {s.student_id: 0 for s in assignment.submissions}
     comparisons = []
 
     for item in copied_list:
@@ -76,8 +97,13 @@ def run_similarity_check(assignment: Assignment):
         # Only the suspect (test) gets the similarity score. Use test_sim only so the overall %
         # matches "how much did YOUR code match the other?" (same as the file-level percentages we show).
         test_student = _student_for_path(assignment, test_path)
-        if test_student is not None and test_sim > best_match[test_student][0]:
-            best_match[test_student] = (test_sim, ref_path)
+        ref_student = _student_for_path(assignment, ref_path)
+        if test_student is not None:
+            matches_count[test_student] = matches_count.get(test_student, 0) + 1
+            # Track the single best match per student (by similarity score).
+            current_best_score, _, _ = best_match.get(test_student, (0.0, None, None))
+            if test_sim > current_best_score:
+                best_match[test_student] = (test_sim, ref_path, ref_student)
 
         # Build comparison entry for frontend. We want left=person we're checking (suspect),
         # right=potential source. Copydetect: test_path=file being checked, ref_path=reference.
@@ -89,14 +115,31 @@ def run_similarity_check(assignment: Assignment):
             if overlap_tokens is not None:
                 overlap_tokens = int(overlap_tokens)  # numpy int64 -> native int for JSON
             # left = suspect (test = "did they copy?"), right = source (ref)
-            left_student = _student_for_path(assignment, test_path)
-            right_student = _student_for_path(assignment, ref_path)
+            left_student = test_student
+            right_student = ref_student
+
+            # Optional structural similarity (AST-based) for supported languages.
+            struct_sim = 0.0
+            combined_sim = test_sim
+            if struct_sim_enabled:
+                try:
+                    struct_sim = structural_similarity(test_path, ref_path, assignment.language)
+                    weight = float(os.environ.get("GRADER_STRUCT_SIM_WEIGHT", "0.5"))
+                    weight = max(0.0, min(1.0, weight))
+                    combined_sim = (1.0 - weight) * test_sim + weight * struct_sim
+                except Exception:
+                    struct_sim = 0.0
+                    combined_sim = test_sim
+
             comparisons.append({
                 "left": {
                     "student_id": left_student,
                     "file_path": test_path,
                     "code": highlighted_test,
-                    "similarity": round(test_sim, 2),
+                    "similarity": round(combined_sim, 2),
+                    "token_similarity": round(test_sim, 2),
+                    "structural_similarity": round(struct_sim, 2),
+                    "combined_similarity": round(combined_sim, 2),
                 },
                 "right": {
                     "student_id": right_student,
@@ -109,15 +152,23 @@ def run_similarity_check(assignment: Assignment):
 
     results = []
     for sub in assignment.submissions:
-        score, match_file = best_match.get(sub.student_id, (0.0, None))
+        score, match_file, partner_student = best_match.get(sub.student_id, (0.0, None, None))
         grade = sub.calculate_score(
             assignment.weights, assignment.public_tests, assignment.private_tests
         )
         results.append({
             "student_id": sub.student_id,
             "final_grade": grade,
+            # Use the (possibly) combined similarity as the main score.
             "similarity_score": round(score, 2),
-            "similarity_warning": f"Match: {match_file}" if match_file else None,
+            "similarity_warning": (
+                f"Match with student {partner_student}: {match_file}"
+                if match_file and partner_student
+                else f"Match: {match_file}"
+                if match_file
+                else None
+            ),
+            "matches_count": matches_count.get(sub.student_id, 0),
         })
 
     return results, comparisons

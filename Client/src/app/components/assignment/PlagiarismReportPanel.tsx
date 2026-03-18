@@ -42,6 +42,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty }: PlagiarismRep
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
+  const [filterMode, setFilterMode] = useState<"all" | "high_struct" | "high_token">("all");
 
   const fetchLatest = useCallback(async () => {
     if (!assignmentId) return;
@@ -90,6 +91,9 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty }: PlagiarismRep
 
   const payload = report?.result ? parseResultPayload(report.result) : null;
   const results = payload?.results ?? [];
+  const summary = payload?.ai_features?.summary as
+    | { total_students: number; flagged_students: number; max_similarity: number }
+    | undefined;
   const isTerminal = report?.status === "COMPLETED" || report?.status === "FAILED";
   const isRunning = report?.status === "PENDING" || report?.status === "RUNNING";
 
@@ -148,6 +152,20 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty }: PlagiarismRep
             {report.triggerType === "DEADLINE" && " (automatic after deadline)"}
           </p>
 
+          {summary && (
+            <div className="mb-4 inline-flex flex-wrap gap-3 text-[12px] text-gray-700">
+              <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
+                Students: {summary.total_students}
+              </span>
+              <span className="px-2 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
+                Flagged: {summary.flagged_students}
+              </span>
+              <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
+                Max similarity: {Math.round((summary.max_similarity ?? 0) * 100)}%
+              </span>
+            </div>
+          )}
+
           {results.length === 0 ? (
             <p className="text-[14px] text-gray-500">No submissions in this report.</p>
           ) : (
@@ -163,9 +181,61 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty }: PlagiarismRep
                     </tr>
                   </thead>
                   <tbody>
+                    <tr className="border-b border-gray-100 bg-gray-50/60">
+                      <td colSpan={4} className="px-4 py-2">
+                        <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-700">
+                          <span className="mr-1 text-gray-500">Filter comparisons:</span>
+                          <button
+                            type="button"
+                            onClick={() => setFilterMode("all")}
+                            className={
+                              "px-2 py-0.5 rounded-full border text-xs " +
+                              (filterMode === "all"
+                                ? "border-[#5A7ACD] bg-[#EEF3FF] text-[#2B2A2A]"
+                                : "border-gray-300 bg-white text-gray-600")
+                            }
+                          >
+                            All
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFilterMode("high_struct")}
+                            className={
+                              "px-2 py-0.5 rounded-full border text-xs " +
+                              (filterMode === "high_struct"
+                                ? "border-emerald-400 bg-emerald-50 text-emerald-700"
+                                : "border-gray-300 bg-white text-gray-600")
+                            }
+                          >
+                            High structural
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFilterMode("high_token")}
+                            className={
+                              "px-2 py-0.5 rounded-full border text-xs " +
+                              (filterMode === "high_token"
+                                ? "border-amber-400 bg-amber-50 text-amber-700"
+                                : "border-gray-300 bg-white text-gray-600")
+                            }
+                          >
+                            High token
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                     {results.map((row: GraderReportResultItem) => {
                       const simPct = Math.round((row.similarity_score ?? 0) * 100);
                       const hasComparisons = row.comparisons?.length > 0;
+                      const matchesCount = (row as any).matches_count as number | undefined;
+                      const riskLevel =
+                        simPct >= 75
+                          ? "High"
+                          : simPct >= 40
+                          ? "Medium"
+                          : matchesCount && matchesCount > 0
+                          ? "Low"
+                          : "None";
                       const isExpanded = expandedStudentId === row.student_id;
                       return (
                         <React.Fragment key={row.student_id}>
@@ -179,6 +249,21 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty }: PlagiarismRep
                               >
                                 {simPct}%
                               </span>
+                              {riskLevel !== "None" && (
+                                <span
+                                  className={
+                                    "ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] border " +
+                                    (riskLevel === "High"
+                                      ? "border-red-200 bg-red-50 text-red-700"
+                                      : riskLevel === "Medium"
+                                      ? "border-amber-200 bg-amber-50 text-amber-700"
+                                      : "border-gray-200 bg-gray-50 text-gray-600")
+                                  }
+                                >
+                                  {riskLevel} risk
+                                  {matchesCount ? ` · ${matchesCount} match${matchesCount > 1 ? "es" : ""}` : ""}
+                                </span>
+                              )}
                             </td>
                             <td className="px-4 py-2 text-gray-600 text-[13px] max-w-[200px] truncate">
                               {row.similarity_warning ?? "—"}
@@ -201,11 +286,40 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty }: PlagiarismRep
                             <tr className="bg-gray-50/50">
                               <td colSpan={4} className="px-4 py-3">
                                 <div className="space-y-3 text-[13px]">
-                                  {row.comparisons.map((comp, idx) => (
+                                  {row.comparisons
+                                    .filter((comp) => {
+                                      if (filterMode === "all") return true;
+                                      const struct = comp.left.structural_similarity ?? 0;
+                                      const token = comp.left.token_similarity ?? 0;
+                                      if (filterMode === "high_struct") {
+                                        return struct >= 0.7;
+                                      }
+                                      if (filterMode === "high_token") {
+                                        return token >= 0.7;
+                                      }
+                                      return true;
+                                    })
+                                    .map((comp, idx) => (
                                     <div
                                       key={idx}
                                       className="rounded border border-gray-200 bg-white p-3"
                                     >
+                                      <div className="mb-2 text-[11px] text-gray-600">
+                                        {typeof comp.left.token_similarity === "number" &&
+                                        typeof comp.left.structural_similarity === "number" ? (
+                                          <>
+                                            Token:{" "}
+                                            {Math.round((comp.left.token_similarity ?? 0) * 100)}% · Structural:{" "}
+                                            {Math.round((comp.left.structural_similarity ?? 0) * 100)}% · Combined:{" "}
+                                            {Math.round(
+                                              (comp.left.combined_similarity ?? comp.left.similarity ?? 0) * 100
+                                            )}
+                                            %
+                                          </>
+                                        ) : (
+                                          <>Similarity details unavailable</>
+                                        )}
+                                      </div>
                                       <div className="grid grid-cols-2 gap-3">
                                         <div>
                                           <p className="font-medium text-gray-700 mb-1">

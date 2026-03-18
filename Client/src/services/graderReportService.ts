@@ -1,5 +1,9 @@
 import api from "../api/axios";
-import type { GraderReportResponse } from "../types/graderReport";
+import type {
+  GraderReportResponse,
+  GraderReportResultItem,
+  GraderReportResultPayload,
+} from "../types/graderReport";
 
 const BASE = "/api/v1/faculty/assignments";
 
@@ -47,4 +51,30 @@ export async function pollGraderReportUntilDone(
     await new Promise((r) => setTimeout(r, intervalMs));
   }
   throw new Error("Grader report timed out.");
+}
+
+/**
+ * Convenience helper: get plagiarism info for a single student from the latest report.
+ * Returns null if no report exists or the student is not present in the results.
+ */
+export async function getLatestGraderReportForStudent(
+  assignmentId: number | string,
+  studentId: number | string,
+): Promise<{ report: GraderReportResponse; student: GraderReportResultItem } | null> {
+  const latest = await getGraderReportLatest(assignmentId);
+  if (!latest || !latest.result || latest.status !== "COMPLETED") {
+    return null;
+  }
+  let payload: GraderReportResultPayload | null = null;
+  try {
+    payload = JSON.parse(latest.result) as GraderReportResultPayload;
+  } catch {
+    return null;
+  }
+  const sid = String(studentId);
+  const match = payload.results.find((r) => r.student_id === sid);
+  if (!match) {
+    return null;
+  }
+  return { report: latest, student: match };
 }

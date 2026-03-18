@@ -18,13 +18,30 @@ export interface GraderReportResultItem {
   final_grade: number;
   similarity_score: number;
   similarity_warning: string | null;
+  matches_count?: number;
   comparisons: GraderReportComparison[];
   ai_features: Record<string, unknown>;
 }
 
 export interface GraderReportComparison {
-  left: { student_id: string; file_path: string; code: string; similarity: number };
-  right: { student_id: string; file_path: string; code: string; similarity: number };
+  left: {
+    student_id: string;
+    file_path: string;
+    code: string;
+    similarity: number;
+    token_similarity?: number;
+    structural_similarity?: number;
+    combined_similarity?: number;
+  };
+  right: {
+    student_id: string;
+    file_path: string;
+    code: string;
+    similarity: number;
+    token_similarity?: number;
+    structural_similarity?: number;
+    combined_similarity?: number;
+  };
   overlap_tokens?: number;
 }
 
@@ -32,5 +49,13 @@ export interface GraderReportResultPayload {
   assignment_id: string;
   results: GraderReportResultItem[];
   highlight_markers: { start: string; end: string };
-  ai_features: Record<string, unknown>;
+  ai_features: {
+    summary?: {
+      total_students: number;
+      flagged_students: number;
+      max_similarity: number;
+    };
+    // Allow any future assignment-level AI features.
+    [key: string]: unknown;
+  };
 }
