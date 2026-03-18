@@ -389,6 +389,7 @@ export async function listFacultyAssignmentSubmissionFiles(
 
   return (data ?? []).map((sub) => ({
     submissionId: String(sub.submissionId),
+    studentId: String(sub.studentId),
     studentName: sub.studentName,
     submittedAt: sub.submittedAt ?? "",
     marks: typeof sub.grade === "number" ? sub.grade : null,
@@ -406,6 +407,7 @@ export async function getFacultySubmissionById(
   );
   return {
     submissionId: String(data.id),
+    studentId: String(data.studentId),
     studentName: data.studentName,
     submittedAt: data.submittedAt ?? "",
     marks: typeof data.marks === "number" ? data.marks : null,

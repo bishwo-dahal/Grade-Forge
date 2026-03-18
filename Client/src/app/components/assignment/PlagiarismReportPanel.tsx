@@ -34,9 +34,11 @@ function parseResultPayload(resultJson: string | null): GraderReportResultPayloa
 interface PlagiarismReportPanelProps {
   assignmentId: string;
   isFaculty: boolean;
+  /** When provided, show only this student's row (submission view). */
+  studentId?: string | null;
 }
 
-export function PlagiarismReportPanel({ assignmentId, isFaculty }: PlagiarismReportPanelProps) {
+export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: PlagiarismReportPanelProps) {
   const [report, setReport] = useState<GraderReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -90,7 +92,8 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty }: PlagiarismRep
   }, [assignmentId, isFaculty]);
 
   const payload = report?.result ? parseResultPayload(report.result) : null;
-  const results = payload?.results ?? [];
+  const allResults = payload?.results ?? [];
+  const results = studentId ? allResults.filter((r) => r.student_id === String(studentId)) : allResults;
   const summary = payload?.ai_features?.summary as
     | { total_students: number; flagged_students: number; max_similarity: number }
     | undefined;
@@ -108,8 +111,10 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty }: PlagiarismRep
   return (
     <div className="p-6">
       <div className="flex items-center justify-between gap-3 mb-4">
-        <h2 className="text-lg font-semibold text-[#2B2A2A]">Similarity Report</h2>
-        {isFaculty && (
+        <h2 className="text-lg font-semibold text-[#2B2A2A]">
+          {studentId ? "Similarity (this submission)" : "Similarity Report"}
+        </h2>
+        {isFaculty && !studentId && (
           <button
             type="button"
             onClick={handleGenerate}
@@ -129,7 +134,9 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty }: PlagiarismRep
 
       {!report && !loading && (
         <p className="text-[14px] text-gray-500">
-          No report yet.{isFaculty ? " Click “Generate report” to run similarity analysis for this assignment." : ""}
+          {studentId
+            ? "No plagiarism report is available yet for this assignment."
+            : `No report yet.${isFaculty ? " Click “Generate report” to run similarity analysis for this assignment." : ""}`}
         </p>
       )}
 
@@ -152,7 +159,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty }: PlagiarismRep
             {report.triggerType === "DEADLINE" && " (automatic after deadline)"}
           </p>
 
-          {summary && (
+          {!studentId && summary && (
             <div className="mb-4 inline-flex flex-wrap gap-3 text-[12px] text-gray-700">
               <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
                 Students: {summary.total_students}
@@ -167,7 +174,9 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty }: PlagiarismRep
           )}
 
           {results.length === 0 ? (
-            <p className="text-[14px] text-gray-500">No submissions in this report.</p>
+            <p className="text-[14px] text-gray-500">
+              {studentId ? "No plagiarism data found for this student in the latest report." : "No submissions in this report."}
+            </p>
           ) : (
             <div className="space-y-2">
               <div className="overflow-x-auto rounded-lg border border-gray-200">
@@ -236,7 +245,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty }: PlagiarismRep
                           : matchesCount && matchesCount > 0
                           ? "Low"
                           : "None";
-                      const isExpanded = expandedStudentId === row.student_id;
+                      const isExpanded = studentId ? true : expandedStudentId === row.student_id;
                       return (
                         <React.Fragment key={row.student_id}>
                           <tr className="border-b border-gray-100 hover:bg-gray-50/80">
@@ -269,7 +278,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty }: PlagiarismRep
                               {row.similarity_warning ?? "—"}
                             </td>
                             <td className="px-4 py-2">
-                              {hasComparisons && (
+                              {hasComparisons && !studentId && (
                                 <button
                                   type="button"
                                   onClick={() =>

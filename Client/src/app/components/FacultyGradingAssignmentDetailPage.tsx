@@ -94,6 +94,7 @@ function mapToSubmissionRows(rows: FacultyAssignmentSubmissionRow[]): Assignment
       .map((f) => ({ fileName: f.fileName, downloadUrl: f.downloadUrl }));
     return {
       submissionId: row.submissionId,
+      studentId: row.studentId ?? null,
       studentName: row.studentName,
       submittedAt: formatSubmissionDisplayDate(row.submittedAt),
       status: row.marks == null ? "Ungraded" : "Graded",

@@ -207,6 +207,7 @@ export function AssignmentGradingPage() {
   const [submissionLanguage, setSubmissionLanguage] = useState<string>("Python");
   const [studentName, setStudentName] = useState<string>("");
   const [studentEmail, setStudentEmail] = useState<string | null>(null);
+  const [studentId, setStudentId] = useState<string | null>(null);
   const [submittedAt, setSubmittedAt] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -264,6 +265,7 @@ export function AssignmentGradingPage() {
       return;
     }
     setStudentName(row.studentName);
+    setStudentId((row as any).studentId != null ? String((row as any).studentId) : null);
     setSubmittedAt(formatDate(row.submittedAt));
     setSubmissionLanguage(resolvePreviewLanguage(files[0].fileName, assignData.language));
     setSubmissionMarks(row.marks ?? null);
@@ -808,7 +810,11 @@ export function AssignmentGradingPage() {
                     />
                   )}
                   {activeTab === "plagiarism" && (
-                    <PlagiarismReportPanel assignmentId={assignmentId ?? ""} isFaculty={isFaculty} />
+                    <PlagiarismReportPanel
+                      assignmentId={assignmentId ?? ""}
+                      isFaculty={isFaculty}
+                      studentId={studentId}
+                    />
                   )}
                   {activeTab === "rubric" && <GradingRubricPanel rubricCategories={rubricCategories} />}
                 </div>

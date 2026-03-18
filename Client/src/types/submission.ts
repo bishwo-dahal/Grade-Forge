@@ -105,6 +105,8 @@ export interface SubmissionConsoleData {
 // NOTE: Faculty assignment results tab needs full per-submission file lists for download actions.
 export interface FacultyAssignmentSubmissionRow {
   submissionId: string;
+  /** Numeric id from backend, stringified. Used to map plagiarism results (student_id). */
+  studentId?: string;
   studentName: string;
   submittedAt: string;
   marks: number | null;
