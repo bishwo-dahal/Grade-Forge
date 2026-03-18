@@ -26,6 +26,7 @@ import type {
 } from "../types/class";
 import api from "../api/axios";
 import { roundTo2 } from "../utils/number";
+import { getCourseGradeReport } from "./gradeReportService";
 
 // NOTE: Centralized mock class/course data to create a single integration seam.
 // TODO(backend): Replace mock service with real API calls. Keep return shapes stable for the UI.
@@ -1231,28 +1232,43 @@ export async function listFacultyClassStudents(classId: string): Promise<ClassSt
 export async function listFacultyRosterRows(classId: string): Promise<FacultyRosterStudentRow[]> {
   const courseId = toCourseId(classId);
   // NOTE: Roster rows are centralized here so FacultyClassPage remains a data container, not a data-mapping layer.
-  const [enrollments, assignmentsWithSubmissions] = await Promise.all([
+  const [enrollments, assignmentsWithSubmissions, courseGradeReport] = await Promise.all([
     listFacultyEnrollmentsByCourse(courseId),
     fetchFacultyAssignmentsWithSubmissions(courseId).catch(() => []),
+    getCourseGradeReport(courseId).catch(() => null),
   ]);
 
   const totalAssignments = assignmentsWithSubmissions.length;
   const submissions = assignmentsWithSubmissions.flatMap(({ submissions }) => submissions);
 
+  const gradeReportByStudentId = new Map<number, { gradedOnly: number; includingMissing: number }>();
+  if (courseGradeReport?.students?.length) {
+    for (const student of courseGradeReport.students) {
+      const graded = student.assignments.filter((a) => a.status === "GRADED" && a.score != null);
+      const gradedEarned = graded.reduce((sum, a) => sum + Number(a.score ?? 0), 0);
+      const gradedTotal = graded.reduce((sum, a) => sum + Number(a.maxScore ?? 0), 0);
+      const gradedOnly = gradedTotal > 0 ? Math.round((gradedEarned / gradedTotal) * 100) : 0;
+
+      const allEarned = student.assignments.reduce((sum, a) => sum + Number(a.score ?? 0), 0);
+      const allTotal = student.assignments.reduce((sum, a) => sum + Number(a.maxScore ?? 0), 0);
+      const includingMissing = allTotal > 0 ? Math.round((allEarned / allTotal) * 100) : 0;
+
+      gradeReportByStudentId.set(Number(student.studentId), { gradedOnly, includingMissing });
+    }
+  }
+
   return enrollments.map((enrollment, index) => {
     const studentSubmissions = submissions.filter((submission) => submission.studentId === enrollment.studentId);
     const submittedAssignmentCount = new Set(studentSubmissions.map((submission) => submission.assignmentId)).size;
-    const gradedSubmissions = studentSubmissions.filter((submission) => submission.marks !== null);
     const latestSubmission = [...studentSubmissions].sort((left, right) => {
       return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
     })[0];
 
-    const avgScore =
-      gradedSubmissions.length > 0
-        ? Math.round(
-            gradedSubmissions.reduce((sum, submission) => sum + Number(submission.marks ?? 0), 0) / gradedSubmissions.length,
-          )
-        : 0;
+    const gradeReportAvg = enrollment.studentId != null ? gradeReportByStudentId.get(enrollment.studentId) : undefined;
+    const avgScoreGradedOnly = gradeReportAvg?.gradedOnly ?? 0;
+    const avgScoreIncludingMissing = gradeReportAvg?.includingMissing ?? 0;
+    // Default to graded-only for backwards-compatible roster behavior; UI can switch.
+    const avgScore = avgScoreGradedOnly;
     const completionPercent =
       totalAssignments > 0 ? Math.round((submittedAssignmentCount / totalAssignments) * 100) : 0;
 
@@ -1268,6 +1284,8 @@ export async function listFacultyRosterRows(classId: string): Promise<FacultyRos
       progressTotal: totalAssignments,
       completionPercent,
       avgScore,
+      avgScoreGradedOnly,
+      avgScoreIncludingMissing,
       lastActivity: latestSubmission ? formatRelativeTime(latestSubmission.submittedAt) : "No activity",
     } satisfies FacultyRosterStudentRow;
   });

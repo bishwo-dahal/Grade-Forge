@@ -49,7 +49,6 @@ import {
   listFacultyRosterRows,
   listFacultyDashboardStats,
   searchFacultyStudentByEmail,
-  summarizeFacultyRosterStats,
 } from "../../services/classService";
 import { listClassSubmissions } from "../../services/submissionService";
 import {
@@ -1228,12 +1227,18 @@ function GradeCell({
   assignment: { score: number | null; maxScore: number; status: string };
   statusLabel: Record<string, string>;
 }) {
+  const max = Number.isFinite(assignment.maxScore) ? assignment.maxScore : 0;
+  const score = assignment.score;
+  const displayScore =
+    score != null && Number.isFinite(score)
+      ? score.toFixed(2)
+      : assignment.status === "GRADED"
+        ? "—"
+        : "—";
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-[13px] text-[#2B2A2A] tabular-nums">
-        {assignment.score != null
-          ? `${assignment.score.toFixed(2)} / ${assignment.maxScore.toFixed(1)}`
-          : "— / " + assignment.maxScore.toFixed(1)}
+        {max > 0 ? `${displayScore} / ${max.toFixed(1)}` : displayScore}
       </span>
       <StatusPill status={assignment.status} statusLabel={statusLabel} />
     </div>
@@ -1279,6 +1284,7 @@ function StudentsSection({
   const [rosterSearchValue, setRosterSearchValue] = useState("");
   const [isRosterLoading, setIsRosterLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [avgMode, setAvgMode] = useState<"gradedOnly" | "includeMissing">("gradedOnly");
 
   // NOTE: Add-student flow is isolated in modal state so it does not interfere with roster filtering.
   const [lookupEmail, setLookupEmail] = useState("");
@@ -1386,7 +1392,36 @@ function StudentsSection({
     };
   }, [isAddStudentModalOpen, lookupEmail, resolvedId]);
 
-  const rosterStats: FacultyRosterStats = useMemo(() => summarizeFacultyRosterStats(rosterRows), [rosterRows]);
+  const getDisplayedAvgScore = useCallback(
+    (row: FacultyRosterStudentRow): number => {
+      if (avgMode === "includeMissing") {
+        return row.avgScoreIncludingMissing ?? row.avgScore;
+      }
+      return row.avgScoreGradedOnly ?? row.avgScore;
+    },
+    [avgMode],
+  );
+
+  const rosterStats: FacultyRosterStats = useMemo(() => {
+    const totalStudents = rosterRows.length;
+    const activeStudents = rosterRows.filter((row) => row.status === "active").length;
+    const inactiveStudents = rosterRows.filter((row) => row.status === "inactive").length;
+    const avgScore =
+      totalStudents > 0
+        ? Math.round(rosterRows.reduce((sum, row) => sum + getDisplayedAvgScore(row), 0) / totalStudents)
+        : 0;
+    const completion =
+      totalStudents > 0
+        ? Math.round(rosterRows.reduce((sum, row) => sum + row.completionPercent, 0) / totalStudents)
+        : 0;
+    return {
+      totalStudents,
+      activeStudents,
+      inactiveStudents,
+      avgScore,
+      completion,
+    };
+  }, [rosterRows, getDisplayedAvgScore]);
 
   const filterItems = useMemo(() => {
     const activeCount = rosterRows.filter((row) => row.status === "active").length;
@@ -1524,6 +1559,17 @@ function StudentsSection({
             onValueChange={(value) => setActiveFilter(value)}
           />
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Avg mode</span>
+          <SegmentedFilter
+            items={[
+              { id: "gradedOnly" as const, label: "Graded only" },
+              { id: "includeMissing" as const, label: "Include missing as 0" },
+            ]}
+            value={avgMode}
+            onValueChange={(value) => setAvgMode(value)}
+          />
+        </div>
       </div>
 
       {errorMessage ? (
@@ -1600,7 +1646,16 @@ function StudentsSection({
                     <input type="checkbox" className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]" />
                   </td>
                   <td className="px-4 py-4">
-                    <p className="text-[14px] font-medium text-[#2B2A2A]">{student.name}</p>
+                    {student.studentId != null ? (
+                      <Link
+                        to={`/faculty/class/${resolvedId}/students/${student.studentId}`}
+                        className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
+                      >
+                        {student.name}
+                      </Link>
+                    ) : (
+                      <p className="text-[14px] font-medium text-[#2B2A2A]">{student.name}</p>
+                    )}
                     <p className="text-[12px] text-gray-500 mt-1">{student.enrolledLabel}</p>
                   </td>
                   <td className="px-4 py-4">
@@ -1633,7 +1688,7 @@ function StudentsSection({
                     </p>
                   </td>
                   <td className="px-4 py-4 text-[13px] font-semibold text-[#2B2A2A]">
-                    {student.avgScore}%
+                    {getDisplayedAvgScore(student)}%
                   </td>
                   <td className="px-4 py-4 text-[13px] text-gray-600">{student.lastActivity}</td>
                   <td className="px-4 py-4">
