@@ -1411,6 +1411,130 @@ function StatusPill({
   );
 }
 
+function StudentGradesModal({
+  student,
+  studentReport,
+  isLoading,
+  errorMessage,
+  onClose,
+}: {
+  student: FacultyRosterStudentRow | null;
+  studentReport: CourseGradeReportStudent | null;
+  isLoading: boolean;
+  errorMessage: string | null;
+  onClose: () => void;
+}) {
+  if (!student) {
+    return null;
+  }
+
+  const statusLabel: Record<string, string> = {
+    NOT_SUBMITTED: "Not submitted",
+    SUBMITTED: "Submitted",
+    GRADED: "Graded",
+  };
+
+  const gradedAssignments = studentReport?.assignments.filter((assignment) => assignment.status === "GRADED").length ?? 0;
+  const submittedAssignments = studentReport?.assignments.filter((assignment) => assignment.status === "SUBMITTED").length ?? 0;
+  const assignmentCount = studentReport?.assignments.length ?? 0;
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-5xl rounded-2xl border border-gray-200 bg-white shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
+          <div>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#8D97AC]">Student grades</p>
+            <h3 className="mt-1 text-[22px] font-semibold text-[#2B2A2A]">{student.name}</h3>
+            <p className="mt-1 text-[13px] text-[#5D6A80]">{student.email}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-[#2B2A2A]"
+            aria-label="Close student grades"
+          >
+            <X className="h-4 w-4" strokeWidth={2} />
+          </button>
+        </div>
+
+        <div className="space-y-5 px-6 py-5">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-gray-200 bg-[#F8FAFC] px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8D97AC]">Average</p>
+              <p className="mt-1 text-[20px] font-semibold text-[#2B2A2A]">
+                {studentReport ? `${studentReport.totalScore.toFixed(2)}%` : `${student.avgScore}%`}
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-[#F4FBF6] px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8D97AC]">Graded</p>
+              <p className="mt-1 text-[20px] font-semibold text-[#1E7A3F]">{gradedAssignments}</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-[#FFF8ED] px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8D97AC]">Submitted</p>
+              <p className="mt-1 text-[20px] font-semibold text-[#B26A00]">
+                {submittedAssignments} / {assignmentCount}
+              </p>
+            </div>
+          </div>
+
+          {errorMessage ? (
+            <div className="rounded-xl border border-[#F2C9CC] bg-[#FFF5F5] px-4 py-3 text-[13px] text-[#C23A42]">
+              {errorMessage}
+            </div>
+          ) : null}
+
+          <div className="overflow-hidden rounded-xl border border-gray-200">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50 text-left">
+                  <th className="px-4 py-3 text-[12px] font-semibold uppercase tracking-wide text-gray-600">Assignment</th>
+                  <th className="px-4 py-3 text-[12px] font-semibold uppercase tracking-wide text-gray-600">Score</th>
+                  <th className="px-4 py-3 text-[12px] font-semibold uppercase tracking-wide text-gray-600">Max score</th>
+                  <th className="px-4 py-3 text-[12px] font-semibold uppercase tracking-wide text-gray-600">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, index) => (
+                    <tr key={`student-grade-skeleton-${index}`} className="border-t border-gray-100">
+                      <td className="px-4 py-4"><div className="h-4 w-36 animate-pulse rounded bg-gray-200" /></td>
+                      <td className="px-4 py-4"><div className="h-4 w-20 animate-pulse rounded bg-gray-200" /></td>
+                      <td className="px-4 py-4"><div className="h-4 w-16 animate-pulse rounded bg-gray-200" /></td>
+                      <td className="px-4 py-4"><div className="h-6 w-20 animate-pulse rounded-md bg-gray-100" /></td>
+                    </tr>
+                  ))
+                ) : studentReport?.assignments.length ? (
+                  studentReport.assignments.map((assignment) => (
+                    <tr key={assignment.assignmentId} className="border-t border-gray-100">
+                      <td className="px-4 py-4 text-[13px] font-medium text-[#2B2A2A]">{assignment.assignmentName}</td>
+                      <td className="px-4 py-4 text-[13px] text-[#2B2A2A]">
+                        {assignment.score != null ? assignment.score.toFixed(2) : "—"}
+                      </td>
+                      <td className="px-4 py-4 text-[13px] text-gray-600">{assignment.maxScore.toFixed(1)}</td>
+                      <td className="px-4 py-4">
+                        <StatusPill status={assignment.status} statusLabel={statusLabel} />
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-center text-[13px] text-gray-600">
+                      No assignment grades found for this student.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StudentsSection({
   isAddStudentModalOpen,
   onCloseAddStudentModal,
@@ -1440,6 +1564,10 @@ function StudentsSection({
   const [dropConfirm, setDropConfirm] = useState<FacultyRosterStudentRow | null>(null);
   const [dropping, setDropping] = useState(false);
   const [dropError, setDropError] = useState<string | null>(null);
+  const [selectedGradeStudent, setSelectedGradeStudent] = useState<FacultyRosterStudentRow | null>(null);
+  const [studentGradeReport, setStudentGradeReport] = useState<CourseGradeReportResponse | null>(null);
+  const [isStudentGradeReportLoading, setIsStudentGradeReportLoading] = useState(false);
+  const [studentGradeReportError, setStudentGradeReportError] = useState<string | null>(null);
 
   const courseId = useMemo(() => Number(resolvedId) || 0, [resolvedId]);
 
@@ -1453,6 +1581,26 @@ function StudentsSection({
       setErrorMessage(getErrorMessage(error));
     } finally {
       setIsRosterLoading(false);
+    }
+  };
+
+  const handleOpenStudentGrades = async (student: FacultyRosterStudentRow) => {
+    if (courseId <= 0) {
+      return;
+    }
+
+    setSelectedGradeStudent(student);
+    setIsStudentGradeReportLoading(true);
+    setStudentGradeReportError(null);
+    try {
+      // NOTE: Reuse the course grade report endpoint so the roster modal stays aligned with the main grades page data source.
+      const report = await getCourseGradeReport(courseId);
+      setStudentGradeReport(report);
+    } catch (error) {
+      setStudentGradeReport(null);
+      setStudentGradeReportError(getErrorMessage(error));
+    } finally {
+      setIsStudentGradeReportLoading(false);
     }
   };
 
@@ -1561,6 +1709,18 @@ function StudentsSection({
       return row.name.toLowerCase().includes(normalizedQuery) || row.email.toLowerCase().includes(normalizedQuery);
     });
   }, [activeFilter, rosterRows, rosterSearchValue]);
+
+  const selectedStudentGradeRow = useMemo(() => {
+    if (!selectedGradeStudent || !studentGradeReport) {
+      return null;
+    }
+
+    return (
+      studentGradeReport.students.find((student) => selectedGradeStudent.studentId != null && student.studentId === selectedGradeStudent.studentId) ??
+      studentGradeReport.students.find((student) => student.studentName.trim().toLowerCase() === selectedGradeStudent.name.trim().toLowerCase()) ??
+      null
+    );
+  }, [selectedGradeStudent, studentGradeReport]);
 
   const handleLookup = async (suggestedEmail?: string) => {
     const resolvedEmail = (suggestedEmail ?? lookupEmail).trim();
@@ -1786,8 +1946,12 @@ function StudentsSection({
                   <td className="px-4 py-4 text-[13px] text-gray-600">{student.lastActivity}</td>
                   <td className="px-4 py-4">
                     <div className="flex items-center justify-end gap-1">
-                      <button aria-label="Schedule student meeting" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                        <Calendar className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      <button
+                        aria-label="View student grades"
+                        onClick={() => void handleOpenStudentGrades(student)}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        <BarChart3 className="w-4 h-4 text-gray-500" strokeWidth={2} />
                       </button>
                       <button aria-label="Email student" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
                         <Mail className="w-4 h-4 text-gray-500" strokeWidth={2} />
@@ -1814,6 +1978,20 @@ function StudentsSection({
           </tbody>
         </table>
       </div>
+
+      {selectedGradeStudent ? (
+        <StudentGradesModal
+          student={selectedGradeStudent}
+          studentReport={selectedStudentGradeRow}
+          isLoading={isStudentGradeReportLoading}
+          errorMessage={studentGradeReportError}
+          onClose={() => {
+            // CLEANUP: Reset modal-scoped grade report state when the student grade view closes.
+            setSelectedGradeStudent(null);
+            setStudentGradeReportError(null);
+          }}
+        />
+      ) : null}
 
       {isAddStudentModalOpen ? (
         <div className="fixed inset-0 z-40 bg-black/35 flex items-center justify-center p-4" onClick={closeAddStudentModal}>
