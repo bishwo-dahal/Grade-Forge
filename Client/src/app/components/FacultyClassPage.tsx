@@ -68,7 +68,7 @@ import type {
 } from "../../types/gradeReport";
 import type { GradingAssistantResponse } from "../../types/gradingAssistant";
 import type { CourseAssistantResponse } from "../../types/courseAssistant";
-import { SegmentedFilter } from "./ui/SegmentedFilter";
+import { SegmentedFilter, type SegmentedFilterItem } from "./ui/SegmentedFilter";
 import {
   Tooltip,
   TooltipContent,
@@ -1131,7 +1131,12 @@ function GradesSection({
                           className={`border-b border-gray-100 transition-colors hover:bg-[#F8F9FB]/80 ${idx % 2 === 1 ? "bg-gray-50/40" : ""}`}
                         >
                           <td className="px-5 py-3.5 text-[13px] font-medium text-[#2B2A2A] sticky left-0 bg-inherit z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.04)] border-r border-gray-200">
-                            {student.studentName}
+                            <Link
+                              to={`/faculty/class/${classId || "1"}/students/${student.studentId}`}
+                              className="hover:text-[#5A7ACD] transition-colors"
+                            >
+                              {student.studentName}
+                            </Link>
                           </td>
                           {student.assignments.map((a) => (
                             <td key={a.assignmentId} className="px-4 py-3.5 border-r border-gray-200 last:border-r-0">
@@ -1421,7 +1426,7 @@ function StudentsSection({
     };
   }, [rosterRows, getDisplayedAvgScore]);
 
-  const filterItems = useMemo(() => {
+  const filterItems = useMemo<SegmentedFilterItem<RosterFilter>[]>(() => {
     const activeCount = rosterRows.filter((row) => row.status === "active").length;
     const inactiveCount = rosterRows.filter((row) => row.status === "inactive").length;
     const unassignedCount = rosterRows.filter((row) => row.status === "unassigned").length;
@@ -1430,7 +1435,7 @@ function StudentsSection({
       { id: "active", label: "Active", count: activeCount },
       { id: "inactive", label: "Inactive", count: inactiveCount },
       { id: "unassigned", label: "Unassigned", count: unassignedCount },
-    ] as const;
+    ];
   }, [rosterRows]);
 
   const filteredRows = useMemo(() => {
