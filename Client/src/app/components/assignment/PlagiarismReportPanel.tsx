@@ -460,7 +460,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
                                           <p className="font-medium text-gray-700 mb-1">
                                             You (left) — {Math.round((comp.left.similarity ?? 0) * 100)}%
                                           </p>
-                                          <pre className="whitespace-pre-wrap break-words text-[12px] bg-gray-50 p-2 rounded max-h-40 overflow-auto">
+                                          <pre className="whitespace-pre-wrap break-words text-[12px] bg-gray-50 p-2 rounded max-h-72 overflow-auto">
                                             {renderHighlightedCode(
                                               comp.left.code,
                                               highlightMarkers,
@@ -472,7 +472,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
                                           <p className="font-medium text-gray-700 mb-1">
                                             Other (right) — {Math.round((comp.right.similarity ?? 0) * 100)}%
                                           </p>
-                                          <pre className="whitespace-pre-wrap break-words text-[12px] bg-gray-50 p-2 rounded max-h-40 overflow-auto">
+                                          <pre className="whitespace-pre-wrap break-words text-[12px] bg-gray-50 p-2 rounded max-h-72 overflow-auto">
                                             {renderHighlightedCode(
                                               comp.right.code,
                                               highlightMarkers,
