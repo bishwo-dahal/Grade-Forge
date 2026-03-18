@@ -31,6 +31,131 @@ function parseResultPayload(resultJson: string | null): GraderReportResultPayloa
   }
 }
 
+function decodeBasicEntities(raw: string): string {
+  // Minimal decoding for strings produced by copydetect.
+  return raw
+    .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function stripUnknownTags(raw: string): string {
+  // Remove any remaining HTML tags (we handle highlight spans separately).
+  return raw.replace(/<[^>]+>/g, "");
+}
+
+function renderCopydetectSpans(
+  rawCode: string,
+  classes: { red: string; green: string }
+): React.ReactNode | null {
+  // copydetect emits <span class='highlight-red'> ... </span> and highlight-green.
+  const code = decodeBasicEntities(rawCode);
+  if (!code.includes("highlight-red") && !code.includes("highlight-green")) {
+    return null;
+  }
+
+  const openRe = /<span class='highlight-(red|green)'>/g;
+  const closeTag = "</span>";
+
+  const parts: React.ReactNode[] = [];
+  let idx = 0;
+  let currentColor: "red" | "green" | null = null;
+
+  while (idx < code.length) {
+    const openMatch = openRe.exec(code);
+    const nextOpenIndex = openMatch ? openMatch.index : -1;
+    const nextCloseIndex = currentColor ? code.indexOf(closeTag, idx) : -1;
+
+    if (currentColor == null) {
+      if (nextOpenIndex === -1) {
+        parts.push(stripUnknownTags(code.slice(idx)));
+        break;
+      }
+      if (nextOpenIndex > idx) {
+        parts.push(stripUnknownTags(code.slice(idx, nextOpenIndex)));
+      }
+      currentColor = openMatch![1] as "red" | "green";
+      idx = nextOpenIndex + openMatch![0].length;
+      continue;
+    }
+
+    // We are inside a highlight span.
+    if (nextCloseIndex === -1) {
+      parts.push(
+        <span key={`${idx}-tail`} className={currentColor === "red" ? classes.red : classes.green}>
+          {stripUnknownTags(code.slice(idx))}
+        </span>
+      );
+      break;
+    }
+    const highlightedText = stripUnknownTags(code.slice(idx, nextCloseIndex));
+    parts.push(
+      <span key={`${idx}-${nextCloseIndex}`} className={currentColor === "red" ? classes.red : classes.green}>
+        {highlightedText}
+      </span>
+    );
+    idx = nextCloseIndex + closeTag.length;
+    currentColor = null;
+    // Reset regex search position to current idx for the next open.
+    openRe.lastIndex = idx;
+  }
+
+  return <>{parts}</>;
+}
+
+function renderHighlightedCode(
+  rawCode: string | null | undefined,
+  markers: { start: string; end: string } | null | undefined,
+  highlightClassName: string
+): React.ReactNode {
+  if (!rawCode) return "—";
+  const spanRendered = renderCopydetectSpans(rawCode, {
+    red: highlightClassName,
+    green: highlightClassName,
+  });
+  if (spanRendered) {
+    return spanRendered;
+  }
+
+  const code = stripUnknownTags(decodeBasicEntities(rawCode));
+  const start = markers?.start ?? ">>";
+  const end = markers?.end ?? "<<";
+
+  if (!code.includes(start) || !code.includes(end)) {
+    return code;
+  }
+
+  const parts: React.ReactNode[] = [];
+  let i = 0;
+  while (i < code.length) {
+    const s = code.indexOf(start, i);
+    if (s === -1) {
+      parts.push(code.slice(i));
+      break;
+    }
+    if (s > i) {
+      parts.push(code.slice(i, s));
+    }
+    const afterStart = s + start.length;
+    const e = code.indexOf(end, afterStart);
+    if (e === -1) {
+      // Unbalanced marker; render remainder as plain text.
+      parts.push(code.slice(s));
+      break;
+    }
+    const matchText = code.slice(afterStart, e);
+    parts.push(
+      <span key={`${s}-${e}`} className={highlightClassName}>
+        {matchText}
+      </span>
+    );
+    i = e + end.length;
+  }
+  return <>{parts}</>;
+}
+
 interface PlagiarismReportPanelProps {
   assignmentId: string;
   isFaculty: boolean;
@@ -94,6 +219,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
   const payload = report?.result ? parseResultPayload(report.result) : null;
   const allResults = payload?.results ?? [];
   const results = studentId ? allResults.filter((r) => r.student_id === String(studentId)) : allResults;
+  const highlightMarkers = payload?.highlight_markers ?? { start: ">>", end: "<<" };
   const summary = payload?.ai_features?.summary as
     | { total_students: number; flagged_students: number; max_similarity: number }
     | undefined;
@@ -335,7 +461,11 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
                                             You (left) — {Math.round((comp.left.similarity ?? 0) * 100)}%
                                           </p>
                                           <pre className="whitespace-pre-wrap break-words text-[12px] bg-gray-50 p-2 rounded max-h-40 overflow-auto">
-                                            {comp.left.code?.replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&#34;/g, '"') ?? "—"}
+                                            {renderHighlightedCode(
+                                              comp.left.code,
+                                              highlightMarkers,
+                                              "bg-amber-200/70 text-gray-900 rounded-sm px-0.5"
+                                            )}
                                           </pre>
                                         </div>
                                         <div>
@@ -343,7 +473,11 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
                                             Other (right) — {Math.round((comp.right.similarity ?? 0) * 100)}%
                                           </p>
                                           <pre className="whitespace-pre-wrap break-words text-[12px] bg-gray-50 p-2 rounded max-h-40 overflow-auto">
-                                            {comp.right.code?.replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&#34;/g, '"') ?? "—"}
+                                            {renderHighlightedCode(
+                                              comp.right.code,
+                                              highlightMarkers,
+                                              "bg-emerald-200/70 text-gray-900 rounded-sm px-0.5"
+                                            )}
                                           </pre>
                                         </div>
                                       </div>
