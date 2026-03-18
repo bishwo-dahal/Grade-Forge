@@ -396,7 +396,8 @@ export async function listFacultyAssignmentSubmissionFiles(
           submissionId: String(sub.submissionId),
           studentName: sub.studentName,
           submittedAt: sub.submittedAt ?? detail.submittedAt ?? "",
-          marks: typeof sub.grade === "number" ? sub.grade : detail.marks,
+          // FIX: Prefer the full submission-detail grade because the slim list endpoint can lag behind immediately after a grade update.
+          marks: detail.marks ?? (typeof sub.grade === "number" ? sub.grade : null),
           files: detail.files,
         } satisfies FacultyAssignmentSubmissionRow;
       } catch {
