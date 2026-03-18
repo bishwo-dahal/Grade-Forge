@@ -10,8 +10,9 @@ import {
   UsersRound,
   UserPlus,
 } from "lucide-react";
-import { getCourseGradeReport } from "../../../services/gradeReportService";
+import { getCourseGradeReport, getStudentCourseStats } from "../../../services/gradeReportService";
 import type { CourseGradeReportStudent } from "../../../types/gradeReport";
+import type { StudentCourseStats } from "../../../types/studentCourseStats";
 import { SegmentedFilter } from "../ui/SegmentedFilter";
 
 type AvgMode = "gradedOnly" | "includeMissing";
@@ -45,6 +46,7 @@ export function FacultyClassStudentDetailPage() {
 
   const [avgMode, setAvgMode] = useState<AvgMode>("gradedOnly");
   const [student, setStudent] = useState<CourseGradeReportStudent | null>(null);
+  const [stats, setStats] = useState<StudentCourseStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -52,19 +54,28 @@ export function FacultyClassStudentDetailPage() {
     if (courseId <= 0 || parsedStudentId <= 0) return;
     setIsLoading(true);
     setErrorMessage(null);
-    getCourseGradeReport(courseId, [parsedStudentId])
-      .then((report) => {
+    Promise.all([
+      getCourseGradeReport(courseId, [parsedStudentId]),
+      getStudentCourseStats(courseId, parsedStudentId),
+    ])
+      .then(([report, studentStats]) => {
         setStudent(report.students?.[0] ?? null);
+        setStats(studentStats);
       })
       .catch((err) => {
         const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-        setErrorMessage(typeof apiMessage === "string" && apiMessage.trim() ? apiMessage : "Failed to load student grades.");
+        setErrorMessage(typeof apiMessage === "string" && apiMessage.trim() ? apiMessage : "Failed to load student details.");
         setStudent(null);
+        setStats(null);
       })
       .finally(() => setIsLoading(false));
   }, [courseId, parsedStudentId]);
 
   const overallPercent = useMemo(() => (student ? computeOverallPercent(student, avgMode) : 0), [student, avgMode]);
+  const displayedOverall = useMemo(() => {
+    if (!stats) return overallPercent;
+    return avgMode === "includeMissing" ? stats.overallPercentIncludingMissing : stats.overallPercentGradedOnly;
+  }, [stats, avgMode, overallPercent]);
 
   return (
     <div className="flex h-screen bg-[#F5F2F2]">
@@ -166,7 +177,7 @@ export function FacultyClassStudentDetailPage() {
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex flex-col items-end">
                     <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Overall</div>
-                    <div className="text-[26px] font-semibold text-[#2B2A2A] tabular-nums">{overallPercent}%</div>
+                    <div className="text-[26px] font-semibold text-[#2B2A2A] tabular-nums">{displayedOverall}%</div>
                   </div>
                   <SegmentedFilter
                     items={[
@@ -179,6 +190,95 @@ export function FacultyClassStudentDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Student stats overview */}
+            {stats ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                <StatCard
+                  label="Submission rate"
+                  value={`${stats.submittedAssignments}/${stats.totalAssignments} (${stats.submissionRatePercent}%)`}
+                />
+                <StatCard
+                  label="Missing"
+                  value={String(stats.missingAssignments)}
+                />
+                <StatCard
+                  label="Late"
+                  value={String(stats.lateSubmissions)}
+                />
+                <StatCard
+                  label="Last activity"
+                  value={
+                    stats.lastActivity
+                      ? `${stats.lastActivity.assignmentName} • ${new Date(stats.lastActivity.submittedAt).toLocaleString()}`
+                      : "—"
+                  }
+                />
+                <StatCard
+                  label="Trend (last graded)"
+                  value={stats.trend?.length ? `${stats.trend.length} items` : "—"}
+                />
+                <StatCard
+                  label="Plagiarism flags"
+                  value={stats.plagiarismFlagCount != null ? String(stats.plagiarismFlagCount) : "—"}
+                />
+                <StatCard
+                  label="Time on task"
+                  value={stats.timeOnTaskMinutes != null ? `${stats.timeOnTaskMinutes} min` : "—"}
+                />
+                <StatCard
+                  label="Rubric breakdown"
+                  value={stats.rubricBreakdownSummary ?? "—"}
+                />
+              </div>
+            ) : null}
+
+            {/* Trend table */}
+            {stats?.trend?.length ? (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm mb-6">
+                <div className="px-6 py-4 border-b border-gray-200 bg-[#F8F9FB] flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-[13px] font-semibold text-[#2B2A2A]">
+                    <BarChart3 className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                    Recent graded trend
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px]">
+                    <thead>
+                      <tr className="border-b border-gray-200 bg-gray-50">
+                        <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                          Assignment
+                        </th>
+                        <th className="text-right px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide w-44">
+                          Score
+                        </th>
+                        <th className="text-right px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide w-56">
+                          Graded at
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stats.trend.map((t, idx) => (
+                        <tr
+                          key={`${t.assignmentId}-${t.gradedAt}`}
+                          className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${idx === stats.trend.length - 1 ? "border-b-0" : ""}`}
+                        >
+                          <td className="px-6 py-4">
+                            <span className="text-[14px] font-medium text-[#2B2A2A]">{t.assignmentName}</span>
+                          </td>
+                          <td className="px-6 py-4 text-right text-[13px] font-semibold text-[#2B2A2A] tabular-nums">
+                            {t.score.toFixed(2)} / {t.maxScore.toFixed(1)}
+                          </td>
+                          <td className="px-6 py-4 text-right text-[13px] text-gray-600">
+                            {new Date(t.gradedAt).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
 
         {errorMessage ? (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
@@ -306,6 +406,15 @@ function NavItem({
         </div>
       </Link>
     </li>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 px-4 py-3">
+      <p className="text-[12px] text-[#5D6A80]">{label}</p>
+      <p className="mt-1 text-[16px] font-semibold text-[#2B2A2A]">{value}</p>
+    </div>
   );
 }
 

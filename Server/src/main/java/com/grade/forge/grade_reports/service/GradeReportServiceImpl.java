@@ -10,6 +10,7 @@ import com.grade.forge.grade_reports.dto.AssignmentGradeDTO;
 import com.grade.forge.grade_reports.dto.AssignmentReportResponseDTO;
 import com.grade.forge.grade_reports.dto.GradeReportResponseDTO;
 import com.grade.forge.grade_reports.dto.StudentAssignmentStatusDTO;
+import com.grade.forge.grade_reports.dto.StudentCourseStatsDTO;
 import com.grade.forge.grade_reports.dto.StudentGradeDTO;
 import com.grade.forge.grading.entity.SubmissionGrade;
 import com.grade.forge.grading.repository.SubmissionGradeRepository;
@@ -275,6 +276,135 @@ public class GradeReportServiceImpl implements GradeReportService {
             return STATUS_MISSING;
         }
         return STATUS_NOT_SUBMITTED;
+    }
+
+    @Override
+    public StudentCourseStatsDTO generateStudentCourseStats(Long courseId, Long studentId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+
+        List<Enrollment> enrollments = enrollmentRepository.findByCourse_Id(courseId).stream()
+                .filter(e -> e.getStudent() != null && Objects.equals(e.getStudent().getId(), studentId))
+                .toList();
+        if (enrollments.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Student is not enrolled in this course");
+        }
+        Student student = enrollments.get(0).getStudent();
+
+        List<Assignment> assignments = assignmentRepository.findByCourse_Id(courseId);
+        int totalAssignments = assignments.size();
+
+        LocalDateTime now = LocalDateTime.now();
+        int submittedAssignments = 0;
+        int gradedAssignments = 0;
+        int missingAssignments = 0;
+        int lateSubmissions = 0;
+
+        // For last activity and trend we need latest submission per assignment.
+        Submission lastSubmission = null;
+        Assignment lastSubmissionAssignment = null;
+        List<StudentCourseStatsDTO.TrendPointDTO> trend = new ArrayList<>();
+
+        double gradedEarned = 0.0;
+        double gradedTotal = 0.0;
+        double allEarned = 0.0;
+        double allTotal = 0.0;
+
+        for (Assignment assignment : assignments) {
+            List<Submission> subs = submissionRepository.findByAssignment_IdAndStudent_Id(assignment.getId(), studentId);
+            Submission latest = subs.stream()
+                    .max(Comparator.comparing(Submission::getSubmittedAt))
+                    .orElse(null);
+
+            final double maxScore = assignment.getTotalPoints() != null ? assignment.getTotalPoints().doubleValue() : 0.0;
+            allTotal += maxScore;
+
+            if (latest == null) {
+                // Missing if past due date.
+                String status = determineMissingStatus(assignment, now);
+                if (STATUS_MISSING.equals(status)) {
+                    missingAssignments += 1;
+                }
+                // includeMissing mode counts as 0 earned
+                continue;
+            }
+
+            submittedAssignments += 1;
+
+            if (lastSubmission == null || latest.getSubmittedAt().isAfter(lastSubmission.getSubmittedAt())) {
+                lastSubmission = latest;
+                lastSubmissionAssignment = assignment;
+            }
+
+            // Late determination uses dueDate (not lateDueDate) for now.
+            if (assignment.getDueDate() != null && latest.getSubmittedAt() != null && latest.getSubmittedAt().isAfter(assignment.getDueDate())) {
+                lateSubmissions += 1;
+            }
+
+            Double score = null;
+            List<SubmissionGrade> grades = submissionGradeRepository.findBySubmission_Id(latest.getId());
+            if (grades != null && !grades.isEmpty()) {
+                score = calculateRubricBackedScore(assignment, grades);
+            } else if (latest.getMarks() != null) {
+                score = latest.getMarks();
+            }
+
+            if (score != null) {
+                gradedAssignments += 1;
+                double clamped = maxScore > 0 ? Math.max(0.0, Math.min(maxScore, score)) : score;
+                gradedEarned += clamped;
+                gradedTotal += maxScore;
+                allEarned += clamped;
+                trend.add(new StudentCourseStatsDTO.TrendPointDTO(
+                        assignment.getId(),
+                        assignment.getName(),
+                        roundTo2(clamped),
+                        roundTo2(maxScore),
+                        latest.getSubmittedAt()
+                ));
+            } else {
+                // Submitted but not graded: includeMissing counts as 0 earned.
+            }
+        }
+
+        // Keep only most recent 8 graded items in trend.
+        trend.sort(Comparator.comparing(StudentCourseStatsDTO.TrendPointDTO::getGradedAt).reversed());
+        if (trend.size() > 8) {
+            trend = trend.subList(0, 8);
+        }
+
+        int submissionRatePercent = totalAssignments > 0 ? (int) Math.round((submittedAssignments / (double) totalAssignments) * 100.0) : 0;
+
+        int overallPercentGradedOnly = gradedTotal > 0 ? (int) Math.round((gradedEarned / gradedTotal) * 100.0) : 0;
+        int overallPercentIncludingMissing = allTotal > 0 ? (int) Math.round((allEarned / allTotal) * 100.0) : 0;
+
+        StudentCourseStatsDTO.LastActivityDTO lastActivity = null;
+        if (lastSubmission != null && lastSubmissionAssignment != null) {
+            lastActivity = new StudentCourseStatsDTO.LastActivityDTO(
+                    lastSubmissionAssignment.getId(),
+                    lastSubmissionAssignment.getName(),
+                    lastSubmission.getSubmittedAt()
+            );
+        }
+
+        return new StudentCourseStatsDTO(
+                course.getId(),
+                student.getId(),
+                student.getUser() != null ? student.getUser().getName() : null,
+                totalAssignments,
+                submittedAssignments,
+                gradedAssignments,
+                missingAssignments,
+                lateSubmissions,
+                submissionRatePercent,
+                overallPercentGradedOnly,
+                overallPercentIncludingMissing,
+                lastActivity,
+                trend,
+                0,
+                0,
+                null
+        );
     }
 }
 
