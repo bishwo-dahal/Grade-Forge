@@ -98,12 +98,6 @@ def run_similarity_check(assignment: Assignment):
         # matches "how much did YOUR code match the other?" (same as the file-level percentages we show).
         test_student = _student_for_path(assignment, test_path)
         ref_student = _student_for_path(assignment, ref_path)
-        if test_student is not None:
-            matches_count[test_student] = matches_count.get(test_student, 0) + 1
-            # Track the single best match per student (by similarity score).
-            current_best_score, _, _ = best_match.get(test_student, (0.0, None, None))
-            if test_sim > current_best_score:
-                best_match[test_student] = (test_sim, ref_path, ref_student)
 
         # Build comparison entry for frontend. We want left=person we're checking (suspect),
         # right=potential source. Copydetect: test_path=file being checked, ref_path=reference.
@@ -120,35 +114,80 @@ def run_similarity_check(assignment: Assignment):
 
             # Optional structural similarity (AST-based) for supported languages.
             struct_sim = 0.0
-            combined_sim = test_sim
+            combined_test = test_sim
+            combined_ref = ref_sim
             if struct_sim_enabled:
                 try:
                     struct_sim = structural_similarity(test_path, ref_path, assignment.language)
                     weight = float(os.environ.get("GRADER_STRUCT_SIM_WEIGHT", "0.5"))
                     weight = max(0.0, min(1.0, weight))
-                    combined_sim = (1.0 - weight) * test_sim + weight * struct_sim
+                    combined_test = (1.0 - weight) * test_sim + weight * struct_sim
+                    combined_ref = (1.0 - weight) * ref_sim + weight * struct_sim
                 except Exception:
                     struct_sim = 0.0
-                    combined_sim = test_sim
+                    combined_test = test_sim
+                    combined_ref = ref_sim
+
+            # Update per-student best match symmetrically so both sides can be flagged.
+            if test_student is not None:
+                matches_count[test_student] = matches_count.get(test_student, 0) + 1
+                current_best_score, _, _ = best_match.get(test_student, (0.0, None, None))
+                if combined_test > current_best_score:
+                    best_match[test_student] = (combined_test, ref_path, ref_student)
+            if ref_student is not None:
+                matches_count[ref_student] = matches_count.get(ref_student, 0) + 1
+                current_best_score, _, _ = best_match.get(ref_student, (0.0, None, None))
+                if combined_ref > current_best_score:
+                    best_match[ref_student] = (combined_ref, test_path, test_student)
 
             comparisons.append({
                 "left": {
                     "student_id": left_student,
                     "file_path": test_path,
                     "code": highlighted_test,
-                    "similarity": round(combined_sim, 2),
+                    "similarity": round(combined_test, 2),
                     "token_similarity": round(test_sim, 2),
                     "structural_similarity": round(struct_sim, 2),
-                    "combined_similarity": round(combined_sim, 2),
+                    "combined_similarity": round(combined_test, 2),
                 },
                 "right": {
                     "student_id": right_student,
                     "file_path": ref_path,
                     "code": highlighted_ref,
                     "similarity": round(ref_sim, 2),
+                    "token_similarity": round(ref_sim, 2),
+                    "structural_similarity": round(struct_sim, 2),
+                    "combined_similarity": round(combined_ref, 2),
                 },
                 "overlap_tokens": overlap_tokens,
             })
+        else:
+            # Even if we can't build comparisons (missing highlighted code), still update best-match scoring.
+            # We compute structural similarity lazily only when enabled.
+            struct_sim = 0.0
+            combined_test = test_sim
+            combined_ref = ref_sim
+            if struct_sim_enabled:
+                try:
+                    struct_sim = structural_similarity(test_path, ref_path, assignment.language)
+                    weight = float(os.environ.get("GRADER_STRUCT_SIM_WEIGHT", "0.5"))
+                    weight = max(0.0, min(1.0, weight))
+                    combined_test = (1.0 - weight) * test_sim + weight * struct_sim
+                    combined_ref = (1.0 - weight) * ref_sim + weight * struct_sim
+                except Exception:
+                    combined_test = test_sim
+                    combined_ref = ref_sim
+
+            if test_student is not None:
+                matches_count[test_student] = matches_count.get(test_student, 0) + 1
+                current_best_score, _, _ = best_match.get(test_student, (0.0, None, None))
+                if combined_test > current_best_score:
+                    best_match[test_student] = (combined_test, ref_path, ref_student)
+            if ref_student is not None:
+                matches_count[ref_student] = matches_count.get(ref_student, 0) + 1
+                current_best_score, _, _ = best_match.get(ref_student, (0.0, None, None))
+                if combined_ref > current_best_score:
+                    best_match[ref_student] = (combined_ref, test_path, test_student)
 
     results = []
     for sub in assignment.submissions:
@@ -156,18 +195,24 @@ def run_similarity_check(assignment: Assignment):
         grade = sub.calculate_score(
             assignment.weights, assignment.public_tests, assignment.private_tests
         )
+        if match_file:
+            filename = os.path.basename(match_file)
+        else:
+            filename = None
+        if partner_student and filename:
+            similarity_warning = f"Match with student {partner_student} in {filename}"
+        elif partner_student:
+            similarity_warning = f"Match with student {partner_student}"
+        elif filename:
+            similarity_warning = f"Match in {filename}"
+        else:
+            similarity_warning = None
         results.append({
             "student_id": sub.student_id,
             "final_grade": grade,
             # Use the (possibly) combined similarity as the main score.
             "similarity_score": round(score, 2),
-            "similarity_warning": (
-                f"Match with student {partner_student}: {match_file}"
-                if match_file and partner_student
-                else f"Match: {match_file}"
-                if match_file
-                else None
-            ),
+            "similarity_warning": similarity_warning,
             "matches_count": matches_count.get(sub.student_id, 0),
         })
 
