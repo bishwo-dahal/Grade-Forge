@@ -23,7 +23,6 @@ import { FacultyClassStudentDetailPage } from "./components/faculty/FacultyClass
 import CompleteStudentRegistrationPage from "./components/CompleteStudentRegistrationPage";
 import {
   FacultyDiscussionsPage,
-  FacultyGradingHubPage,
   FacultyMaterialsPage,
   FacultyMyClassesPage,
   FacultySchedulePage,
@@ -42,6 +41,7 @@ import { GradingAssistantCoursesPage } from "./components/gradingAssistant/Gradi
 import { GradingAssistantClassPage } from "./components/gradingAssistant/GradingAssistantClassPage";
 import { GradingAssistantAssignmentDetailPage } from "./components/AssignmentDetailPage";
 import { AssignmentGradingPage } from "./components/AssignmentGradingPage";
+import { FacultySpeedGradingPage } from "./components/FacultySpeedGradingPage";
 
 export const router = createBrowserRouter([
   {
@@ -174,7 +174,8 @@ export const router = createBrowserRouter([
     path: "/faculty/grading",
     element: (
       <ProtectedRoute allowedRoles={["FACULTY"]}>
-        <FacultyGradingHubPage />
+        {/* CLEANUP: Redirect legacy grading hub links because faculty grading now lives only inside class assignment flows. */}
+        <Navigate to="/faculty/my-classes" replace />
       </ProtectedRoute>
     ),
   },
@@ -311,6 +312,15 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={["FACULTY"]}>
         <AssignmentGradingPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/class/:classId/speed-grading/:assignmentId",
+    element: (
+      // NOTE: Dedicated speed-grading route keeps faculty in one assignment-focused grading queue.
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultySpeedGradingPage />
       </ProtectedRoute>
     ),
   },

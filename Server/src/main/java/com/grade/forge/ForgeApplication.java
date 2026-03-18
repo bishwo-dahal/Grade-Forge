@@ -15,6 +15,7 @@ import java.nio.file.Paths;
 public class ForgeApplication {
 
     public static void main(String[] args) {
+        // REFACTOR: Restore the original bootstrap .env loader here so backend startup has one environment-loading path.
         loadEnvIfPresent();
         SpringApplication.run(ForgeApplication.class, args);
     }

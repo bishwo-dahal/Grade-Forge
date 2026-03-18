@@ -387,14 +387,33 @@ export async function listFacultyAssignmentSubmissionFiles(
     `/api/v1/faculty/submissions?assignmentId=${parsedAssignmentId}`,
   );
 
-  return (data ?? []).map((sub) => ({
-    submissionId: String(sub.submissionId),
-    studentId: String(sub.studentId),
-    studentName: sub.studentName,
-    submittedAt: sub.submittedAt ?? "",
-    marks: typeof sub.grade === "number" ? sub.grade : null,
-    files: [],
-  }));
+  // FIX: Speed grading and faculty assignment views need actual file metadata, so hydrate each slim row with its full submission detail.
+  const detailedRows = await Promise.all(
+    (data ?? []).map(async (sub) => {
+      try {
+        const detail = await getFacultySubmissionById(String(sub.submissionId));
+        return {
+          submissionId: String(sub.submissionId),
+          studentName: sub.studentName,
+          submittedAt: sub.submittedAt ?? detail.submittedAt ?? "",
+          // FIX: Prefer the full submission-detail grade because the slim list endpoint can lag behind immediately after a grade update.
+          marks: detail.marks ?? (typeof sub.grade === "number" ? sub.grade : null),
+          files: detail.files,
+        } satisfies FacultyAssignmentSubmissionRow;
+      } catch {
+        // NOTE: Keep assignment views usable even if one detail lookup fails; affected rows fall back to list metadata without files.
+        return {
+          submissionId: String(sub.submissionId),
+          studentName: sub.studentName,
+          submittedAt: sub.submittedAt ?? "",
+          marks: typeof sub.grade === "number" ? sub.grade : null,
+          files: [],
+        } satisfies FacultyAssignmentSubmissionRow;
+      }
+    }),
+  );
+
+  return detailedRows;
 }
 
 /** Full submission by id (call when user selects a submission for grading). Includes feedback for prefill. */
