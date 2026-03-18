@@ -34,7 +34,6 @@ import type {
   FacultyAssignment,
   FacultyDashboardStat,
   FacultyStudentEmailSuggestion,
-  FacultyRosterStats,
   FacultyRosterStudentRow,
   FacultyStudentSearchResult,
 } from "../../types/class";
@@ -49,7 +48,6 @@ import {
   listFacultyRosterRows,
   listFacultyDashboardStats,
   searchFacultyStudentByEmail,
-  summarizeFacultyRosterStats,
 } from "../../services/classService";
 import { listClassSubmissions } from "../../services/submissionService";
 import {
@@ -1659,8 +1657,6 @@ function StudentsSection({
     };
   }, [isAddStudentModalOpen, lookupEmail, resolvedId]);
 
-  const rosterStats: FacultyRosterStats = useMemo(() => summarizeFacultyRosterStats(rosterRows), [rosterRows]);
-
   const filterItems = useMemo(() => {
     const activeCount = rosterRows.filter((row) => row.status === "active").length;
     const inactiveCount = rosterRows.filter((row) => row.status === "inactive").length;
@@ -1768,39 +1764,6 @@ function StudentsSection({
       <div className="mb-6">
         <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Student Roster</h2>
         {/* CLEANUP: Removed extra helper sentence under Student Roster heading per current UI copy direction. */}
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-        <RosterStatCard
-          icon={<Users className="w-4 h-4 text-[#5A7ACD]" strokeWidth={2} />}
-          iconBg="bg-[#5A7ACD]/10"
-          value={String(rosterStats.totalStudents)}
-          label="Total Students"
-        />
-        <RosterStatCard
-          icon={<UserPlus className="w-4 h-4 text-green-600" strokeWidth={2} />}
-          iconBg="bg-green-50"
-          value={String(rosterStats.activeStudents)}
-          label="Active"
-        />
-        <RosterStatCard
-          icon={<UserMinus className="w-4 h-4 text-red-500" strokeWidth={2} />}
-          iconBg="bg-red-50"
-          value={String(rosterStats.inactiveStudents)}
-          label="Inactive"
-        />
-        <RosterStatCard
-          icon={<BarChart3 className="w-4 h-4 text-[#F0A561]" strokeWidth={2} />}
-          iconBg="bg-[#F0A561]/10"
-          value={`${rosterStats.avgScore}%`}
-          label="Avg Score"
-        />
-        <RosterStatCard
-          icon={<CheckCircle2 className="w-4 h-4 text-[#5A7ACD]" strokeWidth={2} />}
-          iconBg="bg-[#5A7ACD]/10"
-          value={`${rosterStats.completion}%`}
-          label="Completion"
-        />
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
