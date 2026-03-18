@@ -484,6 +484,16 @@ function AssignmentsSection() {
             <Upload className="w-4 h-4" strokeWidth={2} />
             <span>Import</span>
           </button>
+          <button
+            type="button"
+            onClick={() => void loadAssignments()}
+            disabled={isAssignmentsLoading}
+            // FIX: Keep assignment refresh in the primary header actions so faculty does not have to hunt for it below the table.
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <RefreshCcw className={`w-4 h-4 ${isAssignmentsLoading ? "animate-spin" : ""}`} strokeWidth={2} />
+            <span>{isAssignmentsLoading ? "Refreshing..." : "Refresh"}</span>
+          </button>
           <Link
             to={`/faculty/class/${resolvedClassId}/assignments/create`}
             // NOTE: Assignment creation now uses a standalone page route so faculty can manage the full form flow.
@@ -629,25 +639,6 @@ function AssignmentsSection() {
             )}
           </tbody>
         </table>
-      </div>
-
-      <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
-        <button
-          type="button"
-          onClick={() => void loadAssignments()}
-          disabled={isAssignmentsLoading}
-          className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          <RefreshCcw className={`w-4 h-4 ${isAssignmentsLoading ? "animate-spin" : ""}`} strokeWidth={2} />
-          <span>{isAssignmentsLoading ? "Refreshing..." : "Refresh"}</span>
-        </button>
-        <button
-          type="button"
-          className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors"
-        >
-          <Filter className="w-4 h-4" strokeWidth={2} />
-          <span>Filter</span>
-        </button>
       </div>
     </div>
   );
