@@ -13,6 +13,9 @@ import com.grade.forge.grade_reports.dto.StudentAssignmentStatusDTO;
 import com.grade.forge.grade_reports.dto.StudentGradeDTO;
 import com.grade.forge.grading.entity.SubmissionGrade;
 import com.grade.forge.grading.repository.SubmissionGradeRepository;
+import com.grade.forge.rubric.RubricType;
+import com.grade.forge.rubric.entity.Rubric;
+import com.grade.forge.rubric.entity.RubricSubCriteria;
 import com.grade.forge.student.entity.Student;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.repository.SubmissionRepository;
@@ -45,6 +48,63 @@ public class GradeReportServiceImpl implements GradeReportService {
     private final EnrollmentRepository enrollmentRepository;
     private final SubmissionRepository submissionRepository;
     private final SubmissionGradeRepository submissionGradeRepository;
+
+    private static double roundTo2(double value) {
+        return Math.round(value * 100.0) / 100.0;
+    }
+
+    /**
+     * Converts rubric row grades into an assignment-level score.
+     * - WEIGHTED rubric: sum((awarded/max)*(weight/100)*assignmentTotalPoints)
+     * - UNWEIGHTED or missing rubric: sum(awardedScore)
+     */
+    private Double calculateRubricBackedScore(Assignment assignment, List<SubmissionGrade> grades) {
+        if (grades == null || grades.isEmpty()) {
+            return null;
+        }
+
+        final int assignmentTotalPoints = assignment.getTotalPoints() != null ? assignment.getTotalPoints() : 0;
+        final Rubric rubric = assignment.getRubric();
+        final boolean isWeighted = rubric != null && rubric.getRubricType() == RubricType.WEIGHTED;
+
+        if (!isWeighted || assignmentTotalPoints <= 0) {
+            double sum = grades.stream()
+                    .filter(g -> g.getAwardedScore() != null)
+                    .mapToDouble(SubmissionGrade::getAwardedScore)
+                    .sum();
+            return roundTo2(sum);
+        }
+
+        double sumWeightedPoints = 0.0;
+        double sumAwardedFallback = 0.0;
+        for (SubmissionGrade grade : grades) {
+            if (grade.getAwardedScore() == null) {
+                continue;
+            }
+            sumAwardedFallback += grade.getAwardedScore();
+
+            RubricSubCriteria sub = grade.getRubricSubCriteria();
+            if (sub == null) {
+                continue;
+            }
+            Double max = sub.getMaxScore();
+            Double weight = sub.getWeight();
+            if (max == null || max <= 0 || weight == null) {
+                continue;
+            }
+            // Clamp awarded to [0, max] to avoid accidental overshoots.
+            double awarded = Math.max(0.0, Math.min(max, grade.getAwardedScore()));
+            sumWeightedPoints += (awarded / max) * (weight / 100.0) * assignmentTotalPoints;
+        }
+
+        // If weights/maxScore missing on rubric rows, fall back to raw sum.
+        double score = sumWeightedPoints > 0.0 ? sumWeightedPoints : sumAwardedFallback;
+        // Cap to assignment total points.
+        if (assignmentTotalPoints > 0) {
+            score = Math.max(0.0, Math.min(assignmentTotalPoints, score));
+        }
+        return roundTo2(score);
+    }
 
     @Override
     public GradeReportResponseDTO generateGradeReport(Long courseId, List<Long> studentIds, List<Long> assignmentIds) {
@@ -130,10 +190,7 @@ public class GradeReportServiceImpl implements GradeReportService {
                 List<SubmissionGrade> grades = submissionGradeRepository.findBySubmission_Id(submission.getId());
                 Double score = null;
                 if (!grades.isEmpty()) {
-                    score = grades.stream()
-                            .filter(grade -> grade.getAwardedScore() != null)
-                            .mapToDouble(SubmissionGrade::getAwardedScore)
-                            .sum();
+                    score = calculateRubricBackedScore(assignment, grades);
                 } else if (submission.getMarks() != null) {
                     score = submission.getMarks();
                 }
@@ -188,10 +245,7 @@ public class GradeReportServiceImpl implements GradeReportService {
             List<SubmissionGrade> grades = submissionGradeRepository.findBySubmission_Id(submission.getId());
             Double score = null;
             if (!grades.isEmpty()) {
-                score = grades.stream()
-                        .filter(grade -> grade.getAwardedScore() != null)
-                        .mapToDouble(SubmissionGrade::getAwardedScore)
-                        .sum();
+                score = calculateRubricBackedScore(assignment, grades);
             } else if (submission.getMarks() != null) {
                 score = submission.getMarks();
             }
