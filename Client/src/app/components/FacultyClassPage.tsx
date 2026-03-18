@@ -34,11 +34,10 @@ import type {
   FacultyAssignment,
   FacultyDashboardStat,
   FacultyStudentEmailSuggestion,
-  FacultyRosterStats,
   FacultyRosterStudentRow,
   FacultyStudentSearchResult,
 } from "../../types/class";
-import type { ClassSubmissionItem } from "../../types/submission";
+import type { ClassSubmissionItem, SpeedGradingAssignmentOption } from "../../types/submission";
 import {
   dropStudentFromCourse,
   enrollStudentByEmail,
@@ -49,7 +48,6 @@ import {
   listFacultyRosterRows,
   listFacultyDashboardStats,
   searchFacultyStudentByEmail,
-  summarizeFacultyRosterStats,
 } from "../../services/classService";
 import { listClassSubmissions } from "../../services/submissionService";
 import {
@@ -455,14 +453,22 @@ function AssignmentsSection() {
   const [assignments, setAssignments] = useState<FacultyAssignment[]>([]);
   const [isAssignmentsLoading, setIsAssignmentsLoading] = useState(true);
 
-  useEffect(() => {
-    // FIX: Keep a loading flag so "No assignments" does not flash before backend data finishes loading.
+  const loadAssignments = useCallback(async () => {
+    // FIX: Centralize assignment reload so header/footer actions reuse the same backend-driven refresh path.
     setIsAssignmentsLoading(true);
-    listFacultyAssignments(resolvedClassId)
-      .then(setAssignments)
-      .catch(() => setAssignments([]))
-      .finally(() => setIsAssignmentsLoading(false));
-  }, [classId]);
+    try {
+      const rows = await listFacultyAssignments(resolvedClassId);
+      setAssignments(rows);
+    } catch {
+      setAssignments([]);
+    } finally {
+      setIsAssignmentsLoading(false);
+    }
+  }, [resolvedClassId]);
+
+  useEffect(() => {
+    void loadAssignments();
+  }, [loadAssignments]);
 
   return (
     <div>
@@ -477,6 +483,16 @@ function AssignmentsSection() {
           <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors">
             <Upload className="w-4 h-4" strokeWidth={2} />
             <span>Import</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => void loadAssignments()}
+            disabled={isAssignmentsLoading}
+            // FIX: Keep assignment refresh in the primary header actions so faculty does not have to hunt for it below the table.
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <RefreshCcw className={`w-4 h-4 ${isAssignmentsLoading ? "animate-spin" : ""}`} strokeWidth={2} />
+            <span>{isAssignmentsLoading ? "Refreshing..." : "Refresh"}</span>
           </button>
           <Link
             to={`/faculty/class/${resolvedClassId}/assignments/create`}
@@ -630,10 +646,43 @@ function AssignmentsSection() {
 
 function SubmissionsSection() {
   const { classId } = useParams();
+  const navigate = useNavigate();
   // NOTE: Submissions now load from backend-driven submission service mapping.
   const [submissions, setSubmissions] = useState<ClassSubmissionItem[]>([]);
   const [isSubmissionsLoading, setIsSubmissionsLoading] = useState(false);
   const [submissionsError, setSubmissionsError] = useState<string | null>(null);
+  const [isSpeedGradingModalOpen, setIsSpeedGradingModalOpen] = useState(false);
+  const [selectedSpeedAssignmentId, setSelectedSpeedAssignmentId] = useState("");
+
+  const speedGradingOptions = useMemo<SpeedGradingAssignmentOption[]>(() => {
+    const groupedAssignments = new Map<string, SpeedGradingAssignmentOption>();
+
+    for (const submission of submissions) {
+      const existingOption = groupedAssignments.get(submission.assignmentId);
+      if (existingOption) {
+        existingOption.totalSubmissions += 1;
+        if (submission.status === "ungraded") {
+          existingOption.ungradedSubmissions += 1;
+        }
+        continue;
+      }
+
+      groupedAssignments.set(submission.assignmentId, {
+        assignmentId: submission.assignmentId,
+        assignmentName: submission.assignment,
+        totalSubmissions: 1,
+        ungradedSubmissions: submission.status === "ungraded" ? 1 : 0,
+      });
+    }
+
+    // NOTE: Prioritize assignments with the highest ungraded count to reduce grading queue friction.
+    return Array.from(groupedAssignments.values()).sort((left, right) => {
+      if (left.ungradedSubmissions !== right.ungradedSubmissions) {
+        return right.ungradedSubmissions - left.ungradedSubmissions;
+      }
+      return left.assignmentName.localeCompare(right.assignmentName);
+    });
+  }, [submissions]);
 
   const loadSubmissions = useCallback(async () => {
     const resolvedId = classId || "1";
@@ -658,6 +707,33 @@ function SubmissionsSection() {
     return () => window.clearInterval(refreshInterval);
   }, [loadSubmissions]);
 
+  useEffect(() => {
+    if (!isSpeedGradingModalOpen) {
+      return;
+    }
+    const selectedExists = speedGradingOptions.some(
+      (option) => option.assignmentId === selectedSpeedAssignmentId,
+    );
+    if (!selectedExists) {
+      setSelectedSpeedAssignmentId(speedGradingOptions[0]?.assignmentId ?? "");
+    }
+  }, [isSpeedGradingModalOpen, selectedSpeedAssignmentId, speedGradingOptions]);
+
+  const handleOpenSpeedGradingModal = () => {
+    setIsSpeedGradingModalOpen(true);
+    void loadSubmissions();
+  };
+
+  const handleStartSpeedGrading = () => {
+    if (!selectedSpeedAssignmentId) {
+      return;
+    }
+    const resolvedClassId = classId || "1";
+    // NOTE: Launching from class submissions keeps speed grading scoped to one assignment queue at a time.
+    navigate(`/faculty/class/${resolvedClassId}/speed-grading/${selectedSpeedAssignmentId}`);
+    setIsSpeedGradingModalOpen(false);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -668,6 +744,15 @@ function SubmissionsSection() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleOpenSpeedGradingModal}
+            disabled={isSubmissionsLoading}
+            className="flex items-center gap-2 px-3 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] rounded-lg text-[13px] font-medium text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Clock className="w-4 h-4" strokeWidth={2} />
+            <span>Speed Grading</span>
+          </button>
           <button
             onClick={() => void loadSubmissions()}
             disabled={isSubmissionsLoading}
@@ -832,6 +917,58 @@ function SubmissionsSection() {
           </tbody>
         </table>
       </div>
+
+      {isSpeedGradingModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white shadow-xl">
+            <div className="border-b border-gray-200 px-5 py-4">
+              <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Start Speed Grading</h3>
+              <p className="mt-1 text-[12px] text-gray-600">
+                Choose an assignment queue. The editor will open in read-only grading mode.
+              </p>
+            </div>
+
+            <div className="px-5 py-4">
+              {speedGradingOptions.length > 0 ? (
+                <div className="space-y-2">
+                  <label className="block text-[12px] font-medium text-[#2B2A2A]">Assignment</label>
+                  <select
+                    value={selectedSpeedAssignmentId}
+                    onChange={(event) => setSelectedSpeedAssignmentId(event.target.value)}
+                    className="h-10 w-full rounded-lg border border-gray-300 px-3 text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]/30"
+                  >
+                    {speedGradingOptions.map((option) => (
+                      <option key={option.assignmentId} value={option.assignmentId}>
+                        {option.assignmentName} ({option.ungradedSubmissions} ungraded / {option.totalSubmissions} submitted)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <p className="text-[13px] text-gray-600">No assignment submissions available for speed grading yet.</p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-gray-200 bg-gray-50 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setIsSpeedGradingModalOpen(false)}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-[#2B2A2A] hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleStartSpeedGrading}
+                disabled={!selectedSpeedAssignmentId}
+                className="rounded-lg bg-[#2B2A2A] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#3a3939] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Open Queue
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1263,6 +1400,107 @@ function StatusPill({
   );
 }
 
+function StudentGradesModal({
+  student,
+  studentReport,
+  isLoading,
+  errorMessage,
+  onClose,
+}: {
+  student: FacultyRosterStudentRow | null;
+  studentReport: CourseGradeReportStudent | null;
+  isLoading: boolean;
+  errorMessage: string | null;
+  onClose: () => void;
+}) {
+  if (!student) {
+    return null;
+  }
+
+  const statusLabel: Record<string, string> = {
+    NOT_SUBMITTED: "Not submitted",
+    SUBMITTED: "Submitted",
+    GRADED: "Graded",
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 p-4" onClick={onClose}>
+      <div
+        className="flex max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
+          <div>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#8D97AC]">Student grades</p>
+            <h3 className="mt-1 text-[22px] font-semibold text-[#2B2A2A]">{student.name}</h3>
+            <p className="mt-1 text-[13px] text-[#5D6A80]">{student.email}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-[#2B2A2A]"
+            aria-label="Close student grades"
+          >
+            <X className="h-4 w-4" strokeWidth={2} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {errorMessage ? (
+            <div className="mb-5 rounded-xl border border-[#F2C9CC] bg-[#FFF5F5] px-4 py-3 text-[13px] text-[#C23A42]">
+              {errorMessage}
+            </div>
+          ) : null}
+
+          <div className="overflow-hidden rounded-xl border border-gray-200">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50 text-left">
+                  <th className="px-4 py-3 text-[12px] font-semibold uppercase tracking-wide text-gray-600">Assignment</th>
+                  <th className="px-4 py-3 text-[12px] font-semibold uppercase tracking-wide text-gray-600">Score</th>
+                  <th className="px-4 py-3 text-[12px] font-semibold uppercase tracking-wide text-gray-600">Max score</th>
+                  <th className="px-4 py-3 text-[12px] font-semibold uppercase tracking-wide text-gray-600">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, index) => (
+                    <tr key={`student-grade-skeleton-${index}`} className="border-t border-gray-100">
+                      <td className="px-4 py-4"><div className="h-4 w-36 animate-pulse rounded bg-gray-200" /></td>
+                      <td className="px-4 py-4"><div className="h-4 w-20 animate-pulse rounded bg-gray-200" /></td>
+                      <td className="px-4 py-4"><div className="h-4 w-16 animate-pulse rounded bg-gray-200" /></td>
+                      <td className="px-4 py-4"><div className="h-6 w-20 animate-pulse rounded-md bg-gray-100" /></td>
+                    </tr>
+                  ))
+                ) : studentReport?.assignments.length ? (
+                  studentReport.assignments.map((assignment) => (
+                    <tr key={assignment.assignmentId} className="border-t border-gray-100">
+                      <td className="px-4 py-4 text-[13px] font-medium text-[#2B2A2A]">{assignment.assignmentName}</td>
+                      <td className="px-4 py-4 text-[13px] text-[#2B2A2A]">
+                        {assignment.score != null ? assignment.score.toFixed(2) : "—"}
+                      </td>
+                      <td className="px-4 py-4 text-[13px] text-gray-600">{assignment.maxScore.toFixed(1)}</td>
+                      <td className="px-4 py-4">
+                        <StatusPill status={assignment.status} statusLabel={statusLabel} />
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-center text-[13px] text-gray-600">
+                      No assignment grades found for this student.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StudentsSection({
   isAddStudentModalOpen,
   onCloseAddStudentModal,
@@ -1292,6 +1530,10 @@ function StudentsSection({
   const [dropConfirm, setDropConfirm] = useState<FacultyRosterStudentRow | null>(null);
   const [dropping, setDropping] = useState(false);
   const [dropError, setDropError] = useState<string | null>(null);
+  const [selectedGradeStudent, setSelectedGradeStudent] = useState<FacultyRosterStudentRow | null>(null);
+  const [studentGradeReport, setStudentGradeReport] = useState<CourseGradeReportResponse | null>(null);
+  const [isStudentGradeReportLoading, setIsStudentGradeReportLoading] = useState(false);
+  const [studentGradeReportError, setStudentGradeReportError] = useState<string | null>(null);
 
   const courseId = useMemo(() => Number(resolvedId) || 0, [resolvedId]);
 
@@ -1305,6 +1547,26 @@ function StudentsSection({
       setErrorMessage(getErrorMessage(error));
     } finally {
       setIsRosterLoading(false);
+    }
+  };
+
+  const handleOpenStudentGrades = async (student: FacultyRosterStudentRow) => {
+    if (courseId <= 0) {
+      return;
+    }
+
+    setSelectedGradeStudent(student);
+    setIsStudentGradeReportLoading(true);
+    setStudentGradeReportError(null);
+    try {
+      // NOTE: Reuse the course grade report endpoint so the roster modal stays aligned with the main grades page data source.
+      const report = await getCourseGradeReport(courseId);
+      setStudentGradeReport(report);
+    } catch (error) {
+      setStudentGradeReport(null);
+      setStudentGradeReportError(getErrorMessage(error));
+    } finally {
+      setIsStudentGradeReportLoading(false);
     }
   };
 
@@ -1386,8 +1648,6 @@ function StudentsSection({
     };
   }, [isAddStudentModalOpen, lookupEmail, resolvedId]);
 
-  const rosterStats: FacultyRosterStats = useMemo(() => summarizeFacultyRosterStats(rosterRows), [rosterRows]);
-
   const filterItems = useMemo(() => {
     const activeCount = rosterRows.filter((row) => row.status === "active").length;
     const inactiveCount = rosterRows.filter((row) => row.status === "inactive").length;
@@ -1413,6 +1673,31 @@ function StudentsSection({
       return row.name.toLowerCase().includes(normalizedQuery) || row.email.toLowerCase().includes(normalizedQuery);
     });
   }, [activeFilter, rosterRows, rosterSearchValue]);
+
+  const selectedStudentGradeRow = useMemo(() => {
+    if (!selectedGradeStudent || !studentGradeReport) {
+      return null;
+    }
+
+    return (
+      studentGradeReport.students.find((student) => selectedGradeStudent.studentId != null && student.studentId === selectedGradeStudent.studentId) ??
+      studentGradeReport.students.find((student) => student.studentName.trim().toLowerCase() === selectedGradeStudent.name.trim().toLowerCase()) ??
+      null
+    );
+  }, [selectedGradeStudent, studentGradeReport]);
+
+  useEffect(() => {
+    if (!selectedGradeStudent) {
+      return;
+    }
+
+    // FIX: Lock background page scroll while the student grade modal is open so wheel and trackpad scrolling stay inside the dialog.
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [selectedGradeStudent]);
 
   const handleLookup = async (suggestedEmail?: string) => {
     const resolvedEmail = (suggestedEmail ?? lookupEmail).trim();
@@ -1470,39 +1755,6 @@ function StudentsSection({
       <div className="mb-6">
         <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Student Roster</h2>
         {/* CLEANUP: Removed extra helper sentence under Student Roster heading per current UI copy direction. */}
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-        <RosterStatCard
-          icon={<Users className="w-4 h-4 text-[#5A7ACD]" strokeWidth={2} />}
-          iconBg="bg-[#5A7ACD]/10"
-          value={String(rosterStats.totalStudents)}
-          label="Total Students"
-        />
-        <RosterStatCard
-          icon={<UserPlus className="w-4 h-4 text-green-600" strokeWidth={2} />}
-          iconBg="bg-green-50"
-          value={String(rosterStats.activeStudents)}
-          label="Active"
-        />
-        <RosterStatCard
-          icon={<UserMinus className="w-4 h-4 text-red-500" strokeWidth={2} />}
-          iconBg="bg-red-50"
-          value={String(rosterStats.inactiveStudents)}
-          label="Inactive"
-        />
-        <RosterStatCard
-          icon={<BarChart3 className="w-4 h-4 text-[#F0A561]" strokeWidth={2} />}
-          iconBg="bg-[#F0A561]/10"
-          value={`${rosterStats.avgScore}%`}
-          label="Avg Score"
-        />
-        <RosterStatCard
-          icon={<CheckCircle2 className="w-4 h-4 text-[#5A7ACD]" strokeWidth={2} />}
-          iconBg="bg-[#5A7ACD]/10"
-          value={`${rosterStats.completion}%`}
-          label="Completion"
-        />
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
@@ -1638,8 +1890,12 @@ function StudentsSection({
                   <td className="px-4 py-4 text-[13px] text-gray-600">{student.lastActivity}</td>
                   <td className="px-4 py-4">
                     <div className="flex items-center justify-end gap-1">
-                      <button aria-label="Schedule student meeting" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                        <Calendar className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                      <button
+                        aria-label="View student grades"
+                        onClick={() => void handleOpenStudentGrades(student)}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        <BarChart3 className="w-4 h-4 text-gray-500" strokeWidth={2} />
                       </button>
                       <button aria-label="Email student" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
                         <Mail className="w-4 h-4 text-gray-500" strokeWidth={2} />
@@ -1666,6 +1922,20 @@ function StudentsSection({
           </tbody>
         </table>
       </div>
+
+      {selectedGradeStudent ? (
+        <StudentGradesModal
+          student={selectedGradeStudent}
+          studentReport={selectedStudentGradeRow}
+          isLoading={isStudentGradeReportLoading}
+          errorMessage={studentGradeReportError}
+          onClose={() => {
+            // CLEANUP: Reset modal-scoped grade report state when the student grade view closes.
+            setSelectedGradeStudent(null);
+            setStudentGradeReportError(null);
+          }}
+        />
+      ) : null}
 
       {isAddStudentModalOpen ? (
         <div className="fixed inset-0 z-40 bg-black/35 flex items-center justify-center p-4" onClick={closeAddStudentModal}>

@@ -147,6 +147,30 @@ export interface FacultySubmissionGradePayload {
   feedback: string;
 }
 
+// NOTE: Speed grading assignment selector is derived from class submissions so launch UI stays lightweight.
+export interface SpeedGradingAssignmentOption {
+  assignmentId: string;
+  assignmentName: string;
+  totalSubmissions: number;
+  ungradedSubmissions: number;
+}
+
+// NOTE: Queue stats keep right-panel summary cards data-driven and detached from render logic.
+export interface SpeedGradingQueueStats {
+  total: number;
+  graded: number;
+  ungraded: number;
+}
+
+// NOTE: Speed grading test summary separates public/private pass counts for focused instructor decisions.
+export interface SpeedGradingTestSummary {
+  hasRun: boolean;
+  publicPassed: number;
+  publicTotal: number;
+  privatePassed: number;
+  privateTotal: number;
+}
+
 /** PATCH /api/v1/faculty/submissions/{submissionId}/grade request body (SubmissionGradeRequest: marks, feedback). */
 export interface SubmissionGradeRequest {
   marks: number;

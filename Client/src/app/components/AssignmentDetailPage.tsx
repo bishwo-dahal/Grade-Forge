@@ -111,6 +111,8 @@ export interface AssignmentDetailPageProps {
   onRefreshSubmissions: () => void;
   /** Optional subtitle under "Submissions" heading. */
   submissionsSectionSubtitle?: string;
+  /** Optional speed-grading entry for faculty assignment detail pages. */
+  speedGradingLink?: { to: string; label: string };
   /** Optional link for faculty to manage test cases (opens assignment workspace). */
   testCasesLink?: { to: string; label: string };
   /** Optional test suite to display (like rubric section). */
@@ -128,6 +130,7 @@ export function AssignmentDetailPage({
   error,
   onRefreshSubmissions,
   submissionsSectionSubtitle = "Review and grade student submissions for this assignment.",
+  speedGradingLink,
   testCasesLink,
   testSuiteSection,
 }: AssignmentDetailPageProps) {
@@ -423,6 +426,15 @@ export function AssignmentDetailPage({
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {speedGradingLink ? (
+                <Link
+                  to={speedGradingLink.to}
+                  // NOTE: Faculty launches speed grading from the assignment detail page so the queue is anchored to the current assignment.
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2B2A2A] rounded-lg text-[12px] font-medium text-white transition-colors hover:bg-[#3A3939]"
+                >
+                  <span>{speedGradingLink.label}</span>
+                </Link>
+              ) : null}
               <button
                 type="button"
                 onClick={onRefreshSubmissions}
