@@ -1,6 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
-import { ChevronLeft, BarChart3, FileText } from "lucide-react";
+import {
+  Settings,
+  ChevronLeft,
+  LayoutDashboard,
+  FileText,
+  BarChart3,
+  Users,
+  UsersRound,
+  UserPlus,
+} from "lucide-react";
 import { getCourseGradeReport } from "../../../services/gradeReportService";
 import type { CourseGradeReportStudent } from "../../../types/gradeReport";
 import { SegmentedFilter } from "../ui/SegmentedFilter";
@@ -30,6 +39,7 @@ const statusLabel: Record<string, string> = {
 
 export function FacultyClassStudentDetailPage() {
   const { classId, studentId } = useParams();
+  const resolvedClassId = classId ?? "1";
   const courseId = useMemo(() => Number(classId || "0") || 0, [classId]);
   const parsedStudentId = useMemo(() => Number(studentId || "0") || 0, [studentId]);
 
@@ -57,48 +67,119 @@ export function FacultyClassStudentDetailPage() {
   const overallPercent = useMemo(() => (student ? computeOverallPercent(student, avgMode) : 0), [student, avgMode]);
 
   return (
-    <div className="min-h-screen bg-[#F5F2F2]">
-      <header className="bg-white border-b border-gray-200 px-8 py-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <Link
-                to={`/faculty/class/${classId ?? "1"}/students`}
-                className="inline-flex items-center gap-2 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors mb-3"
-              >
-                <ChevronLeft className="w-4 h-4" strokeWidth={2} />
-                <span>Back to Students</span>
-              </Link>
-              <h1 className="text-[22px] font-semibold text-[#2B2A2A]">
-                {student?.studentName ?? "Student"}{" "}
-                <span className="text-[13px] font-medium text-gray-500">
-                  (Class {classId ?? "—"})
-                </span>
-              </h1>
-              <p className="text-[13px] text-gray-600 mt-1">
-                Assignment grades and status for this class.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex flex-col items-end">
-                <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Overall</div>
-                <div className="text-[26px] font-semibold text-[#2B2A2A] tabular-nums">{overallPercent}%</div>
-              </div>
-              <SegmentedFilter
-                items={[
-                  { id: "gradedOnly" as const, label: "Graded only" },
-                  { id: "includeMissing" as const, label: "Include missing as 0" },
-                ]}
-                value={avgMode}
-                onValueChange={(value) => setAvgMode(value)}
+    <div className="flex h-screen bg-[#F5F2F2]">
+      <aside className="w-64 bg-white border-r border-gray-200 flex-shrink-0">
+        <div className="h-full flex flex-col">
+          <div className="px-4 py-4 border-b border-gray-200">
+            <Link
+              to="/dashboard"
+              className="flex items-center gap-2 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" strokeWidth={2} />
+              <span>Back to Dashboard</span>
+            </Link>
+          </div>
+          <nav className="flex-1 px-3 py-4 overflow-y-auto">
+            <ul className="space-y-1">
+              <NavItem
+                icon={<LayoutDashboard className="w-4 h-4" strokeWidth={2} />}
+                label="Dashboard"
+                active={false}
+                to={`/faculty/class/${resolvedClassId}/dashboard`}
               />
+              <NavItem
+                icon={<FileText className="w-4 h-4" strokeWidth={2} />}
+                label="Assignments"
+                active={false}
+                to={`/faculty/class/${resolvedClassId}/assignments`}
+              />
+              <NavItem
+                icon={<BarChart3 className="w-4 h-4" strokeWidth={2} />}
+                label="Grades"
+                active={false}
+                to={`/faculty/class/${resolvedClassId}/grades`}
+              />
+              <NavItem
+                icon={<Users className="w-4 h-4" strokeWidth={2} />}
+                label="Students"
+                active
+                to={`/faculty/class/${resolvedClassId}/students`}
+              />
+              <NavItem
+                icon={<UserPlus className="w-4 h-4" strokeWidth={2} />}
+                label="Grading Assistants"
+                active={false}
+                to={`/faculty/class/${resolvedClassId}/assistants`}
+              />
+              <NavItem
+                icon={<UsersRound className="w-4 h-4" strokeWidth={2} />}
+                label="Groups"
+                active={false}
+                to={`/faculty/class/${resolvedClassId}/groups`}
+              />
+              <NavItem
+                icon={<Settings className="w-4 h-4" strokeWidth={2} />}
+                label="Settings"
+                active={false}
+                to={`/faculty/class/${resolvedClassId}/settings`}
+              />
+            </ul>
+          </nav>
+        </div>
+      </aside>
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="bg-white border-b border-gray-200 px-8 py-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-[24px] font-semibold text-[#2B2A2A]">Student Grades</h1>
+              </div>
+              <div className="flex items-center gap-4 text-[13px] text-gray-600">
+                <span>Class {resolvedClassId}</span>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="max-w-7xl mx-auto px-8 py-6">
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-7xl mx-auto px-8 py-6">
+            <div className="mb-6">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Link
+                      to={`/faculty/class/${resolvedClassId}/students`}
+                      className="text-[13px] text-[#5A7ACD] hover:text-[#4a6abd] font-medium"
+                    >
+                      Back to roster
+                    </Link>
+                  </div>
+                  <h2 className="text-[18px] font-semibold text-[#2B2A2A]">
+                    {student?.studentName ?? "Student"} — Grades
+                  </h2>
+                  <p className="text-[13px] text-gray-600 mt-1">
+                    Assignment grades and status for this class.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex flex-col items-end">
+                    <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Overall</div>
+                    <div className="text-[26px] font-semibold text-[#2B2A2A] tabular-nums">{overallPercent}%</div>
+                  </div>
+                  <SegmentedFilter
+                    items={[
+                      { id: "gradedOnly" as const, label: "Graded only" },
+                      { id: "includeMissing" as const, label: "Include missing as 0" },
+                    ]}
+                    value={avgMode}
+                    onValueChange={(value) => setAvgMode(value)}
+                  />
+                </div>
+              </div>
+            </div>
+
         {errorMessage ? (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
             {errorMessage}
@@ -191,9 +272,40 @@ export function FacultyClassStudentDetailPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-[14px] text-gray-600">
             No grade data found for this student in this class.
           </div>
-        )}
-      </main>
+              )}
+          </div>
+        </main>
+      </div>
     </div>
+  );
+}
+
+function NavItem({
+  icon,
+  label,
+  active,
+  to,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  to: string;
+}) {
+  return (
+    <li>
+      <Link
+        to={to}
+        className={`
+          w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors
+          ${active ? "bg-[#5A7ACD] text-white" : "text-gray-700 hover:bg-gray-100"}
+        `}
+      >
+        <div className="flex items-center gap-3">
+          {icon}
+          <span>{label}</span>
+        </div>
+      </Link>
+    </li>
   );
 }
 

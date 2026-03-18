@@ -7,10 +7,10 @@ import {
   FileText, 
   Send, 
   BarChart3, 
-  Users, 
-  UsersRound,
   Plus,
   Upload,
+  Users,
+  UsersRound,
   CheckCircle2,
   Clock,
   AlertCircle,
@@ -111,6 +111,7 @@ export function FacultyClassPage() {
   const resolvedClassId = classId ?? "1";
   const activeSection: SectionType = isValidSection(sectionParam) ? sectionParam : "dashboard";
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [classHeader, setClassHeader] = useState<ClassHeader | null>(null);
 
   // Redirect invalid section to dashboard
   useEffect(() => {
@@ -119,14 +120,6 @@ export function FacultyClassPage() {
     }
   }, [sectionParam, resolvedClassId, navigate]);
 
-  // NOTE: Class header data now comes from backend-driven service mapping.
-  const [classHeader, setClassHeader] = useState<ClassHeader | null>(null);
-
-  useEffect(() => {
-    const resolvedId = classId || "1";
-    getFacultyClassHeaderById(resolvedId).then(setClassHeader);
-  }, [classId]);
-
   useEffect(() => {
     // NOTE: Close add-student modal when user navigates away from Students section to avoid stale overlay state.
     if (activeSection !== "students") {
@@ -134,7 +127,18 @@ export function FacultyClassPage() {
     }
   }, [activeSection]);
 
-  // NOTE: Lightweight placeholder keeps layout stable during async load.
+  useEffect(() => {
+    const resolvedId = classId || "1";
+    getFacultyClassHeaderById(resolvedId)
+      .then(setClassHeader)
+      .catch(() => setClassHeader(null));
+  }, [classId]);
+
+  const courseFullName =
+    classHeader?.code && classHeader?.name
+      ? `${classHeader.code}: ${classHeader.name}`
+      : classHeader?.name || classHeader?.code || "";
+  const facultyName = classHeader?.instructor || "";
   const classData: ClassHeader = classHeader ?? {
     id: classId || "1",
     code: "",
@@ -145,7 +149,6 @@ export function FacultyClassPage() {
     role: "",
   };
 
-
   return (
     <div className="flex h-screen bg-[#F5F2F2]">
       {/* Left Sidebar Navigation */}
@@ -153,7 +156,7 @@ export function FacultyClassPage() {
         <div className="h-full flex flex-col">
           {/* Back to Dashboard Link */}
           <div className="px-4 py-4 border-b border-gray-200">
-            <Link 
+            <Link
               to="/dashboard"
               className="flex items-center gap-2 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors"
             >
@@ -258,24 +261,20 @@ export function FacultyClassPage() {
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto px-8 py-6">
-            {activeSection === 'dashboard' && <DashboardSection />}
-            {activeSection === 'assignments' && <AssignmentsSection />}
-            {activeSection === 'grades' && (
-              <GradesSection
-                courseFullName={classData.code && classData.name ? `${classData.code}: ${classData.name}` : classData.name || classData.code || ""}
-                facultyName={classData.instructor || ""}
-              />
+            {activeSection === "dashboard" && <DashboardSection />}
+            {activeSection === "assignments" && <AssignmentsSection />}
+            {activeSection === "grades" && (
+              <GradesSection courseFullName={courseFullName} facultyName={facultyName} />
             )}
-            {activeSection === 'students' && (
+            {activeSection === "students" && (
               <StudentsSection
                 isAddStudentModalOpen={isAddStudentModalOpen}
                 onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
               />
             )}
-            {activeSection === 'assistants' && <AssistantsSection />}
-            {activeSection === 'groups' && <GroupsSection />}
-            {/* CLEANUP: Removed Rubrics/Tests/Integrity/Announcements section rendering per updated faculty class management scope. */}
-            {activeSection === 'settings' && <SettingsSection />}
+            {activeSection === "assistants" && <AssistantsSection />}
+            {activeSection === "groups" && <GroupsSection />}
+            {activeSection === "settings" && <SettingsSection />}
           </div>
         </main>
       </div>
@@ -303,10 +302,7 @@ function NavItem({
         to={to}
         className={`
           w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors
-          ${active
-            ? 'bg-[#5A7ACD] text-white'
-            : 'text-gray-700 hover:bg-gray-100'
-          }
+          ${active ? "bg-[#5A7ACD] text-white" : "text-gray-700 hover:bg-gray-100"}
         `}
       >
         <div className="flex items-center gap-3">
@@ -314,10 +310,12 @@ function NavItem({
           <span>{label}</span>
         </div>
         {badge !== undefined && badge > 0 && (
-          <span className={`
-            px-2 py-0.5 text-[11px] font-semibold rounded-full
-            ${active ? 'bg-white text-[#5A7ACD]' : 'bg-[#FEB05D] text-white'}
-          `}>
+          <span
+            className={`
+              px-2 py-0.5 text-[11px] font-semibold rounded-full
+              ${active ? "bg-white text-[#5A7ACD]" : "bg-[#FEB05D] text-white"}
+            `}
+          >
             {badge}
           </span>
         )}
