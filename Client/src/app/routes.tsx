@@ -19,6 +19,7 @@ import { UniversitySemestersPage } from "./components/UniversitySemestersPage";
 import { FacultyCreateClassPage } from "./components/FacultyCreateClassPage";
 import { FacultyCreateAssignmentPage } from "./components/FacultyCreateAssignmentPage";
 import { FacultyGradingAssignmentDetailPage } from "./components/FacultyGradingAssignmentDetailPage";
+import { FacultyClassStudentDetailPage } from "./components/faculty/FacultyClassStudentDetailPage.tsx";
 import CompleteStudentRegistrationPage from "./components/CompleteStudentRegistrationPage";
 import {
   FacultyDiscussionsPage,
@@ -286,6 +287,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={["FACULTY"]}>
         <Navigate to="./dashboard" replace />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/class/:classId/students/:studentId",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyClassStudentDetailPage />
       </ProtectedRoute>
     ),
   },
