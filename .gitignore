@@ -21,4 +21,23 @@ Thumbs.db
 *.log
 logs
 
-CodexInstructions.MD
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Grader
+grader/venv/
+grader/.venv/
+grader/models/
+grader/backend_input.json
+grader/final_results.json
+grader/submissions/
+grader/report/
+grader/copydetect_report/

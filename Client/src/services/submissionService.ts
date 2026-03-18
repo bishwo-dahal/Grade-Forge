@@ -426,6 +426,7 @@ export async function getFacultySubmissionById(
   );
   return {
     submissionId: String(data.id),
+    studentId: String(data.studentId),
     studentName: data.studentName,
     submittedAt: data.submittedAt ?? "",
     marks: typeof data.marks === "number" ? data.marks : null,

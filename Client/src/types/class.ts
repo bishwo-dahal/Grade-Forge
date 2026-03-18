@@ -234,7 +234,12 @@ export interface FacultyRosterStudentRow {
   progressSubmitted: number;
   progressTotal: number;
   completionPercent: number;
+  /** Default display avg score (percentage). See also gradedOnly/includeMissing variants. */
   avgScore: number;
+  /** Average percent over graded assignments only. */
+  avgScoreGradedOnly?: number;
+  /** Average percent counting missing/ungraded as 0. */
+  avgScoreIncludingMissing?: number;
   lastActivity: string;
 }
 

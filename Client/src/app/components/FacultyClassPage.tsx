@@ -7,10 +7,10 @@ import {
   FileText, 
   Send, 
   BarChart3, 
-  Users, 
-  UsersRound,
   Plus,
   Upload,
+  Users,
+  UsersRound,
   CheckCircle2,
   Clock,
   AlertCircle,
@@ -67,7 +67,7 @@ import type {
 } from "../../types/gradeReport";
 import type { GradingAssistantResponse } from "../../types/gradingAssistant";
 import type { CourseAssistantResponse } from "../../types/courseAssistant";
-import { SegmentedFilter } from "./ui/SegmentedFilter";
+import { SegmentedFilter, type SegmentedFilterItem } from "./ui/SegmentedFilter";
 import {
   Tooltip,
   TooltipContent,
@@ -110,6 +110,7 @@ export function FacultyClassPage() {
   const resolvedClassId = classId ?? "1";
   const activeSection: SectionType = isValidSection(sectionParam) ? sectionParam : "dashboard";
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [classHeader, setClassHeader] = useState<ClassHeader | null>(null);
 
   // Redirect invalid section to dashboard
   useEffect(() => {
@@ -118,14 +119,6 @@ export function FacultyClassPage() {
     }
   }, [sectionParam, resolvedClassId, navigate]);
 
-  // NOTE: Class header data now comes from backend-driven service mapping.
-  const [classHeader, setClassHeader] = useState<ClassHeader | null>(null);
-
-  useEffect(() => {
-    const resolvedId = classId || "1";
-    getFacultyClassHeaderById(resolvedId).then(setClassHeader);
-  }, [classId]);
-
   useEffect(() => {
     // NOTE: Close add-student modal when user navigates away from Students section to avoid stale overlay state.
     if (activeSection !== "students") {
@@ -133,7 +126,18 @@ export function FacultyClassPage() {
     }
   }, [activeSection]);
 
-  // NOTE: Lightweight placeholder keeps layout stable during async load.
+  useEffect(() => {
+    const resolvedId = classId || "1";
+    getFacultyClassHeaderById(resolvedId)
+      .then(setClassHeader)
+      .catch(() => setClassHeader(null));
+  }, [classId]);
+
+  const courseFullName =
+    classHeader?.code && classHeader?.name
+      ? `${classHeader.code}: ${classHeader.name}`
+      : classHeader?.name || classHeader?.code || "";
+  const facultyName = classHeader?.instructor || "";
   const classData: ClassHeader = classHeader ?? {
     id: classId || "1",
     code: "",
@@ -144,7 +148,6 @@ export function FacultyClassPage() {
     role: "",
   };
 
-
   return (
     <div className="flex h-screen bg-[#F5F2F2]">
       {/* Left Sidebar Navigation */}
@@ -152,7 +155,7 @@ export function FacultyClassPage() {
         <div className="h-full flex flex-col">
           {/* Back to Dashboard Link */}
           <div className="px-4 py-4 border-b border-gray-200">
-            <Link 
+            <Link
               to="/dashboard"
               className="flex items-center gap-2 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors"
             >
@@ -257,24 +260,20 @@ export function FacultyClassPage() {
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto px-8 py-6">
-            {activeSection === 'dashboard' && <DashboardSection />}
-            {activeSection === 'assignments' && <AssignmentsSection />}
-            {activeSection === 'grades' && (
-              <GradesSection
-                courseFullName={classData.code && classData.name ? `${classData.code}: ${classData.name}` : classData.name || classData.code || ""}
-                facultyName={classData.instructor || ""}
-              />
+            {activeSection === "dashboard" && <DashboardSection />}
+            {activeSection === "assignments" && <AssignmentsSection />}
+            {activeSection === "grades" && (
+              <GradesSection courseFullName={courseFullName} facultyName={facultyName} />
             )}
-            {activeSection === 'students' && (
+            {activeSection === "students" && (
               <StudentsSection
                 isAddStudentModalOpen={isAddStudentModalOpen}
                 onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
               />
             )}
-            {activeSection === 'assistants' && <AssistantsSection />}
-            {activeSection === 'groups' && <GroupsSection />}
-            {/* CLEANUP: Removed Rubrics/Tests/Integrity/Announcements section rendering per updated faculty class management scope. */}
-            {activeSection === 'settings' && <SettingsSection />}
+            {activeSection === "assistants" && <AssistantsSection />}
+            {activeSection === "groups" && <GroupsSection />}
+            {activeSection === "settings" && <SettingsSection />}
           </div>
         </main>
       </div>
@@ -302,10 +301,7 @@ function NavItem({
         to={to}
         className={`
           w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors
-          ${active
-            ? 'bg-[#5A7ACD] text-white'
-            : 'text-gray-700 hover:bg-gray-100'
-          }
+          ${active ? "bg-[#5A7ACD] text-white" : "text-gray-700 hover:bg-gray-100"}
         `}
       >
         <div className="flex items-center gap-3">
@@ -313,10 +309,12 @@ function NavItem({
           <span>{label}</span>
         </div>
         {badge !== undefined && badge > 0 && (
-          <span className={`
-            px-2 py-0.5 text-[11px] font-semibold rounded-full
-            ${active ? 'bg-white text-[#5A7ACD]' : 'bg-[#FEB05D] text-white'}
-          `}>
+          <span
+            className={`
+              px-2 py-0.5 text-[11px] font-semibold rounded-full
+              ${active ? "bg-white text-[#5A7ACD]" : "bg-[#FEB05D] text-white"}
+            `}
+          >
             {badge}
           </span>
         )}
@@ -1271,7 +1269,12 @@ function GradesSection({
                           className={`border-b border-gray-100 transition-colors hover:bg-[#F8F9FB]/80 ${idx % 2 === 1 ? "bg-gray-50/40" : ""}`}
                         >
                           <td className="px-5 py-3.5 text-[13px] font-medium text-[#2B2A2A] sticky left-0 bg-inherit z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.04)] border-r border-gray-200">
-                            {student.studentName}
+                            <Link
+                              to={`/faculty/class/${classId || "1"}/students/${student.studentId}`}
+                              className="hover:text-[#5A7ACD] transition-colors"
+                            >
+                              {student.studentName}
+                            </Link>
                           </td>
                           {student.assignments.map((a) => (
                             <td key={a.assignmentId} className="px-4 py-3.5 border-r border-gray-200 last:border-r-0">
@@ -1365,12 +1368,18 @@ function GradeCell({
   assignment: { score: number | null; maxScore: number; status: string };
   statusLabel: Record<string, string>;
 }) {
+  const max = Number.isFinite(assignment.maxScore) ? assignment.maxScore : 0;
+  const score = assignment.score;
+  const displayScore =
+    score != null && Number.isFinite(score)
+      ? score.toFixed(2)
+      : assignment.status === "GRADED"
+        ? "—"
+        : "—";
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-[13px] text-[#2B2A2A] tabular-nums">
-        {assignment.score != null
-          ? `${assignment.score.toFixed(2)} / ${assignment.maxScore.toFixed(1)}`
-          : "— / " + assignment.maxScore.toFixed(1)}
+        {max > 0 ? `${displayScore} / ${max.toFixed(1)}` : displayScore}
       </span>
       <StatusPill status={assignment.status} statusLabel={statusLabel} />
     </div>
@@ -1517,6 +1526,7 @@ function StudentsSection({
   const [rosterSearchValue, setRosterSearchValue] = useState("");
   const [isRosterLoading, setIsRosterLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [avgMode, setAvgMode] = useState<"gradedOnly" | "includeMissing">("gradedOnly");
 
   // NOTE: Add-student flow is isolated in modal state so it does not interfere with roster filtering.
   const [lookupEmail, setLookupEmail] = useState("");
@@ -1648,7 +1658,38 @@ function StudentsSection({
     };
   }, [isAddStudentModalOpen, lookupEmail, resolvedId]);
 
-  const filterItems = useMemo(() => {
+  const getDisplayedAvgScore = useCallback(
+    (row: FacultyRosterStudentRow): number => {
+      if (avgMode === "includeMissing") {
+        return row.avgScoreIncludingMissing ?? row.avgScore;
+      }
+      return row.avgScoreGradedOnly ?? row.avgScore;
+    },
+    [avgMode],
+  );
+
+  const rosterStats: FacultyRosterStats = useMemo(() => {
+    const totalStudents = rosterRows.length;
+    const activeStudents = rosterRows.filter((row) => row.status === "active").length;
+    const inactiveStudents = rosterRows.filter((row) => row.status === "inactive").length;
+    const avgScore =
+      totalStudents > 0
+        ? Math.round(rosterRows.reduce((sum, row) => sum + getDisplayedAvgScore(row), 0) / totalStudents)
+        : 0;
+    const completion =
+      totalStudents > 0
+        ? Math.round(rosterRows.reduce((sum, row) => sum + row.completionPercent, 0) / totalStudents)
+        : 0;
+    return {
+      totalStudents,
+      activeStudents,
+      inactiveStudents,
+      avgScore,
+      completion,
+    };
+  }, [rosterRows, getDisplayedAvgScore]);
+
+  const filterItems = useMemo<SegmentedFilterItem<RosterFilter>[]>(() => {
     const activeCount = rosterRows.filter((row) => row.status === "active").length;
     const inactiveCount = rosterRows.filter((row) => row.status === "inactive").length;
     const unassignedCount = rosterRows.filter((row) => row.status === "unassigned").length;
@@ -1657,7 +1698,7 @@ function StudentsSection({
       { id: "active", label: "Active", count: activeCount },
       { id: "inactive", label: "Inactive", count: inactiveCount },
       { id: "unassigned", label: "Unassigned", count: unassignedCount },
-    ] as const;
+    ];
   }, [rosterRows]);
 
   const filteredRows = useMemo(() => {
@@ -1776,6 +1817,17 @@ function StudentsSection({
             onValueChange={(value) => setActiveFilter(value)}
           />
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Avg mode</span>
+          <SegmentedFilter
+            items={[
+              { id: "gradedOnly" as const, label: "Graded only" },
+              { id: "includeMissing" as const, label: "Include missing as 0" },
+            ]}
+            value={avgMode}
+            onValueChange={(value) => setAvgMode(value)}
+          />
+        </div>
       </div>
 
       {errorMessage ? (
@@ -1852,7 +1904,16 @@ function StudentsSection({
                     <input type="checkbox" className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]" />
                   </td>
                   <td className="px-4 py-4">
-                    <p className="text-[14px] font-medium text-[#2B2A2A]">{student.name}</p>
+                    {student.studentId != null ? (
+                      <Link
+                        to={`/faculty/class/${resolvedId}/students/${student.studentId}`}
+                        className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
+                      >
+                        {student.name}
+                      </Link>
+                    ) : (
+                      <p className="text-[14px] font-medium text-[#2B2A2A]">{student.name}</p>
+                    )}
                     <p className="text-[12px] text-gray-500 mt-1">{student.enrolledLabel}</p>
                   </td>
                   <td className="px-4 py-4">
@@ -1885,7 +1946,7 @@ function StudentsSection({
                     </p>
                   </td>
                   <td className="px-4 py-4 text-[13px] font-semibold text-[#2B2A2A]">
-                    {student.avgScore}%
+                    {getDisplayedAvgScore(student)}%
                   </td>
                   <td className="px-4 py-4 text-[13px] text-gray-600">{student.lastActivity}</td>
                   <td className="px-4 py-4">

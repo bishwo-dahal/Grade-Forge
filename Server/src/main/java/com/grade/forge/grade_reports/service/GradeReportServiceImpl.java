@@ -10,9 +10,13 @@ import com.grade.forge.grade_reports.dto.AssignmentGradeDTO;
 import com.grade.forge.grade_reports.dto.AssignmentReportResponseDTO;
 import com.grade.forge.grade_reports.dto.GradeReportResponseDTO;
 import com.grade.forge.grade_reports.dto.StudentAssignmentStatusDTO;
+import com.grade.forge.grade_reports.dto.StudentCourseStatsDTO;
 import com.grade.forge.grade_reports.dto.StudentGradeDTO;
 import com.grade.forge.grading.entity.SubmissionGrade;
 import com.grade.forge.grading.repository.SubmissionGradeRepository;
+import com.grade.forge.rubric.RubricType;
+import com.grade.forge.rubric.entity.Rubric;
+import com.grade.forge.rubric.entity.RubricSubCriteria;
 import com.grade.forge.student.entity.Student;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.repository.SubmissionRepository;
@@ -45,6 +49,63 @@ public class GradeReportServiceImpl implements GradeReportService {
     private final EnrollmentRepository enrollmentRepository;
     private final SubmissionRepository submissionRepository;
     private final SubmissionGradeRepository submissionGradeRepository;
+
+    private static double roundTo2(double value) {
+        return Math.round(value * 100.0) / 100.0;
+    }
+
+    /**
+     * Converts rubric row grades into an assignment-level score.
+     * - WEIGHTED rubric: sum((awarded/max)*(weight/100)*assignmentTotalPoints)
+     * - UNWEIGHTED or missing rubric: sum(awardedScore)
+     */
+    private Double calculateRubricBackedScore(Assignment assignment, List<SubmissionGrade> grades) {
+        if (grades == null || grades.isEmpty()) {
+            return null;
+        }
+
+        final int assignmentTotalPoints = assignment.getTotalPoints() != null ? assignment.getTotalPoints() : 0;
+        final Rubric rubric = assignment.getRubric();
+        final boolean isWeighted = rubric != null && rubric.getRubricType() == RubricType.WEIGHTED;
+
+        if (!isWeighted || assignmentTotalPoints <= 0) {
+            double sum = grades.stream()
+                    .filter(g -> g.getAwardedScore() != null)
+                    .mapToDouble(SubmissionGrade::getAwardedScore)
+                    .sum();
+            return roundTo2(sum);
+        }
+
+        double sumWeightedPoints = 0.0;
+        double sumAwardedFallback = 0.0;
+        for (SubmissionGrade grade : grades) {
+            if (grade.getAwardedScore() == null) {
+                continue;
+            }
+            sumAwardedFallback += grade.getAwardedScore();
+
+            RubricSubCriteria sub = grade.getRubricSubCriteria();
+            if (sub == null) {
+                continue;
+            }
+            Double max = sub.getMaxScore();
+            Double weight = sub.getWeight();
+            if (max == null || max <= 0 || weight == null) {
+                continue;
+            }
+            // Clamp awarded to [0, max] to avoid accidental overshoots.
+            double awarded = Math.max(0.0, Math.min(max, grade.getAwardedScore()));
+            sumWeightedPoints += (awarded / max) * (weight / 100.0) * assignmentTotalPoints;
+        }
+
+        // If weights/maxScore missing on rubric rows, fall back to raw sum.
+        double score = sumWeightedPoints > 0.0 ? sumWeightedPoints : sumAwardedFallback;
+        // Cap to assignment total points.
+        if (assignmentTotalPoints > 0) {
+            score = Math.max(0.0, Math.min(assignmentTotalPoints, score));
+        }
+        return roundTo2(score);
+    }
 
     @Override
     public GradeReportResponseDTO generateGradeReport(Long courseId, List<Long> studentIds, List<Long> assignmentIds) {
@@ -130,10 +191,7 @@ public class GradeReportServiceImpl implements GradeReportService {
                 List<SubmissionGrade> grades = submissionGradeRepository.findBySubmission_Id(submission.getId());
                 Double score = null;
                 if (!grades.isEmpty()) {
-                    score = grades.stream()
-                            .filter(grade -> grade.getAwardedScore() != null)
-                            .mapToDouble(SubmissionGrade::getAwardedScore)
-                            .sum();
+                    score = calculateRubricBackedScore(assignment, grades);
                 } else if (submission.getMarks() != null) {
                     score = submission.getMarks();
                 }
@@ -188,10 +246,7 @@ public class GradeReportServiceImpl implements GradeReportService {
             List<SubmissionGrade> grades = submissionGradeRepository.findBySubmission_Id(submission.getId());
             Double score = null;
             if (!grades.isEmpty()) {
-                score = grades.stream()
-                        .filter(grade -> grade.getAwardedScore() != null)
-                        .mapToDouble(SubmissionGrade::getAwardedScore)
-                        .sum();
+                score = calculateRubricBackedScore(assignment, grades);
             } else if (submission.getMarks() != null) {
                 score = submission.getMarks();
             }
@@ -221,6 +276,135 @@ public class GradeReportServiceImpl implements GradeReportService {
             return STATUS_MISSING;
         }
         return STATUS_NOT_SUBMITTED;
+    }
+
+    @Override
+    public StudentCourseStatsDTO generateStudentCourseStats(Long courseId, Long studentId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+
+        List<Enrollment> enrollments = enrollmentRepository.findByCourse_Id(courseId).stream()
+                .filter(e -> e.getStudent() != null && Objects.equals(e.getStudent().getId(), studentId))
+                .toList();
+        if (enrollments.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Student is not enrolled in this course");
+        }
+        Student student = enrollments.get(0).getStudent();
+
+        List<Assignment> assignments = assignmentRepository.findByCourse_Id(courseId);
+        int totalAssignments = assignments.size();
+
+        LocalDateTime now = LocalDateTime.now();
+        int submittedAssignments = 0;
+        int gradedAssignments = 0;
+        int missingAssignments = 0;
+        int lateSubmissions = 0;
+
+        // For last activity and trend we need latest submission per assignment.
+        Submission lastSubmission = null;
+        Assignment lastSubmissionAssignment = null;
+        List<StudentCourseStatsDTO.TrendPointDTO> trend = new ArrayList<>();
+
+        double gradedEarned = 0.0;
+        double gradedTotal = 0.0;
+        double allEarned = 0.0;
+        double allTotal = 0.0;
+
+        for (Assignment assignment : assignments) {
+            List<Submission> subs = submissionRepository.findByAssignment_IdAndStudent_Id(assignment.getId(), studentId);
+            Submission latest = subs.stream()
+                    .max(Comparator.comparing(Submission::getSubmittedAt))
+                    .orElse(null);
+
+            final double maxScore = assignment.getTotalPoints() != null ? assignment.getTotalPoints().doubleValue() : 0.0;
+            allTotal += maxScore;
+
+            if (latest == null) {
+                // Missing if past due date.
+                String status = determineMissingStatus(assignment, now);
+                if (STATUS_MISSING.equals(status)) {
+                    missingAssignments += 1;
+                }
+                // includeMissing mode counts as 0 earned
+                continue;
+            }
+
+            submittedAssignments += 1;
+
+            if (lastSubmission == null || latest.getSubmittedAt().isAfter(lastSubmission.getSubmittedAt())) {
+                lastSubmission = latest;
+                lastSubmissionAssignment = assignment;
+            }
+
+            // Late determination uses dueDate (not lateDueDate) for now.
+            if (assignment.getDueDate() != null && latest.getSubmittedAt() != null && latest.getSubmittedAt().isAfter(assignment.getDueDate())) {
+                lateSubmissions += 1;
+            }
+
+            Double score = null;
+            List<SubmissionGrade> grades = submissionGradeRepository.findBySubmission_Id(latest.getId());
+            if (grades != null && !grades.isEmpty()) {
+                score = calculateRubricBackedScore(assignment, grades);
+            } else if (latest.getMarks() != null) {
+                score = latest.getMarks();
+            }
+
+            if (score != null) {
+                gradedAssignments += 1;
+                double clamped = maxScore > 0 ? Math.max(0.0, Math.min(maxScore, score)) : score;
+                gradedEarned += clamped;
+                gradedTotal += maxScore;
+                allEarned += clamped;
+                trend.add(new StudentCourseStatsDTO.TrendPointDTO(
+                        assignment.getId(),
+                        assignment.getName(),
+                        roundTo2(clamped),
+                        roundTo2(maxScore),
+                        latest.getSubmittedAt()
+                ));
+            } else {
+                // Submitted but not graded: includeMissing counts as 0 earned.
+            }
+        }
+
+        // Keep only most recent 8 graded items in trend.
+        trend.sort(Comparator.comparing(StudentCourseStatsDTO.TrendPointDTO::getGradedAt).reversed());
+        if (trend.size() > 8) {
+            trend = trend.subList(0, 8);
+        }
+
+        int submissionRatePercent = totalAssignments > 0 ? (int) Math.round((submittedAssignments / (double) totalAssignments) * 100.0) : 0;
+
+        int overallPercentGradedOnly = gradedTotal > 0 ? (int) Math.round((gradedEarned / gradedTotal) * 100.0) : 0;
+        int overallPercentIncludingMissing = allTotal > 0 ? (int) Math.round((allEarned / allTotal) * 100.0) : 0;
+
+        StudentCourseStatsDTO.LastActivityDTO lastActivity = null;
+        if (lastSubmission != null && lastSubmissionAssignment != null) {
+            lastActivity = new StudentCourseStatsDTO.LastActivityDTO(
+                    lastSubmissionAssignment.getId(),
+                    lastSubmissionAssignment.getName(),
+                    lastSubmission.getSubmittedAt()
+            );
+        }
+
+        return new StudentCourseStatsDTO(
+                course.getId(),
+                student.getId(),
+                student.getUser() != null ? student.getUser().getName() : null,
+                totalAssignments,
+                submittedAssignments,
+                gradedAssignments,
+                missingAssignments,
+                lateSubmissions,
+                submissionRatePercent,
+                overallPercentGradedOnly,
+                overallPercentIncludingMissing,
+                lastActivity,
+                trend,
+                0,
+                0,
+                null
+        );
     }
 }
 
