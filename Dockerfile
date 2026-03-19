@@ -3,7 +3,8 @@ FROM node:24-bullseye-slim AS frontend-build
 WORKDIR /app/frontend
 # Only copy package.json and package-lock.json
 COPY Client/package.json Client/package-lock.json ./
-RUN npm ci
+# Use BuildKit cache for npm downloads to speed rebuilds in CI.
+RUN --mount=type=cache,target=/root/.npm npm ci
 # Copy the rest of the client code
 COPY Client/ ./
 RUN npm run build
@@ -13,11 +14,11 @@ FROM maven:3.9.12-eclipse-temurin-21 AS backend-build
 WORKDIR /app/backend
 COPY Server/pom.xml .
 # Cache Maven dependencies separately from source changes.
-RUN mvn -q -DskipTests dependency:go-offline
+RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests dependency:go-offline
 COPY Server/src ./src
 # Copy frontend build into backend
 COPY --from=frontend-build /app/frontend/dist ./src/main/resources/static
-RUN mvn -q -DskipTests clean package
+RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests clean package
 
 # Stage 3: Final runtime image
 FROM eclipse-temurin:21-jdk
