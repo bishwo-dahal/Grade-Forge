@@ -394,6 +394,9 @@ export async function listFacultyAssignmentSubmissionFiles(
         const detail = await getFacultySubmissionById(String(sub.submissionId));
         return {
           submissionId: String(sub.submissionId),
+          // Needed to map grader report results (keyed by student_id) onto this row.
+          // Prefer detailed response, fall back to slim list response.
+          studentId: (detail as { studentId?: string }).studentId ?? String(sub.studentId),
           studentName: sub.studentName,
           submittedAt: sub.submittedAt ?? detail.submittedAt ?? "",
           // FIX: Prefer the full submission-detail grade because the slim list endpoint can lag behind immediately after a grade update.
@@ -404,6 +407,7 @@ export async function listFacultyAssignmentSubmissionFiles(
         // NOTE: Keep assignment views usable even if one detail lookup fails; affected rows fall back to list metadata without files.
         return {
           submissionId: String(sub.submissionId),
+          studentId: String(sub.studentId),
           studentName: sub.studentName,
           submittedAt: sub.submittedAt ?? "",
           marks: typeof sub.grade === "number" ? sub.grade : null,
