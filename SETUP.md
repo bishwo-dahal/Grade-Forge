@@ -1,35 +1,36 @@
-# Grade-Forge – Development setup
+# Grade-Forge – Setup
 
-Quick way to run the project. Right now we only need **RabbitMQ** via Docker; database and other config use your existing setup.
+## Prerequisites
 
-## 1. Start RabbitMQ
+- Java **21** (JDK)
+- Maven **3.9.x**
+- Node.js **18+** (recommended: latest LTS)
+- Docker (for RabbitMQ; also used by “run tests” in some environments)
 
-From the **project root**:
+## Run locally (dev)
+
+### 1) Start RabbitMQ
+
+From the project root:
 
 ```bash
 docker compose up -d
 ```
 
-That starts RabbitMQ on **localhost:5672** (user: `guest`, password: `guest`). Optional UI: http://localhost:15672
+RabbitMQ runs on:
+- AMQP: `localhost:5672` (user/pass: `guest` / `guest`)
+- UI: `http://localhost:15672`
 
-Check it’s running:
-
-```bash
-docker compose ps
-```
-
-## 2. Run the backend
+### 2) Run the backend
 
 ```bash
 cd Server
 mvn spring-boot:run
 ```
 
-API: **http://localhost:8080**
+API: `http://localhost:8080`
 
-(Use your existing database and config; the app expects RabbitMQ at localhost:5672.)
-
-## 3. Run the frontend
+### 3) Run the frontend
 
 ```bash
 cd Client
@@ -37,8 +38,19 @@ npm install
 npm run dev
 ```
 
-Open the URL from the terminal (usually **http://localhost:5173**).
+Open the URL shown in the terminal (usually `http://localhost:5173`).
 
----
+## Notes
 
-**Summary:** `docker compose up -d` → run Server → run Client. 
+- If you’re missing AWS credentials locally, you can still run most UI flows; S3-backed submission file downloads will fail without `CLOUD_AWS_*` env vars.
+- If you need Node via nvm, install it like this:
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+. "$HOME/.nvm/nvm.sh"
+nvm install 24
+```
+
+## Summary
+
+`docker compose up -d` → run `Server` → run `Client`.
