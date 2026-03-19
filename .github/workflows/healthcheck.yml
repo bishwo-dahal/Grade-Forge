@@ -1,0 +1,68 @@
+name: Server Healthcheck
+
+on:
+  schedule:
+    # Every hour
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  healthcheck:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - name: main
+            url: http://52.14.92.121:8080/
+          - name: production
+            url: http://52.14.92.121:8081/
+
+    steps:
+      - name: Check server up
+        run: |
+          set -euo pipefail
+          URL="${{ matrix.target.url }}"
+          echo "Checking ${{ matrix.target.name }}: ${URL}"
+          # 10s connect + 30s overall, retry for transient network hiccups.
+          # Also capture HTTP status + total time for workflow summary.
+          OUT="$(mktemp)"
+          CODE="$(curl -sS -o "$OUT" -w "%{http_code}" --connect-timeout 10 --max-time 30 --retry 2 --retry-delay 2 "$URL" || true)"
+          TIME="$(curl -sS -o /dev/null -w "%{time_total}" --connect-timeout 10 --max-time 30 --retry 2 --retry-delay 2 "$URL" || true)"
+          if [ "$CODE" != "200" ]; then
+            echo "Healthcheck failed for ${{ matrix.target.name }}: HTTP ${CODE}"
+            exit 1
+          fi
+          {
+            echo "## ${{ matrix.target.name }} healthcheck"
+            echo ""
+            echo "- URL: \`$URL\`"
+            echo "- HTTP: **$CODE**"
+            echo "- Response time: **${TIME}s**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Optional RabbitMQ overview stats
+        env:
+          RABBITMQ_URL: ${{ matrix.target.name == 'main' && secrets.RABBITMQ_MGMT_URL_MAIN || secrets.RABBITMQ_MGMT_URL_PRODUCTION }}
+          RABBITMQ_USER: ${{ secrets.RABBITMQ_MGMT_USER }}
+          RABBITMQ_PASS: ${{ secrets.RABBITMQ_MGMT_PASS }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RABBITMQ_URL:-}" ] || [ -z "${RABBITMQ_USER:-}" ] || [ -z "${RABBITMQ_PASS:-}" ]; then
+            echo "RabbitMQ mgmt secrets not set; skipping." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # RabbitMQ Management API: /api/overview (requires mgmt plugin; usually :15672).
+          JSON="$(curl -fsS --connect-timeout 10 --max-time 30 -u "${RABBITMQ_USER}:${RABBITMQ_PASS}" "${RABBITMQ_URL%/}/api/overview")"
+          # Lightweight parsing without jq (runner has jq but keep resilient).
+          MSG_TOTAL="$(echo "$JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('message_stats',{}).get('publish', 'n/a'))" 2>/dev/null || echo n/a)"
+          ACK_TOTAL="$(echo "$JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('message_stats',{}).get('ack', 'n/a'))" 2>/dev/null || echo n/a)"
+          Q_TOTAL="$(echo "$JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('queue_totals',{}).get('messages', 'n/a'))" 2>/dev/null || echo n/a)"
+          {
+            echo ""
+            echo "### RabbitMQ (overview)"
+            echo "- Mgmt URL: \`${RABBITMQ_URL%/}\`"
+            echo "- Queued messages (all): **$Q_TOTAL**"
+            echo "- Published (total): **$MSG_TOTAL**"
+            echo "- Acked (total): **$ACK_TOTAL**"
+          } >> "$GITHUB_STEP_SUMMARY"
