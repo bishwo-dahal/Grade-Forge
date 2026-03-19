@@ -12,10 +12,12 @@ RUN npm run build
 FROM maven:3.9.12-eclipse-temurin-21 AS backend-build
 WORKDIR /app/backend
 COPY Server/pom.xml .
+# Cache Maven dependencies separately from source changes.
+RUN mvn -q -DskipTests dependency:go-offline
 COPY Server/src ./src
 # Copy frontend build into backend
 COPY --from=frontend-build /app/frontend/dist ./src/main/resources/static
-RUN mvn clean package -DskipTests
+RUN mvn -q -DskipTests clean package
 
 # Stage 3: Final runtime image
 FROM eclipse-temurin:21-jdk
