@@ -47,7 +47,7 @@ import type { Rubric } from "../../types/rubric";
 import type { TestSuiteDetail } from "../../types/testSuite";
 import type { TestRunJobStatusResponse } from "../../types/runTests";
 
-type TabType = 'description' | 'tests' | 'rubric' | 'results';
+type TabType = 'description' | 'tests' | 'rubric' | 'group' | 'results';
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
@@ -70,6 +70,7 @@ export function AssignmentPage() {
 
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     if (tabParam === "tests") return "tests";
+    if (tabParam === "group") return "group";
     if (isFacultyRole && submissionId) return "results";
     return "description";
   });
@@ -96,6 +97,17 @@ export function AssignmentPage() {
   const [runResult, setRunResult] = useState<TestRunJobStatusResponse | null>(null);
   /** Custom stdin for "run with my input" (students); lives in Test Cases tab, used when Run Tests is clicked. */
   const [customStdin, setCustomStdin] = useState("");
+
+  const selectedFacultySubmission = useMemo(() => {
+    if (!isFacultyRole || !submissionId) return null;
+    const match = facultySubmissionRows.find((r) => String(r.submissionId) === String(submissionId));
+    return match ?? null;
+  }, [facultySubmissionRows, isFacultyRole, submissionId]);
+
+  const groupTabEnabled = useMemo(() => {
+    if (!isFacultyRole || !selectedFacultySubmission) return false;
+    return (selectedFacultySubmission.subGroupMembers?.length ?? 0) > 0;
+  }, [isFacultyRole, selectedFacultySubmission]);
 
   const facultySubmissionFileOptions = useMemo(() => {
     if (!isFacultyRole) {
@@ -404,6 +416,7 @@ export function AssignmentPage() {
                 onTabChange={setActiveTab}
                 hasResults={hasSubmitted}
                 isFacultyView={isFacultyRole}
+                groupTabEnabled={groupTabEnabled}
               />
 
               {/* Tab Content */}
@@ -487,6 +500,36 @@ export function AssignmentPage() {
                   )
                 )}
                 {activeTab === 'rubric' && <GradingRubricPanel rubricCategories={rubricCategories} />}
+                {activeTab === 'group' && isFacultyRole && (
+                  <div className="pt-4">
+                    <div className="pb-2 border-b border-gray-200 mb-4">
+                      <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Group</h3>
+                      <p className="text-[14px] font-medium text-[#2B2A2A]">
+                        {selectedFacultySubmission?.subGroupName ?? "—"}
+                      </p>
+                    </div>
+                    {selectedFacultySubmission?.subGroupMembers?.length ? (
+                      <div className="space-y-2">
+                        {selectedFacultySubmission.subGroupMembers.map((m) => (
+                          <div
+                            key={m.id}
+                            className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-[13px] font-medium text-[#2B2A2A] truncate">{m.name}</p>
+                              <p className="text-[12px] text-gray-500 truncate">{m.email}</p>
+                            </div>
+                            <span className="text-[11px] uppercase tracking-wide text-gray-400 flex-shrink-0">
+                              {m.cwid}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[13px] text-gray-600">No group assigned for this submission.</p>
+                    )}
+                  </div>
+                )}
                 {activeTab === 'results' && (
                   <ResultsPanel
                     results={results}

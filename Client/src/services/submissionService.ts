@@ -237,6 +237,14 @@ interface FacultySubmissionDetailResponse {
   feedback: string | null;
   submittedAt: string;
   status: string;
+  subGroupId?: number | null;
+  subGroupName?: string | null;
+  subGroupMembers?: Array<{
+    id: number;
+    name: string;
+    email: string;
+    cwid: string;
+  }> | null;
 }
 
 interface SubmissionFileApiResponse {
@@ -402,6 +410,9 @@ export async function listFacultyAssignmentSubmissionFiles(
           // FIX: Prefer the full submission-detail grade because the slim list endpoint can lag behind immediately after a grade update.
           marks: detail.marks ?? (typeof sub.grade === "number" ? sub.grade : null),
           files: detail.files,
+          subGroupId: detail.subGroupId ?? null,
+          subGroupName: detail.subGroupName ?? null,
+          subGroupMembers: detail.subGroupMembers ?? null,
         } satisfies FacultyAssignmentSubmissionRow;
       } catch {
         // NOTE: Keep assignment views usable even if one detail lookup fails; affected rows fall back to list metadata without files.
@@ -412,6 +423,9 @@ export async function listFacultyAssignmentSubmissionFiles(
           submittedAt: sub.submittedAt ?? "",
           marks: typeof sub.grade === "number" ? sub.grade : null,
           files: [],
+          subGroupId: null,
+          subGroupName: null,
+          subGroupMembers: null,
         } satisfies FacultyAssignmentSubmissionRow;
       }
     }),
@@ -436,6 +450,9 @@ export async function getFacultySubmissionById(
     marks: typeof data.marks === "number" ? data.marks : null,
     files: mapSubmissionFiles(data.files),
     feedback: data.feedback ?? null,
+    subGroupId: data.subGroupId ?? null,
+    subGroupName: data.subGroupName ?? null,
+    subGroupMembers: data.subGroupMembers ?? null,
   };
 }
 
