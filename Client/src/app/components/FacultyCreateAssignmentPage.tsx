@@ -4,7 +4,9 @@ import { Link, useNavigate, useParams } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import {
   createFacultyAssignmentDraft,
+  getFacultyAssignmentEditPageData,
   getFacultyAssignmentCreatePageData,
+  updateFacultyAssignmentDraft,
 } from "../../services/assignmentService";
 import { getRubric, getUnweightedRubricTotalPoints } from "../../services/rubricService";
 import { createTestSuite } from "../../services/testSuiteService";
@@ -37,6 +39,7 @@ interface FacultyCreateAssignmentViewProps {
   onCloseSuccessModal: () => void;
   onGoBackToClass: () => void;
   onSubmit: () => void;
+  mode: "create" | "edit";
 }
 
 interface TestCaseRow {
@@ -76,6 +79,7 @@ function FacultyCreateAssignmentView({
   onGoBackToClass,
   onSubmit,
   testCasesAdded = false,
+  mode,
 }: FacultyCreateAssignmentViewProps) {
   const courseCode = pageData?.header.courseCode ?? "CS 2400";
 
@@ -91,10 +95,12 @@ function FacultyCreateAssignmentView({
             {courseCode}
           </Link>
           <span className="mx-2 text-[#9CA6B6]">/</span>
-          <span className="font-medium text-[#2B2A2A]">Create Assignment</span>
+          <span className="font-medium text-[#2B2A2A]">{mode === "edit" ? "Edit Assignment" : "Create Assignment"}</span>
         </div>
 
-        <h1 className="text-[34px] font-semibold leading-tight text-[#1F2430]">Create New Assignment</h1>
+        <h1 className="text-[34px] font-semibold leading-tight text-[#1F2430]">
+          {mode === "edit" ? "Edit Assignment" : "Create New Assignment"}
+        </h1>
 
         {errorMessage ? (
           <p className="mt-5 rounded-xl border border-[#F3CDD1] bg-[#FDEBEC] px-3 py-2 text-[13px] text-[#C23A42]">
@@ -499,7 +505,7 @@ function FacultyCreateAssignmentView({
                   disabled={isSaving}
                   className="rounded-xl bg-[#2B2A2A] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#3a3939] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isSaving ? "Creating..." : "Create Assignment"}
+                  {isSaving ? (mode === "edit" ? "Saving..." : "Creating...") : mode === "edit" ? "Save Changes" : "Create Assignment"}
                 </button>
               </div>
             </>
@@ -509,10 +515,12 @@ function FacultyCreateAssignmentView({
         {showSuccessModal ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div className="w-full max-w-md rounded-2xl border border-[#DDE4F0] bg-white p-6 shadow-2xl">
-              <h3 className="text-[20px] font-semibold text-[#1F2430]">Assignment Created</h3>
+              <h3 className="text-[20px] font-semibold text-[#1F2430]">
+                {mode === "edit" ? "Assignment Updated" : "Assignment Created"}
+              </h3>
               {/* NOTE: Success confirmation is modal-based so faculty can clearly confirm completion before navigation. */}
               <p className="mt-2 text-[14px] text-[#5D6A80]">
-                Your assignment was created successfully.
+                {mode === "edit" ? "Your assignment was updated successfully." : "Your assignment was created successfully."}
                 {testCasesAdded ? " Test cases were added." : ""}
               </p>
               <div className="mt-6 flex items-center justify-end gap-3">
@@ -548,8 +556,9 @@ function extractErrorMessage(error: unknown): string {
 
 export function FacultyCreateAssignmentPage() {
   const navigate = useNavigate();
-  const { classId } = useParams();
+  const { classId, assignmentId } = useParams();
   const resolvedClassId = classId ?? "1";
+  const mode: "create" | "edit" = assignmentId ? "edit" : "create";
   const loggedInUser = getAuthenticatedUser();
   const displayName = loggedInUser?.name ?? "Dr. Sarah Miller";
   const displayEmail = loggedInUser?.email ?? "smiller@university.edu";
@@ -582,7 +591,9 @@ export function FacultyCreateAssignmentPage() {
     setIsLoading(true);
     setErrorMessage(null);
     // NOTE: Page-level data loading keeps this form view presentation-only and backend-ready.
-    getFacultyAssignmentCreatePageData(resolvedClassId)
+    (mode === "edit" && assignmentId
+      ? getFacultyAssignmentEditPageData(resolvedClassId, assignmentId)
+      : getFacultyAssignmentCreatePageData(resolvedClassId))
       .then((data) => {
         setPageData(data);
         setForm(data.initialForm);
@@ -591,7 +602,7 @@ export function FacultyCreateAssignmentPage() {
         setErrorMessage(extractErrorMessage(error));
       })
       .finally(() => setIsLoading(false));
-  }, [resolvedClassId]);
+  }, [resolvedClassId, mode, assignmentId]);
 
   const canSubmit = useMemo(() => {
     if (!form) {
@@ -709,10 +720,13 @@ export function FacultyCreateAssignmentPage() {
     setIsSaving(true);
     setErrorMessage(null);
     try {
-      const { assignmentId } = await createFacultyAssignmentDraft(resolvedClassId, form);
+      const savedAssignmentId =
+        mode === "edit" && assignmentId
+          ? (await updateFacultyAssignmentDraft(assignmentId, resolvedClassId, form)).assignmentId
+          : (await createFacultyAssignmentDraft(resolvedClassId, form)).assignmentId;
       const hasTestCases = testSuiteDraft.testCases.some((c) => c.output.trim().length > 0);
       setTestCasesAdded(false);
-      if (hasTestCases) {
+      if (mode === "create" && hasTestCases) {
         const payload: TestSuitePayload = {
           title: testSuiteDraft.title.trim() || "Test Suite",
           description: testSuiteDraft.description.trim(),
@@ -727,7 +741,7 @@ export function FacultyCreateAssignmentPage() {
             })),
         };
         if (payload.testCases.length > 0) {
-          await createTestSuite(assignmentId, payload);
+          await createTestSuite(savedAssignmentId, payload);
           setTestCasesAdded(true);
         }
       }
@@ -819,6 +833,7 @@ export function FacultyCreateAssignmentPage() {
           onCloseSuccessModal={handleCloseSuccessModal}
           onGoBackToClass={handleGoBackToClass}
           onSubmit={handleSubmit}
+          mode={mode}
         />
       }
     />
