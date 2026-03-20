@@ -841,6 +841,60 @@ export async function getFacultyAssignmentCreatePageData(classId: string): Promi
   };
 }
 
+function splitDateTimeForForm(value: string | null | undefined): { date: string; time: string } {
+  if (!value) {
+    return { date: "", time: "00:00" };
+  }
+  const normalized = value.trim().replace(" ", "T");
+  const [datePart = "", timePart = ""] = normalized.split("T");
+  const hhmm = timePart.slice(0, 5);
+  return {
+    date: datePart,
+    time: hhmm || "00:00",
+  };
+}
+
+export async function getFacultyAssignmentEditPageData(
+  classId: string,
+  assignmentId: string,
+): Promise<FacultyAssignmentCreatePageData> {
+  const parsedClassId = parseClassId(classId || defaultCreateAssignmentHeader.classId);
+  const parsedAssignmentId = Number(assignmentId);
+  if (!Number.isFinite(parsedAssignmentId) || parsedAssignmentId <= 0) {
+    throw new Error("Invalid assignment id.");
+  }
+
+  const [baseData, assignmentResponse] = await Promise.all([
+    getFacultyAssignmentCreatePageData(String(parsedClassId)),
+    api.get<AssignmentApiResponse>(`/api/v1/faculty/assignments/${parsedAssignmentId}`),
+  ]);
+
+  const assignment = assignmentResponse.data;
+  const availableFrom = splitDateTimeForForm(assignment.availableFrom);
+  const dueDate = splitDateTimeForForm(assignment.dueDate);
+  const lateDueDate = splitDateTimeForForm(assignment.lateDueDate);
+
+  return {
+    ...baseData,
+    initialForm: {
+      title: assignment.name ?? "",
+      description: assignment.description ?? "",
+      availableFromDate: availableFrom.date,
+      availableFromTime: availableFrom.time,
+      dueDate: dueDate.date,
+      dueTime: dueDate.time || "23:59",
+      lateDueDate: lateDueDate.date,
+      lateDueTime: lateDueDate.time || "23:59",
+      languageId: assignment.languageId ? String(assignment.languageId) : "",
+      submissionType: assignment.submissionType === "GROUP" ? "GROUP" : "INDIVIDUAL",
+      mainGroupId: assignment.mainGroupId ? String(assignment.mainGroupId) : "",
+      starterCodeUrl: assignment.starterCodeUrl ?? "",
+      rubricId: assignment.rubricId ? String(assignment.rubricId) : "",
+      totalPoints: assignment.totalPoints ?? 100,
+    },
+  };
+}
+
 export async function createFacultyAssignmentDraft(
   classId: string,
   form: AssignmentCreateFormData,
@@ -870,5 +924,40 @@ export async function createFacultyAssignmentDraft(
 
   // NOTE: Creation now calls backend directly so the assignment is persisted and visible to enrolled students.
   const { data } = await api.post<AssignmentApiResponse>("/api/v1/faculty/assignments", payload);
+  return { assignmentId: String(data.id) };
+}
+
+export async function updateFacultyAssignmentDraft(
+  assignmentId: string,
+  classId: string,
+  form: AssignmentCreateFormData,
+): Promise<{ assignmentId: string }> {
+  const parsedClassId = parseClassId(classId || defaultCreateAssignmentHeader.classId);
+  const parsedAssignmentId = Number(assignmentId);
+  if (!Number.isFinite(parsedAssignmentId) || parsedAssignmentId <= 0) {
+    throw new Error("Invalid assignment id.");
+  }
+  const parsedLanguageId = Number(form.languageId);
+  if (!Number.isFinite(parsedLanguageId) || parsedLanguageId <= 0) {
+    throw new Error("Select a programming language.");
+  }
+
+  const payload = {
+    // IMPORTANT: Keep this payload aligned with backend AssignmentRequest to avoid update failures.
+    courseId: parsedClassId,
+    languageId: parsedLanguageId,
+    name: form.title.trim(),
+    description: form.description.trim(),
+    totalPoints: form.totalPoints,
+    submissionType: form.submissionType,
+    ...(form.mainGroupId.trim() ? { mainGroupId: Number(form.mainGroupId) } : {}),
+    starterCodeUrl: form.starterCodeUrl.trim() ? form.starterCodeUrl.trim() : null,
+    availableFrom: buildOptionalDateTimePayload(form.availableFromDate, form.availableFromTime, "available-from date/time"),
+    dueDate: buildDueDateTimePayload(form.dueDate, form.dueTime),
+    lateDueDate: buildOptionalDateTimePayload(form.lateDueDate, form.lateDueTime, "late due date/time"),
+    ...(form.rubricId.trim() ? { rubricId: Number(form.rubricId) } : {}),
+  };
+
+  const { data } = await api.put<AssignmentApiResponse>(`/api/v1/faculty/assignments/${parsedAssignmentId}`, payload);
   return { assignmentId: String(data.id) };
 }

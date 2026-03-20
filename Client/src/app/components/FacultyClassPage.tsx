@@ -673,6 +673,14 @@ function AssignmentsSection() {
                       </button>
                       {openAssignmentActionsId === assignment.id ? (
                         <div className="absolute right-0 top-9 z-20 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                          <Link
+                            to={`/faculty/class/${resolvedClassId}/assignments/${assignment.id}/edit`}
+                            onClick={() => setOpenAssignmentActionsId(null)}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[#2B2A2A] hover:bg-gray-50"
+                          >
+                            <Edit className="h-4 w-4" strokeWidth={2} />
+                            Edit Assignment
+                          </Link>
                           <button
                             type="button"
                             onClick={() => {

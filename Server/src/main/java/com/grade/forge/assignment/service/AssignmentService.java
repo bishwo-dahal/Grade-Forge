@@ -16,6 +16,8 @@ import com.grade.forge.rubric.entity.Rubric;
 import com.grade.forge.rubric.repository.RubricRepository;
 import com.grade.forge.execution.repository.TestRunJobRepository;
 import com.grade.forge.execution.repository.TestCaseResultRepository;
+import com.grade.forge.submission.entity.Submission;
+import com.grade.forge.submission.repository.SubmissionRepository;
 import com.grade.forge.testsuite.entity.TestCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,6 +40,7 @@ public class AssignmentService {
     private final MainGroupRepository mainGroupRepository;
     private final TestRunJobRepository testRunJobRepository;
     private final TestCaseResultRepository testCaseResultRepository;
+    private final SubmissionRepository submissionRepository;
 
     public AssignmentResponse createAssignment(AssignmentRequest request, String userEmail) {
         validateCreate(request);
@@ -164,7 +167,15 @@ public class AssignmentService {
         Assignment assignment = assignmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + id));
         cleanupTestRunsAndResults(assignment);
+        cleanupSubmissions(assignment);
         assignmentRepository.delete(assignment);
+    }
+
+    private void cleanupSubmissions(Assignment assignment) {
+        List<Submission> submissions = submissionRepository.findByAssignment_Id(assignment.getId());
+        if (!submissions.isEmpty()) {
+            submissionRepository.deleteAll(submissions);
+        }
     }
 
     private void cleanupTestRunsAndResults(Assignment assignment) {
