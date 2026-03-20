@@ -7,6 +7,7 @@ import {
   updateSupportedLanguage,
 } from "../../services/universityAdminService";
 import type { LanguageCreatePayload, SupportedLanguage } from "../../types/universityAdmin";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 const DEFAULT_LANGUAGE_FORM: LanguageCreatePayload = {
   name: "",
@@ -208,23 +209,12 @@ export function UniversityLanguagesPage() {
   const [languageForm, setLanguageForm] = useState<LanguageCreatePayload>(DEFAULT_LANGUAGE_FORM);
   const [languageFormError, setLanguageFormError] = useState<string | null>(null);
 
-  const getErrorMessage = (unknownError: unknown, fallback: string): string => {
-    if (typeof unknownError === "object" && unknownError !== null) {
-      const response = (unknownError as { response?: { data?: { message?: unknown } } }).response;
-      const message = response?.data?.message;
-      if (typeof message === "string" && message.trim().length > 0) {
-        return message;
-      }
-    }
-    return fallback;
-  };
-
   const loadLanguages = () => {
     setIsLoading(true);
     setError(null);
     listSupportedLanguages()
       .then(setLanguages)
-      .catch((loadError) => setError(getErrorMessage(loadError, "Could not load languages.")))
+      .catch((loadError) => setError(getApiErrorMessage(loadError, "Could not load languages.")))
       .finally(() => setIsLoading(false));
   };
 
@@ -288,7 +278,7 @@ export function UniversityLanguagesPage() {
       loadLanguages();
     } catch (saveError) {
       setLanguageFormError(
-        getErrorMessage(saveError, editingLanguageId != null ? "Could not update language." : "Could not create language.")
+        getApiErrorMessage(saveError, editingLanguageId != null ? "Could not update language." : "Could not create language.")
       );
     } finally {
       setIsSavingLanguage(false);

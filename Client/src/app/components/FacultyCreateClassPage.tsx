@@ -7,6 +7,7 @@ import type { ClassCreateFormData, FacultySemesterOption } from "../../types/cla
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 const EMPTY_CLASS_FORM: ClassCreateFormData = {
   name: "",
@@ -207,17 +208,6 @@ function FacultyCreateClassView({
   );
 }
 
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (typeof error === "object" && error !== null) {
-    const response = (error as { response?: { data?: { message?: unknown } } }).response;
-    const message = response?.data?.message;
-    if (typeof message === "string" && message.trim().length > 0) {
-      return message;
-    }
-  }
-  return fallback;
-}
-
 export function FacultyCreateClassPage() {
   const navigate = useNavigate();
   const loggedInUser = getAuthenticatedUser();
@@ -243,7 +233,7 @@ export function FacultyCreateClassPage() {
     setError(null);
     listFacultySemesters()
       .then(setSemesters)
-      .catch((loadError) => setError(getErrorMessage(loadError, "Unable to load semesters. Please try again.")))
+      .catch((loadError) => setError(getApiErrorMessage(loadError, "Unable to load semesters. Please try again.")))
       .finally(() => setIsLoadingSemesters(false));
   }, []);
 
@@ -260,7 +250,7 @@ export function FacultyCreateClassPage() {
       await createFacultyCourse(classForm);
       navigate("/faculty/my-classes", { replace: true });
     } catch (createError) {
-      setError(getErrorMessage(createError, "Unable to create class. Please verify the fields and try again."));
+      setError(getApiErrorMessage(createError, "Unable to create class. Please verify the fields and try again."));
     } finally {
       setIsCreatingClass(false);
     }

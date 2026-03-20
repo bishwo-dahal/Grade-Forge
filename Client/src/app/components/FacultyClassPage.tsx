@@ -87,6 +87,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "./ui/tooltip";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 const SECTION_PATH_SEGMENTS = [
   "dashboard",
@@ -106,16 +107,8 @@ function isValidSection(segment: string | undefined): segment is SectionType {
 }
 
 function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  const apiMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
-  if (typeof apiMessage === "string" && apiMessage.trim()) {
-    return apiMessage;
-  }
-
-  return "Something went wrong. Please try again.";
+  // Prefer backend `message` (axios puts it on response.data, not error.message).
+  return getApiErrorMessage(error, "Error");
 }
 
 export function FacultyClassPage() {
@@ -2361,10 +2354,8 @@ function AssistantsSection() {
       setAssignModalOpen(false);
       setSelectedGradingAssistantId("");
       loadData();
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ?? err?.message ?? "Failed to assign assistant.";
-      setAssignError(msg);
+    } catch (err: unknown) {
+      setAssignError(getApiErrorMessage(err, "Failed to assign assistant."));
     } finally {
       setAssigning(false);
     }
@@ -2382,10 +2373,8 @@ function AssistantsSection() {
       await removeCourseAssistant(removeConfirm.id);
       setRemoveConfirm(null);
       loadData();
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ?? err?.message ?? "Failed to remove assistant.";
-      setErrorDialog(msg);
+    } catch (err: unknown) {
+      setErrorDialog(getApiErrorMessage(err, "Failed to remove assistant."));
     } finally {
       setRemoving(false);
     }

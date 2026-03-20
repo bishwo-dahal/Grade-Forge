@@ -7,6 +7,7 @@ import { AuthShell } from "../../layout/AuthShell";
 import { AuthTopBar } from "../../layout/AuthTopBar";
 import type { SettingsSection } from "../../layout/AuthTopBar";
 import { RubricForm } from "./RubricForm";
+import { getApiErrorMessage } from "../../../../utils/apiErrorMessage";
 
 export function FacultyRubricDetailPage() {
   const navigate = useNavigate();
@@ -46,13 +47,9 @@ export function FacultyRubricDetailPage() {
           setRubric(data);
         }
       })
-      .catch((error: any) => {
+      .catch((error: unknown) => {
         if (!cancelled) {
-          const message =
-            error?.response?.data?.message ??
-            error?.message ??
-            "Unable to load rubric details right now.";
-          setErrorMessage(message);
+          setErrorMessage(getApiErrorMessage(error, "Unable to load rubric details right now."));
         }
       })
       .finally(() => {
@@ -82,9 +79,8 @@ export function FacultyRubricDetailPage() {
     try {
       await updateRubric(resolvedId, payload);
       navigate("/faculty/rubrics");
-    } catch (error: any) {
-      const message = error?.response?.data?.message ?? error?.message ?? "Unable to save rubric right now.";
-      setErrorMessage(message);
+    } catch (error: unknown) {
+      setErrorMessage(getApiErrorMessage(error, "Unable to save rubric right now."));
     } finally {
       setIsSubmitting(false);
     }

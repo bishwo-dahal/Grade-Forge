@@ -33,6 +33,7 @@ import {
 import { getFacultyClassHeaderById, listFacultyRosterRows } from "../../../services/classService";
 import type { ClassHeader, FacultyRosterStudentRow } from "../../../types/class";
 import type { MainGroupResponse, SubGroupResponse } from "../../../types/courseGroup";
+import { getApiErrorMessage } from "../../../utils/apiErrorMessage";
 
 const STUDENT_DRAG_TYPE = "FACULTY_COURSE_GROUP_STUDENT";
 
@@ -129,15 +130,7 @@ function StudentsSidebar({
 }
 
 function getErrorMessage(error: unknown): string {
-  const apiMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
-  if (typeof apiMessage === "string" && apiMessage.trim()) {
-    return apiMessage;
-  }
-  // Axios errors are usually also `Error`, but they often carry the real message in `response.data`.
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  return "Something went wrong. Please try again.";
+  return getApiErrorMessage(error, "Something went wrong. Please try again.");
 }
 
 function initialsFromName(name: string): string {

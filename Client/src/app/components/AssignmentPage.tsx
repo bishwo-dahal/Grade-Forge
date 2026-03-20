@@ -46,18 +46,12 @@ import type {
 import type { Rubric } from "../../types/rubric";
 import type { TestSuiteDetail } from "../../types/testSuite";
 import type { TestRunJobStatusResponse } from "../../types/runTests";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 type TabType = 'description' | 'tests' | 'rubric' | 'group' | 'results';
 
 function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  const apiMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
-  if (typeof apiMessage === "string" && apiMessage.trim()) {
-    return apiMessage;
-  }
-  return "Unable to save changes.";
+  return getApiErrorMessage(error, "Unable to save changes.");
 }
 
 export function AssignmentPage() {

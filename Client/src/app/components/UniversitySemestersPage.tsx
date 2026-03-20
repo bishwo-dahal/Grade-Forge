@@ -6,23 +6,13 @@ import {
   deleteAcademicSemesterById,
   listAcademicSemesters,
 } from "../../services/universityAdminService";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 const DEFAULT_SEMESTER_FORM: SemesterCreatePayload = {
   name: "",
   startDate: "",
   endDate: "",
 };
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (typeof error === "object" && error !== null) {
-    const response = (error as { response?: { data?: { message?: unknown } } }).response;
-    const message = response?.data?.message;
-    if (typeof message === "string" && message.trim().length > 0) {
-      return message;
-    }
-  }
-  return fallback;
-}
 
 interface UniversitySemestersViewProps {
   // NOTE: This component is presentation-only. Data is injected by the page/container.
@@ -189,7 +179,7 @@ export function UniversitySemestersPage() {
     setError(null);
     listAcademicSemesters()
       .then(setSemesters)
-      .catch((loadError) => setError(getErrorMessage(loadError, "Could not load semesters.")))
+      .catch((loadError) => setError(getApiErrorMessage(loadError, "Could not load semesters.")))
       .finally(() => setIsLoading(false));
   };
 
@@ -229,7 +219,7 @@ export function UniversitySemestersPage() {
       handleCloseCreateModal();
       loadSemesters();
     } catch (creationError) {
-      setSemesterFormError(getErrorMessage(creationError, "Could not create semester."));
+      setSemesterFormError(getApiErrorMessage(creationError, "Could not create semester."));
     } finally {
       setIsCreatingSemester(false);
     }
@@ -244,7 +234,7 @@ export function UniversitySemestersPage() {
       await deleteAcademicSemesterById(semesterId);
       loadSemesters();
     } catch (deleteError) {
-      setError(getErrorMessage(deleteError, "Could not delete semester."));
+      setError(getApiErrorMessage(deleteError, "Could not delete semester."));
     } finally {
       setDeletingSemesterId(null);
     }

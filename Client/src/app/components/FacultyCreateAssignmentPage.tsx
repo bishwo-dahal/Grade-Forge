@@ -15,6 +15,7 @@ import type { TestSuitePayload } from "../../types/testSuite";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 interface FacultyCreateAssignmentViewProps {
   // NOTE: This component is presentation-only. Data and handlers are injected by the page/container.
@@ -548,10 +549,7 @@ function FacultyCreateAssignmentView({
 }
 
 function extractErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-  return "Unable to create assignment right now. Please try again.";
+  return getApiErrorMessage(error, "Unable to create assignment right now. Please try again.");
 }
 
 export function FacultyCreateAssignmentPage() {

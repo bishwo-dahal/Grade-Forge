@@ -64,20 +64,21 @@ public class GlobalExceptionHandling {
 
     @ExceptionHandler(InvalidDataAccessResourceUsageException.class)
     public ResponseEntity<ErrorResponseDto> handleInvalidDataAccessResourceUsageException(InvalidDataAccessResourceUsageException exception){
-        ErrorResponseDto errorResponse= new ErrorResponseDto(exception.getMessage(),400,false);
+        log.error(exception.getMessage(), exception);
+        ErrorResponseDto errorResponse= new ErrorResponseDto("Invalid Request",400,false);
         return  new ResponseEntity<>(errorResponse,HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(InvalidDataAccessApiUsageException.class)
     public ResponseEntity<ErrorResponseDto> handleInvalidDataAccessApiUsageException(InvalidDataAccessApiUsageException exception){
         log.error(exception.getMessage(), exception);
-        ErrorResponseDto errorResponse= new ErrorResponseDto(exception.getMessage(),400,false);
+        ErrorResponseDto errorResponse= new ErrorResponseDto("Invalid Request",400,false);
         return  new ResponseEntity<>(errorResponse,HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDto> Exception(Exception exception){
-        System.out.println(exception.getMessage());
+        log.error(exception.getMessage(), exception);
         ErrorResponseDto errorResponse = new ErrorResponseDto("Error", 400,false);
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }

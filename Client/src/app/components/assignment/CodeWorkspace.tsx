@@ -22,6 +22,7 @@ import type {
   FacultyAssignmentSubmissionRow,
 } from "../../../types/submission";
 import type { TestRunJobStatusResponse } from "../../../types/runTests";
+import { getApiErrorMessage } from "../../../utils/apiErrorMessage";
 
 interface CodeWorkspaceProps {
   assignmentId: string;
@@ -55,14 +56,7 @@ interface CodeWorkspaceProps {
 }
 
 function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  const apiMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
-  if (typeof apiMessage === "string" && apiMessage.trim()) {
-    return apiMessage;
-  }
-  return "Unable to submit file.";
+  return getApiErrorMessage(error, "Unable to submit file.");
 }
 
 function validateSubmissionFile(

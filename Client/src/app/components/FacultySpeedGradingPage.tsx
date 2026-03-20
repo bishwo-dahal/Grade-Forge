@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { AlertCircle, ArrowRight, CheckCircle2, ChevronLeft, Loader2 } from "lucide-react";
 import { CodeWorkspace } from "./assignment/CodeWorkspace";
@@ -17,6 +17,7 @@ import type {
   FacultyAssignmentSubmissionRow,
   SpeedGradingTestSummary,
 } from "../../types/submission";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 interface RubricScoreField {
   id: string;
@@ -31,14 +32,7 @@ interface SubmissionFileOption {
 }
 
 function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-  const apiMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
-  if (typeof apiMessage === "string" && apiMessage.trim()) {
-    return apiMessage;
-  }
-  return "Unable to complete this action.";
+  return getApiErrorMessage(error, "Unable to complete this action.");
 }
 
 function isUngradedSubmission(row: FacultyAssignmentSubmissionRow): boolean {
