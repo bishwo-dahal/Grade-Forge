@@ -116,19 +116,12 @@ export function AssignmentPage() {
   }, [facultySubmissionRows, isFacultyRole, selectedFacultySubmission]);
 
   const groupTabEnabled = useMemo(() => {
-    if (!isFacultyRole || !effectiveFacultySubmission) return false;
-    return (effectiveFacultySubmission.subGroupMembers?.length ?? 0) > 0;
-  }, [effectiveFacultySubmission, isFacultyRole]);
-
-  const studentGroupPanelEnabled = useMemo(() => {
-    if (!isStudentRole || !assignment) return false;
+    if (!assignment) return false;
     if (assignment.submissionType !== "GROUP") return false;
-    return Boolean(
-      assignment.mainGroupName ||
-        assignment.subGroupName ||
-        (assignment.subGroupMembers?.length ?? 0) > 0,
-    );
-  }, [assignment, isStudentRole]);
+    return Boolean(assignment.mainGroupId && assignment.mainGroupName?.trim());
+  }, [assignment]);
+
+  const showGroupTab = groupTabEnabled;
 
   const facultySubmissionFileOptions = useMemo(() => {
     if (!isFacultyRole) {
@@ -152,14 +145,15 @@ export function AssignmentPage() {
     // FIX: Invalidate assignment/result caches before loading so newly submitted files appear immediately in faculty/student views.
     invalidateAssignmentWorkspaceCache(resolvedId);
     invalidateAssignmentResultCache(resolvedId);
-    const [assignmentData, descriptionData, rubricData, resultsData, codeExamplesData, facultyRows] = await Promise.all([
+    const [assignmentData, descriptionData, rubricData, codeExamplesData, facultyRows] = await Promise.all([
       getAssignmentDetailById(resolvedId),
       getAssignmentDescription(resolvedId),
       listRubricCategories(resolvedId),
-      getAssignmentResult(resolvedId),
       getEditorCodeExamples(resolvedId),
       isFacultyRole ? listFacultyAssignmentSubmissionFiles(resolvedId) : Promise.resolve([]),
     ]);
+
+    const resultsData = await getAssignmentResult(resolvedId);
 
     setAssignment(assignmentData);
     setDescription(descriptionData);
@@ -208,8 +202,8 @@ export function AssignmentPage() {
     setFacultyPreviewErrorMessage(null);
     // NOTE: Keep data loading centralized in page container so assignment panels remain presentation-only.
     loadAssignmentWorkspace(resolvedId)
-      .catch(() => {
-        setErrorMessage("Unable to load assignment data.");
+      .catch((error) => {
+        setErrorMessage(getErrorMessage(error));
       })
       .finally(() => setIsLoading(false));
   }, [assignmentId, loadAssignmentWorkspace]);
@@ -437,6 +431,7 @@ export function AssignmentPage() {
                 onTabChange={setActiveTab}
                 hasResults={hasSubmitted}
                 isFacultyView={isFacultyRole}
+                showGroupTab={showGroupTab}
                 groupTabEnabled={groupTabEnabled}
               />
 
@@ -520,137 +515,67 @@ export function AssignmentPage() {
                     </div>
                   )
                 )}
-                {activeTab === 'rubric' &&
-                  (groupTabEnabled ? (
-                    <div className="flex gap-6">
-                      <div className="flex-1 min-w-0">
-                        <GradingRubricPanel rubricCategories={rubricCategories} />
-                      </div>
-                      <div className="w-[320px] max-w-[320px] shrink-0 border-l border-gray-200 bg-white">
-                        <div className="px-5 py-6">
-                          <h3 className="text-[13px] font-semibold text-[#2B2A2A] mb-1">Group</h3>
-                          <p className="text-[12px] text-gray-600 mb-4">
-                            Student:{" "}
-                            <span className="font-medium text-[#2B2A2A]">{effectiveFacultySubmission?.studentName ?? "—"}</span>
-                          </p>
-                          <div className="mb-4">
-                            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                              Subgroup
-                            </div>
-                            <p className="text-[14px] font-medium text-[#2B2A2A]">
-                              {effectiveFacultySubmission?.subGroupName ?? "—"}
-                            </p>
-                          </div>
-                          <div>
-                            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                              Members
-                            </div>
-                            <div className="space-y-2">
-                              {effectiveFacultySubmission?.subGroupMembers?.map((m) => (
-                                <div
-                                  key={m.id}
-                                  className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
-                                >
-                                  <div className="min-w-0">
-                                    <p className="text-[13px] font-medium text-[#2B2A2A] truncate">{m.name}</p>
-                                    <p className="text-[12px] text-gray-500 truncate">{m.email}</p>
-                                  </div>
-                                  <span className="text-[11px] uppercase tracking-wide text-gray-400 flex-shrink-0">
-                                    {m.cwid}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : studentGroupPanelEnabled ? (
-                    <div className="flex gap-6">
-                      <div className="flex-1 min-w-0">
-                        <GradingRubricPanel rubricCategories={rubricCategories} />
-                      </div>
-                      <div className="w-[320px] max-w-[320px] shrink-0 border-l border-gray-200 bg-white">
-                        <div className="px-5 py-6">
-                          <h3 className="text-[13px] font-semibold text-[#2B2A2A] mb-1">Group</h3>
-
-                          {assignment?.mainGroupName ? (
-                            <div className="mb-4">
-                              <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                                Main group
-                              </div>
-                              <p className="text-[14px] font-medium text-[#2B2A2A]">{assignment.mainGroupName}</p>
-                            </div>
-                          ) : null}
-
-                          <div className="mb-4">
-                            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                              Subgroup
-                            </div>
-                            <p className="text-[14px] font-medium text-[#2B2A2A]">
-                              {assignment?.subGroupName ?? "—"}
-                            </p>
-                          </div>
-
-                          <div>
-                            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                              Members
-                            </div>
-
-                            {assignment?.subGroupMembers?.length ? (
-                              <div className="space-y-2">
-                                {assignment.subGroupMembers.map((m) => (
-                                  <div
-                                    key={m.id}
-                                    className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
-                                  >
-                                    <div className="min-w-0">
-                                      <p className="text-[13px] font-medium text-[#2B2A2A] truncate">{m.name}</p>
-                                      <p className="text-[12px] text-gray-500 truncate">{m.email}</p>
-                                    </div>
-                                    <span className="text-[11px] uppercase tracking-wide text-gray-400 flex-shrink-0">
-                                      {m.cwid}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-[13px] text-gray-600">No group assigned for this submission.</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <GradingRubricPanel rubricCategories={rubricCategories} />
-                  ))}
-                {activeTab === 'group' && isFacultyRole && (
+                {activeTab === 'rubric' && <GradingRubricPanel rubricCategories={rubricCategories} />}
+                {activeTab === 'group' && (
                   <div className="pt-4">
-                    <div className="pb-2 border-b border-gray-200 mb-4">
-                      <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Group</h3>
-                      <p className="text-[14px] font-medium text-[#2B2A2A]">
-                        {effectiveFacultySubmission?.subGroupName ?? "—"}
-                      </p>
-                    </div>
-                    {effectiveFacultySubmission?.subGroupMembers?.length ? (
-                      <div className="space-y-2">
-                        {effectiveFacultySubmission.subGroupMembers.map((m) => (
-                          <div
-                            key={m.id}
-                            className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2"
-                          >
-                            <div className="min-w-0">
-                              <p className="text-[13px] font-medium text-[#2B2A2A] truncate">{m.name}</p>
-                              <p className="text-[12px] text-gray-500 truncate">{m.email}</p>
-                            </div>
-                            <span className="text-[11px] uppercase tracking-wide text-gray-400 flex-shrink-0">
-                              {m.cwid}
-                            </span>
+                    {isFacultyRole ? (
+                      <>
+                        <div className="pb-2 border-b border-gray-200 mb-4">
+                          <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Group</h3>
+                          <p className="text-[14px] font-medium text-[#2B2A2A]">
+                            {assignment?.mainGroupName ?? "—"}
+                          </p>
+                        </div>
+                        {effectiveFacultySubmission?.subGroupMembers?.length ? (
+                          <div className="space-y-2">
+                            {effectiveFacultySubmission.subGroupMembers.map((m) => (
+                              <div
+                                key={m.id}
+                                className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-[13px] font-medium text-[#2B2A2A] truncate">{m.name}</p>
+                                  <p className="text-[12px] text-gray-500 truncate">{m.email}</p>
+                                </div>
+                                <span className="text-[11px] uppercase tracking-wide text-gray-400 flex-shrink-0">
+                                  {m.cwid}
+                                </span>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        ) : (
+                          <p className="text-[13px] text-gray-600">No group assigned for this submission.</p>
+                        )}
+                      </>
                     ) : (
-                      <p className="text-[13px] text-gray-600">No group assigned for this submission.</p>
+                      <>
+                        <div className="pb-2 border-b border-gray-200 mb-4">
+                          <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Group</h3>
+                          <p className="text-[14px] font-medium text-[#2B2A2A]">
+                            {assignment?.mainGroupName ?? "—"}
+                          </p>
+                        </div>
+                        {assignment?.subGroupMembers?.length ? (
+                          <div className="space-y-2">
+                            {assignment.subGroupMembers.map((m) => (
+                              <div
+                                key={m.id}
+                                className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-[13px] font-medium text-[#2B2A2A] truncate">{m.name}</p>
+                                  <p className="text-[12px] text-gray-500 truncate">{m.email}</p>
+                                </div>
+                                <span className="text-[11px] uppercase tracking-wide text-gray-400 flex-shrink-0">
+                                  {m.cwid}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[13px] text-gray-600">No group assigned for this submission.</p>
+                        )}
+                      </>
                     )}
                   </div>
                 )}

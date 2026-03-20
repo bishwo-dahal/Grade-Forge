@@ -408,7 +408,8 @@ async function loadStudentAssignmentWorkspaceSource(assignmentId: string): Promi
         } satisfies StudentAssignmentWorkspaceSource;
       } catch (error: any) {
         const status = error?.response?.status as number | undefined;
-        if (status === 404) {
+        // Some backends return 400 instead of 404 when the assignment doesn't belong to the course.
+        if (status === 404 || status === 400) {
           // Assignment not found for this course; try next enrolled course.
           continue;
         }
