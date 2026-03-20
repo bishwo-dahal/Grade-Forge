@@ -182,7 +182,9 @@ public class AssignmentService {
                     .filter(Objects::nonNull)
                     .toList();
             if (!submissionIds.isEmpty()) {
-                submissionFileRepository.deleteBySubmission_IdIn(submissionIds);
+                submissionFileRepository.deleteAllInBatch(
+                        submissionFileRepository.findBySubmission_IdIn(submissionIds)
+                );
             }
             submissionRepository.deleteAllInBatch(submissions);
         }

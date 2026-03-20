@@ -364,7 +364,7 @@ function DashboardSection() {
   } as const;
 
   return (
-    <div>
+    <div onClick={() => setOpenAssignmentActionsId(null)}>
       <div className="mb-6">
         <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Class Dashboard</h2>
         <p className="text-[13px] text-gray-600">
@@ -650,7 +650,10 @@ function AssignmentsSection() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="relative flex items-center justify-end gap-2">
+                    <div
+                      className="relative flex items-center justify-end gap-2"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       {/* Accessibility: icon-only action buttons need labels for screen readers. */}
                       <Link
                         aria-label="Open assignment detail"
@@ -665,14 +668,18 @@ function AssignmentsSection() {
                       <button
                         aria-label="More assignment actions"
                         className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                        onClick={() =>
+                        onClick={(event) => {
+                          event.stopPropagation();
                           setOpenAssignmentActionsId((prev) => (prev === assignment.id ? null : assignment.id))
-                        }
+                        }}
                       >
                         <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
                       </button>
                       {openAssignmentActionsId === assignment.id ? (
-                        <div className="absolute right-0 top-9 z-20 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                        <div
+                          className="absolute right-0 top-9 z-20 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                          onClick={(event) => event.stopPropagation()}
+                        >
                           <button
                             type="button"
                             onClick={() => {

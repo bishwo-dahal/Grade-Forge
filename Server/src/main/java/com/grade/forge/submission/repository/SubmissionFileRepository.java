@@ -11,6 +11,8 @@ public interface SubmissionFileRepository extends JpaRepository<SubmissionFile, 
 
     List<SubmissionFile> findBySubmission_IdOrderById(Long submissionId);
 
+    List<SubmissionFile> findBySubmission_IdIn(List<Long> submissionIds);
+
     void deleteBySubmission_IdIn(List<Long> submissionIds);
 }
 
