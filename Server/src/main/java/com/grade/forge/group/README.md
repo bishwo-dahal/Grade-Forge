@@ -8,38 +8,100 @@ Endpoints for the Course → MainGroup → SubGroup hierarchy and student member
 
 ## Faculty endpoints
 ### Create a main group
-- `POST /api/v1/faculty/courses/{courseId}/groups`
-- Body:
+- Method: `POST`
+- Path: `/api/v1/faculty/courses/{courseId}/groups`
+- Request body:
 ```json
 { "name": "Project Teams" }
 ```
-- 201 with the created `MainGroupResponse` (id, name, subGroups[])
+- Sample 201 response:
+```json
+{
+  "id": 1,
+  "name": "Project Teams",
+  "subGroups": []
+}
+```
 
 ### Create a sub group
-- `POST /api/v1/faculty/courses/{courseId}/groups/{mainGroupId}/subgroups`
-- Body:
+- Method: `POST`
+- Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}/subgroups`
+- Request body:
 ```json
 { "name": "Team Alpha" }
 ```
-- 201 with the created `SubGroupResponse` (id, name, students[])
+- Sample 201 response:
+```json
+{
+  "id": 10,
+  "name": "Team Alpha",
+  "students": []
+}
+```
 
 ### Add a student to a sub group
-- `POST /api/v1/faculty/courses/{courseId}/groups/{mainGroupId}/subgroups/{subGroupId}/students`
-- Body:
+- Method: `POST`
+- Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}/subgroups/{subGroupId}/students`
+- Request body:
 ```json
 { "studentId": 123 }
 ```
-- 200 with updated `SubGroupResponse`
+- Sample 200 response:
+```json
+{
+  "id": 10,
+  "name": "Team Alpha",
+  "students": [
+	{ "id": 123, "name": "Jane Doe", "email": "jane@example.edu" }
+  ]
+}
+```
 - Validation: student must exist, be enrolled in the course, and not already in the sub group.
 
 ### List all groups in a course
-- `GET /api/v1/faculty/courses/{courseId}/groups`
-- 200 with `List<MainGroupResponse>` including nested subgroups and students.
+- Method: `GET`
+- Path: `/api/v1/faculty/courses/{courseId}/groups`
+- Sample 200 response:
+```json
+[
+  {
+	"id": 1,
+	"name": "Project Teams",
+	"subGroups": [
+	  {
+		"id": 10,
+		"name": "Team Alpha",
+		"students": [
+		  { "id": 123, "name": "Jane Doe", "email": "jane@example.edu" }
+		]
+	  }
+	]
+  }
+]
+```
 
 ## Student endpoint
 ### List groups for an enrolled student
-- `GET /api/v1/student/courses/{courseId}/groups`
-- 200 with `List<MainGroupResponse>`
+- Method: `GET`
+- Path: `/api/v1/student/courses/{courseId}/groups`
+- Sample 200 response:
+```json
+[
+  {
+	"id": 1,
+	"name": "Project Teams",
+	"subGroups": [
+	  {
+		"id": 10,
+		"name": "Team Alpha",
+		"students": [
+		  { "id": 123, "name": "Jane Doe", "email": "jane@example.edu" }
+		]
+	  }
+	]
+  }
+]
+```
 - Requires the student to be enrolled in the course.
 
 ## Responses
@@ -54,4 +116,5 @@ Endpoints for the Course → MainGroup → SubGroup hierarchy and student member
 ## Notes
 - Main group names are unique per course; sub group names are unique per main group.
 - Membership uses a many-to-many join table `subgroup_students` keyed by `(sub_group_id, student_id)`.
+
 
