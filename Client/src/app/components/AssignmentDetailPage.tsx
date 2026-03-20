@@ -98,6 +98,7 @@ export interface AssignmentDetailPageSubmissionRow {
   /** Maps to grader pipeline `student_id` (stringified). */
   studentId?: string | null;
   studentName: string;
+  subGroupName?: string | null;
   submittedAt: string;
   status: string;
   marks: number | null;
@@ -214,6 +215,10 @@ export function AssignmentDetailPage({
       cancelled = true;
     };
   }, [assignment?.id, plagRefreshKey]);
+  const hasGroupColumn = useMemo(
+    () => submissions.some((row) => Boolean(row.subGroupName && row.subGroupName.trim())),
+    [submissions],
+  );
   if (loading) {
     return (
       <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
@@ -588,6 +593,7 @@ export function AssignmentDetailPage({
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50 text-left text-[12px] font-semibold text-gray-500 uppercase tracking-wide">
                   <th className="px-6 py-3">Student</th>
+                  {hasGroupColumn ? <th className="px-6 py-3">Group</th> : null}
                   <th className="px-6 py-3">Status</th>
                   <th className="px-6 py-3">Score</th>
                   <th className="px-6 py-3">Plagiarism</th>
@@ -646,6 +652,11 @@ export function AssignmentDetailPage({
                             {row.studentName}
                           </Link>
                         </td>
+                        {hasGroupColumn ? (
+                          <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">
+                            {row.subGroupName ?? "—"}
+                          </td>
+                        ) : null}
                         <td className="px-6 py-4">
                           <span
                             className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium ${
@@ -720,6 +731,15 @@ export function AssignmentDetailPage({
                             >
                               <FileText className="w-4 h-4 text-gray-500" strokeWidth={2} />
                             </Link>
+                            {row.subGroupName ? (
+                              <Link
+                                to={`${openHref}?tab=group`}
+                                aria-label="Open group details"
+                                className="px-2 py-1 text-[11px] font-medium rounded-md bg-[#EEF3FF] text-[#3355AA] hover:bg-[#DFE9FF] transition-colors"
+                              >
+                                Group
+                              </Link>
+                            ) : null}
                             <button
                               type="button"
                               aria-label="More submission actions"
@@ -735,7 +755,7 @@ export function AssignmentDetailPage({
                 ) : (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={hasGroupColumn ? 7 : 6}
                       className="px-6 py-6 text-center text-[13px] text-gray-600"
                     >
                       No submissions yet.

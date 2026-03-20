@@ -96,6 +96,7 @@ function mapToSubmissionRows(rows: FacultyAssignmentSubmissionRow[]): Assignment
       submissionId: row.submissionId,
       studentId: row.studentId ?? null,
       studentName: row.studentName,
+      subGroupName: row.subGroupName ?? null,
       submittedAt: formatSubmissionDisplayDate(row.submittedAt),
       status: row.marks == null ? "Ungraded" : "Graded",
       marks: row.marks,
