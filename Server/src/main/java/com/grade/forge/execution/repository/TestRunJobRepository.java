@@ -14,4 +14,6 @@ public interface TestRunJobRepository extends JpaRepository<TestRunJob, Long> {
 
     /** Latest run for this student on this assignment (e.g. for polling when run was done without a prior submission). */
     List<TestRunJob> findByAssignment_IdAndStudent_IdOrderByCreatedAtDesc(Long assignmentId, Long studentId);
+
+    void deleteByAssignment_Id(Long assignmentId);
 }

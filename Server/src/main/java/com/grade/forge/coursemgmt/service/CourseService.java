@@ -1,5 +1,8 @@
 package com.grade.forge.coursemgmt.service;
 
+import com.grade.forge.assignment.entity.Assignment;
+import com.grade.forge.assignment.repository.AssignmentRepository;
+import com.grade.forge.assignment.service.AssignmentService;
 import com.grade.forge.coursemgmt.dto.CourseRequestDto;
 import com.grade.forge.coursemgmt.dto.CourseResponseDto;
 import com.grade.forge.coursemgmt.entity.Course;
@@ -31,6 +34,9 @@ import java.util.stream.Collectors;
 public class CourseService {
 
     private final CourseRepository courseRepository;
+
+    private final AssignmentRepository assignmentRepository;
+    private final AssignmentService assignmentService;
 
     private final FacultyRepository facultyRepository;
     private final SemesterRepository semesterRepository;
@@ -150,7 +156,7 @@ public class CourseService {
         if (course.getFaculty() == null || course.getFaculty().getEmail() == null || !course.getFaculty().getEmail().equalsIgnoreCase(email)) {
             throw new IllegalArgumentException("You are not authorized to delete this course");
         }
-
+        deleteAssignmentsForCourse(course.getId());
         courseRepository.delete(course);
     }
 
@@ -161,7 +167,13 @@ public class CourseService {
     public void deleteCourse(Long id) {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+        deleteAssignmentsForCourse(course.getId());
         courseRepository.delete(course);
+    }
+
+    private void deleteAssignmentsForCourse(Long courseId) {
+        List<Assignment> assignments = assignmentRepository.findByCourse_Id(courseId);
+        assignments.forEach(a -> assignmentService.deleteAssignment(a.getId()));
     }
 
     /**

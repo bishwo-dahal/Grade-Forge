@@ -14,6 +14,9 @@ import com.grade.forge.programminglanguage.entity.ProgrammingLanguage;
 import com.grade.forge.programminglanguage.repository.ProgrammingLanguageRepository;
 import com.grade.forge.rubric.entity.Rubric;
 import com.grade.forge.rubric.repository.RubricRepository;
+import com.grade.forge.execution.repository.TestRunJobRepository;
+import com.grade.forge.execution.repository.TestCaseResultRepository;
+import com.grade.forge.testsuite.entity.TestCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +36,8 @@ public class AssignmentService {
     private final ProgrammingLanguageRepository programmingLanguageRepository;
     private final RubricRepository rubricRepository;
     private final MainGroupRepository mainGroupRepository;
+    private final TestRunJobRepository testRunJobRepository;
+    private final TestCaseResultRepository testCaseResultRepository;
 
     public AssignmentResponse createAssignment(AssignmentRequest request, String userEmail) {
         validateCreate(request);
@@ -158,7 +163,23 @@ public class AssignmentService {
     public void deleteAssignment(Long id) {
         Assignment assignment = assignmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + id));
+        cleanupTestRunsAndResults(assignment);
         assignmentRepository.delete(assignment);
+    }
+
+    private void cleanupTestRunsAndResults(Assignment assignment) {
+        List<Long> testCaseIds = List.of();
+        if (assignment.getTestSuite() != null && assignment.getTestSuite().getTestCases() != null) {
+            testCaseIds = assignment.getTestSuite().getTestCases().stream()
+                    .map(TestCase::getId)
+                    .filter(Objects::nonNull)
+                    .toList();
+        }
+        if (!testCaseIds.isEmpty()) {
+            testCaseResultRepository.deleteByTestCase_IdIn(testCaseIds);
+        }
+
+        testRunJobRepository.deleteByAssignment_Id(assignment.getId());
     }
 
     private void validateCreate(AssignmentRequest request) {
