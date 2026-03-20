@@ -390,35 +390,30 @@ async function loadStudentAssignmentWorkspaceSource(assignmentId: string): Promi
     // NOTE: Student assignment route only provides assignmentId, so we resolve course ownership from enrolled classes.
     const { data: enrolledCourses } = await api.get<StudentEnrolledCourseApiResponse[]>("/api/v1/student/classes/enrolled");
 
-    const assignmentsByCourse = await Promise.all(
-      enrolledCourses.map(async (course) => {
-        // NOTE: Student course-assignment list endpoint returns basic shape; fetch detail endpoint for full assignment fields per selected row.
-        const { data: assignments } = await api.get<AssignmentBasicApiResponse[]>(
-          `/api/v1/student/assignments/course/${course.id}`,
+    for (const course of enrolledCourses) {
+      try {
+        const { data: assignmentDetail } = await api.get<AssignmentApiResponse>(
+          `/api/v1/student/assignments/course/${course.id}/${parsedAssignmentId}`,
         );
-        return { course, assignments };
-      }),
-    );
 
-    for (const group of assignmentsByCourse) {
-      const matchedAssignment = group.assignments.find((assignment) => assignment.id === parsedAssignmentId);
-      if (!matchedAssignment) {
-        continue;
+        const { data: submissions } = await api.get<SubmissionApiResponse[]>(
+          `/api/v1/student/submissions/assignment?assignmentId=${parsedAssignmentId}`,
+        );
+
+        return {
+          course,
+          // FIX: Use student assignment detail payload so rubric/language/group fields are present in assignment workspace tabs.
+          assignment: assignmentDetail,
+          submissions,
+        } satisfies StudentAssignmentWorkspaceSource;
+      } catch (error: any) {
+        const status = error?.response?.status as number | undefined;
+        if (status === 404) {
+          // Assignment not found for this course; try next enrolled course.
+          continue;
+        }
+        throw error;
       }
-      const { data: assignmentDetail } = await api.get<AssignmentApiResponse>(
-        `/api/v1/student/assignments/course/${group.course.id}/${parsedAssignmentId}`,
-      );
-
-      const { data: submissions } = await api.get<SubmissionApiResponse[]>(
-        `/api/v1/student/submissions/assignment?assignmentId=${parsedAssignmentId}`,
-      );
-
-      return {
-        course: group.course,
-        // FIX: Use student assignment detail payload so rubric/language fields are present in assignment workspace tabs.
-        assignment: assignmentDetail,
-        submissions,
-      } satisfies StudentAssignmentWorkspaceSource;
     }
 
     throw new Error("Assignment not found.");

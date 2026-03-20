@@ -120,6 +120,16 @@ export function AssignmentPage() {
     return (effectiveFacultySubmission.subGroupMembers?.length ?? 0) > 0;
   }, [effectiveFacultySubmission, isFacultyRole]);
 
+  const studentGroupPanelEnabled = useMemo(() => {
+    if (!isStudentRole || !assignment) return false;
+    if (assignment.submissionType !== "GROUP") return false;
+    return Boolean(
+      assignment.mainGroupName ||
+        assignment.subGroupName ||
+        (assignment.subGroupMembers?.length ?? 0) > 0,
+    );
+  }, [assignment, isStudentRole]);
+
   const facultySubmissionFileOptions = useMemo(() => {
     if (!isFacultyRole) {
       return [];
@@ -551,6 +561,62 @@ export function AssignmentPage() {
                                 </div>
                               ))}
                             </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : studentGroupPanelEnabled ? (
+                    <div className="flex gap-6">
+                      <div className="flex-1 min-w-0">
+                        <GradingRubricPanel rubricCategories={rubricCategories} />
+                      </div>
+                      <div className="w-[320px] max-w-[320px] shrink-0 border-l border-gray-200 bg-white">
+                        <div className="px-5 py-6">
+                          <h3 className="text-[13px] font-semibold text-[#2B2A2A] mb-1">Group</h3>
+
+                          {assignment?.mainGroupName ? (
+                            <div className="mb-4">
+                              <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                                Main group
+                              </div>
+                              <p className="text-[14px] font-medium text-[#2B2A2A]">{assignment.mainGroupName}</p>
+                            </div>
+                          ) : null}
+
+                          <div className="mb-4">
+                            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                              Subgroup
+                            </div>
+                            <p className="text-[14px] font-medium text-[#2B2A2A]">
+                              {assignment?.subGroupName ?? "—"}
+                            </p>
+                          </div>
+
+                          <div>
+                            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                              Members
+                            </div>
+
+                            {assignment?.subGroupMembers?.length ? (
+                              <div className="space-y-2">
+                                {assignment.subGroupMembers.map((m) => (
+                                  <div
+                                    key={m.id}
+                                    className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="text-[13px] font-medium text-[#2B2A2A] truncate">{m.name}</p>
+                                      <p className="text-[12px] text-gray-500 truncate">{m.email}</p>
+                                    </div>
+                                    <span className="text-[11px] uppercase tracking-wide text-gray-400 flex-shrink-0">
+                                      {m.cwid}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-[13px] text-gray-600">No group assigned for this submission.</p>
+                            )}
                           </div>
                         </div>
                       </div>
