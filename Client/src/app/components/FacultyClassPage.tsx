@@ -2799,12 +2799,17 @@ function SettingsSection({ classId }: { classId: string }) {
     setIsTogglingActive(true);
     setError(null);
     try {
-      const updated = await toggleFacultyCourseActive(classId);
-      setCourse(updated);
+      // Make the change using the same toggle API call.
+      await toggleFacultyCourseActive(classId);
+
+      // Re-fetch to avoid any chance of stale UI state.
+      const refreshed = await getFacultyCourseDetailsById(classId);
+      setCourse(refreshed);
+
       // Keep edit modal form in sync so the next edit uses latest active state.
       setForm((prev) => ({
         ...prev,
-        active: Boolean(updated.active),
+        active: Boolean(refreshed.active),
       }));
     } catch (err) {
       setError(getErrorMessage(err));
