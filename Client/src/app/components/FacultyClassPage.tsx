@@ -58,6 +58,7 @@ import {
   searchFacultyStudentByEmail,
   toggleFacultyCourseActive,
   updateFacultyCourse,
+  deleteFacultyAssignment,
 } from "../../services/classService";
 
 import type { CourseApiResponse } from "../../services/classService";
@@ -463,6 +464,10 @@ function AssignmentsSection() {
   // NOTE: Assignments now load from backend-driven class service mapping.
   const [assignments, setAssignments] = useState<FacultyAssignment[]>([]);
   const [isAssignmentsLoading, setIsAssignmentsLoading] = useState(true);
+  const [openAssignmentActionsId, setOpenAssignmentActionsId] = useState<string | null>(null);
+  const [assignmentDeleteTarget, setAssignmentDeleteTarget] = useState<FacultyAssignment | null>(null);
+  const [isDeletingAssignment, setIsDeletingAssignment] = useState(false);
+  const [assignmentActionError, setAssignmentActionError] = useState<string | null>(null);
 
   const loadAssignments = useCallback(async () => {
     // FIX: Centralize assignment reload so header/footer actions reuse the same backend-driven refresh path.
@@ -480,6 +485,24 @@ function AssignmentsSection() {
   useEffect(() => {
     void loadAssignments();
   }, [loadAssignments]);
+
+  async function handleDeleteAssignment() {
+    if (!assignmentDeleteTarget) {
+      return;
+    }
+    setIsDeletingAssignment(true);
+    setAssignmentActionError(null);
+    try {
+      await deleteFacultyAssignment(assignmentDeleteTarget.id);
+      setAssignmentDeleteTarget(null);
+      setSelectedAssignments((prev) => prev.filter((id) => id !== assignmentDeleteTarget.id));
+      await loadAssignments();
+    } catch (error) {
+      setAssignmentActionError(getErrorMessage(error));
+    } finally {
+      setIsDeletingAssignment(false);
+    }
+  }
 
   return (
     <div>
@@ -517,6 +540,11 @@ function AssignmentsSection() {
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        {assignmentActionError ? (
+          <div className="mx-6 mt-4 rounded-lg border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-[12px] text-[#C23A42]">
+            {assignmentActionError}
+          </div>
+        ) : null}
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">
@@ -622,7 +650,7 @@ function AssignmentsSection() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="relative flex items-center justify-end gap-2">
                       {/* Accessibility: icon-only action buttons need labels for screen readers. */}
                       <Link
                         aria-label="Open assignment detail"
@@ -634,9 +662,31 @@ function AssignmentsSection() {
                       <button aria-label="Duplicate assignment" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
                         <Copy className="w-4 h-4 text-gray-500" strokeWidth={2} />
                       </button>
-                      <button aria-label="More assignment actions" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                      <button
+                        aria-label="More assignment actions"
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                        onClick={() =>
+                          setOpenAssignmentActionsId((prev) => (prev === assignment.id ? null : assignment.id))
+                        }
+                      >
                         <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
                       </button>
+                      {openAssignmentActionsId === assignment.id ? (
+                        <div className="absolute right-0 top-9 z-20 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenAssignmentActionsId(null);
+                              setAssignmentDeleteTarget(assignment);
+                              setAssignmentActionError(null);
+                            }}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[#C23A42] hover:bg-[#FFF5F5]"
+                          >
+                            <Trash2 className="h-4 w-4" strokeWidth={2} />
+                            Delete Assignment
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -651,6 +701,42 @@ function AssignmentsSection() {
           </tbody>
         </table>
       </div>
+
+      {assignmentDeleteTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white shadow-xl">
+            <div className="border-b border-gray-200 px-5 py-4">
+              <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Delete Assignment</h3>
+              <p className="mt-1 text-[13px] text-gray-600">
+                This action will permanently remove the assignment from this course.
+              </p>
+            </div>
+            <div className="px-5 py-4">
+              <p className="rounded-lg border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-[13px] text-[#C23A42]">
+                {assignmentDeleteTarget.name}
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-gray-200 bg-gray-50 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => !isDeletingAssignment && setAssignmentDeleteTarget(null)}
+                disabled={isDeletingAssignment}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-[#2B2A2A] hover:bg-gray-100 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDeleteAssignment()}
+                disabled={isDeletingAssignment}
+                className="rounded-lg bg-[#C23A42] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#a92f36] disabled:opacity-60"
+              >
+                {isDeletingAssignment ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

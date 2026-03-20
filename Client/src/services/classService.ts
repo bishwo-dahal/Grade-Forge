@@ -1525,3 +1525,11 @@ export async function listFacultyAssignments(classId: string): Promise<FacultyAs
     };
   });
 }
+
+export async function deleteFacultyAssignment(assignmentId: string): Promise<void> {
+  const parsedAssignmentId = Number(assignmentId);
+  if (!Number.isFinite(parsedAssignmentId) || parsedAssignmentId <= 0) {
+    throw new Error("Invalid assignment id.");
+  }
+  await api.delete(`/api/v1/faculty/assignments/${parsedAssignmentId}`);
+}
