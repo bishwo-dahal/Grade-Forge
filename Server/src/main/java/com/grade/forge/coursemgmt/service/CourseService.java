@@ -89,9 +89,13 @@ public class CourseService {
      * @param courseRequestDto the updated course request DTO
      * @return the updated course response DTO
      */
-    public CourseResponseDto updateCourse(Long id, CourseRequestDto courseRequestDto) {
+    public CourseResponseDto updateCourseForFaculty(Long id, CourseRequestDto courseRequestDto, String email) {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+
+        if (course.getFaculty() == null || course.getFaculty().getEmail() == null || !course.getFaculty().getEmail().equalsIgnoreCase(email)) {
+            throw new IllegalArgumentException("You are not authorized to update this course");
+        }
 
         // Map non-null fields from DTO to entity
         if (courseRequestDto.getName() != null) {
@@ -119,10 +123,10 @@ public class CourseService {
             course.setIsPublished(courseRequestDto.getIsPublished());
         }
         if (courseRequestDto.getFacultyId() != null) {
-            // Validate that the new faculty exists
-            Faculty faculty = facultyRepository.findById(courseRequestDto.getFacultyId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with id: " + courseRequestDto.getFacultyId()));
-            course.setFaculty(faculty);
+            // Faculty can edit only their own course. Reject attempts to reassign ownership.
+            if (!courseRequestDto.getFacultyId().equals(course.getFaculty().getId())) {
+                throw new IllegalArgumentException("You are not authorized to update this course");
+            }
         }
         if (courseRequestDto.getSemesterId() != null) {
             Semester semester = semesterRepository.findById(courseRequestDto.getSemesterId())
@@ -168,6 +172,25 @@ public class CourseService {
     public CourseResponseDto disableCourse(Long id) {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+
+        course.setActive(false);
+        Course disabledCourse = courseRepository.save(course);
+        return mapToResponseDto(disabledCourse);
+    }
+
+    /**
+     * Disable a course created by the authenticated faculty (soft delete)
+     * @param id the course id
+     * @param email authenticated faculty email
+     * @return the disabled course response DTO
+     */
+    public CourseResponseDto disableCourseForFaculty(Long id, String email) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+
+        if (course.getFaculty() == null || course.getFaculty().getEmail() == null || !course.getFaculty().getEmail().equalsIgnoreCase(email)) {
+            throw new IllegalArgumentException("You are not authorized to disable this course");
+        }
 
         course.setActive(false);
         Course disabledCourse = courseRepository.save(course);
