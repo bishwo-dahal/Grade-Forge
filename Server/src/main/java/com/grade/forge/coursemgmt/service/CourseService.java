@@ -135,7 +135,23 @@ public class CourseService {
     }
 
     /**
-     * Delete a course by id
+     * Delete a course created by the authenticated faculty
+     * @param id the course id
+     * @param email authenticated faculty email
+     */
+    public void deleteCourseForFaculty(Long id, String email) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+
+        if (course.getFaculty() == null || course.getFaculty().getEmail() == null || !course.getFaculty().getEmail().equalsIgnoreCase(email)) {
+            throw new IllegalArgumentException("You are not authorized to delete this course");
+        }
+
+        courseRepository.delete(course);
+    }
+
+    /**
+     * Delete a course by id (admin use)
      * @param id the course id
      */
     public void deleteCourse(Long id) {
