@@ -48,6 +48,86 @@ const SUBGROUP_ACCENTS = [
   { soft: "bg-violet-500/08", icon: "text-violet-600" },
 ] as const;
 
+function StudentsSidebar({
+  students,
+  search,
+  onSearchChange,
+  getFromSubGroupId,
+  onUnassignDrop,
+}: {
+  students: Array<DraggableStudentRowModel & { key: string }>;
+  search: string;
+  onSearchChange: (value: string) => void;
+  getFromSubGroupId: (studentId: number) => number | undefined;
+  onUnassignDrop: (fromSubGroupId: number, studentId: number) => void;
+}) {
+  const [{ isOverUnassign, canDropUnassign }, unassignDropRef] = useDrop(
+    () => ({
+      accept: STUDENT_DRAG_TYPE,
+      canDrop: (item: DragStudentItem) => Boolean(item.fromSubGroupId),
+      drop: (item: DragStudentItem) => {
+        if (!item.fromSubGroupId) return;
+        onUnassignDrop(item.fromSubGroupId, item.studentId);
+      },
+      collect: (monitor) => ({
+        isOverUnassign: monitor.isOver({ shallow: true }),
+        canDropUnassign: monitor.canDrop(),
+      }),
+    }),
+    [onUnassignDrop],
+  );
+
+  return (
+    <aside className="flex w-full flex-shrink-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm lg:w-[300px] xl:w-[320px]">
+      <div className="border-b border-gray-100 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <GraduationCap className="h-5 w-5 text-[#5A7ACD]" strokeWidth={2} />
+          <span className="text-[14px] font-semibold text-[#2B2A2A]">Students</span>
+          <span className="ml-auto rounded-full bg-[#5A7ACD]/10 px-2 py-0.5 text-[11px] font-semibold text-[#5A7ACD]">
+            {students.length}
+          </span>
+        </div>
+        <div className="relative mt-3">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+            strokeWidth={2}
+          />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search students…"
+            className="w-full rounded-xl border border-gray-200 bg-[#FAFAFA] py-2 pl-9 pr-3 text-[13px] outline-none ring-[#5A7ACD] focus:bg-white focus:ring-2"
+          />
+        </div>
+      </div>
+      <div
+        ref={unassignDropRef}
+        className={`min-h-[200px] flex-1 space-y-2 overflow-y-auto px-3 py-3 lg:max-h-[calc(100vh-280px)] ${
+          isOverUnassign && canDropUnassign ? "bg-[#FAFBFF]" : ""
+        }`}
+      >
+        {students.length === 0 ? (
+          <p className="px-1 text-center text-[12px] text-gray-500">No students match your search.</p>
+        ) : (
+          students.map((row, idx) => (
+            <DraggableStudentRow
+              key={row.key}
+              row={{ studentId: row.studentId, name: row.name, email: row.email }}
+              accentIndex={idx}
+              fromSubGroupId={getFromSubGroupId(row.studentId)}
+              disabled={getFromSubGroupId(row.studentId) != null}
+            />
+          ))
+        )}
+      </div>
+      <p className="border-t border-gray-100 px-4 py-2 text-[11px] text-gray-500">
+        Drag a student here to remove them from their subgroup.
+      </p>
+    </aside>
+  );
+}
+
 function getErrorMessage(error: unknown): string {
   const apiMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
   if (typeof apiMessage === "string" && apiMessage.trim()) {
@@ -109,22 +189,26 @@ function DraggableStudentRow({
   accentIndex,
   fromSubGroupId,
   onRemove,
+  disabled,
 }: {
   row: DraggableStudentRowModel;
   accentIndex: number;
   fromSubGroupId?: number;
   onRemove?: (() => void) | null;
+  disabled?: boolean;
 }) {
   const studentId = row.studentId;
+  const isDisabled = Boolean(disabled);
   const [{ isDragging }, drag] = useDrag(
     () => ({
       type: STUDENT_DRAG_TYPE,
       item: { studentId, fromSubGroupId } satisfies DragStudentItem,
+      canDrag: !isDisabled,
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
       }),
     }),
-    [studentId, fromSubGroupId],
+    [studentId, fromSubGroupId, isDisabled],
   );
 
   const avatarHue = accentIndex % SUBGROUP_ACCENTS.length;
@@ -134,7 +218,7 @@ function DraggableStudentRow({
       ref={drag}
       className={`
         flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-2.5 py-2 text-[13px]
-        cursor-grab shadow-sm active:cursor-grabbing
+        shadow-sm ${isDisabled ? "cursor-not-allowed opacity-60" : "cursor-grab active:cursor-grabbing"}
         ${isDragging ? "opacity-40" : ""}
       `}
     >
@@ -207,9 +291,6 @@ function SubGroupCard({
     >
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${accent.soft}`}>
-            <Sparkles className={`h-4 w-4 ${accent.icon}`} strokeWidth={2} />
-          </div>
           <div className="min-w-0">
             <h3 className="truncate text-[15px] font-semibold text-[#2B2A2A]">{sub.name}</h3>
             <p className="text-[11px] text-gray-500">
@@ -418,23 +499,14 @@ export function FacultyMainGroupDetailPage() {
     [mainGroup, resolvedClassId, loadAll],
   );
 
-  const [{ isOverUnassign, canDropUnassign }, unassignDropRef] = useDrop(
-    () => ({
-      accept: STUDENT_DRAG_TYPE,
-      canDrop: (item: DragStudentItem) => Boolean(item.fromSubGroupId),
-      drop: (item: DragStudentItem) => {
-        if (!item.fromSubGroupId) {
-          return;
-        }
-        void handleRemoveStudentFromSub(item.fromSubGroupId, item.studentId);
-      },
-      collect: (monitor) => ({
-        isOverUnassign: monitor.isOver({ shallow: true }),
-        canDropUnassign: monitor.canDrop(),
-      }),
-    }),
-    [handleRemoveStudentFromSub],
-  );
+  const sidebarStudentRows = useMemo(() => {
+    return filteredSidebarStudents.map((row) => ({
+      key: String(row.id),
+      studentId: row.studentId!,
+      name: row.name,
+      email: row.email,
+    }));
+  }, [filteredSidebarStudents]);
 
   const handleOpenMainEdit = () => {
     if (!mainGroup) return;
@@ -706,50 +778,15 @@ export function FacultyMainGroupDetailPage() {
                 <div className="flex flex-1 items-center justify-center text-[13px] text-gray-500">Loading…</div>
               ) : !mainGroup ? null : (
                 <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
-                  {/* Student sidebar */}
-                  <aside className="flex w-full flex-shrink-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm lg:w-[300px] xl:w-[320px]">
-                    <div className="border-b border-gray-100 px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <GraduationCap className="h-5 w-5 text-[#5A7ACD]" strokeWidth={2} />
-                        <span className="text-[14px] font-semibold text-[#2B2A2A]">Students</span>
-                        <span className="ml-auto rounded-full bg-[#5A7ACD]/10 px-2 py-0.5 text-[11px] font-semibold text-[#5A7ACD]">
-                          {rosterActiveWithId.length}
-                        </span>
-                      </div>
-                      <div className="relative mt-3">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" strokeWidth={2} />
-                        <input
-                          type="search"
-                          value={search}
-                          onChange={(e) => setSearch(e.target.value)}
-                          placeholder="Search students…"
-                          className="w-full rounded-xl border border-gray-200 bg-[#FAFAFA] py-2 pl-9 pr-3 text-[13px] outline-none ring-[#5A7ACD] focus:bg-white focus:ring-2"
-                        />
-                      </div>
-                    </div>
-                    <div
-                      ref={unassignDropRef}
-                      className={`min-h-[200px] flex-1 space-y-2 overflow-y-auto px-3 py-3 lg:max-h-[calc(100vh-280px)] ${
-                        isOverUnassign && canDropUnassign ? "bg-[#FAFBFF]" : ""
-                      }`}
-                    >
-                      {filteredSidebarStudents.length === 0 ? (
-                        <p className="px-1 text-center text-[12px] text-gray-500">No students match your search.</p>
-                      ) : (
-                        filteredSidebarStudents.map((row, idx) => (
-                          <DraggableStudentRow
-                            key={row.id}
-                            row={{ studentId: row.studentId!, name: row.name, email: row.email }}
-                            accentIndex={idx}
-                            fromSubGroupId={studentToSubGroupId.get(row.studentId!)}
-                          />
-                        ))
-                      )}
-                    </div>
-                    <p className="border-t border-gray-100 px-4 py-2 text-[11px] text-gray-500">
-                      Drag a student here to remove them from their subgroup. Duplicate membership in the same subgroup is blocked by the server.
-                    </p>
-                  </aside>
+                  <StudentsSidebar
+                    students={sidebarStudentRows}
+                    search={search}
+                    onSearchChange={setSearch}
+                    getFromSubGroupId={(studentId) => studentToSubGroupId.get(studentId)}
+                    onUnassignDrop={(fromSubGroupId, studentId) =>
+                      void handleRemoveStudentFromSub(fromSubGroupId, studentId)
+                    }
+                  />
 
                   {/* Subgroup grid */}
                   <div className="min-h-0 flex-1 overflow-y-auto lg:max-h-[calc(100vh-220px)]">
