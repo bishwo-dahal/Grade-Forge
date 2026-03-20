@@ -2,6 +2,7 @@ package com.grade.forge.assignment.entity;
 
 import com.grade.forge.assignment.enums.SubmissionType;
 import com.grade.forge.coursemgmt.entity.Course;
+import com.grade.forge.group.entity.MainGroup;
 import com.grade.forge.programminglanguage.entity.ProgrammingLanguage;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.rubric.entity.Rubric;
@@ -66,6 +67,10 @@ public class Assignment {
     @ManyToOne
     @JoinColumn(name = "rubric_id")
     private Rubric rubric;
+
+    @ManyToOne
+    @JoinColumn(name = "main_group_id")
+    private MainGroup mainGroup;
 
     @OneToOne(mappedBy = "assignment", cascade = CascadeType.ALL, orphanRemoval = true)
     private TestSuite testSuite;

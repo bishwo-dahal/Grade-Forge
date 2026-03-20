@@ -35,4 +35,6 @@ public class AssignmentResponse {
     private LocalDateTime lateDueDate;
     private Long rubricId;
     private String rubricName;
+    private Long mainGroupId;
+    private String mainGroupName;
 }

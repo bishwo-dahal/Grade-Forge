@@ -176,6 +176,27 @@ function FacultyCreateAssignmentView({
                       <option value="INDIVIDUAL">Individual</option>
                       <option value="GROUP">Group</option>
                     </select>
+
+                    {form.submissionType === "GROUP" ? (
+                      <div className="mt-4">
+                        <label htmlFor="assignment-main-group" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                          Main Group <span className="text-[#D84E57]">*</span>
+                        </label>
+                        <select
+                          id="assignment-main-group"
+                          value={form.mainGroupId}
+                          onChange={(event) => onFieldChange("mainGroupId", event.target.value)}
+                          className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                        >
+                          <option value="">Select main group</option>
+                          {pageData.mainGroupOptions.map((group) => (
+                            <option key={group.id} value={group.id}>
+                              {group.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </section>
@@ -587,7 +608,8 @@ export function FacultyCreateAssignmentPage() {
       form.dueDate.trim().length > 0 &&
       form.dueTime.trim().length > 0 &&
       form.languageId.trim().length > 0 &&
-      (form.submissionType === "INDIVIDUAL" || form.submissionType === "GROUP") &&
+      (form.submissionType === "INDIVIDUAL" ||
+        (form.submissionType === "GROUP" && form.mainGroupId.trim().length > 0)) &&
       Number.isFinite(form.totalPoints) &&
       form.totalPoints > 0
     );

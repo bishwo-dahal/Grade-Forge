@@ -8,6 +8,8 @@ import com.grade.forge.assignment.repository.AssignmentRepository;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
+import com.grade.forge.group.entity.MainGroup;
+import com.grade.forge.group.repository.MainGroupRepository;
 import com.grade.forge.programminglanguage.entity.ProgrammingLanguage;
 import com.grade.forge.programminglanguage.repository.ProgrammingLanguageRepository;
 import com.grade.forge.rubric.entity.Rubric;
@@ -30,6 +32,7 @@ public class AssignmentService {
     private final CourseRepository courseRepository;
     private final ProgrammingLanguageRepository programmingLanguageRepository;
     private final RubricRepository rubricRepository;
+    private final MainGroupRepository mainGroupRepository;
 
     public AssignmentResponse createAssignment(AssignmentRequest request, String userEmail) {
         validateCreate(request);
@@ -55,6 +58,14 @@ public class AssignmentService {
         assignment.setCourse(course);
         assignment.setProgrammingLanguage(language);
         assignment.setRubric(rubric);
+        if (request.getMainGroupId() != null) {
+            MainGroup mainGroup = mainGroupRepository.findById(request.getMainGroupId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Main group not found with id: " + request.getMainGroupId()));
+            if (!Objects.equals(mainGroup.getCourse().getId(), course.getId())) {
+                throw new IllegalArgumentException("Main group does not belong to the course");
+            }
+            assignment.setMainGroup(mainGroup);
+        }
 
         Assignment saved = assignmentRepository.save(assignment);
         return mapToResponse(saved);
@@ -108,6 +119,14 @@ public class AssignmentService {
                 throw new IllegalArgumentException("Rubric does not belong to the course faculty");
             }
             assignment.setRubric(rubric);
+        }
+        if (request.getMainGroupId() != null) {
+            MainGroup mainGroup = mainGroupRepository.findById(request.getMainGroupId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Main group not found with id: " + request.getMainGroupId()));
+            if (!Objects.equals(mainGroup.getCourse().getId(), currentCourse.getId())) {
+                throw new IllegalArgumentException("Main group does not belong to the assignment's course");
+            }
+            assignment.setMainGroup(mainGroup);
         }
 
         validateTimeline(assignment.getAvailableFrom(), assignment.getDueDate(), assignment.getLateDueDate());
@@ -203,6 +222,8 @@ public class AssignmentService {
                 .lateDueDate(assignment.getLateDueDate())
                 .rubricId(assignment.getRubric() != null ? assignment.getRubric().getId() : null)
                 .rubricName(assignment.getRubric() != null ? assignment.getRubric().getName() : null)
+                .mainGroupId(assignment.getMainGroup() != null ? assignment.getMainGroup().getId() : null)
+                .mainGroupName(assignment.getMainGroup() != null ? assignment.getMainGroup().getName() : null)
                 .build();
     }
 

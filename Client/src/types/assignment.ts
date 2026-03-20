@@ -139,6 +139,8 @@ export interface AssignmentCreateFormData {
   lateDueTime: string;
   languageId: string;
   submissionType: AssignmentSubmissionType;
+  // NOTE: When submissionType is GROUP, backend requires assigning an assignment to a main group.
+  mainGroupId: string;
   // NOTE: Starter code file upload is handled elsewhere; assignment create stores URL reference only.
   starterCodeUrl: string;
   // NOTE: Rubric linkage is optional and references pre-created faculty rubrics.
@@ -150,5 +152,6 @@ export interface FacultyAssignmentCreatePageData {
   header: FacultyAssignmentCreatePageHeader;
   languageOptions: AssignmentCreateOption[];
   rubricOptions: AssignmentCreateOption[];
+  mainGroupOptions: AssignmentCreateOption[];
   initialForm: AssignmentCreateFormData;
 }

@@ -17,6 +17,7 @@ import type { PublicTestCase } from "../types/submission";
 import api from "../api/axios";
 import { getAuthenticatedRole } from "../app/auth";
 import { getRubric } from "./rubricService";
+import { listFacultyCourseGroups } from "./courseGroupService";
 
 // NOTE: This service keeps assignment data access centralized for both live API endpoints and remaining mock-only views.
 // TODO(backend): Migrate remaining mock-only helper sections to backend endpoints while keeping return shapes stable.
@@ -94,6 +95,7 @@ const defaultCreateAssignmentForm: AssignmentCreateFormData = {
   lateDueTime: "23:59",
   languageId: "",
   submissionType: "INDIVIDUAL",
+  mainGroupId: "",
   starterCodeUrl: "",
   rubricId: "",
   totalPoints: 100,
@@ -795,11 +797,12 @@ export async function getEditorCodeExamples(assignmentId: string): Promise<Edito
 export async function getFacultyAssignmentCreatePageData(classId: string): Promise<FacultyAssignmentCreatePageData> {
   // NOTE: Create-assignment page data stays centralized here so the page remains presentation-focused.
   const parsedClassId = parseClassId(classId || defaultCreateAssignmentHeader.classId);
-  const [courseResponse, languagesResponse, rubricOptionsResponse] = await Promise.all([
+  const [courseResponse, languagesResponse, rubricOptionsResponse, groupsResponse] = await Promise.all([
     api.get<FacultyCourseHeaderApiResponse>(`/api/v1/faculty/courses/${parsedClassId}`),
     api.get<ProgrammingLanguageApiResponse[]>("/api/v1/faculty/programming-languages/all"),
     // NOTE: Assignment creation requires linking previously-created faculty rubrics from the same ownership scope.
     listFacultyRubricOptions(),
+    listFacultyCourseGroups(String(parsedClassId)),
   ]);
 
   const languageOptions: AssignmentCreateOption[] = languagesResponse.data
@@ -822,6 +825,7 @@ export async function getFacultyAssignmentCreatePageData(classId: string): Promi
     },
     languageOptions,
     rubricOptions,
+    mainGroupOptions: groupsResponse.map((g) => ({ id: String(g.id), label: g.name })),
     initialForm: { ...defaultCreateAssignmentForm },
   };
 }
@@ -844,6 +848,9 @@ export async function createFacultyAssignmentDraft(
     description: form.description.trim(),
     totalPoints: form.totalPoints,
     submissionType: form.submissionType,
+    ...(form.submissionType === "GROUP" && form.mainGroupId.trim()
+      ? { mainGroupId: Number(form.mainGroupId) }
+      : {}),
     starterCodeUrl: form.starterCodeUrl.trim() ? form.starterCodeUrl.trim() : null,
     availableFrom: buildOptionalDateTimePayload(form.availableFromDate, form.availableFromTime, "available-from date/time"),
     dueDate: buildDueDateTimePayload(form.dueDate, form.dueTime),
