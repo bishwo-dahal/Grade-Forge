@@ -173,7 +173,8 @@ public class CourseService {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
 
-        course.setActive(false);
+        course.setActive(!course.getActive());
+
         Course disabledCourse = courseRepository.save(course);
         return mapToResponseDto(disabledCourse);
     }

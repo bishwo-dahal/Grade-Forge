@@ -2724,6 +2724,7 @@ function SettingsSection({ classId }: { classId: string }) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   const [form, setForm] = useState<ClassCreateFormData>(EMPTY_CLASS_FORM);
 
@@ -2792,8 +2793,7 @@ function SettingsSection({ classId }: { classId: string }) {
   }
 
   async function handleDelete() {
-    const ok = window.confirm("Are you sure you want to permanently delete this course?");
-    if (!ok) return;
+    setIsDeleteConfirmOpen(false);
 
     setIsDeleting(true);
     setError(null);
@@ -2871,7 +2871,7 @@ function SettingsSection({ classId }: { classId: string }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => void handleDelete()}
+                  onClick={() => setIsDeleteConfirmOpen(true)}
                   disabled={isSaving || isDeleting}
                   className="flex items-center gap-2 rounded-xl border border-red-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-[#C23A42] hover:bg-[#FDEBEC] disabled:opacity-60"
                 >
@@ -3143,6 +3143,58 @@ function SettingsSection({ classId }: { classId: string }) {
               >
                 {isSaving ? "Saving..." : "Save Changes"}
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isDeleteConfirmOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white shadow-xl">
+            <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-6 py-4">
+              <div className="pt-1">
+                <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Delete Course</h3>
+                <p className="mt-1 text-[13px] text-gray-600">
+                  This will permanently delete the course and remove it from your faculty classes.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isDeleting && setIsDeleteConfirmOpen(false)}
+                disabled={isDeleting}
+                className="rounded-xl border border-gray-200 bg-white p-2 hover:bg-gray-50 disabled:opacity-60"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="px-6 py-5">
+              <div className="rounded-xl border border-red-200 bg-[#FDEBEC] px-4 py-3">
+                <p className="text-[13px] text-[#C23A42]">
+                  Course: <span className="font-semibold">{course?.courseCode ?? classId}</span>
+                  {course?.name ? ` — ${course.name}` : null}
+                </p>
+              </div>
+
+              <div className="mt-5 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => !isDeleting && setIsDeleteConfirmOpen(false)}
+                  disabled={isDeleting}
+                  className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDelete()}
+                  disabled={isDeleting}
+                  className="rounded-xl bg-[#C23A42] px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-[#a92f36] disabled:opacity-60"
+                >
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
