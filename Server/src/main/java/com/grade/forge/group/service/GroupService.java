@@ -155,6 +155,7 @@ public class GroupService {
                         .id(student.getId())
                         .name(student.getUser() != null ? student.getUser().getName() : null)
                         .email(student.getUser() != null ? student.getUser().getEmail() : null)
+                        .cwid(student.getCwid())
                         .build())
                 .collect(Collectors.toList()));
         return SubGroupResponse.builder()
@@ -164,5 +165,6 @@ public class GroupService {
                 .build();
     }
 }
+
 
 

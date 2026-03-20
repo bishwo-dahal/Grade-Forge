@@ -52,7 +52,7 @@ Endpoints for the Course → MainGroup → SubGroup hierarchy and student member
   "id": 10,
   "name": "Team Alpha",
   "students": [
-	{ "id": 123, "name": "Jane Doe", "email": "jane@example.edu" }
+  { "id": 123, "name": "Jane Doe", "email": "jane@example.edu", "cwid": "CW123" }
   ]
 }
 ```
@@ -72,7 +72,7 @@ Endpoints for the Course → MainGroup → SubGroup hierarchy and student member
 		"id": 10,
 		"name": "Team Alpha",
 		"students": [
-		  { "id": 123, "name": "Jane Doe", "email": "jane@example.edu" }
+		  { "id": 123, "name": "Jane Doe", "email": "jane@example.edu", "cwid": "CW123" }
 		]
 	  }
 	]
@@ -95,7 +95,7 @@ Endpoints for the Course → MainGroup → SubGroup hierarchy and student member
 		"id": 10,
 		"name": "Team Alpha",
 		"students": [
-		  { "id": 123, "name": "Jane Doe", "email": "jane@example.edu" }
+		  { "id": 123, "name": "Jane Doe", "email": "jane@example.edu", "cwid": "CW123" }
 		]
 	  }
 	]
@@ -107,7 +107,7 @@ Endpoints for the Course → MainGroup → SubGroup hierarchy and student member
 ## Responses
 - `MainGroupResponse`: `{ id, name, subGroups: SubGroupResponse[] }`
 - `SubGroupResponse`: `{ id, name, students: GroupStudentResponse[] }`
-- `GroupStudentResponse`: `{ id, name, email }`
+- `GroupStudentResponse`: `{ id, name, email, cwid }`
 
 ## Errors
 - 400 for validation issues (missing name, duplicate names within course/main group, not enrolled, already member).
@@ -116,5 +116,6 @@ Endpoints for the Course → MainGroup → SubGroup hierarchy and student member
 ## Notes
 - Main group names are unique per course; sub group names are unique per main group.
 - Membership uses a many-to-many join table `subgroup_students` keyed by `(sub_group_id, student_id)`.
+
 
 
