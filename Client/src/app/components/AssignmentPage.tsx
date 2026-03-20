@@ -104,10 +104,21 @@ export function AssignmentPage() {
     return match ?? null;
   }, [facultySubmissionRows, isFacultyRole, submissionId]);
 
+  const effectiveFacultySubmission = useMemo(() => {
+    if (!isFacultyRole) return null;
+    if (selectedFacultySubmission) return selectedFacultySubmission;
+    // On assignment route without /submission/:id, fall back to first grouped submission.
+    return (
+      facultySubmissionRows.find((r) => (r.subGroupMembers?.length ?? 0) > 0) ??
+      facultySubmissionRows[0] ??
+      null
+    );
+  }, [facultySubmissionRows, isFacultyRole, selectedFacultySubmission]);
+
   const groupTabEnabled = useMemo(() => {
-    if (!isFacultyRole || !selectedFacultySubmission) return false;
-    return (selectedFacultySubmission.subGroupMembers?.length ?? 0) > 0;
-  }, [isFacultyRole, selectedFacultySubmission]);
+    if (!isFacultyRole || !effectiveFacultySubmission) return false;
+    return (effectiveFacultySubmission.subGroupMembers?.length ?? 0) > 0;
+  }, [effectiveFacultySubmission, isFacultyRole]);
 
   const facultySubmissionFileOptions = useMemo(() => {
     if (!isFacultyRole) {
@@ -499,18 +510,65 @@ export function AssignmentPage() {
                     </div>
                   )
                 )}
-                {activeTab === 'rubric' && <GradingRubricPanel rubricCategories={rubricCategories} />}
+                {activeTab === 'rubric' &&
+                  (groupTabEnabled ? (
+                    <div className="flex gap-6">
+                      <div className="flex-1 min-w-0">
+                        <GradingRubricPanel rubricCategories={rubricCategories} />
+                      </div>
+                      <div className="w-[320px] max-w-[320px] shrink-0 border-l border-gray-200 bg-white">
+                        <div className="px-5 py-6">
+                          <h3 className="text-[13px] font-semibold text-[#2B2A2A] mb-1">Group</h3>
+                          <p className="text-[12px] text-gray-600 mb-4">
+                            Student:{" "}
+                            <span className="font-medium text-[#2B2A2A]">{effectiveFacultySubmission?.studentName ?? "—"}</span>
+                          </p>
+                          <div className="mb-4">
+                            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                              Subgroup
+                            </div>
+                            <p className="text-[14px] font-medium text-[#2B2A2A]">
+                              {effectiveFacultySubmission?.subGroupName ?? "—"}
+                            </p>
+                          </div>
+                          <div>
+                            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                              Members
+                            </div>
+                            <div className="space-y-2">
+                              {effectiveFacultySubmission?.subGroupMembers?.map((m) => (
+                                <div
+                                  key={m.id}
+                                  className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
+                                >
+                                  <div className="min-w-0">
+                                    <p className="text-[13px] font-medium text-[#2B2A2A] truncate">{m.name}</p>
+                                    <p className="text-[12px] text-gray-500 truncate">{m.email}</p>
+                                  </div>
+                                  <span className="text-[11px] uppercase tracking-wide text-gray-400 flex-shrink-0">
+                                    {m.cwid}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <GradingRubricPanel rubricCategories={rubricCategories} />
+                  ))}
                 {activeTab === 'group' && isFacultyRole && (
                   <div className="pt-4">
                     <div className="pb-2 border-b border-gray-200 mb-4">
                       <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Group</h3>
                       <p className="text-[14px] font-medium text-[#2B2A2A]">
-                        {selectedFacultySubmission?.subGroupName ?? "—"}
+                        {effectiveFacultySubmission?.subGroupName ?? "—"}
                       </p>
                     </div>
-                    {selectedFacultySubmission?.subGroupMembers?.length ? (
+                    {effectiveFacultySubmission?.subGroupMembers?.length ? (
                       <div className="space-y-2">
-                        {selectedFacultySubmission.subGroupMembers.map((m) => (
+                        {effectiveFacultySubmission.subGroupMembers.map((m) => (
                           <div
                             key={m.id}
                             className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2"
