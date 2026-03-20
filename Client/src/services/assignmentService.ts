@@ -848,9 +848,7 @@ export async function createFacultyAssignmentDraft(
     description: form.description.trim(),
     totalPoints: form.totalPoints,
     submissionType: form.submissionType,
-    ...(form.submissionType === "GROUP" && form.mainGroupId.trim()
-      ? { mainGroupId: Number(form.mainGroupId) }
-      : {}),
+    ...(form.mainGroupId.trim() ? { mainGroupId: Number(form.mainGroupId) } : {}),
     starterCodeUrl: form.starterCodeUrl.trim() ? form.starterCodeUrl.trim() : null,
     availableFrom: buildOptionalDateTimePayload(form.availableFromDate, form.availableFromTime, "available-from date/time"),
     dueDate: buildDueDateTimePayload(form.dueDate, form.dueTime),
