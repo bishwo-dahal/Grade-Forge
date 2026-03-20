@@ -14,6 +14,7 @@ import type {
 } from "../types/assignment";
 import type { RubricCategory } from "../types/grade";
 import type { PublicTestCase } from "../types/submission";
+import type { GroupStudentResponse } from "../types/courseGroup";
 import api from "../api/axios";
 import { getAuthenticatedRole } from "../app/auth";
 import { getRubric } from "./rubricService";
@@ -117,6 +118,9 @@ interface AssignmentApiResponse {
   availableFrom: string | null;
   dueDate: string | null;
   lateDueDate: string | null;
+  // When submissionType is GROUP, backend links assignment to a main group.
+  mainGroupId?: number | null;
+  mainGroupName?: string | null;
   rubricId?: number | null;
   rubricName?: string | null;
 }
@@ -137,6 +141,10 @@ interface SubmissionApiResponse {
   assignmentId: number;
   marks: number | null;
   submittedAt: string;
+  // When submission belongs to a subgroup (group-assigned assignment), backend may return the subgroup and members.
+  subGroupId?: number | null;
+  subGroupName?: string | null;
+  subGroupMembers?: GroupStudentResponse[] | null;
 }
 
 interface StudentEnrolledCourseApiResponse {
@@ -525,6 +533,10 @@ export async function getAssignmentDetailById(id: string): Promise<AssignmentDet
     hasStarterCode: Boolean(workspaceSource.assignment.starterCodeUrl),
     submissionType: workspaceSource.assignment.submissionType ?? undefined,
     starterCodeUrl: workspaceSource.assignment.starterCodeUrl ?? undefined,
+    mainGroupId: workspaceSource.assignment.mainGroupId ?? null,
+    mainGroupName: workspaceSource.assignment.mainGroupName ?? null,
+    subGroupName: latestSubmission?.subGroupName ?? null,
+    subGroupMembers: latestSubmission?.subGroupMembers ?? null,
     rubricName: workspaceSource.assignment.rubricName ?? undefined,
     rubricId: workspaceSource.assignment.rubricId ?? undefined,
   };
@@ -735,8 +747,11 @@ export async function listRubricCategories(assignmentId: string): Promise<Rubric
     const flatCriteria: Array<{ id?: number; description: string; points: number; weight?: number | null }> = [];
     let totalPoints = 0;
     for (const criterion of rubric.criteria) {
-      if (criterion.subCriteria?.length) {
-        for (const sub of criterion.subCriteria) {
+      const subCriteria = (criterion as {
+        subCriteria?: Array<{ id?: number; description?: string | null; maxScore: number; weight?: number | null }>;
+      }).subCriteria;
+      if (subCriteria?.length) {
+        for (const sub of subCriteria) {
           flatCriteria.push({
             id: sub.id,
             description: sub.description?.trim() ? sub.description : criterion.title,

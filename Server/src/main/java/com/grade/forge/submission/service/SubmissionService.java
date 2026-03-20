@@ -147,13 +147,18 @@ public class SubmissionService {
             return submissions.stream().map(this::mapToResponse).toList();
         }
 
-        List<Long> subGroupStudentIds = getStudentIdsForRequesterSubGroup(assignment.getMainGroup(), student.getId());
-        Submission latest = submissionRepository.findByAssignment_Id(assignment.getId()).stream()
+        List<Long> subGroupStudentIds = getStudentIdsForRequesterSubGroupOrEmpty(assignment.getMainGroup(), student.getId());
+        if (subGroupStudentIds.isEmpty()) {
+            log.warn("Student {} requested submissions for grouped assignment {} but is not in any subgroup", student.getId(), assignmentId);
+            return List.of();
+        }
+
+        return submissionRepository.findByAssignment_Id(assignment.getId()).stream()
                 .filter(s -> subGroupStudentIds.contains(s.getStudent().getId()))
                 .max(this::compareBySubmittedAt)
-                .orElseThrow(() -> new IllegalArgumentException("You are not assigned to a sub group for this assignment"));
-
-        return List.of(mapToResponse(latest));
+                .map(this::mapToResponse)
+                .map(List::of)
+                .orElse(List.of());
     }
 
     @Transactional(readOnly = true)
@@ -376,6 +381,13 @@ public class SubmissionService {
         return requesterGroup.getStudents().stream()
                 .map(Student::getId)
                 .toList();
+    }
+
+    private List<Long> getStudentIdsForRequesterSubGroupOrEmpty(MainGroup mainGroup, Long requesterStudentId) {
+        return subGroupRepository.findByMainGroup_IdAndStudents_Id(mainGroup.getId(), requesterStudentId)
+                .map(SubGroup::getStudents)
+                .map(students -> students.stream().map(Student::getId).toList())
+                .orElse(List.of());
     }
 
     private SubmissionSummaryResponse mapToSummaryResponse(Submission submission) {

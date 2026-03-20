@@ -1,5 +1,7 @@
 // NOTE: UI-driven types; add fields only when the UI needs them to avoid premature complexity.
 
+import type { GroupStudentResponse } from "./courseGroup";
+
 export type AssignmentStatus = "not_submitted" | "submitted" | "late" | "graded";
 
 export interface AssignmentDetail {
@@ -27,6 +29,14 @@ export interface AssignmentDetail {
   hasStarterCode: boolean;
   submissionType?: string;
   starterCodeUrl?: string | null;
+  /**
+   * When assignment is group-assigned (`submissionType === "GROUP"`), this is the main group selected by the faculty.
+   * Backend may also provide the subgroup assignment for the latest submission.
+   */
+  mainGroupId?: number | null;
+  mainGroupName?: string | null;
+  subGroupName?: string | null;
+  subGroupMembers?: GroupStudentResponse[] | null;
   rubricName?: string | null;
   rubricId?: number | null;
 }
