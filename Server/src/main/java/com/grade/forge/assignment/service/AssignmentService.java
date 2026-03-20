@@ -18,6 +18,8 @@ import com.grade.forge.execution.repository.TestRunJobRepository;
 import com.grade.forge.execution.repository.TestCaseResultRepository;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.repository.SubmissionRepository;
+import com.grade.forge.submission.repository.SubmissionFileRepository;
+import org.springframework.transaction.annotation.Propagation;
 import com.grade.forge.testsuite.entity.TestCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -41,6 +43,7 @@ public class AssignmentService {
     private final TestRunJobRepository testRunJobRepository;
     private final TestCaseResultRepository testCaseResultRepository;
     private final SubmissionRepository submissionRepository;
+    private final SubmissionFileRepository submissionFileRepository;
 
     public AssignmentResponse createAssignment(AssignmentRequest request, String userEmail) {
         validateCreate(request);
@@ -174,7 +177,14 @@ public class AssignmentService {
     private void cleanupSubmissions(Assignment assignment) {
         List<Submission> submissions = submissionRepository.findByAssignment_Id(assignment.getId());
         if (!submissions.isEmpty()) {
-            submissionRepository.deleteAll(submissions);
+            List<Long> submissionIds = submissions.stream()
+                    .map(Submission::getId)
+                    .filter(Objects::nonNull)
+                    .toList();
+            if (!submissionIds.isEmpty()) {
+                submissionFileRepository.deleteBySubmission_IdIn(submissionIds);
+            }
+            submissionRepository.deleteAllInBatch(submissions);
         }
     }
 

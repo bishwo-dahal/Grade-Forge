@@ -539,7 +539,7 @@ function AssignmentsSection() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-visible">
         {assignmentActionError ? (
           <div className="mx-6 mt-4 rounded-lg border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-[12px] text-[#C23A42]">
             {assignmentActionError}
@@ -654,7 +654,7 @@ function AssignmentsSection() {
                       {/* Accessibility: icon-only action buttons need labels for screen readers. */}
                       <Link
                         aria-label="Open assignment detail"
-                        to={`/faculty/class/${resolvedClassId}/assignment/${assignment.id}`}
+                        to={`/faculty/class/${resolvedClassId}/assignments/${assignment.id}/edit`}
                         className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
                       >
                         <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
@@ -673,14 +673,6 @@ function AssignmentsSection() {
                       </button>
                       {openAssignmentActionsId === assignment.id ? (
                         <div className="absolute right-0 top-9 z-20 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                          <Link
-                            to={`/faculty/class/${resolvedClassId}/assignments/${assignment.id}/edit`}
-                            onClick={() => setOpenAssignmentActionsId(null)}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[#2B2A2A] hover:bg-gray-50"
-                          >
-                            <Edit className="h-4 w-4" strokeWidth={2} />
-                            Edit Assignment
-                          </Link>
                           <button
                             type="button"
                             onClick={() => {
