@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import type {
   ClassHeader,
+  ClassCreateFormData,
   ClassRecentActivity,
   FacultyAssignment,
   FacultyDashboardStat,
@@ -38,6 +39,7 @@ import type {
   FacultyRosterStats,
   FacultyRosterStudentRow,
   FacultyStudentSearchResult,
+  FacultySemesterOption,
 } from "../../types/class";
 import type { MainGroupResponse } from "../../types/courseGroup";
 import type { ClassSubmissionItem, SpeedGradingAssignmentOption } from "../../types/submission";
@@ -45,13 +47,19 @@ import {
   dropStudentFromCourse,
   enrollStudentByEmail,
   getFacultyClassHeaderById,
+  deleteFacultyCourse,
+  getFacultyCourseDetailsById,
   listClassRecentActivity,
   listFacultyAssignments,
+  listFacultySemesters,
   listFacultyStudentEmailSuggestions,
   listFacultyRosterRows,
   listFacultyDashboardStats,
   searchFacultyStudentByEmail,
+  updateFacultyCourse,
 } from "../../services/classService";
+
+import type { CourseApiResponse } from "../../services/classService";
 import { createFacultyMainGroup, listFacultyCourseGroups } from "../../services/courseGroupService";
 import { listClassSubmissions } from "../../services/submissionService";
 import {
@@ -277,7 +285,7 @@ export function FacultyClassPage() {
             )}
             {activeSection === "assistants" && <AssistantsSection />}
             {activeSection === "groups" && <GroupsSection />}
-            {activeSection === "settings" && <SettingsSection />}
+            {activeSection === "settings" && <SettingsSection classId={resolvedClassId} />}
           </div>
         </main>
       </div>
@@ -2693,18 +2701,452 @@ function GroupsSection() {
   );
 }
 
-function SettingsSection() {
+function SettingsSection({ classId }: { classId: string }) {
+  const navigate = useNavigate();
+
+  const EMPTY_CLASS_FORM: ClassCreateFormData = {
+    name: "",
+    courseCode: "",
+    section: "",
+    description: "",
+    imageUrl: "",
+    canvasCourseId: "",
+    semesterId: "",
+    isPublished: false,
+    active: true,
+  };
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [course, setCourse] = useState<CourseApiResponse | null>(null);
+  const [semesters, setSemesters] = useState<FacultySemesterOption[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const [form, setForm] = useState<ClassCreateFormData>(EMPTY_CLASS_FORM);
+
+  function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+    return (
+      <div className="flex items-start justify-between gap-4">
+        <span className="text-[12px] font-semibold text-gray-600">{label}</span>
+        <span className="text-[13px] text-gray-800 text-right break-words">{value}</span>
+      </div>
+    );
+  }
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function load() {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const [semesterList, courseDetail] = await Promise.all([
+          listFacultySemesters(),
+          getFacultyCourseDetailsById(classId),
+        ]);
+
+        if (isCancelled) return;
+        setSemesters(semesterList);
+        setCourse(courseDetail);
+        setForm({
+          name: courseDetail.name ?? "",
+          courseCode: courseDetail.courseCode ?? "",
+          section: courseDetail.section ?? "",
+          description: courseDetail.description ?? "",
+          imageUrl: courseDetail.imageUrl ?? "",
+          canvasCourseId: courseDetail.canvasCourseId ?? "",
+          semesterId: courseDetail.semester?.id ? String(courseDetail.semester.id) : "",
+          isPublished: Boolean(courseDetail.isPublished),
+          active: Boolean(courseDetail.active),
+        });
+      } catch (err) {
+        if (isCancelled) return;
+        setCourse(null);
+        setError(getErrorMessage(err));
+      } finally {
+        if (!isCancelled) setIsLoading(false);
+      }
+    }
+
+    void load();
+    return () => {
+      isCancelled = true;
+    };
+  }, [classId]);
+
+  async function handleSave() {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const updated = await updateFacultyCourse(classId, form);
+      setCourse(updated);
+      setIsEditOpen(false);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    const ok = window.confirm("Are you sure you want to permanently delete this course?");
+    if (!ok) return;
+
+    setIsDeleting(true);
+    setError(null);
+    try {
+      await deleteFacultyCourse(classId);
+      navigate("/faculty/my-classes");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   return (
     <div>
       <div className="mb-6">
         <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Class Settings</h2>
-        <p className="text-[13px] text-gray-600">Manage class-level preferences and visibility options</p>
+        <p className="text-[13px] text-gray-600">Edit course metadata and control visibility</p>
       </div>
 
-      {/* NOTE: Placeholder preserves settings tab behavior until class-setting controls are integrated. */}
+      {error ? (
+        <div className="mb-4 rounded-xl border border-[#F3CDD1] bg-[#FDEBEC] px-3 py-2 text-[13px] text-[#C23A42]">
+          {error}
+        </div>
+      ) : null}
+
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <p className="text-[14px] text-gray-600">Class settings controls will be displayed here.</p>
+        {isLoading || !course ? (
+          <p className="text-[14px] text-gray-600">Loading course settings...</p>
+        ) : (
+          <>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <h3 className="text-[18px] font-semibold text-[#2B2A2A] truncate">
+                  {course.courseCode}: {course.name}
+                </h3>
+                <p className="mt-1 text-[13px] text-gray-600">
+                  Semester: {course.semester?.name ?? "TBD"} &bull; Section: {course.section ?? "TBD"}
+                </p>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold ${
+                      course.active
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                        : "border-red-500/30 bg-red-500/10 text-red-700"
+                    }`}
+                  >
+                    {course.active ? <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} /> : <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />}
+                    {course.active ? "Active" : "Disabled"}
+                  </span>
+
+                  <span
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold ${
+                      course.isPublished
+                        ? "border-[#5A7ACD]/30 bg-[#5A7ACD]/10 text-[#2B2A2A]"
+                        : "border-[#FEB05D]/30 bg-[#FEB05D]/10 text-[#2B2A2A]"
+                    }`}
+                  >
+                    <FileText className="h-3.5 w-3.5" strokeWidth={2} />
+                    {course.isPublished ? "Published" : "Draft"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsEditOpen(true)}
+                  disabled={isSaving || isDeleting}
+                  className="flex items-center gap-2 rounded-xl bg-[#5A7ACD] px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-[#4a6abd] disabled:opacity-60"
+                >
+                  <Edit className="w-4 h-4" strokeWidth={2} />
+                  Edit Course
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDelete()}
+                  disabled={isSaving || isDeleting}
+                  className="flex items-center gap-2 rounded-xl border border-red-300 bg-white px-4 py-2.5 text-[13px] font-semibold text-[#C23A42] hover:bg-[#FDEBEC] disabled:opacity-60"
+                >
+                  <Trash2 className="w-4 h-4" strokeWidth={2} />
+                  Delete Course
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 lg:col-span-1">
+                <p className="text-[13px] font-semibold text-[#2B2A2A]">Overview</p>
+
+                <div className="mt-3 aspect-[16/9] w-full overflow-hidden rounded-lg border border-gray-200 bg-white">
+                  {course.imageUrl ? (
+                    <img
+                      src={course.imageUrl}
+                      alt="Course cover"
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-gradient-to-br from-[#5A7ACD]/10 to-[#FEB05D]/10" />
+                  )}
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  <DetailRow label="Course ID" value={course.id} />
+                  <DetailRow label="Course Code" value={course.courseCode ?? "TBD"} />
+                  <DetailRow label="Canvas Course ID" value={course.canvasCourseId ?? "N/A"} />
+                  <DetailRow label="Active" value={course.active ? "Yes" : "No"} />
+                  <DetailRow label="Published" value={course.isPublished ? "Yes" : "No"} />
+                </div>
+
+                <div className="mt-4">
+                  <p className="text-[12px] font-semibold text-gray-600">Description</p>
+                  <p className="mt-2 text-[13px] text-gray-700 whitespace-pre-wrap">
+                    {course.description?.trim() ? course.description : "No description provided."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-4 lg:col-span-1">
+                <p className="text-[13px] font-semibold text-[#2B2A2A]">Semester & Status</p>
+
+                <div className="mt-3 space-y-3">
+                  <DetailRow label="Semester" value={course.semester?.name ?? "TBD"} />
+                  <DetailRow label="Section" value={course.section ?? "TBD"} />
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <div className="flex items-center gap-2 text-[12px] font-semibold text-gray-700">
+                      <Calendar className="h-4 w-4" strokeWidth={2} />
+                      Date Range
+                    </div>
+                    <div className="mt-2 space-y-2 text-[13px] text-gray-800">
+                      <div className="flex items-start justify-between gap-4">
+                        <span className="text-[12px] font-semibold text-gray-600">Start</span>
+                        <span className="text-right break-words">{course.semester?.startDate ?? "TBD"}</span>
+                      </div>
+                      <div className="flex items-start justify-between gap-4">
+                        <span className="text-[12px] font-semibold text-gray-600">End</span>
+                        <span className="text-right break-words">{course.semester?.endDate ?? "TBD"}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-4 lg:col-span-1">
+                <p className="text-[13px] font-semibold text-[#2B2A2A]">Faculty</p>
+
+                {course.faculty ? (
+                  <div className="mt-3 space-y-3">
+                    <DetailRow label="Faculty Name" value={course.faculty.name ?? "TBD"} />
+                    <DetailRow
+                      label="Email"
+                      value={
+                        course.faculty.email ? (
+                          <span className="inline-flex items-center gap-2">
+                            <Mail className="h-3.5 w-3.5" strokeWidth={2} />
+                            {course.faculty.email}
+                          </span>
+                        ) : (
+                          "N/A"
+                        )
+                      }
+                    />
+                    <DetailRow label="Department" value={course.faculty.department ?? "TBD"} />
+                    <DetailRow
+                      label="Qualifications"
+                      value={course.faculty.qualifications?.trim() ? course.faculty.qualifications : "N/A"}
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-3 text-[13px] text-gray-600">Faculty information not available.</p>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
+
+      {isEditOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-3xl bg-white shadow-xl">
+            <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-6 py-4">
+              <div>
+                <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Edit Course</h3>
+                <p className="text-[13px] text-gray-600">Update course metadata shown to students</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isSaving && setIsEditOpen(false)}
+                disabled={isSaving}
+                className="rounded-xl border border-gray-200 bg-white p-2 hover:bg-gray-50 disabled:opacity-60"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="px-6 py-5">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="gf-course-name" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                    Class Name
+                  </label>
+                  <input
+                    id="gf-course-name"
+                    value={form.name}
+                    onChange={(event) => setForm({ ...form, name: event.target.value })}
+                    placeholder="e.g., Data Structures and Algorithms"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    disabled={isSaving}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="gf-course-code" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                    Course Code
+                  </label>
+                  <input
+                    id="gf-course-code"
+                    value={form.courseCode}
+                    onChange={(event) => setForm({ ...form, courseCode: event.target.value })}
+                    placeholder="e.g., CS-301"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    disabled={isSaving}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="gf-course-section" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                    Section
+                  </label>
+                  <input
+                    id="gf-course-section"
+                    value={form.section}
+                    onChange={(event) => setForm({ ...form, section: event.target.value })}
+                    placeholder="e.g., Section 001"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    disabled={isSaving}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="gf-course-semester" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                    Semester
+                  </label>
+                  <select
+                    id="gf-course-semester"
+                    value={form.semesterId}
+                    onChange={(event) => setForm({ ...form, semesterId: event.target.value })}
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    disabled={isSaving || semesters.length === 0}
+                  >
+                    {semesters.length === 0 ? <option value="">Loading semesters...</option> : null}
+                    {semesters.map((semester) => (
+                      <option key={semester.id} value={String(semester.id)}>
+                        {semester.name} ({semester.startDate} - {semester.endDate})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label htmlFor="gf-course-description" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                    Description
+                  </label>
+                  <textarea
+                    id="gf-course-description"
+                    value={form.description}
+                    onChange={(event) => setForm({ ...form, description: event.target.value })}
+                    rows={3}
+                    placeholder="Optional course description"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    disabled={isSaving}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="gf-course-image" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                    Image URL
+                  </label>
+                  <input
+                    id="gf-course-image"
+                    value={form.imageUrl}
+                    onChange={(event) => setForm({ ...form, imageUrl: event.target.value })}
+                    placeholder="Optional cover image URL"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    disabled={isSaving}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="gf-course-canvas-id" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                    Canvas Course ID
+                  </label>
+                  <input
+                    id="gf-course-canvas-id"
+                    value={form.canvasCourseId}
+                    onChange={(event) => setForm({ ...form, canvasCourseId: event.target.value })}
+                    placeholder="Optional LMS id"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    disabled={isSaving}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <label className="inline-flex items-center gap-2 text-[14px] text-[#1F2430]">
+                      <input
+                        type="checkbox"
+                        checked={form.active}
+                        onChange={(event) => setForm({ ...form, active: event.target.checked })}
+                        className="h-4 w-4 rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
+                        disabled={isSaving}
+                      />
+                      Active
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-[14px] text-[#1F2430]">
+                      <input
+                        type="checkbox"
+                        checked={form.isPublished}
+                        onChange={(event) => setForm({ ...form, isPublished: event.target.checked })}
+                        className="h-4 w-4 rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
+                        disabled={isSaving}
+                      />
+                      Published
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => !isSaving && setIsEditOpen(false)}
+                disabled={isSaving}
+                className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSave()}
+                disabled={isSaving || !form.semesterId}
+                className="rounded-xl bg-[#5A7ACD] px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-[#4a6abd] disabled:opacity-60"
+              >
+                {isSaving ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
