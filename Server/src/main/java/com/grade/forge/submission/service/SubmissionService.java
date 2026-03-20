@@ -215,16 +215,7 @@ public class SubmissionService {
             throw new IllegalArgumentException("You are not allowed to view this submission");
         }
         Assignment assignment = submission.getAssignment();
-        if (assignment.getMainGroup() == null) {
-            return mapToResponse(submission);
-        }
-
-        List<Long> subGroupStudentIds = getStudentIdsForRequesterSubGroup(assignment.getMainGroup(), submission.getStudent().getId());
-        Submission latest = submissionRepository.findByAssignment_IdAndStudent_IdIn(assignment.getId(), subGroupStudentIds)
-                .stream()
-                .max(this::compareBySubmittedAt)
-                .orElse(submission);
-
+        Submission latest = latestSubGroupSubmission(assignment, submission.getStudent().getId(), submission);
         return mapToResponse(latest);
     }
 
@@ -240,15 +231,17 @@ public class SubmissionService {
             throw new IllegalArgumentException("You are not allowed to grade this submission");
         }
 
+        Submission target = latestSubGroupSubmission(submission.getAssignment(), submission.getStudent().getId(), submission);
+
         if (request.getMarks() != null) {
-            submission.setMarks(request.getMarks());
+            target.setMarks(request.getMarks());
         }
         if (request.getFeedback() != null) {
-            submission.setFeedback(request.getFeedback());
+            target.setFeedback(request.getFeedback());
         }
-        submission.setStatus(SubmissionStatus.GRADED);
+        target.setStatus(SubmissionStatus.GRADED);
 
-        Submission saved = submissionRepository.save(submission);
+        Submission saved = submissionRepository.save(target);
         return mapToResponse(saved);
     }
 
@@ -278,7 +271,8 @@ public class SubmissionService {
 
         validateGradingAssistantCourseAccess(gradingAssistant.getId(), submission.getAssignment().getCourse().getId());
 
-        return mapToResponse(submission);
+        Submission latest = latestSubGroupSubmission(submission.getAssignment(), submission.getStudent().getId(), submission);
+        return mapToResponse(latest);
     }
 
     @Transactional
@@ -291,15 +285,17 @@ public class SubmissionService {
 
         validateGradingAssistantCourseAccess(gradingAssistant.getId(), submission.getAssignment().getCourse().getId());
 
+        Submission target = latestSubGroupSubmission(submission.getAssignment(), submission.getStudent().getId(), submission);
+
         if (request.getMarks() != null) {
-            submission.setMarks(request.getMarks());
+            target.setMarks(request.getMarks());
         }
         if (request.getFeedback() != null) {
-            submission.setFeedback(request.getFeedback());
+            target.setFeedback(request.getFeedback());
         }
-        submission.setStatus(SubmissionStatus.GRADED);
+        target.setStatus(SubmissionStatus.GRADED);
 
-        Submission saved = submissionRepository.save(submission);
+        Submission saved = submissionRepository.save(target);
         return mapToResponse(saved);
     }
 
@@ -406,6 +402,16 @@ public class SubmissionService {
 
     private Submission pickLatest(Submission a, Submission b) {
         return compareBySubmittedAt(a, b) >= 0 ? a : b;
+    }
+
+    private Submission latestSubGroupSubmission(Assignment assignment, Long studentId, Submission fallback) {
+        if (assignment.getMainGroup() == null) {
+            return fallback;
+        }
+        List<Long> subGroupStudentIds = getStudentIdsForRequesterSubGroup(assignment.getMainGroup(), studentId);
+        return submissionRepository.findByAssignment_IdAndStudent_IdIn(assignment.getId(), subGroupStudentIds).stream()
+                .max(this::compareBySubmittedAt)
+                .orElse(fallback);
     }
 
     private SubmissionFileResponse mapToFileResponse(SubmissionFile file) {
