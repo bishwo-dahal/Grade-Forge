@@ -39,6 +39,7 @@ import {
   listSupportedLanguages,
 } from "../../services/universityAdminService";
 import { clearAuthenticated } from "../auth";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 type FacultyFormState = FacultyCreatePayload;
 type SemesterFormState = SemesterCreatePayload;
@@ -58,17 +59,6 @@ const DEFAULT_SEMESTER_FORM: SemesterFormState = {
   startDate: "",
   endDate: "",
 };
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (typeof error === "object" && error !== null) {
-    const response = (error as { response?: { data?: { message?: unknown } } }).response;
-    const message = response?.data?.message;
-    if (typeof message === "string" && message.trim().length > 0) {
-      return message;
-    }
-  }
-  return fallback;
-}
 
 export function UniversityAdminDashboard() {
   const navigate = useNavigate();
@@ -131,7 +121,7 @@ export function UniversityAdminDashboard() {
       const data = await listFacultyMembers();
       setFacultyMembers(data);
     } catch (error) {
-      setFacultyError(getErrorMessage(error, "Could not load faculty members."));
+      setFacultyError(getApiErrorMessage(error, "Could not load faculty members."));
     } finally {
       setFacultyLoading(false);
     }
@@ -145,7 +135,7 @@ export function UniversityAdminDashboard() {
       const data = await listAcademicSemesters();
       setAcademicSemesters(data);
     } catch (error) {
-      setSemesterError(getErrorMessage(error, "Could not load semesters."));
+      setSemesterError(getApiErrorMessage(error, "Could not load semesters."));
     } finally {
       setSemesterLoading(false);
     }
@@ -190,7 +180,7 @@ export function UniversityAdminDashboard() {
       closeFacultyModal();
       await loadFaculty();
     } catch (error) {
-      setFacultyFormError(getErrorMessage(error, "Could not create faculty member."));
+      setFacultyFormError(getApiErrorMessage(error, "Could not create faculty member."));
     } finally {
       setIsCreatingFaculty(false);
     }
@@ -215,7 +205,7 @@ export function UniversityAdminDashboard() {
       closeSemesterModal();
       await loadSemesters();
     } catch (error) {
-      setSemesterFormError(getErrorMessage(error, "Could not create semester."));
+      setSemesterFormError(getApiErrorMessage(error, "Could not create semester."));
     } finally {
       setIsCreatingSemester(false);
     }

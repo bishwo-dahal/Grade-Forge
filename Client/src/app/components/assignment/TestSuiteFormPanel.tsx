@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import type { TestSuiteDetail, TestSuitePayload } from "../../../types/testSuite";
 import { Plus, Trash2 } from "lucide-react";
+import { getApiErrorMessage } from "../../../utils/apiErrorMessage";
 
 interface TestSuiteFormPanelProps {
   assignmentId: string;
@@ -295,10 +296,7 @@ function TestSuiteFormActions({
       }
       onSaved();
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err instanceof Error ? err.message : "Failed to save test suite.");
-      setLocalError(msg);
+      setLocalError(getApiErrorMessage(err, "Failed to save test suite."));
     } finally {
       setSaving(false);
     }
