@@ -20,6 +20,7 @@ import { FacultyCreateClassPage } from "./components/FacultyCreateClassPage";
 import { FacultyCreateAssignmentPage } from "./components/FacultyCreateAssignmentPage";
 import { FacultyGradingAssignmentDetailPage } from "./components/FacultyGradingAssignmentDetailPage";
 import { FacultyClassStudentDetailPage } from "./components/faculty/FacultyClassStudentDetailPage.tsx";
+import { FacultyMainGroupDetailPage } from "./components/faculty/FacultyMainGroupDetailPage";
 import CompleteStudentRegistrationPage from "./components/CompleteStudentRegistrationPage";
 import {
   FacultyDiscussionsPage,
@@ -296,6 +297,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={["FACULTY"]}>
         <FacultyClassStudentDetailPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/faculty/class/:classId/groups/:mainGroupId",
+    element: (
+      <ProtectedRoute allowedRoles={["FACULTY"]}>
+        <FacultyMainGroupDetailPage />
       </ProtectedRoute>
     ),
   },

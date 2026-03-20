@@ -1,154 +1,127 @@
 # Group API
 
-Endpoints for the Course → MainGroup → SubGroup hierarchy and student membership.
+Endpoints for Course → MainGroup → SubGroup hierarchy and student membership.
 
-## Roles and base paths
-- Faculty manage groups under `/api/v1/faculty/courses/{courseId}/groups`
-- Students read group hierarchy under `/api/v1/student/courses/{courseId}/groups`
+## Roles & Base Paths
+- Faculty manage groups: `/api/v1/faculty/courses/{courseId}/groups`
+- Students view groups: `/api/v1/student/courses/{courseId}/groups`
 
-## Faculty endpoints
-### Create a main group
+## Faculty Endpoints
+### Create main group
 - Method: `POST`
 - Path: `/api/v1/faculty/courses/{courseId}/groups`
-- Request body:
+- Request:
 ```json
 { "name": "Project Teams" }
 ```
-- Sample 201 response:
+- 201 Response:
 ```json
-{
-  "id": 1,
-  "name": "Project Teams",
-  "subGroups": []
-}
+{ "id": 1, "name": "Project Teams", "subGroups": [] }
 ```
 
-### Create a sub group
+### Update main group name
+- Method: `PUT`
+- Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}`
+- Request:
+```json
+{ "name": "Project Teams - Updated" }
+```
+- 200 Response: `MainGroupResponse`
+
+### Delete main group (cascades subgroups)
+- Method: `DELETE`
+- Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}`
+- 200 Response: confirmation message
+
+### List all groups in a course
+- Method: `GET`
+- Path: `/api/v1/faculty/courses/{courseId}/groups`
+- 200 Response:
+```json
+[
+  {
+    "id": 1,
+    "name": "Project Teams",
+    "subGroups": [
+      {
+        "id": 10,
+        "name": "Team Alpha",
+        "students": [
+          { "id": 123, "name": "Jane Doe", "email": "jane@example.edu", "cwid": "CW123" }
+        ]
+      }
+    ]
+  }
+]
+```
+
+### Create sub group
 - Method: `POST`
 - Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}/subgroups`
-- Request body:
+- Request:
 ```json
 { "name": "Team Alpha" }
 ```
-- Sample 201 response:
-```json
-{
-  "id": 10,
-  "name": "Team Alpha",
-  "students": []
-}
-```
+- 201 Response: `SubGroupResponse`
 
-### Update a sub group name
+### Update sub group name
 - Method: `PUT`
 - Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}/subgroups/{subGroupId}`
-- Request body:
+- Request:
 ```json
 { "name": "Team Alpha - Backend" }
 ```
-- Sample 200 response mirrors SubGroupResponse
+- 200 Response: `SubGroupResponse`
 
-### Add a student to a sub group
+### Delete sub group
+- Method: `DELETE`
+- Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}/subgroups/{subGroupId}`
+- 200 Response: confirmation message
+
+### Add student to sub group
 - Method: `POST`
 - Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}/subgroups/{subGroupId}/students`
-- Request body:
+- Request:
 ```json
 { "studentId": 123 }
 ```
-- Sample 200 response:
+- 200 Response:
 ```json
 {
   "id": 10,
   "name": "Team Alpha",
   "students": [
-  { "id": 123, "name": "Jane Doe", "email": "jane@example.edu", "cwid": "CW123" }
+    { "id": 123, "name": "Jane Doe", "email": "jane@example.edu", "cwid": "CW123" }
   ]
 }
 ```
-- Validation: student must exist, be enrolled in the course, and not already in the sub group.
+- Validation: student must exist, be enrolled in the course, and not already in any sub group of the same main group.
 
-### Remove a student from a sub group
+### Remove student from sub group
 - Method: `DELETE`
 - Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}/subgroups/{subGroupId}/students/{studentId}`
-- Sample 200 response: updated `SubGroupResponse`
+- 200 Response: updated `SubGroupResponse`
 
-### List all groups in a course
-- Method: `GET`
-- Path: `/api/v1/faculty/courses/{courseId}/groups`
-- Sample 200 response:
-```json
-[
-  {
-	"id": 1,
-	"name": "Project Teams",
-	"subGroups": [
-	  {
-		"id": 10,
-		"name": "Team Alpha",
-		"students": [
-		  { "id": 123, "name": "Jane Doe", "email": "jane@example.edu", "cwid": "CW123" }
-		]
-	  }
-	]
-
-						### Delete a sub group
-						- Method: `DELETE`
-						- Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}/subgroups/{subGroupId}`
-						- 200 with confirmation message
-
-						### Update a main group name
-						- Method: `PUT`
-						- Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}`
-						- Request body: `{ "name": "New Main Group Name" }`
-						- 200 with updated `MainGroupResponse`
-
-						### Delete a main group (cascades sub groups)
-						- Method: `DELETE`
-						- Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}`
-						- 200 with confirmation message
-  }
-]
-```
-
-## Student endpoint
-### List groups for an enrolled student
+## Student Endpoint
+### List groups for enrolled student
 - Method: `GET`
 - Path: `/api/v1/student/courses/{courseId}/groups`
-- Sample 200 response:
-```json
-[
-  {
-	"id": 1,
-	"name": "Project Teams",
-	"subGroups": [
-	  {
-		"id": 10,
-		"name": "Team Alpha",
-		"students": [
-		  { "id": 123, "name": "Jane Doe", "email": "jane@example.edu", "cwid": "CW123" }
-		]
-	  }
-	]
-  }
-]
-```
+- 200 Response mirrors faculty list response (see above)
 - Requires the student to be enrolled in the course.
 
-## Responses
+## Response Shapes
 - `MainGroupResponse`: `{ id, name, subGroups: SubGroupResponse[] }`
 - `SubGroupResponse`: `{ id, name, students: GroupStudentResponse[] }`
 - `GroupStudentResponse`: `{ id, name, email, cwid }`
 
 ## Errors
-- 400 for validation issues (missing name, duplicate names within course/main group, not enrolled, already member).
-- 404 when course, main group, sub group, or student is not found.
+- 400: validation (missing name, duplicate names within course/main group, not enrolled, already in sub group, not in sub group when removing).
+- 404: course, main group, sub group, or student not found.
 
 ## Notes
 - Main group names are unique per course; sub group names are unique per main group.
-- Students can belong to multiple sub groups (even under the same main group); only duplicate membership within the same sub group is blocked.
-- Membership uses a many-to-many join table `subgroup_students` keyed by `(sub_group_id, student_id)`.
-
-
+- Students can belong to multiple sub groups across different main groups, but only one sub group per main group.
+- Membership uses join table `subgroup_students` keyed by `(sub_group_id, student_id)`.
 
 
 

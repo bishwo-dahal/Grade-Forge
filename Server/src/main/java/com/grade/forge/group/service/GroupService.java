@@ -101,6 +101,9 @@ public class GroupService {
         if (!enrollmentRepository.existsByStudent_IdAndCourse_Id(student.getId(), courseId)) {
             throw new IllegalArgumentException("Student is not enrolled in this course");
         }
+        if (subGroupRepository.existsByMainGroup_IdAndStudents_Id(mainGroupId, student.getId())) {
+            throw new IllegalArgumentException("Student is already assigned to another sub group in this main group");
+        }
         boolean added = subGroup.getStudents().add(student);
         if (!added) {
             throw new IllegalArgumentException("Student is already part of this sub group");
@@ -211,6 +214,7 @@ public class GroupService {
                 .build();
     }
 }
+
 
 
 
