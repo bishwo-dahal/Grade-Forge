@@ -364,7 +364,7 @@ function DashboardSection() {
   } as const;
 
   return (
-    <div onClick={() => setOpenAssignmentActionsId(null)}>
+    <div>
       <div className="mb-6">
         <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Class Dashboard</h2>
         <p className="text-[13px] text-gray-600">
@@ -505,7 +505,7 @@ function AssignmentsSection() {
   }
 
   return (
-    <div>
+    <div onClick={() => setOpenAssignmentActionsId(null)}>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Assignments</h2>

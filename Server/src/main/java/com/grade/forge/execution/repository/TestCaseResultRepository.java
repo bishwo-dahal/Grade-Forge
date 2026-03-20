@@ -15,4 +15,7 @@ public interface TestCaseResultRepository extends JpaRepository<TestCaseResult, 
 
     @Modifying
     void deleteByTestCase_IdIn(@Param("testCaseIds") List<Long> testCaseIds);
+
+    @Modifying
+    void deleteByTestRunJob_IdIn(@Param("testRunJobIds") List<Long> testRunJobIds);
 }

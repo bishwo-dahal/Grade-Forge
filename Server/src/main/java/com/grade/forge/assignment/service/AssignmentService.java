@@ -176,18 +176,32 @@ public class AssignmentService {
 
     private void cleanupSubmissions(Assignment assignment) {
         List<Submission> submissions = submissionRepository.findByAssignment_Id(assignment.getId());
-        if (!submissions.isEmpty()) {
-            List<Long> submissionIds = submissions.stream()
-                    .map(Submission::getId)
+        if (submissions.isEmpty()) {
+            return;
+        }
+
+        List<Long> submissionIds = submissions.stream()
+                .map(Submission::getId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        if (!submissionIds.isEmpty()) {
+            // Clean up test run jobs tied to these submissions (and their results) before deleting submissions/files.
+            List<Long> testRunJobIds = testRunJobRepository.findBySubmission_IdIn(submissionIds).stream()
+                    .map(trj -> trj.getId())
                     .filter(Objects::nonNull)
                     .toList();
-            if (!submissionIds.isEmpty()) {
-                submissionFileRepository.deleteAllInBatch(
-                        submissionFileRepository.findBySubmission_IdIn(submissionIds)
-                );
+            if (!testRunJobIds.isEmpty()) {
+                testCaseResultRepository.deleteByTestRunJob_IdIn(testRunJobIds);
+                testRunJobRepository.deleteByIdIn(testRunJobIds);
             }
-            submissionRepository.deleteAllInBatch(submissions);
+
+            submissionFileRepository.deleteAllInBatch(
+                    submissionFileRepository.findBySubmission_IdIn(submissionIds)
+            );
         }
+
+        submissionRepository.deleteAllInBatch(submissions);
     }
 
     private void cleanupTestRunsAndResults(Assignment assignment) {

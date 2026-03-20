@@ -16,4 +16,8 @@ public interface TestRunJobRepository extends JpaRepository<TestRunJob, Long> {
     List<TestRunJob> findByAssignment_IdAndStudent_IdOrderByCreatedAtDesc(Long assignmentId, Long studentId);
 
     void deleteByAssignment_Id(Long assignmentId);
+
+    List<TestRunJob> findBySubmission_IdIn(List<Long> submissionIds);
+
+    void deleteByIdIn(List<Long> ids);
 }
