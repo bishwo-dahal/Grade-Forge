@@ -3,6 +3,7 @@ package com.grade.forge.submission.service;
 import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.assignment.repository.AssignmentRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
+import com.grade.forge.group.dto.GroupStudentResponse;
 import com.grade.forge.group.entity.MainGroup;
 import com.grade.forge.group.entity.SubGroup;
 import com.grade.forge.group.repository.SubGroupRepository;
@@ -320,6 +321,13 @@ public class SubmissionService {
     }
 
     private SubmissionResponse mapToResponse(Submission submission) {
+        SubGroup subGroup = null;
+        if (submission.getAssignment().getMainGroup() != null) {
+            subGroup = subGroupRepository.findByMainGroup_IdAndStudents_Id(
+                    submission.getAssignment().getMainGroup().getId(), submission.getStudent().getId())
+                    .orElse(null);
+        }
+
         return SubmissionResponse.builder()
                 .id(submission.getId())
                 .assignmentId(submission.getAssignment().getId())
@@ -336,6 +344,16 @@ public class SubmissionService {
                 .feedback(submission.getFeedback())
                 .submittedAt(submission.getSubmittedAt())
                 .status(submission.getStatus())
+                .subGroupId(subGroup != null ? subGroup.getId() : null)
+                .subGroupName(subGroup != null ? subGroup.getName() : null)
+                .subGroupMembers(subGroup == null ? List.of() : subGroup.getStudents().stream()
+                        .map(s -> GroupStudentResponse.builder()
+                                .id(s.getId())
+                                .name(s.getUser() != null ? s.getUser().getName() : null)
+                                .email(s.getUser() != null ? s.getUser().getEmail() : null)
+                                .cwid(s.getCwid())
+                                .build())
+                        .toList())
                 .build();
     }
 

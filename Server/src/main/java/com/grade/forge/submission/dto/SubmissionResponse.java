@@ -1,6 +1,7 @@
 package com.grade.forge.submission.dto;
 
 import com.grade.forge.submission.enums.SubmissionStatus;
+import com.grade.forge.group.dto.GroupStudentResponse;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -29,4 +30,7 @@ public class SubmissionResponse {
     private String feedback;
     private LocalDateTime submittedAt;
     private SubmissionStatus status;
+    private Long subGroupId;
+    private String subGroupName;
+    private List<GroupStudentResponse> subGroupMembers;
 }
