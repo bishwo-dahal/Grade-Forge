@@ -13,6 +13,7 @@ public interface SubGroupRepository extends JpaRepository<SubGroup, Long> {
     List<SubGroup> findByMainGroup_Id(Long mainGroupId);
     Optional<SubGroup> findByIdAndMainGroup_Id(Long subGroupId, Long mainGroupId);
     boolean existsByMainGroup_IdAndStudents_Id(Long mainGroupId, Long studentId);
+    Optional<SubGroup> findByMainGroup_IdAndStudents_Id(Long mainGroupId, Long studentId);
 }
 
 
