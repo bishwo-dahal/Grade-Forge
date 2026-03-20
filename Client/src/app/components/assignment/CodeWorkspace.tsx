@@ -339,13 +339,29 @@ export function CodeWorkspace({
   useEffect(() => {
     if (isReviewMode) return;
     const next = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
+    if (!next) return;
+
+    const hasAnyFileNode = nodes.some(
+      (node) => (node.metadata as { isFolder?: boolean })?.isFolder === false,
+    );
+    if (!hasAnyFileNode) {
+      const fallbackFileName = `main${getDefaultExtension(assignment.language)}`;
+      const seededTree = buildInitialFileTree(fallbackFileName, next);
+      setTreeState(seededTree);
+      setOpenTabIds(["main"]);
+      setSelectedId("main");
+      setSavedContents({ main: next });
+      setCode(next);
+      return;
+    }
+
     setCode(next);
     setTreeState((prev) => ({
       ...prev,
       fileContents: { ...prev.fileContents, main: next },
     }));
     setSavedContents((prev) => ({ ...prev, main: next }));
-  }, [assignment.language, codeExamples, hasLoadedPersisted, isReviewMode]);
+  }, [assignment.language, codeExamples, hasLoadedPersisted, isReviewMode, nodes]);
 
   // Persist workspace state (debounced) — edit mode only; review mode never writes to IndexedDB
   const savePayloadRef = useRef<PersistedWorkspaceState | null>(null);
