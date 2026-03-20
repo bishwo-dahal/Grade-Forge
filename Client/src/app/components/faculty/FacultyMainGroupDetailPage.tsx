@@ -366,6 +366,10 @@ export function FacultyMainGroupDetailPage() {
   const [subEditName, setSubEditName] = useState("");
   const [subDeleteModalOpen, setSubDeleteModalOpen] = useState<null | number>(null);
   const [subActionBusy, setSubActionBusy] = useState(false);
+  const [randomModalOpen, setRandomModalOpen] = useState(false);
+  const [randomCount, setRandomCount] = useState("3");
+  const [randomCapacity, setRandomCapacity] = useState("5");
+  const [randomBusy, setRandomBusy] = useState(false);
 
   const loadAll = useCallback(async () => {
     if (!Number.isFinite(parsedMainId) || parsedMainId <= 0) {
@@ -604,6 +608,102 @@ export function FacultyMainGroupDetailPage() {
     }
   };
 
+  function buildRandomSubgroupNames(count: number): string[] {
+    const baseNames = ["Alpha", "Beta", "Gemma"];
+    if (count <= baseNames.length) {
+      return baseNames.slice(0, count);
+    }
+
+    const names = [...baseNames];
+    let startSuffix = 1;
+    const suffixBlockSize = 3;
+    while (names.length < count) {
+      for (const base of baseNames) {
+        for (
+          let suffix = startSuffix;
+          suffix < startSuffix + suffixBlockSize && names.length < count;
+          suffix += 1
+        ) {
+          // Naming sequence requested: Alpha, Beta, Gemma, then Alpha 1..3, Beta 1..3, Gemma 1..3, ...
+          names.push(`${base} ${suffix}`);
+        }
+      }
+      startSuffix += suffixBlockSize;
+    }
+    return names;
+  }
+
+  const handleCreateRandomSubgroups = async () => {
+    if (!mainGroup) {
+      return;
+    }
+
+    const subgroupCount = Number(randomCount);
+    const subgroupCapacity = Number(randomCapacity);
+    if (!Number.isFinite(subgroupCount) || subgroupCount <= 0) {
+      setBanner("Enter a valid number of subgroups.");
+      return;
+    }
+    if (!Number.isFinite(subgroupCapacity) || subgroupCapacity <= 0) {
+      setBanner("Enter a valid subgroup capacity.");
+      return;
+    }
+
+    const unassignedStudentIds = rosterActiveWithId
+      .filter((row) => row.studentId != null && !assignedStudentIds.has(row.studentId))
+      .map((row) => row.studentId as number);
+    if (unassignedStudentIds.length === 0) {
+      setBanner("No unassigned active students available for random allocation.");
+      return;
+    }
+
+    const names = buildRandomSubgroupNames(subgroupCount);
+    const shuffled = [...unassignedStudentIds];
+    for (let i = shuffled.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    setRandomBusy(true);
+    setBanner(null);
+    try {
+      const createdSubs: SubGroupResponse[] = [];
+      for (const name of names) {
+        // If generated name already exists, append suffix so backend uniqueness constraints are respected.
+        let uniqueName = name;
+        if (mainGroup.subGroups.some((s) => s.name.toLowerCase() === uniqueName.toLowerCase())) {
+          uniqueName = `${name} ${Date.now().toString().slice(-4)}`;
+        }
+        const created = await createFacultySubGroup(resolvedClassId, mainGroup.id, uniqueName);
+        createdSubs.push(created);
+      }
+
+      let assignedCount = 0;
+      let cursor = 0;
+      for (const sub of createdSubs) {
+        for (let slot = 0; slot < subgroupCapacity && cursor < shuffled.length; slot += 1) {
+          const studentId = shuffled[cursor];
+          cursor += 1;
+          await addStudentToFacultySubGroup(resolvedClassId, mainGroup.id, sub.id, studentId);
+          assignedCount += 1;
+        }
+      }
+
+      setRandomModalOpen(false);
+      await loadAll();
+      const leftUnassigned = unassignedStudentIds.length - assignedCount;
+      setBanner(
+        leftUnassigned > 0
+          ? `Created ${createdSubs.length} subgroups and randomly assigned ${assignedCount} students. ${leftUnassigned} students remain unassigned due to capacity limits.`
+          : `Created ${createdSubs.length} subgroups and randomly assigned ${assignedCount} students.`,
+      );
+    } catch (err) {
+      setBanner(getErrorMessage(err));
+    } finally {
+      setRandomBusy(false);
+    }
+  };
+
   const courseTitle =
     classHeader?.code && classHeader?.name
       ? `${classHeader.code}: ${classHeader.name}`
@@ -744,6 +844,19 @@ export function FacultyMainGroupDetailPage() {
                       New subgroup
                     </button>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRandomCount("3");
+                      setRandomCapacity("5");
+                      setRandomModalOpen(true);
+                    }}
+                    disabled={!mainGroup || loading}
+                    className="inline-flex items-center gap-2 rounded-lg border border-[#5A7ACD]/40 bg-[#5A7ACD]/10 px-3.5 py-2 text-[13px] font-medium text-[#2B2A2A] hover:bg-[#5A7ACD]/20 disabled:opacity-60"
+                  >
+                    <Sparkles className="h-4 w-4" strokeWidth={2} />
+                    Random subgroup creator
+                  </button>
                   <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500 sm:justify-end">
                     <span className="text-[#2B2A2A]">{stats.total} students</span>
                     <span className="text-gray-300">|</span>
@@ -995,6 +1108,66 @@ export function FacultyMainGroupDetailPage() {
                   className="flex-1 rounded-xl bg-[#2B2A2A] px-4 py-2.5 text-[14px] font-semibold text-white hover:bg-[#3a3939] disabled:opacity-60"
                 >
                   {actionBusy ? "Creating…" : "Create"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {randomModalOpen && mainGroup ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-xl">
+              <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Random subgroup creator</h3>
+              <p className="mt-1 text-[13px] text-gray-600">
+                Automatically creates subgroups under <span className="font-medium text-[#2B2A2A]">{mainGroup.name}</span> and randomly assigns unassigned active students.
+              </p>
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-[12px] font-medium text-gray-600" htmlFor="gf-random-subgroup-count">
+                    Number of subgroups
+                  </label>
+                  <input
+                    id="gf-random-subgroup-count"
+                    type="number"
+                    min={1}
+                    value={randomCount}
+                    onChange={(e) => setRandomCount(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[14px] outline-none ring-[#5A7ACD] focus:ring-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-gray-600" htmlFor="gf-random-subgroup-capacity">
+                    Capacity per subgroup
+                  </label>
+                  <input
+                    id="gf-random-subgroup-capacity"
+                    type="number"
+                    min={1}
+                    value={randomCapacity}
+                    onChange={(e) => setRandomCapacity(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[14px] outline-none ring-[#5A7ACD] focus:ring-2"
+                  />
+                </div>
+              </div>
+              <p className="mt-3 text-[12px] text-gray-500">
+                Names follow: Alpha, Beta, Gemma, then Alpha 1, Alpha 2, Alpha 3, Beta 1, Beta 2, Beta 3, ...
+              </p>
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => !randomBusy && setRandomModalOpen(false)}
+                  disabled={randomBusy}
+                  className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleCreateRandomSubgroups()}
+                  disabled={randomBusy}
+                  className="flex-1 rounded-xl bg-[#2B2A2A] px-4 py-2.5 text-[14px] font-semibold text-white hover:bg-[#3a3939] disabled:opacity-60"
+                >
+                  {randomBusy ? "Creating…" : "Create & Assign"}
                 </button>
               </div>
             </div>
