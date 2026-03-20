@@ -39,6 +39,15 @@ Endpoints for the Course → MainGroup → SubGroup hierarchy and student member
 }
 ```
 
+### Update a sub group name
+- Method: `PUT`
+- Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}/subgroups/{subGroupId}`
+- Request body:
+```json
+{ "name": "Team Alpha - Backend" }
+```
+- Sample 200 response mirrors SubGroupResponse
+
 ### Add a student to a sub group
 - Method: `POST`
 - Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}/subgroups/{subGroupId}/students`
@@ -58,6 +67,11 @@ Endpoints for the Course → MainGroup → SubGroup hierarchy and student member
 ```
 - Validation: student must exist, be enrolled in the course, and not already in the sub group.
 
+### Remove a student from a sub group
+- Method: `DELETE`
+- Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}/subgroups/{subGroupId}/students/{studentId}`
+- Sample 200 response: updated `SubGroupResponse`
+
 ### List all groups in a course
 - Method: `GET`
 - Path: `/api/v1/faculty/courses/{courseId}/groups`
@@ -76,6 +90,22 @@ Endpoints for the Course → MainGroup → SubGroup hierarchy and student member
 		]
 	  }
 	]
+
+						### Delete a sub group
+						- Method: `DELETE`
+						- Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}/subgroups/{subGroupId}`
+						- 200 with confirmation message
+
+						### Update a main group name
+						- Method: `PUT`
+						- Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}`
+						- Request body: `{ "name": "New Main Group Name" }`
+						- 200 with updated `MainGroupResponse`
+
+						### Delete a main group (cascades sub groups)
+						- Method: `DELETE`
+						- Path: `/api/v1/faculty/courses/{courseId}/groups/{mainGroupId}`
+						- 200 with confirmation message
   }
 ]
 ```
@@ -115,7 +145,10 @@ Endpoints for the Course → MainGroup → SubGroup hierarchy and student member
 
 ## Notes
 - Main group names are unique per course; sub group names are unique per main group.
+- Students can belong to multiple sub groups (even under the same main group); only duplicate membership within the same sub group is blocked.
 - Membership uses a many-to-many join table `subgroup_students` keyed by `(sub_group_id, student_id)`.
+
+
 
 
 

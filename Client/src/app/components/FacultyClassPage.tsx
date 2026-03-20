@@ -27,6 +27,7 @@ import {
   Search,
   X,
   RefreshCcw,
+  ChevronRight,
 } from "lucide-react";
 import type {
   ClassHeader,
@@ -34,9 +35,11 @@ import type {
   FacultyAssignment,
   FacultyDashboardStat,
   FacultyStudentEmailSuggestion,
+  FacultyRosterStats,
   FacultyRosterStudentRow,
   FacultyStudentSearchResult,
 } from "../../types/class";
+import type { MainGroupResponse } from "../../types/courseGroup";
 import type { ClassSubmissionItem, SpeedGradingAssignmentOption } from "../../types/submission";
 import {
   dropStudentFromCourse,
@@ -49,6 +52,7 @@ import {
   listFacultyDashboardStats,
   searchFacultyStudentByEmail,
 } from "../../services/classService";
+import { createFacultyMainGroup, listFacultyCourseGroups } from "../../services/courseGroupService";
 import { listClassSubmissions } from "../../services/submissionService";
 import {
   listCourseAssistants,
@@ -2515,17 +2519,176 @@ function AssistantsSection() {
 }
 
 function GroupsSection() {
+  const { classId } = useParams();
+  const resolvedClassId = classId ?? "1";
+  const [groups, setGroups] = useState<MainGroupResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [mainModalOpen, setMainModalOpen] = useState(false);
+  const [mainName, setMainName] = useState("");
+  const [actionBusy, setActionBusy] = useState(false);
+
+  const loadGroups = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listFacultyCourseGroups(resolvedClassId);
+      setGroups(data);
+    } catch (err) {
+      setError(getErrorMessage(err));
+      setGroups([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [resolvedClassId]);
+
+  useEffect(() => {
+    void loadGroups();
+  }, [loadGroups]);
+
+  const handleCreateMain = async () => {
+    const trimmed = mainName.trim();
+    if (!trimmed) {
+      return;
+    }
+    setActionBusy(true);
+    setError(null);
+    try {
+      await createFacultyMainGroup(resolvedClassId, trimmed);
+      setMainName("");
+      setMainModalOpen(false);
+      await loadGroups();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Groups</h2>
-        <p className="text-[13px] text-gray-600">Create and manage student groups for assignments</p>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Main groups</h2>
+          <p className="text-[13px] text-gray-600">
+            Open a group to create subgroups and assign students by dragging them from the roster.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void loadGroups()}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-[13px] font-medium text-[#2B2A2A] transition-colors hover:bg-gray-50 disabled:opacity-60"
+          >
+            <RefreshCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} strokeWidth={2} />
+            Refresh
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMainName("");
+              setMainModalOpen(true);
+            }}
+            className="flex items-center gap-2 rounded-lg bg-[#2B2A2A] px-3.5 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#3a3939]"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2} />
+            New main group
+          </button>
+        </div>
       </div>
 
-      {/* NOTE: This placeholder section was re-added to prevent runtime crashes from missing component references. */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <p className="text-[14px] text-gray-600">Group management UI will be displayed here.</p>
-      </div>
+      {error ? (
+        <div className="mb-4 rounded-lg border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-[13px] text-[#C23A42]">
+          {error}
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="space-y-4">
+          {[0, 1].map((i) => (
+            <div
+              key={`groups-skel-${i}`}
+              className="animate-pulse rounded-lg border border-gray-200 bg-white p-5"
+            >
+              <div className="mb-4 h-5 w-48 rounded bg-gray-200" />
+              <div className="h-12 rounded-lg bg-gray-100" />
+            </div>
+          ))}
+        </div>
+      ) : groups.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center">
+          <UsersRound className="mx-auto mb-3 h-10 w-10 text-gray-300" strokeWidth={1.5} />
+          <p className="text-[14px] font-medium text-[#2B2A2A]">No main groups yet</p>
+          <p className="mt-1 text-[13px] text-gray-600">
+            Create a main group, open it, then add subgroups and drag students in from the list.
+          </p>
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {groups.map((main) => {
+            const studentTotal = main.subGroups.reduce((acc, s) => acc + s.students.length, 0);
+            return (
+              <li key={main.id}>
+                <Link
+                  to={`/faculty/class/${resolvedClassId}/groups/${main.id}`}
+                  className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm transition-colors hover:border-[#5A7ACD]/40 hover:bg-[#FAFBFF]"
+                >
+                  <div className="min-w-0">
+                    <h3 className="text-[15px] font-semibold text-[#2B2A2A]">{main.name}</h3>
+                    <p className="mt-0.5 text-[12px] text-gray-500">
+                      {main.subGroups.length} subgroup{main.subGroups.length === 1 ? "" : "s"}
+                      <span className="text-gray-300"> · </span>
+                      {studentTotal} student{studentTotal === 1 ? "" : "s"} assigned
+                    </p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 flex-shrink-0 text-gray-400" strokeWidth={2} aria-hidden />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {mainModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-xl">
+            <h3 className="text-[16px] font-semibold text-[#2B2A2A]">New main group</h3>
+            <p className="mt-1 text-[13px] text-gray-600">
+              Main group names must be unique within this course (for example &ldquo;Lab sections&rdquo; or &ldquo;Project
+              teams&rdquo;).
+            </p>
+            <label className="mt-4 block text-[12px] font-medium text-gray-600" htmlFor="gf-main-group-name">
+              Name
+            </label>
+            <input
+              id="gf-main-group-name"
+              value={mainName}
+              onChange={(e) => setMainName(e.target.value)}
+              placeholder="e.g. Project teams"
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[14px] outline-none ring-[#5A7ACD] focus:ring-2"
+            />
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => !actionBusy && setMainModalOpen(false)}
+                disabled={actionBusy}
+                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCreateMain()}
+                disabled={actionBusy || !mainName.trim()}
+                className="flex-1 rounded-xl bg-[#2B2A2A] px-4 py-2.5 text-[14px] font-semibold text-white hover:bg-[#3a3939] disabled:opacity-60"
+              >
+                {actionBusy ? "Creating…" : "Create"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

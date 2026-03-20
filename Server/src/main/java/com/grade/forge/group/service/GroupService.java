@@ -69,6 +69,30 @@ public class GroupService {
         return mapSubGroup(saved);
     }
 
+    public MainGroupResponse updateMainGroup(String facultyEmail, Long courseId, Long mainGroupId, MainGroupRequest request) {
+        MainGroup mainGroup = getMainGroupForCourseAndFaculty(facultyEmail, courseId, mainGroupId);
+        String name = requireName(request.getName(), "Main group name is required");
+        if (!mainGroup.getName().equalsIgnoreCase(name)
+                && mainGroupRepository.existsByCourse_IdAndNameIgnoreCase(courseId, name)) {
+            throw new IllegalArgumentException("A main group with this name already exists for the course");
+        }
+        mainGroup.setName(name);
+        MainGroup saved = mainGroupRepository.save(mainGroup);
+        return mapMainGroup(saved);
+    }
+
+    public SubGroupResponse updateSubGroup(String facultyEmail, Long courseId, Long mainGroupId, Long subGroupId, SubGroupRequest request) {
+        SubGroup subGroup = getSubGroupForCourseAndFaculty(facultyEmail, courseId, mainGroupId, subGroupId);
+        String name = requireName(request.getName(), "Sub group name is required");
+        if (!subGroup.getName().equalsIgnoreCase(name)
+                && subGroupRepository.existsByMainGroup_IdAndNameIgnoreCase(mainGroupId, name)) {
+            throw new IllegalArgumentException("A sub group with this name already exists for the main group");
+        }
+        subGroup.setName(name);
+        SubGroup saved = subGroupRepository.save(subGroup);
+        return mapSubGroup(saved);
+    }
+
     public SubGroupResponse addStudentToSubGroup(String facultyEmail, Long courseId, Long mainGroupId, Long subGroupId, AddStudentToSubGroupRequest request) {
         SubGroup subGroup = getSubGroupForCourseAndFaculty(facultyEmail, courseId, mainGroupId, subGroupId);
         Long studentId = Objects.requireNonNull(request.getStudentId(), "studentId is required");
@@ -83,6 +107,28 @@ public class GroupService {
         }
         SubGroup saved = subGroupRepository.save(subGroup);
         return mapSubGroup(saved);
+    }
+
+    public SubGroupResponse removeStudentFromSubGroup(String facultyEmail, Long courseId, Long mainGroupId, Long subGroupId, Long studentId) {
+        SubGroup subGroup = getSubGroupForCourseAndFaculty(facultyEmail, courseId, mainGroupId, subGroupId);
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
+        boolean removed = subGroup.getStudents().removeIf(s -> Objects.equals(s.getId(), student.getId()));
+        if (!removed) {
+            throw new IllegalArgumentException("Student is not part of this sub group");
+        }
+        SubGroup saved = subGroupRepository.save(subGroup);
+        return mapSubGroup(saved);
+    }
+
+    public void deleteMainGroup(String facultyEmail, Long courseId, Long mainGroupId) {
+        MainGroup mainGroup = getMainGroupForCourseAndFaculty(facultyEmail, courseId, mainGroupId);
+        mainGroupRepository.delete(mainGroup);
+    }
+
+    public void deleteSubGroup(String facultyEmail, Long courseId, Long mainGroupId, Long subGroupId) {
+        SubGroup subGroup = getSubGroupForCourseAndFaculty(facultyEmail, courseId, mainGroupId, subGroupId);
+        subGroupRepository.delete(subGroup);
     }
 
     @Transactional(readOnly = true)
@@ -165,6 +211,8 @@ public class GroupService {
                 .build();
     }
 }
+
+
 
 
 

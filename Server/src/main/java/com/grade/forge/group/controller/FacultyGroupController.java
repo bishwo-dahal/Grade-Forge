@@ -30,6 +30,15 @@ public class FacultyGroupController {
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
+    @PutMapping("/{mainGroupId}")
+    public ResponseEntity<MainGroupResponse> updateMainGroup(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                             @PathVariable Long courseId,
+                                                             @PathVariable Long mainGroupId,
+                                                             @RequestBody MainGroupRequest request) {
+        MainGroupResponse response = groupService.updateMainGroup(customUserDetails.getUsername(), courseId, mainGroupId, request);
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
     @PostMapping("/{mainGroupId}/subgroups")
     public ResponseEntity<SubGroupResponse> createSubGroup(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                                            @PathVariable Long courseId,
@@ -37,6 +46,16 @@ public class FacultyGroupController {
                                                            @RequestBody SubGroupRequest request) {
         SubGroupResponse response = groupService.createSubGroup(customUserDetails.getUsername(), courseId, mainGroupId, request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    @PutMapping("/{mainGroupId}/subgroups/{subGroupId}")
+    public ResponseEntity<SubGroupResponse> updateSubGroup(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                           @PathVariable Long courseId,
+                                                           @PathVariable Long mainGroupId,
+                                                           @PathVariable Long subGroupId,
+                                                           @RequestBody SubGroupRequest request) {
+        SubGroupResponse response = groupService.updateSubGroup(customUserDetails.getUsername(), courseId, mainGroupId, subGroupId, request);
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @PostMapping("/{mainGroupId}/subgroups/{subGroupId}/students")
@@ -49,11 +68,39 @@ public class FacultyGroupController {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
+    @DeleteMapping("/{mainGroupId}/subgroups/{subGroupId}/students/{studentId}")
+    public ResponseEntity<SubGroupResponse> removeStudentFromSubGroup(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                                      @PathVariable Long courseId,
+                                                                      @PathVariable Long mainGroupId,
+                                                                      @PathVariable Long subGroupId,
+                                                                      @PathVariable Long studentId) {
+        SubGroupResponse response = groupService.removeStudentFromSubGroup(customUserDetails.getUsername(), courseId, mainGroupId, subGroupId, studentId);
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
     @GetMapping
     public ResponseEntity<List<MainGroupResponse>> listCourseGroups(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                                                     @PathVariable Long courseId) {
         List<MainGroupResponse> response = groupService.listCourseGroupsForFaculty(customUserDetails.getUsername(), courseId);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
+
+    @DeleteMapping("/{mainGroupId}")
+    public ResponseEntity<String> deleteMainGroup(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                  @PathVariable Long courseId,
+                                                  @PathVariable Long mainGroupId) {
+        groupService.deleteMainGroup(customUserDetails.getUsername(), courseId, mainGroupId);
+        return new ResponseEntity<>("Main group deleted successfully", HttpStatus.OK);
+    }
+
+    @DeleteMapping("/{mainGroupId}/subgroups/{subGroupId}")
+    public ResponseEntity<String> deleteSubGroup(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                 @PathVariable Long courseId,
+                                                 @PathVariable Long mainGroupId,
+                                                 @PathVariable Long subGroupId) {
+        groupService.deleteSubGroup(customUserDetails.getUsername(), courseId, mainGroupId, subGroupId);
+        return new ResponseEntity<>("Sub group deleted successfully", HttpStatus.OK);
+    }
 }
+
 
