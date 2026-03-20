@@ -1043,6 +1043,12 @@ export async function deleteFacultyCourse(courseId: string): Promise<void> {
   await api.delete(`/api/v1/faculty/courses/${id}`);
 }
 
+export async function toggleFacultyCourseActive(courseId: string): Promise<CourseApiResponse> {
+  const id = toCourseId(courseId);
+  const { data } = await api.patch<CourseApiResponse>(`/api/v1/faculty/courses/disable/${id}`);
+  return data;
+}
+
 export async function listEnrolledCourses(): Promise<CourseCard[]> {
   // NOTE: Student dashboard and My Courses now consume enrolled classes from backend.
   const { data } = await api.get<CourseApiResponse[]>("/api/v1/student/classes/enrolled");

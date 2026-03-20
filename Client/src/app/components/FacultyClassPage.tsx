@@ -56,6 +56,7 @@ import {
   listFacultyRosterRows,
   listFacultyDashboardStats,
   searchFacultyStudentByEmail,
+  toggleFacultyCourseActive,
   updateFacultyCourse,
 } from "../../services/classService";
 
@@ -2725,6 +2726,7 @@ function SettingsSection({ classId }: { classId: string }) {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isTogglingActive, setIsTogglingActive] = useState(false);
 
   const [form, setForm] = useState<ClassCreateFormData>(EMPTY_CLASS_FORM);
 
@@ -2789,6 +2791,25 @@ function SettingsSection({ classId }: { classId: string }) {
       setError(getErrorMessage(err));
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleToggleActive() {
+    if (!course) return;
+    setIsTogglingActive(true);
+    setError(null);
+    try {
+      const updated = await toggleFacultyCourseActive(classId);
+      setCourse(updated);
+      // Keep edit modal form in sync so the next edit uses latest active state.
+      setForm((prev) => ({
+        ...prev,
+        active: Boolean(updated.active),
+      }));
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsTogglingActive(false);
     }
   }
 
@@ -2860,6 +2881,27 @@ function SettingsSection({ classId }: { classId: string }) {
               </div>
 
               <div className="flex flex-wrap gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => void handleToggleActive()}
+                  disabled={isSaving || isDeleting || isTogglingActive}
+                  className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
+                  aria-label="Toggle course active status"
+                >
+                  <span
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      course.active ? "bg-[#5A7ACD]" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                        course.active ? "translate-x-5" : "translate-x-1"
+                      }`}
+                    />
+                  </span>
+                  <span>{course.active ? "Active" : "Disabled"}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setIsEditOpen(true)}

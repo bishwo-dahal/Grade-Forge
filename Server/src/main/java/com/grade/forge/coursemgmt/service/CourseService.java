@@ -173,8 +173,8 @@ public class CourseService {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
 
-        course.setActive(!course.getActive());
-
+        // Toggle active state (disable/enable).
+        course.setActive(!Boolean.TRUE.equals(course.getActive()));
         Course disabledCourse = courseRepository.save(course);
         return mapToResponseDto(disabledCourse);
     }
@@ -193,7 +193,8 @@ public class CourseService {
             throw new IllegalArgumentException("You are not authorized to disable this course");
         }
 
-        course.setActive(false);
+        // Toggle active state (disable/enable).
+        course.setActive(!Boolean.TRUE.equals(course.getActive()));
         Course disabledCourse = courseRepository.save(course);
         return mapToResponseDto(disabledCourse);
     }
