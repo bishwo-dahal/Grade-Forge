@@ -367,8 +367,8 @@ export function FacultyMainGroupDetailPage() {
   const [subDeleteModalOpen, setSubDeleteModalOpen] = useState<null | number>(null);
   const [subActionBusy, setSubActionBusy] = useState(false);
   const [randomModalOpen, setRandomModalOpen] = useState(false);
-  const [randomCount, setRandomCount] = useState("3");
-  const [randomCapacity, setRandomCapacity] = useState("5");
+  const [randomCount, setRandomCount] = useState("4");
+  const [randomCapacity, setRandomCapacity] = useState("1");
   const [randomBusy, setRandomBusy] = useState(false);
 
   const loadAll = useCallback(async () => {
@@ -434,6 +434,11 @@ export function FacultyMainGroupDetailPage() {
   const rosterActiveWithId = useMemo(
     () => roster.filter((r) => r.studentId != null && r.status === "active"),
     [roster],
+  );
+
+  const unassignedActiveStudents = useMemo(
+    () => rosterActiveWithId.filter((row) => row.studentId != null && !assignedStudentIds.has(row.studentId)),
+    [rosterActiveWithId, assignedStudentIds],
   );
 
   const filteredSidebarStudents = useMemo(() => {
@@ -609,28 +614,7 @@ export function FacultyMainGroupDetailPage() {
   };
 
   function buildRandomSubgroupNames(count: number): string[] {
-    const baseNames = ["Alpha", "Beta", "Gemma"];
-    if (count <= baseNames.length) {
-      return baseNames.slice(0, count);
-    }
-
-    const names = [...baseNames];
-    let startSuffix = 1;
-    const suffixBlockSize = 3;
-    while (names.length < count) {
-      for (const base of baseNames) {
-        for (
-          let suffix = startSuffix;
-          suffix < startSuffix + suffixBlockSize && names.length < count;
-          suffix += 1
-        ) {
-          // Naming sequence requested: Alpha, Beta, Gemma, then Alpha 1..3, Beta 1..3, Gemma 1..3, ...
-          names.push(`${base} ${suffix}`);
-        }
-      }
-      startSuffix += suffixBlockSize;
-    }
-    return names;
+    return Array.from({ length: count }, (_, index) => `Group ${index + 1}`);
   }
 
   const handleCreateRandomSubgroups = async () => {
@@ -649,16 +633,16 @@ export function FacultyMainGroupDetailPage() {
       return;
     }
 
-    const unassignedStudentIds = rosterActiveWithId
-      .filter((row) => row.studentId != null && !assignedStudentIds.has(row.studentId))
+    // Rebuild from scratch: all active students are re-randomized.
+    const activeStudentIds = rosterActiveWithId
       .map((row) => row.studentId as number);
-    if (unassignedStudentIds.length === 0) {
-      setBanner("No unassigned active students available for random allocation.");
+    if (activeStudentIds.length === 0) {
+      setBanner("No active students available for random allocation.");
       return;
     }
 
     const names = buildRandomSubgroupNames(subgroupCount);
-    const shuffled = [...unassignedStudentIds];
+    const shuffled = [...activeStudentIds];
     for (let i = shuffled.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
@@ -667,14 +651,14 @@ export function FacultyMainGroupDetailPage() {
     setRandomBusy(true);
     setBanner(null);
     try {
+      // Replace previous randomization by clearing existing subgroups first.
+      for (const existingSub of mainGroup.subGroups) {
+        await deleteFacultySubGroup(resolvedClassId, mainGroup.id, existingSub.id);
+      }
+
       const createdSubs: SubGroupResponse[] = [];
       for (const name of names) {
-        // If generated name already exists, append suffix so backend uniqueness constraints are respected.
-        let uniqueName = name;
-        if (mainGroup.subGroups.some((s) => s.name.toLowerCase() === uniqueName.toLowerCase())) {
-          uniqueName = `${name} ${Date.now().toString().slice(-4)}`;
-        }
-        const created = await createFacultySubGroup(resolvedClassId, mainGroup.id, uniqueName);
+        const created = await createFacultySubGroup(resolvedClassId, mainGroup.id, name);
         createdSubs.push(created);
       }
 
@@ -691,7 +675,7 @@ export function FacultyMainGroupDetailPage() {
 
       setRandomModalOpen(false);
       await loadAll();
-      const leftUnassigned = unassignedStudentIds.length - assignedCount;
+      const leftUnassigned = activeStudentIds.length - assignedCount;
       setBanner(
         leftUnassigned > 0
           ? `Created ${createdSubs.length} subgroups and randomly assigned ${assignedCount} students. ${leftUnassigned} students remain unassigned due to capacity limits.`
@@ -847,8 +831,13 @@ export function FacultyMainGroupDetailPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setRandomCount("3");
-                      setRandomCapacity("5");
+                      setRandomCount("4");
+                      const defaultCount = 4;
+                      const defaultCapacity = Math.max(
+                        1,
+                        Math.ceil(rosterActiveWithId.length / defaultCount),
+                      );
+                      setRandomCapacity(String(defaultCapacity));
                       setRandomModalOpen(true);
                     }}
                     disabled={!mainGroup || loading}
@@ -1136,21 +1125,21 @@ export function FacultyMainGroupDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[12px] font-medium text-gray-600" htmlFor="gf-random-subgroup-capacity">
+                    <label className="block text-[12px] font-medium text-gray-600" htmlFor="gf-random-subgroup-capacity">
                     Capacity per subgroup
                   </label>
                   <input
                     id="gf-random-subgroup-capacity"
                     type="number"
-                    min={1}
-                    value={randomCapacity}
-                    onChange={(e) => setRandomCapacity(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[14px] outline-none ring-[#5A7ACD] focus:ring-2"
+                      min={1}
+                      value={randomCapacity}
+                      onChange={(e) => setRandomCapacity(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-[14px] outline-none ring-[#5A7ACD] focus:ring-2"
                   />
                 </div>
               </div>
               <p className="mt-3 text-[12px] text-gray-500">
-                Names follow: Alpha, Beta, Gemma, then Alpha 1, Alpha 2, Alpha 3, Beta 1, Beta 2, Beta 3, ...
+                Subgroups are named automatically as Group 1, Group 2, Group 3, ...
               </p>
               <div className="mt-5 flex gap-3">
                 <button
