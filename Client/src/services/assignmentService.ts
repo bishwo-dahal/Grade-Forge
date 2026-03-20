@@ -19,6 +19,7 @@ import api from "../api/axios";
 import { getAuthenticatedRole } from "../app/auth";
 import { getRubric } from "./rubricService";
 import { listFacultyCourseGroups } from "./courseGroupService";
+import { fetchSubmissionFileText, resolvePreviewLanguage } from "./submissionService";
 
 // NOTE: This service keeps assignment data access centralized for both live API endpoints and remaining mock-only views.
 // TODO(backend): Migrate remaining mock-only helper sections to backend endpoints while keeping return shapes stable.
@@ -141,6 +142,12 @@ interface SubmissionApiResponse {
   assignmentId: number;
   marks: number | null;
   submittedAt: string;
+  files?: Array<{
+    id?: number | null;
+    fileName: string;
+    downloadUrl?: string | null;
+    url?: string | null;
+  }> | null;
   // When submission belongs to a subgroup (group-assigned assignment), backend may return the subgroup and members.
   subGroupId?: number | null;
   subGroupName?: string | null;
@@ -351,6 +358,27 @@ function getLatestSubmission(submissions: SubmissionApiResponse[]): SubmissionAp
   return [...submissions].sort((left, right) => {
     return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
   })[0];
+}
+
+function getLatestSubmissionWithDownloadableFile(
+  submissions: SubmissionApiResponse[],
+): { submission: SubmissionApiResponse; file: NonNullable<SubmissionApiResponse["files"]>[number] } | null {
+  const sorted = [...submissions].sort((left, right) => {
+    return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+  });
+
+  for (const submission of sorted) {
+    const files = submission.files ?? [];
+    const fileWithUrl = files.find((file) => {
+      const url = file.downloadUrl ?? file.url ?? null;
+      return typeof url === "string" && url.trim().length > 0;
+    });
+    if (fileWithUrl) {
+      return { submission, file: fileWithUrl };
+    }
+  }
+
+  return null;
 }
 
 function mapAssignmentDetailStatus(
@@ -798,11 +826,30 @@ export async function listPublicTestCases(assignmentId: string): Promise<PublicT
 
 export async function getEditorCodeExamples(assignmentId: string): Promise<EditorCodeExamples> {
   const workspaceSource = await loadStudentAssignmentWorkspaceSource(assignmentId);
-  const languageKey = workspaceSource.assignment.languageName || "placeholder text";
-  // TODO(backend): Replace placeholder code when starter/template endpoint is available.
-  return {
-    [languageKey]: "placeholder text",
-  };
+  const fallbackLanguage = workspaceSource.assignment.languageName || "plaintext";
+  const latestWithFile = getLatestSubmissionWithDownloadableFile(workspaceSource.submissions);
+  const primaryFile = latestWithFile?.file;
+  const primaryFileUrl = primaryFile?.downloadUrl ?? primaryFile?.url ?? null;
+
+  if (!primaryFile || !primaryFileUrl) {
+    // TODO(backend): Replace placeholder code when starter/template endpoint is available.
+    return {
+      [fallbackLanguage]: "placeholder text",
+    };
+  }
+
+  try {
+    const content = await fetchSubmissionFileText(primaryFileUrl, primaryFile.fileName);
+    const languageKey = resolvePreviewLanguage(primaryFile.fileName, fallbackLanguage);
+    return {
+      [languageKey]: content,
+      [fallbackLanguage]: content,
+    };
+  } catch {
+    return {
+      [fallbackLanguage]: "placeholder text",
+    };
+  }
 }
 
 export async function getFacultyAssignmentCreatePageData(classId: string): Promise<FacultyAssignmentCreatePageData> {
