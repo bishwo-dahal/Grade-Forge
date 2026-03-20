@@ -66,7 +66,7 @@ public class SubmissionService {
         Assignment assignment = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId));
 
-        Submission submission = resolveOrCreateGroupSubmission(assignment, student);
+        Submission submission = new Submission();
         submission.setAssignment(assignment);
         submission.setStudent(student);
         submission.setSubmittedAt(LocalDateTime.now());
@@ -80,10 +80,6 @@ public class SubmissionService {
                 assignment.getCourse().getId(),
                 assignment.getId(),
                 files);
-        // Replace previous files for group submissions so the record represents the latest upload.
-        if (submission.getFiles() != null && !submission.getFiles().isEmpty()) {
-            submissionFileRepository.deleteAll(submission.getFiles());
-        }
         submission.setFiles(submissionFiles);
 
         Submission saved = submissionRepository.save(submission);
@@ -217,8 +213,18 @@ public class SubmissionService {
         if (!submission.getAssignment().getCourse().getFaculty().getId().equals(faculty.getId())) {
             throw new IllegalArgumentException("You are not allowed to view this submission");
         }
+        Assignment assignment = submission.getAssignment();
+        if (assignment.getMainGroup() == null) {
+            return mapToResponse(submission);
+        }
 
-        return mapToResponse(submission);
+        List<Long> subGroupStudentIds = getStudentIdsForRequesterSubGroup(assignment.getMainGroup(), submission.getStudent().getId());
+        Submission latest = submissionRepository.findByAssignment_IdAndStudent_IdIn(assignment.getId(), subGroupStudentIds)
+                .stream()
+                .max(this::compareBySubmittedAt)
+                .orElse(submission);
+
+        return mapToResponse(latest);
     }
 
     @Transactional
@@ -348,26 +354,6 @@ public class SubmissionService {
         if (!subGroupStudentIds.contains(submission.getStudent().getId())) {
             throw new IllegalArgumentException("You are not allowed to access this submission");
         }
-    }
-
-    private Submission resolveOrCreateGroupSubmission(Assignment assignment, Student submittingStudent) {
-        if (assignment.getMainGroup() == null) {
-            return new Submission();
-        }
-
-        List<Long> subGroupStudentIds = getStudentIdsForRequesterSubGroup(assignment.getMainGroup(), submittingStudent.getId());
-        List<Submission> submissions = submissionRepository.findByAssignment_IdAndStudent_IdIn(assignment.getId(), subGroupStudentIds);
-
-        Submission latest = submissions.stream()
-                .max(this::compareBySubmittedAt)
-                .orElseGet(Submission::new);
-
-        // Remove older subgroup submissions so only the latest record is kept/overwritten.
-        submissions.stream()
-                .filter(s -> !s.equals(latest))
-                .forEach(submissionRepository::delete);
-
-        return latest;
     }
 
     private List<Long> getStudentIdsForRequesterSubGroup(MainGroup mainGroup, Long requesterStudentId) {
