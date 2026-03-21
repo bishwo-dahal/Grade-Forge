@@ -2,6 +2,7 @@ package com.grade.forge.grade_reports.controller;
 
 import com.grade.forge.grade_reports.dto.AssignmentReportResponseDTO;
 import com.grade.forge.grade_reports.dto.GradeReportResponseDTO;
+import com.grade.forge.grade_reports.dto.StudentCourseStatsDTO;
 import com.grade.forge.grade_reports.service.GradeReportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +34,13 @@ public class GradeReportController {
                                                                            @PathVariable Long assignmentId,
                                                                            @RequestParam(value = "studentIds", required = false) List<Long> studentIds) {
         AssignmentReportResponseDTO response = gradeReportService.generateAssignmentReport(courseId, assignmentId, studentIds);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/students/{studentId}/stats")
+    public ResponseEntity<StudentCourseStatsDTO> getStudentCourseStats(@PathVariable Long courseId,
+                                                                       @PathVariable Long studentId) {
+        StudentCourseStatsDTO response = gradeReportService.generateStudentCourseStats(courseId, studentId);
         return ResponseEntity.ok(response);
     }
 }

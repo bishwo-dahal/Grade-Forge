@@ -9,7 +9,14 @@ import {
   ListChecks,
   MoreVertical,
   RefreshCcw,
+  Zap,
 } from "lucide-react";
+import {
+  getGraderReportLatest,
+  pollGraderReportUntilDone,
+  requestGraderReport,
+} from "../../services/graderReportService";
+import type { GraderReportResultPayload } from "../../types/graderReport";
 import type { AssignmentDetailResponse } from "../../types/gradingAssistantAssignment";
 import type { GradingAssistantRubricResponse } from "../../types/gradingAssistantRubric";
 import { roundTo2 } from "../../utils/number";
@@ -88,6 +95,8 @@ export interface AssignmentDetailPageTestSuiteSection {
 /** Normalized submission row for the submissions table. */
 export interface AssignmentDetailPageSubmissionRow {
   submissionId: string;
+  /** Maps to grader pipeline `student_id` (stringified). */
+  studentId?: string | null;
   studentName: string;
   submittedAt: string;
   status: string;
@@ -111,6 +120,8 @@ export interface AssignmentDetailPageProps {
   onRefreshSubmissions: () => void;
   /** Optional subtitle under "Submissions" heading. */
   submissionsSectionSubtitle?: string;
+  /** Optional speed-grading entry for faculty assignment detail pages. */
+  speedGradingLink?: { to: string; label: string };
   /** Optional link for faculty to manage test cases (opens assignment workspace). */
   testCasesLink?: { to: string; label: string };
   /** Optional test suite to display (like rubric section). */
@@ -128,9 +139,81 @@ export function AssignmentDetailPage({
   error,
   onRefreshSubmissions,
   submissionsSectionSubtitle = "Review and grade student submissions for this assignment.",
+  speedGradingLink,
   testCasesLink,
   testSuiteSection,
 }: AssignmentDetailPageProps) {
+  const [plagSummary, setPlagSummary] = useState<
+    | {
+        byStudent: Record<
+          string,
+          { similarityScore: number; matchesCount?: number; warning?: string | null }
+        >;
+        loading: boolean;
+        error: string | null;
+      }
+    | null
+  >(null);
+  const [plagRefreshKey, setPlagRefreshKey] = useState(0);
+  const [plagRunStatus, setPlagRunStatus] = useState<
+    "idle" | "requesting" | "running" | "completed" | "failed"
+  >("idle");
+  const [plagRunMessage, setPlagRunMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!assignment?.id) {
+      setPlagSummary(null);
+      return;
+    }
+    const assignmentIdNumeric = Number(assignment.id);
+    if (!Number.isFinite(assignmentIdNumeric) || assignmentIdNumeric <= 0) {
+      setPlagSummary(null);
+      return;
+    }
+    let cancelled = false;
+    setPlagSummary({ byStudent: {}, loading: true, error: null });
+    (async () => {
+      try {
+        const report = await getGraderReportLatest(assignmentIdNumeric);
+        if (!report || !report.result || report.status !== "COMPLETED") {
+          if (!cancelled) {
+            setPlagSummary({ byStudent: {}, loading: false, error: null });
+          }
+          return;
+        }
+        let payload: GraderReportResultPayload | null = null;
+        try {
+          payload = JSON.parse(report.result) as GraderReportResultPayload;
+        } catch {
+          if (!cancelled) {
+            setPlagSummary({ byStudent: {}, loading: false, error: "Failed to parse plagiarism report." });
+          }
+          return;
+        }
+        const map: Record<
+          string,
+          { similarityScore: number; matchesCount?: number; warning?: string | null }
+        > = {};
+        for (const row of payload.results) {
+          map[row.student_id] = {
+            similarityScore: row.similarity_score ?? 0,
+            matchesCount: row.matches_count,
+            warning: row.similarity_warning ?? null,
+          };
+        }
+        if (!cancelled) {
+          setPlagSummary({ byStudent: map, loading: false, error: null });
+        }
+      } catch {
+        if (!cancelled) {
+          setPlagSummary({ byStudent: {}, loading: false, error: null });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [assignment?.id, plagRefreshKey]);
   if (loading) {
     return (
       <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
@@ -423,6 +506,15 @@ export function AssignmentDetailPage({
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {speedGradingLink ? (
+                <Link
+                  to={speedGradingLink.to}
+                  // NOTE: Faculty launches speed grading from the assignment detail page so the queue is anchored to the current assignment.
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2B2A2A] rounded-lg text-[12px] font-medium text-white transition-colors hover:bg-[#3A3939]"
+                >
+                  <span>{speedGradingLink.label}</span>
+                </Link>
+              ) : null}
               <button
                 type="button"
                 onClick={onRefreshSubmissions}
@@ -442,8 +534,54 @@ export function AssignmentDetailPage({
                 <Filter className="w-4 h-4" strokeWidth={2} />
                 <span>Filter</span>
               </button>
+              <button
+                type="button"
+                disabled={!assignment?.id}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2B2A2A] border border-[#2B2A2A] rounded-lg text-[12px] font-medium text-white hover:bg-[#3a3939] disabled:opacity-60"
+                onClick={async () => {
+                  if (!assignment?.id) return;
+                  const id = Number(assignment.id);
+                  if (!Number.isFinite(id) || id <= 0) return;
+                  setPlagRunStatus("requesting");
+                  setPlagRunMessage(null);
+                  try {
+                    await requestGraderReport(id);
+                    setPlagRunStatus("running");
+                    setPlagRunMessage("Queued. Generating report…");
+                    const done = await pollGraderReportUntilDone(id, { intervalMs: 3000, timeoutMs: 300000 });
+                    if (done.status === "COMPLETED") {
+                      setPlagRunStatus("completed");
+                      setPlagRunMessage("Plagiarism report completed.");
+                      setPlagRefreshKey((k) => k + 1);
+                    } else {
+                      setPlagRunStatus("failed");
+                      setPlagRunMessage(done.errorMessage ?? "Plagiarism report failed.");
+                    }
+                  } catch (e) {
+                    setPlagRunStatus("failed");
+                    setPlagRunMessage(e instanceof Error ? e.message : "Failed to run plagiarism check.");
+                  }
+                }}
+              >
+                <Zap className="w-4 h-4" strokeWidth={2} />
+                <span>
+                  {plagRunStatus === "requesting" || plagRunStatus === "running"
+                    ? "Running…"
+                    : "Run plagiarism check"}
+                </span>
+              </button>
             </div>
           </div>
+          {plagRunMessage && (
+            <div
+              className={
+                "px-6 py-2 text-[12px] " +
+                (plagRunStatus === "failed" ? "text-red-700 bg-red-50" : "text-gray-700 bg-gray-50")
+              }
+            >
+              {plagRunMessage}
+            </div>
+          )}
 
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px]">
@@ -452,6 +590,7 @@ export function AssignmentDetailPage({
                   <th className="px-6 py-3">Student</th>
                   <th className="px-6 py-3">Status</th>
                   <th className="px-6 py-3">Score</th>
+                  <th className="px-6 py-3">Plagiarism</th>
                   <th className="px-6 py-3">Submitted</th>
                   <th className="px-6 py-3 text-right">Actions</th>
                 </tr>
@@ -485,6 +624,12 @@ export function AssignmentDetailPage({
                     const isUngraded =
                       row.status.toLowerCase() === "ungraded" || row.marks == null;
                     const openHref = getSubmissionLink(row.submissionId);
+                    const plag =
+                      (row.studentId ? plagSummary?.byStudent[row.studentId] : undefined) ??
+                      null;
+                    const simPct = plag ? Math.round((plag.similarityScore ?? 0) * 100) : 0;
+                    const riskLevel =
+                      simPct >= 75 ? "High" : simPct >= 40 ? "Medium" : simPct > 0 ? "Low" : "None";
 
                     return (
                       <tr
@@ -514,6 +659,34 @@ export function AssignmentDetailPage({
                         </td>
                         <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">
                           {row.marks != null ? String(row.marks) : "—"}
+                        </td>
+                        <td className="px-6 py-4">
+                          {plagSummary?.loading ? (
+                            <span className="text-[12px] text-gray-400">Loading…</span>
+                          ) : plag ? (
+                            <div className="flex flex-col gap-0.5">
+                              <span
+                                className={
+                                  "text-[13px] font-medium " +
+                                  (riskLevel === "High"
+                                    ? "text-red-700"
+                                    : riskLevel === "Medium"
+                                    ? "text-amber-700"
+                                    : "text-gray-700")
+                                }
+                              >
+                                {simPct}% {riskLevel !== "None" ? `(${riskLevel})` : ""}
+                              </span>
+                              {plag.matchesCount != null && (
+                                <span className="text-[11px] text-gray-500">
+                                  {plag.matchesCount} match
+                                  {plag.matchesCount === 1 ? "" : "es"}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[12px] text-gray-400">—</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">
                           {row.submittedAt ?? "—"}
@@ -661,6 +834,7 @@ function mapGASubmissions(
     const subId = s.submissionId ?? s.id;
     return {
       submissionId: String(subId ?? ""),
+      studentId: String(s.studentId),
       studentName: s.studentName ?? s.studentEmail ?? `Submission #${subId ?? "?"}`,
       submittedAt: formatSubmissionDisplayDate(s.submittedAt ?? undefined),
       status,

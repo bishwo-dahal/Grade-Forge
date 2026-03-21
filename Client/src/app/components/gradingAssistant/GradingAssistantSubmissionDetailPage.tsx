@@ -21,6 +21,8 @@ import { AuthShell } from "../layout/AuthShell";
 import { AuthTopBar } from "../layout/AuthTopBar";
 import type { SettingsSection } from "../layout/AuthTopBar";
 import { SubmissionGradingPanel } from "../grading/SubmissionGradingPanel";
+import { getLatestGraderReportForStudent } from "../../../services/graderReportService";
+import type { GraderReportResultItem } from "../../../types/graderReport";
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -55,6 +57,8 @@ export function GradingAssistantSubmissionDetailPage() {
   const [grades, setGrades] = useState<SubmissionGradeResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [plagResult, setPlagResult] = useState<GraderReportResultItem | null>(null);
+  const [plagStatus, setPlagStatus] = useState<"idle" | "loading" | "none" | "error">("idle");
 
   useEffect(() => {
     if (!classId || !assignmentId || !submissionId) {
@@ -71,18 +75,38 @@ export function GradingAssistantSubmissionDetailPage() {
     }
     setLoading(true);
     setError(null);
-    Promise.all([
-      getAssignmentByCourse(cId, aId),
-      listSubmissionsByAssignment(aId),
-      getGradesBySubmission(sId),
-    ])
-      .then(([assign, list, gradeList]) => {
+    Promise.all([getAssignmentByCourse(cId, aId), listSubmissionsByAssignment(aId), getGradesBySubmission(sId)])
+      .then(async ([assign, list, gradeList]) => {
         setAssignment(assign);
         const found = list.find((s) => s.id === sId);
         setSubmission(found ?? null);
         setGrades(gradeList);
+
+        if (found) {
+          setPlagStatus("loading");
+          try {
+            const latest = await getLatestGraderReportForStudent(aId, found.studentId);
+            if (!latest) {
+              setPlagResult(null);
+              setPlagStatus("none");
+            } else {
+              setPlagResult(latest.student);
+              setPlagStatus("idle");
+            }
+          } catch {
+            setPlagResult(null);
+            setPlagStatus("error");
+          }
+        } else {
+          setPlagResult(null);
+          setPlagStatus("none");
+        }
       })
-      .catch(() => setError("Failed to load submission."))
+      .catch(() => {
+        setError("Failed to load submission.");
+        setPlagResult(null);
+        setPlagStatus("error");
+      })
       .finally(() => setLoading(false));
   }, [classId, assignmentId, submissionId]);
 
@@ -278,8 +302,8 @@ export function GradingAssistantSubmissionDetailPage() {
                   )}
                 </div>
 
-                {/* Right: shared grading panel */}
-                <div>
+                {/* Right: shared grading panel + plagiarism summary for this student */}
+                <div className="space-y-4">
                   <SubmissionGradingPanel
                     header={{
                       studentName: submission.studentName,
@@ -318,6 +342,54 @@ export function GradingAssistantSubmissionDetailPage() {
                         : undefined
                     }
                   />
+
+                  <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                    <div className="px-5 py-3 border-b border-gray-200">
+                      <h2 className="text-[14px] font-semibold text-[#2B2A2A]">
+                        Plagiarism check (latest report)
+                      </h2>
+                      <p className="text-[12px] text-gray-500">
+                        Shows this student&apos;s row from the latest grader report for this assignment.
+                      </p>
+                    </div>
+                    <div className="px-5 py-4 text-[13px] text-gray-700">
+                      {plagStatus === "loading" && <p>Loading plagiarism info…</p>}
+                      {plagStatus === "error" && (
+                        <p className="text-red-600">Unable to load plagiarism info.</p>
+                      )}
+                      {plagStatus === "none" && (
+                        <p className="text-gray-600">
+                          No completed grader report found yet for this assignment, or this student is
+                          not included.
+                        </p>
+                      )}
+                      {plagStatus !== "loading" && plagResult && (
+                        <div className="space-y-2">
+                          <p>
+                            Similarity score:{" "}
+                            <span className="font-semibold">
+                              {Math.round((plagResult.similarity_score ?? 0) * 100)}%
+                            </span>
+                          </p>
+                          <p>
+                            Warning:{" "}
+                            <span className="text-gray-800">
+                              {plagResult.similarity_warning ?? "None"}
+                            </span>
+                          </p>
+                          {typeof plagResult.matches_count === "number" && (
+                            <p>Suspicious matches: {plagResult.matches_count}</p>
+                          )}
+                          {plagResult.comparisons && plagResult.comparisons.length > 0 && (
+                            <p className="text-[12px] text-gray-600">
+                              Detailed side-by-side comparisons are available on the assignment&apos;s
+                              plagiarism tab.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </section>
                 </div>
               </div>
             )}

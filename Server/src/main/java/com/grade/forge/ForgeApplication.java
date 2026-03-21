@@ -3,6 +3,7 @@ package com.grade.forge;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -10,9 +11,11 @@ import java.nio.file.Paths;
 
 @SpringBootApplication
 @EnableRabbit
+@EnableScheduling
 public class ForgeApplication {
 
     public static void main(String[] args) {
+        // REFACTOR: Restore the original bootstrap .env loader here so backend startup has one environment-loading path.
         loadEnvIfPresent();
         SpringApplication.run(ForgeApplication.class, args);
     }

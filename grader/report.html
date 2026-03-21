@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grade-Forge Report Viewer</title>
+  <style>
+    :root {
+      --bg: #1a1b26;
+      --surface: #24283b;
+      --text: #c0caf5;
+      --dim: #565f89;
+      --green: #9ece6a;
+      --red: #f7768e;
+      --blue: #7aa2f7;
+      --border: #3b4261;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1rem 2rem 2rem;
+      font-size: 14px;
+    }
+    h1 { font-size: 1.35rem; color: var(--text); margin-bottom: 1rem; font-weight: 600; }
+    .pick-file {
+      margin-bottom: 1.5rem;
+      padding: 1.25rem;
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      text-align: center;
+      color: var(--dim);
+    }
+    .pick-file label { display: block; margin-bottom: 0.5rem; }
+    .pick-file input[type="file"] { display: none; }
+    .btn-choose {
+      display: inline-block;
+      background: var(--blue);
+      color: var(--bg);
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .btn-choose:hover { filter: brightness(1.1); }
+    .pick-file .hint { margin-top: 0.5rem; font-size: 12px; color: var(--dim); }
+    .pick-file.has-file { border-color: var(--green); color: var(--text); }
+    .assignment { margin-bottom: 1.5rem; color: var(--dim); }
+    .assignment strong { color: var(--text); }
+    #report { display: none; }
+    #report.visible { display: block; }
+    .error { color: var(--red); margin-top: 0.5rem; font-size: 13px; }
+
+    .student-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .student-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+    .student-id { font-size: 1.1rem; font-weight: 600; color: var(--text); }
+    .similarity-big { font-size: 1.75rem; font-weight: 700; color: var(--red); }
+    .similarity-small { font-size: 13px; color: var(--dim); }
+    .match-line { font-size: 12px; color: var(--dim); margin: 0.25rem 0 0.75rem; word-break: break-all; }
+    .match-line strong { color: var(--text); }
+    .file-list { list-style: none; padding: 0; margin: 0 0 0.75rem; }
+    .file-list li {
+      padding: 0.35rem 0;
+      border-bottom: 1px solid rgba(59, 66, 97, 0.5);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .file-list li:last-child { border-bottom: none; }
+    .file-pair { color: var(--text); }
+    .file-pair .sep { color: var(--dim); margin: 0 0.25rem; }
+    .file-meta { color: var(--dim); white-space: nowrap; }
+    .toggle-code {
+      background: transparent;
+      color: var(--blue);
+      border: 1px solid var(--border);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11px;
+      margin-left: 0.5rem;
+    }
+    .toggle-code:hover { background: var(--border); }
+    .code-block {
+      margin-top: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      display: none;
+    }
+    .code-block.visible { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+    .code-pane {
+      margin: 0;
+      padding: 0.75rem;
+      background: var(--bg);
+      overflow: auto;
+      max-height: 60vh;
+      font-size: 11px;
+      line-height: 1.4;
+      white-space: pre;
+      border-right: 1px solid var(--border);
+    }
+    .code-pane:last-child { border-right: none; }
+    .code-pane code { font-family: inherit; background: none; padding: 0; }
+    .highlight-green { background: rgba(158, 206, 106, 0.25); }
+    .highlight-red { background: rgba(247, 118, 142, 0.25); }
+    .no-match { color: var(--dim); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>Grade-Forge Report Viewer</h1>
+  <div class="pick-file" id="pickFile">
+    <label>Choose report JSON</label>
+    <button type="button" class="btn-choose" id="btnChoose">Choose report JSON</button>
+    <input type="file" id="fileInput" accept=".json,application/json">
+    <p class="hint">Save grader output with: <code>python run.py &gt; out.json</code>, then select out.json</p>
+    <div class="error" id="error"></div>
+  </div>
+  <div id="report">
+    <p class="assignment">Assignment: <strong id="assignmentId"></strong></p>
+    <div id="studentCards"></div>
+  </div>
+
+  <script>
+    function escapeHtml(s) {
+      if (s == null) return '—';
+      const t = String(s);
+      return t
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+    function basename(path) {
+      return path ? path.replace(/^.*[/\\]/, '') : '—';
+    }
+    function pct(val) {
+      if (val == null) return '—';
+      return typeof val === 'number' ? Math.round(val * 100) + '%' : String(val);
+    }
+
+    function renderReport(data) {
+      const assignmentId = data.assignment_id ?? '—';
+      const results = data.results ?? [];
+      document.getElementById('assignmentId').textContent = assignmentId;
+
+      const container = document.getElementById('studentCards');
+      container.innerHTML = '';
+
+      results.forEach((r, studentIdx) => {
+        const sid = r.student_id ?? '—';
+        const sim = r.similarity_score;
+        const simPct = typeof sim === 'number' ? Math.round(sim * 100) : (sim != null ? String(sim) : '0');
+        const warning = r.similarity_warning || null;
+        const comps = r.comparisons ?? [];
+
+        const card = document.createElement('div');
+        card.className = 'student-card';
+        card.innerHTML =
+          '<div class="student-header">' +
+            '<span class="student-id">' + escapeHtml(sid) + '</span>' +
+            '<span class="similarity-big">' + escapeHtml(simPct) + '%</span>' +
+            '<span class="similarity-small">similarity ' + escapeHtml(simPct) + '%</span>' +
+          '</div>' +
+          (warning ? '<p class="match-line"><strong>Match:</strong> ' + escapeHtml(warning) + '</p>' : '<p class="match-line no-match">No match</p>');
+
+        if (comps.length === 0) {
+          card.innerHTML += '<p class="no-match">No file comparisons.</p>';
+        } else {
+          const ul = document.createElement('ul');
+          ul.className = 'file-list';
+          comps.forEach((c, compIdx) => {
+            const left = c.left || {};
+            const right = c.right || {};
+            const overlap = c.overlap_tokens ?? 0;
+            const leftFile = basename(left.file_path);
+            const rightFile = basename(right.file_path);
+            const leftSim = left.similarity != null ? Math.round(left.similarity * 100) : '—';
+            const li = document.createElement('li');
+            li.innerHTML =
+              '<span class="file-pair">' + escapeHtml(leftFile) + ' <span class="sep">&lt;-&gt;</span> ' + escapeHtml(rightFile) + '</span>' +
+              '<span class="file-meta">' + leftSim + '% (' + overlap + ' tokens)</span>' +
+              '<button type="button" class="toggle-code" data-student="' + studentIdx + '" data-comp="' + compIdx + '">Show code</button>';
+            ul.appendChild(li);
+          });
+          card.appendChild(ul);
+
+          comps.forEach((c, compIdx) => {
+            const left = c.left || {};
+            const right = c.right || {};
+            const block = document.createElement('div');
+            block.className = 'code-block';
+            block.dataset.student = String(studentIdx);
+            block.dataset.comp = String(compIdx);
+            block.innerHTML =
+              '<pre class="code-pane"><code></code></pre>' +
+              '<pre class="code-pane"><code></code></pre>';
+            block.querySelectorAll('.code-pane code')[0].innerHTML = left.code ?? '';
+            block.querySelectorAll('.code-pane code')[1].innerHTML = right.code ?? '';
+            card.appendChild(block);
+          });
+        }
+        container.appendChild(card);
+      });
+
+      document.querySelectorAll('.toggle-code').forEach(btn => {
+        btn.onclick = function() {
+          const studentIdx = this.getAttribute('data-student');
+          const compIdx = this.getAttribute('data-comp');
+          const block = document.querySelector('.code-block[data-student="' + studentIdx + '"][data-comp="' + compIdx + '"]');
+          const isVisible = block.classList.contains('visible');
+          block.classList.toggle('visible', !isVisible);
+          this.textContent = isVisible ? 'Show code' : 'Hide code';
+        };
+      });
+
+      document.getElementById('report').classList.add('visible');
+    }
+
+    document.getElementById('btnChoose').addEventListener('click', () => document.getElementById('fileInput').click());
+    document.getElementById('fileInput').addEventListener('change', e => {
+      const file = e.target.files[0];
+      const errEl = document.getElementById('error');
+      errEl.textContent = '';
+      if (!file) return;
+      document.getElementById('pickFile').classList.add('has-file');
+      const r = new FileReader();
+      r.onload = () => {
+        try {
+          const data = JSON.parse(r.result);
+          if (!data.results) throw new Error('Invalid format: missing "results"');
+          renderReport(data);
+        } catch (err) {
+          errEl.textContent = 'Invalid JSON or format: ' + err.message;
+        }
+      };
+      r.onerror = () => { errEl.textContent = 'Failed to read file'; };
+      r.readAsText(file, 'UTF-8');
+    });
+  </script>
+</body>
+</html>

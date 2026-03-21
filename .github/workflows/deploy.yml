@@ -5,6 +5,13 @@ on:
     branches:
       - main
       - production
+    paths:
+      - "Client/**"
+      - "Server/**"
+      - "grader/**"
+      - "Dockerfile"
+      - ".dockerignore"
+      - ".github/workflows/deploy.yml"
   workflow_dispatch:
     inputs:
       branch:
@@ -16,6 +23,11 @@ on:
           - main
           - production
           - other
+      deploy_as_main:
+        description: 'Deploy this run on port 8080 (replace main container)'
+        required: true
+        default: false
+        type: boolean
       branch_other:
         description: 'Branch name (when "other" is selected)'
         required: false
@@ -28,10 +40,12 @@ jobs:
     env:
       # Branch we're deploying: from manual input (or "other" -> custom name) or from the branch that was pushed
       DEPLOY_BRANCH: ${{ github.event_name == 'workflow_dispatch' && (inputs.branch == 'other' && inputs.branch_other || inputs.branch) || github.ref_name }}
+      # Optional one-off: run this deployment on port 8080 (replace main container)
+      DEPLOY_AS_MAIN: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_as_main || false }}
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         ref: ${{ env.DEPLOY_BRANCH }}
 
@@ -39,21 +53,27 @@ jobs:
       run: |
         echo "Deploying branch: ${{ env.DEPLOY_BRANCH }}"
         echo "Image tag: bishwodahal/grade-forge:${{ env.DEPLOY_BRANCH }}"
-
-    # Build Docker image (tagged by branch so main and production never overwrite each other)
-    - name: Build Docker image
-      run: docker build -t bishwodahal/grade-forge:${{ env.DEPLOY_BRANCH }} .
+        echo "Deploy as main (port 8080): ${{ env.DEPLOY_AS_MAIN }}"
 
     # Docker Hub login
     - name: Docker Login
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    # Push Docker image (branch-specific tag)
-    - name: Push Docker image
-      run: docker push bishwodahal/grade-forge:${{ env.DEPLOY_BRANCH }}
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    # Build + push Docker image with registry cache (branch-specific tag)
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        push: true
+        tags: bishwodahal/grade-forge:${{ env.DEPLOY_BRANCH }}
+        cache-from: type=registry,ref=bishwodahal/grade-forge:buildcache
+        cache-to: type=registry,ref=bishwodahal/grade-forge:buildcache,mode=max
 
     # Deploy to EC2 (pull and run the branch-specific image, not :latest)
     - name: Deploy to EC2
@@ -68,7 +88,10 @@ jobs:
           echo "Pulling and deploying image: bishwodahal/grade-forge:${IMAGE_TAG}"
           docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
           docker pull bishwodahal/grade-forge:${IMAGE_TAG}
-          if [ "${IMAGE_TAG}" = "main" ]; then
+          if [ "${{ env.DEPLOY_AS_MAIN }}" = "true" ]; then
+            CONTAINER_NAME="grade-forge-main"
+            PORT=8080
+          elif [ "${IMAGE_TAG}" = "main" ]; then
             CONTAINER_NAME="grade-forge-main"
             PORT=8080
           elif [ "${IMAGE_TAG}" = "production" ]; then
@@ -78,23 +101,35 @@ jobs:
             CONTAINER_NAME="grade-forge-other"
             PORT=8989
           fi
-          # Ensure RabbitMQ is running (replace any existing instance)
-          docker stop gradeforge-rabbitmq || true
-          docker rm gradeforge-rabbitmq || true
-          docker run -d \
-            --name gradeforge-rabbitmq \
-            -p 5672:5672 \
-            -p 15672:15672 \
-            -e RABBITMQ_DEFAULT_USER=guest \
-            -e RABBITMQ_DEFAULT_PASS=guest \
-            rabbitmq:3-management-alpine
+          # Ensure RabbitMQ is running (avoid restart if already healthy)
+          if docker ps --format '{{.Names}}' | grep -q '^gradeforge-rabbitmq$'; then
+            echo "RabbitMQ container already running."
+          else
+            docker rm -f gradeforge-rabbitmq >/dev/null 2>&1 || true
+            docker run -d \
+              --name gradeforge-rabbitmq \
+              -p 5672:5672 \
+              -p 15672:15672 \
+              -e RABBITMQ_DEFAULT_USER=guest \
+              -e RABBITMQ_DEFAULT_PASS=guest \
+              rabbitmq:3-management-alpine
+          fi
 
           # Shared work directory for test runs (same absolute path on host and in container)
           WORK_DIR_BASE="/var/gradeforge/work"
           sudo mkdir -p "${WORK_DIR_BASE}"
           sudo chown "$(whoami)":"$(whoami)" "${WORK_DIR_BASE}"
-          docker stop "${CONTAINER_NAME}" || true
-          docker rm "${CONTAINER_NAME}" || true
+
+          # If the container is already running the exact pulled image, skip restart.
+          PULLED_IMAGE_ID="$(docker image inspect -f '{{.Id}}' bishwodahal/grade-forge:${IMAGE_TAG} 2>/dev/null || true)"
+          RUNNING_IMAGE_ID="$(docker inspect -f '{{.Image}}' "${CONTAINER_NAME}" 2>/dev/null || true)"
+          if [ -n "${PULLED_IMAGE_ID}" ] && [ "${PULLED_IMAGE_ID}" = "${RUNNING_IMAGE_ID}" ] && docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+            echo "No changes: ${CONTAINER_NAME} already running image ${IMAGE_TAG}. Skipping restart."
+            exit 0
+          fi
+
+          docker stop "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+          docker rm "${CONTAINER_NAME}" >/dev/null 2>&1 || true
           docker run -d \
             -p ${PORT}:8080 \
             --add-host=host.docker.internal:host-gateway \

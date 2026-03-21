@@ -94,6 +94,7 @@ function mapToSubmissionRows(rows: FacultyAssignmentSubmissionRow[]): Assignment
       .map((f) => ({ fileName: f.fileName, downloadUrl: f.downloadUrl }));
     return {
       submissionId: row.submissionId,
+      studentId: row.studentId ?? null,
       studentName: row.studentName,
       submittedAt: formatSubmissionDisplayDate(row.submittedAt),
       status: row.marks == null ? "Ungraded" : "Graded",
@@ -273,6 +274,11 @@ export function FacultyGradingAssignmentDetailPage() {
           error={errorMessage}
           onRefreshSubmissions={reloadSubmissions}
           submissionsSectionSubtitle="Open a submission to review code and submit a grade."
+          speedGradingLink={{
+            // NOTE: Assignment detail owns the speed grading entry so faculty can jump directly into the queue for this assignment.
+            to: `/faculty/class/${resolvedClassId}/speed-grading/${resolvedAssignmentId}`,
+            label: "Speed Grading",
+          }}
           testCasesLink={{
             to: `/faculty/assignment/${resolvedAssignmentId}?tab=tests`,
             label: "Edit test cases",

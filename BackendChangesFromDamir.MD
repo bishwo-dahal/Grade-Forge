@@ -682,3 +682,104 @@ Scope: Implemented simple faculty grading flow in assignment workspace: open sub
 ### Backend impact
 - Backend unchanged.
 - Feature uses existing faculty grade endpoint and existing student submission grade-read paths.
+
+## Backend Fix - Load `.env` During Spring Boot Tests
+
+Date: 2026-03-15  
+Scope: Fixed backend test startup so `mvn test` can resolve datasource settings from `Server/.env` during `@SpringBootTest`.
+
+### Problem
+- Backend tests were failing in `ForgeApplicationTests.contextLoads`.
+- Root cause:
+  - `application.properties` expects datasource values from environment placeholders:
+    - `SPRING_DATASOURCE_URL`
+    - `SPRING_DATASOURCE_USERNAME`
+    - `SPRING_DATASOURCE_PASSWORD`
+  - Existing `.env` loading lived inside `ForgeApplication.main(...)`.
+  - `@SpringBootTest` does not start the app through `main()`, so those values were never loaded for tests.
+- Failure symptom:
+  - Spring tried to build the datasource with the literal unresolved placeholder `${SPRING_DATASOURCE_URL}`.
+
+### Backend changes made
+
+#### `Server/src/main/java/com/grade/forge/ForgeApplication.java`
+- Removed ad-hoc `.env` loading responsibility from the application entrypoint.
+- Kept the class focused on normal Spring Boot startup only.
+- Why:
+  - `.env` loading in `main()` does not help test startup paths.
+  - Environment resolution belongs earlier in the Spring bootstrap lifecycle.
+
+#### `Server/src/main/java/com/grade/forge/configuration/DotenvEnvironmentPostProcessor.java`
+- Added a new `EnvironmentPostProcessor` to load `.env` before Spring resolves `application.properties` placeholders.
+- Behavior:
+  - Looks for `.env` in either:
+    - current working directory
+    - `Server/.env` when running from repo root
+  - Parses simple `KEY=value` lines.
+  - Ignores blank lines and comments.
+  - Preserves higher-priority values from real environment variables, JVM system properties, and existing Spring sources.
+- Why:
+  - This makes backend startup consistent for:
+    - `mvn test`
+    - IDE test runs
+    - running from `Server/`
+    - running from repo root
+
+#### `Server/src/main/resources/META-INF/spring.factories`
+- Registered the new `DotenvEnvironmentPostProcessor`.
+- Why:
+  - Ensures `.env` fallback values are available during Spring bootstrap, including test context initialization.
+
+### Verification
+- Backend tests:
+  - `cd Server && mvn test` -> success
+
+### Backend impact summary
+- No database schema changes.
+- No controller/service/repository contract changes.
+- Fix is bootstrap-only and limited to environment property loading for local/test startup.
+
+## Backend Cleanup - Remove Duplicate `.env` Bootstrap Path
+
+Date: 2026-03-18  
+Scope: Removed the extra Spring bootstrap `.env` loader and restored the original single environment-loading approach in `ForgeApplication.java`.
+
+### Reason for cleanup
+- Team review flagged that backend environment loading had been duplicated.
+- The extra files:
+  - `Server/src/main/java/com/grade/forge/configuration/DotenvEnvironmentPostProcessor.java`
+  - `Server/src/main/resources/META-INF/spring.factories`
+  introduced a second bootstrap path even though the intended loader should live in `ForgeApplication.java`.
+- The goal of this cleanup was to avoid rewriting backend startup behavior when a project-owned loading point already existed.
+
+### Backend changes made
+
+#### `Server/src/main/java/com/grade/forge/ForgeApplication.java`
+- Restored `.env` loading inside `main()` before `SpringApplication.run(...)`.
+- Reused the original-style loader pattern:
+  - read `.env` from current working directory
+  - parse `KEY=value`
+  - ignore blank lines and comments
+  - only set system properties when not already present
+- Why:
+  - Keeps one clear backend-owned environment loading path.
+  - Matches team preference to avoid introducing a second startup mechanism.
+
+#### `Server/src/main/java/com/grade/forge/configuration/DotenvEnvironmentPostProcessor.java`
+- Deleted.
+- Why:
+  - This file duplicated `.env` loading responsibility that review explicitly asked to avoid.
+
+#### `Server/src/main/resources/META-INF/spring.factories`
+- Deleted.
+- Why:
+  - It existed only to register the deleted `EnvironmentPostProcessor`.
+
+### Verification
+- Backend compile:
+  - `cd Server && mvn -DskipTests compile` -> success
+
+### Backend impact summary
+- No schema changes.
+- No controller/service/repository/security contract changes.
+- Cleanup is limited to backend startup/environment loading structure.

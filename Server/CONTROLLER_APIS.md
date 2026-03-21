@@ -50,6 +50,10 @@ Reference for REST controllers, grouped by package. Each endpoint lists purpose,
 **AssignmentStudentController** (`/api/v1/student/assignments`, STUDENT)
 - GET `/course/{courseId}` list assignments for course → `[{AssignmentResponse}, ...]`.
 
+**GraderReportFacultyController** (`/api/v1/faculty/assignments`, FACULTY)
+- POST `/{assignmentId}/grader-report` trigger report generation (manual). No body. Returns 202 Accepted with `GraderReportResponse` (id, assignmentId, generatedAt, triggerType, status=PENDING, errorMessage=null, result=null). Client can poll GET latest until status is COMPLETED or FAILED.
+- GET `/{assignmentId}/grader-report/latest` get latest grader report for assignment. Returns 200 with `GraderReportResponse` (id, assignmentId, generatedAt, triggerType, status, errorMessage, result=full pipeline JSON when COMPLETED). Returns 404 if no report exists.
+
 ## auth
 **AuthController** (`/api/v1/auth`)
 - POST `/login`

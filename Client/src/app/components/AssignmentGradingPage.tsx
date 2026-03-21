@@ -10,6 +10,7 @@ import { GradingRubricPanel } from "./assignment/GradingRubricPanel";
 import { CircularScorePanel } from "./assignment/CircularScorePanel";
 import { GradeSubmissionDialog } from "./assignment/GradeSubmissionDialog";
 import { CodeWorkspace } from "./assignment/CodeWorkspace";
+import { PlagiarismReportPanel } from "./assignment/PlagiarismReportPanel";
 import {
   getAssignmentDescription,
   getAssignmentDetailById,
@@ -206,6 +207,7 @@ export function AssignmentGradingPage() {
   const [submissionLanguage, setSubmissionLanguage] = useState<string>("Python");
   const [studentName, setStudentName] = useState<string>("");
   const [studentEmail, setStudentEmail] = useState<string | null>(null);
+  const [studentId, setStudentId] = useState<string | null>(null);
   const [submittedAt, setSubmittedAt] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -263,6 +265,7 @@ export function AssignmentGradingPage() {
       return;
     }
     setStudentName(row.studentName);
+    setStudentId((row as any).studentId != null ? String((row as any).studentId) : null);
     setSubmittedAt(formatDate(row.submittedAt));
     setSubmissionLanguage(resolvePreviewLanguage(files[0].fileName, assignData.language));
     setSubmissionMarks(row.marks ?? null);
@@ -807,7 +810,11 @@ export function AssignmentGradingPage() {
                     />
                   )}
                   {activeTab === "plagiarism" && (
-                    <div className="p-6 text-[14px] text-gray-500">Plagiarism report will appear here.</div>
+                    <PlagiarismReportPanel
+                      assignmentId={assignmentId ?? ""}
+                      isFaculty={isFaculty}
+                      studentId={studentId}
+                    />
                   )}
                   {activeTab === "rubric" && <GradingRubricPanel rubricCategories={rubricCategories} />}
                 </div>

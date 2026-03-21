@@ -1,0 +1,22 @@
+.git
+.github
+**/.DS_Store
+
+# Node / frontend
+**/node_modules
+**/dist
+**/.next
+
+# Java / Maven
+**/target
+
+# IDE
+**/.idea
+**/.vscode
+
+# Logs
+**/*.log
+
+# Local secrets
+**/.env
+**/.env.*
