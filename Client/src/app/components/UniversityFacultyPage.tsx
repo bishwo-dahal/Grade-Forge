@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { FacultyCreatePayload, FacultyMember } from "../../types/universityAdmin";
 import { createFaculty, deleteFacultyById, listDepartmentOptions, listFacultyMembers } from "../../services/universityAdminService";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 const DEFAULT_FACULTY_FORM: FacultyCreatePayload = {
   name: "",
@@ -25,17 +26,6 @@ const DEFAULT_FACULTY_FORM: FacultyCreatePayload = {
   officeLocation: "",
   password: "",
 };
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (typeof error === "object" && error !== null) {
-    const response = (error as { response?: { data?: { message?: unknown } } }).response;
-    const message = response?.data?.message;
-    if (typeof message === "string" && message.trim().length > 0) {
-      return message;
-    }
-  }
-  return fallback;
-}
 
 interface UniversityFacultyViewProps {
   // NOTE: This component is presentation-only. Data is injected by the page/container.
@@ -230,7 +220,7 @@ export function UniversityFacultyPage() {
     setError(null);
     listFacultyMembers()
       .then(setMembers)
-      .catch((loadError) => setError(getErrorMessage(loadError, "Could not load faculty members.")))
+      .catch((loadError) => setError(getApiErrorMessage(loadError, "Could not load faculty members.")))
       .finally(() => setIsLoading(false));
   };
 
@@ -272,7 +262,7 @@ export function UniversityFacultyPage() {
       handleCloseCreateModal();
       loadMembers();
     } catch (creationError) {
-      setFacultyFormError(getErrorMessage(creationError, "Could not create faculty member."));
+      setFacultyFormError(getApiErrorMessage(creationError, "Could not create faculty member."));
     } finally {
       setIsCreatingFaculty(false);
     }
@@ -287,7 +277,7 @@ export function UniversityFacultyPage() {
       await deleteFacultyById(facultyId);
       loadMembers();
     } catch (deleteError) {
-      setError(getErrorMessage(deleteError, "Could not delete faculty member."));
+      setError(getApiErrorMessage(deleteError, "Could not delete faculty member."));
     } finally {
       setDeletingFacultyId(null);
     }

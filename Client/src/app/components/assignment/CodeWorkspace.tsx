@@ -22,6 +22,7 @@ import type {
   FacultyAssignmentSubmissionRow,
 } from "../../../types/submission";
 import type { TestRunJobStatusResponse } from "../../../types/runTests";
+import { getApiErrorMessage } from "../../../utils/apiErrorMessage";
 
 interface CodeWorkspaceProps {
   assignmentId: string;
@@ -55,14 +56,7 @@ interface CodeWorkspaceProps {
 }
 
 function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  const apiMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
-  if (typeof apiMessage === "string" && apiMessage.trim()) {
-    return apiMessage;
-  }
-  return "Unable to submit file.";
+  return getApiErrorMessage(error, "Unable to submit file.");
 }
 
 function validateSubmissionFile(
@@ -339,13 +333,29 @@ export function CodeWorkspace({
   useEffect(() => {
     if (isReviewMode) return;
     const next = codeExamples[assignment.language] ?? codeExamples.Python ?? "";
+    if (!next) return;
+
+    const hasAnyFileNode = nodes.some(
+      (node) => (node.metadata as { isFolder?: boolean })?.isFolder === false,
+    );
+    if (!hasAnyFileNode) {
+      const fallbackFileName = `main${getDefaultExtension(assignment.language)}`;
+      const seededTree = buildInitialFileTree(fallbackFileName, next);
+      setTreeState(seededTree);
+      setOpenTabIds(["main"]);
+      setSelectedId("main");
+      setSavedContents({ main: next });
+      setCode(next);
+      return;
+    }
+
     setCode(next);
     setTreeState((prev) => ({
       ...prev,
       fileContents: { ...prev.fileContents, main: next },
     }));
     setSavedContents((prev) => ({ ...prev, main: next }));
-  }, [assignment.language, codeExamples, hasLoadedPersisted, isReviewMode]);
+  }, [assignment.language, codeExamples, hasLoadedPersisted, isReviewMode, nodes]);
 
   // Persist workspace state (debounced) — edit mode only; review mode never writes to IndexedDB
   const savePayloadRef = useRef<PersistedWorkspaceState | null>(null);

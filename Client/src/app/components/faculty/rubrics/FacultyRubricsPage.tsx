@@ -8,6 +8,7 @@ import { AuthTopBar } from "../../layout/AuthTopBar";
 import type { SettingsSection } from "../../layout/AuthTopBar";
 import { Copy, Pencil, Trash2 } from "lucide-react";
 import { roundTo2 } from "../../../../utils/number";
+import { getApiErrorMessage } from "../../../../utils/apiErrorMessage";
 
 interface FacultyRubricsViewProps {
   rubrics: RubricSummary[];
@@ -224,10 +225,9 @@ export function FacultyRubricsPage() {
           setRubrics(data);
         }
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         if (!cancelled) {
-          const message = err?.response?.data?.message ?? err?.message ?? "Failed to load rubrics.";
-          setError(message);
+          setError(getApiErrorMessage(err, "Failed to load rubrics."));
         }
       })
       .finally(() => {
@@ -270,9 +270,8 @@ export function FacultyRubricsPage() {
     try {
       await deleteRubric(id);
       setRubrics((prev) => prev.filter((r) => r.id !== id));
-    } catch (err: any) {
-      const message = err?.response?.data?.message ?? err?.message ?? "Failed to delete rubric.";
-      setError(message);
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, "Failed to delete rubric."));
     }
   };
 

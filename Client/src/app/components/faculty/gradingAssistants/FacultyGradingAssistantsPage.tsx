@@ -15,15 +15,14 @@ import { AuthShell } from "../../layout/AuthShell";
 import { AuthTopBar } from "../../layout/AuthTopBar";
 import type { SettingsSection } from "../../layout/AuthTopBar";
 import { AlertCircle, Pencil, Trash2, UserPlus, X } from "lucide-react";
+import { getApiErrorMessage } from "../../../../utils/apiErrorMessage";
 
-function getErrorMessage(err: any, fallback: string): string {
-  const data = err?.response?.data;
-  const msg = typeof data === "string" ? data : data?.message ?? err?.message ?? fallback;
-  const raw = String(msg);
-  if (/foreign key|course_assistants|still referenced/i.test(raw)) {
+function getErrorMessage(err: unknown, fallback: string): string {
+  const friendly = getApiErrorMessage(err, fallback);
+  if (/foreign key|course_assistants|still referenced/i.test(friendly)) {
     return "This assistant is still assigned to one or more courses. Remove them from those courses first, then try again.";
   }
-  return raw || fallback;
+  return friendly;
 }
 
 const emptyForm: GradingAssistantRequest = {
@@ -85,10 +84,8 @@ function GradingAssistantFormModal({
       }
       onSuccess();
       onClose();
-    } catch (err: any) {
-      const message =
-        err?.response?.data?.message ?? err?.message ?? "Something went wrong.";
-      setError(message);
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, "Something went wrong."));
     } finally {
       setSubmitting(false);
     }
@@ -262,10 +259,8 @@ export function FacultyGradingAssistantsPage() {
     setError(null);
     getAllGradingAssistants()
       .then(setAssistants)
-      .catch((err: any) => {
-        const msg =
-          err?.response?.data?.message ?? err?.message ?? "Failed to load grading assistants.";
-        setError(msg);
+      .catch((err: unknown) => {
+        setError(getApiErrorMessage(err, "Failed to load grading assistants."));
       })
       .finally(() => setLoading(false));
   }, []);

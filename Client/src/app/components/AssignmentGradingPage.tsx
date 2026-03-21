@@ -52,7 +52,7 @@ import type { TestRunJobStatusResponse } from "../../types/runTests";
 import { roundTo2 } from "../../utils/number";
 import type { PublicTestCase } from "../../types/submission";
 
-type GradingTabType = "description" | "tests" | "plagiarism" | "rubric";
+type GradingTabType = "description" | "tests" | "plagiarism" | "rubric" | "group";
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -208,6 +208,10 @@ export function AssignmentGradingPage() {
   const [studentName, setStudentName] = useState<string>("");
   const [studentEmail, setStudentEmail] = useState<string | null>(null);
   const [studentId, setStudentId] = useState<string | null>(null);
+  const [subGroupName, setSubGroupName] = useState<string | null>(null);
+  const [subGroupMembers, setSubGroupMembers] = useState<
+    Array<{ id: number; name: string; email: string; cwid: string }>
+  >([]);
   const [submittedAt, setSubmittedAt] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -265,7 +269,15 @@ export function AssignmentGradingPage() {
       return;
     }
     setStudentName(row.studentName);
+    setStudentEmail((row as { studentEmail?: string | null }).studentEmail ?? null);
     setStudentId((row as any).studentId != null ? String((row as any).studentId) : null);
+    setSubGroupName(row.subGroupName ?? null);
+    setSubGroupMembers((row.subGroupMembers ?? []).map((m) => ({
+      id: m.id,
+      name: m.name,
+      email: m.email,
+      cwid: m.cwid,
+    })));
     setSubmittedAt(formatDate(row.submittedAt));
     setSubmissionLanguage(resolvePreviewLanguage(files[0].fileName, assignData.language));
     setSubmissionMarks(row.marks ?? null);
@@ -371,6 +383,8 @@ export function AssignmentGradingPage() {
     setStudentName(sub.studentName ?? sub.studentEmail ?? `Submission #${sub.submissionId ?? sub.id}`);
     setStudentEmail(sub.studentEmail ?? null);
     setSubmittedAt(formatDate(sub.submittedAt ?? undefined));
+    setSubGroupName(null);
+    setSubGroupMembers([]);
     setSubmissionLanguage(assignData.languageName ?? "Python");
     setSubmissionMarks(sub.marks ?? null);
     setSubmissionFeedback(sub.feedback ?? "");
@@ -758,6 +772,7 @@ export function AssignmentGradingPage() {
                         { id: "tests" as const, label: "Tests" },
                         { id: "plagiarism" as const, label: "Plagiarism" },
                         { id: "rubric" as const, label: "Grading Rubric" },
+                        ...(isFaculty ? [{ id: "group" as const, label: "Group" }] : []),
                       ] as const
                     ).map((tab) => (
                       <button
@@ -817,6 +832,41 @@ export function AssignmentGradingPage() {
                     />
                   )}
                   {activeTab === "rubric" && <GradingRubricPanel rubricCategories={rubricCategories} />}
+                  {activeTab === "group" && isFaculty && (
+                    <div className="px-6 py-5">
+                      <div className="mb-4">
+                        <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                          Subgroup
+                        </h3>
+                        <p className="text-[14px] font-medium text-[#2B2A2A]">{subGroupName ?? "—"}</p>
+                      </div>
+                      <div>
+                        <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                          Members
+                        </h3>
+                        {subGroupMembers.length > 0 ? (
+                          <div className="space-y-2">
+                            {subGroupMembers.map((member) => (
+                              <div
+                                key={member.id}
+                                className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
+                              >
+                                <div className="min-w-0">
+                                  <p className="truncate text-[13px] font-medium text-[#2B2A2A]">{member.name}</p>
+                                  <p className="truncate text-[12px] text-gray-500">{member.email}</p>
+                                </div>
+                                <span className="flex-shrink-0 text-[11px] uppercase tracking-wide text-gray-400">
+                                  {member.cwid}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[13px] text-gray-600">No group assigned for this submission.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Scores - sticky to bottom of left panel so always visible */}

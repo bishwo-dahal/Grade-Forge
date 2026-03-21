@@ -14,9 +14,12 @@ import type {
 } from "../types/assignment";
 import type { RubricCategory } from "../types/grade";
 import type { PublicTestCase } from "../types/submission";
+import type { GroupStudentResponse } from "../types/courseGroup";
 import api from "../api/axios";
 import { getAuthenticatedRole } from "../app/auth";
 import { getRubric } from "./rubricService";
+import { listFacultyCourseGroups } from "./courseGroupService";
+import { fetchSubmissionFileText, resolvePreviewLanguage } from "./submissionService";
 
 // NOTE: This service keeps assignment data access centralized for both live API endpoints and remaining mock-only views.
 // TODO(backend): Migrate remaining mock-only helper sections to backend endpoints while keeping return shapes stable.
@@ -94,6 +97,7 @@ const defaultCreateAssignmentForm: AssignmentCreateFormData = {
   lateDueTime: "23:59",
   languageId: "",
   submissionType: "INDIVIDUAL",
+  mainGroupId: "",
   starterCodeUrl: "",
   rubricId: "",
   totalPoints: 100,
@@ -115,6 +119,9 @@ interface AssignmentApiResponse {
   availableFrom: string | null;
   dueDate: string | null;
   lateDueDate: string | null;
+  // When submissionType is GROUP, backend links assignment to a main group.
+  mainGroupId?: number | null;
+  mainGroupName?: string | null;
   rubricId?: number | null;
   rubricName?: string | null;
 }
@@ -135,6 +142,16 @@ interface SubmissionApiResponse {
   assignmentId: number;
   marks: number | null;
   submittedAt: string;
+  files?: Array<{
+    id?: number | null;
+    fileName: string;
+    downloadUrl?: string | null;
+    url?: string | null;
+  }> | null;
+  // When submission belongs to a subgroup (group-assigned assignment), backend may return the subgroup and members.
+  subGroupId?: number | null;
+  subGroupName?: string | null;
+  subGroupMembers?: GroupStudentResponse[] | null;
 }
 
 interface StudentEnrolledCourseApiResponse {
@@ -343,6 +360,27 @@ function getLatestSubmission(submissions: SubmissionApiResponse[]): SubmissionAp
   })[0];
 }
 
+function getLatestSubmissionWithDownloadableFile(
+  submissions: SubmissionApiResponse[],
+): { submission: SubmissionApiResponse; file: NonNullable<SubmissionApiResponse["files"]>[number] } | null {
+  const sorted = [...submissions].sort((left, right) => {
+    return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+  });
+
+  for (const submission of sorted) {
+    const files = submission.files ?? [];
+    const fileWithUrl = files.find((file) => {
+      const url = file.downloadUrl ?? file.url ?? null;
+      return typeof url === "string" && url.trim().length > 0;
+    });
+    if (fileWithUrl) {
+      return { submission, file: fileWithUrl };
+    }
+  }
+
+  return null;
+}
+
 function mapAssignmentDetailStatus(
   dueDate: string | null,
   submissions: SubmissionApiResponse[],
@@ -380,35 +418,31 @@ async function loadStudentAssignmentWorkspaceSource(assignmentId: string): Promi
     // NOTE: Student assignment route only provides assignmentId, so we resolve course ownership from enrolled classes.
     const { data: enrolledCourses } = await api.get<StudentEnrolledCourseApiResponse[]>("/api/v1/student/classes/enrolled");
 
-    const assignmentsByCourse = await Promise.all(
-      enrolledCourses.map(async (course) => {
-        // NOTE: Student course-assignment list endpoint returns basic shape; fetch detail endpoint for full assignment fields per selected row.
-        const { data: assignments } = await api.get<AssignmentBasicApiResponse[]>(
-          `/api/v1/student/assignments/course/${course.id}`,
+    for (const course of enrolledCourses) {
+      try {
+        const { data: assignmentDetail } = await api.get<AssignmentApiResponse>(
+          `/api/v1/student/assignments/course/${course.id}/${parsedAssignmentId}`,
         );
-        return { course, assignments };
-      }),
-    );
 
-    for (const group of assignmentsByCourse) {
-      const matchedAssignment = group.assignments.find((assignment) => assignment.id === parsedAssignmentId);
-      if (!matchedAssignment) {
-        continue;
+        const { data: submissions } = await api.get<SubmissionApiResponse[]>(
+          `/api/v1/student/submissions/assignment?assignmentId=${parsedAssignmentId}`,
+        );
+
+        return {
+          course,
+          // FIX: Use student assignment detail payload so rubric/language/group fields are present in assignment workspace tabs.
+          assignment: assignmentDetail,
+          submissions,
+        } satisfies StudentAssignmentWorkspaceSource;
+      } catch (error: any) {
+        const status = error?.response?.status as number | undefined;
+        // Some backends return 400 instead of 404 when the assignment doesn't belong to the course.
+        if (status === 404 || status === 400) {
+          // Assignment not found for this course; try next enrolled course.
+          continue;
+        }
+        throw error;
       }
-      const { data: assignmentDetail } = await api.get<AssignmentApiResponse>(
-        `/api/v1/student/assignments/course/${group.course.id}/${parsedAssignmentId}`,
-      );
-
-      const { data: submissions } = await api.get<SubmissionApiResponse[]>(
-        `/api/v1/student/submissions/assignment?assignmentId=${parsedAssignmentId}`,
-      );
-
-      return {
-        course: group.course,
-        // FIX: Use student assignment detail payload so rubric/language fields are present in assignment workspace tabs.
-        assignment: assignmentDetail,
-        submissions,
-      } satisfies StudentAssignmentWorkspaceSource;
     }
 
     throw new Error("Assignment not found.");
@@ -523,6 +557,10 @@ export async function getAssignmentDetailById(id: string): Promise<AssignmentDet
     hasStarterCode: Boolean(workspaceSource.assignment.starterCodeUrl),
     submissionType: workspaceSource.assignment.submissionType ?? undefined,
     starterCodeUrl: workspaceSource.assignment.starterCodeUrl ?? undefined,
+    mainGroupId: workspaceSource.assignment.mainGroupId ?? null,
+    mainGroupName: workspaceSource.assignment.mainGroupName ?? null,
+    subGroupName: latestSubmission?.subGroupName ?? null,
+    subGroupMembers: latestSubmission?.subGroupMembers ?? null,
     rubricName: workspaceSource.assignment.rubricName ?? undefined,
     rubricId: workspaceSource.assignment.rubricId ?? undefined,
   };
@@ -733,8 +771,11 @@ export async function listRubricCategories(assignmentId: string): Promise<Rubric
     const flatCriteria: Array<{ id?: number; description: string; points: number; weight?: number | null }> = [];
     let totalPoints = 0;
     for (const criterion of rubric.criteria) {
-      if (criterion.subCriteria?.length) {
-        for (const sub of criterion.subCriteria) {
+      const subCriteria = (criterion as {
+        subCriteria?: Array<{ id?: number; description?: string | null; maxScore: number; weight?: number | null }>;
+      }).subCriteria;
+      if (subCriteria?.length) {
+        for (const sub of subCriteria) {
           flatCriteria.push({
             id: sub.id,
             description: sub.description?.trim() ? sub.description : criterion.title,
@@ -785,21 +826,41 @@ export async function listPublicTestCases(assignmentId: string): Promise<PublicT
 
 export async function getEditorCodeExamples(assignmentId: string): Promise<EditorCodeExamples> {
   const workspaceSource = await loadStudentAssignmentWorkspaceSource(assignmentId);
-  const languageKey = workspaceSource.assignment.languageName || "placeholder text";
-  // TODO(backend): Replace placeholder code when starter/template endpoint is available.
-  return {
-    [languageKey]: "placeholder text",
-  };
+  const fallbackLanguage = workspaceSource.assignment.languageName || "plaintext";
+  const latestWithFile = getLatestSubmissionWithDownloadableFile(workspaceSource.submissions);
+  const primaryFile = latestWithFile?.file;
+  const primaryFileUrl = primaryFile?.downloadUrl ?? primaryFile?.url ?? null;
+
+  if (!primaryFile || !primaryFileUrl) {
+    // TODO(backend): Replace placeholder code when starter/template endpoint is available.
+    return {
+      [fallbackLanguage]: "placeholder text",
+    };
+  }
+
+  try {
+    const content = await fetchSubmissionFileText(primaryFileUrl, primaryFile.fileName);
+    const languageKey = resolvePreviewLanguage(primaryFile.fileName, fallbackLanguage);
+    return {
+      [languageKey]: content,
+      [fallbackLanguage]: content,
+    };
+  } catch {
+    return {
+      [fallbackLanguage]: "placeholder text",
+    };
+  }
 }
 
 export async function getFacultyAssignmentCreatePageData(classId: string): Promise<FacultyAssignmentCreatePageData> {
   // NOTE: Create-assignment page data stays centralized here so the page remains presentation-focused.
   const parsedClassId = parseClassId(classId || defaultCreateAssignmentHeader.classId);
-  const [courseResponse, languagesResponse, rubricOptionsResponse] = await Promise.all([
+  const [courseResponse, languagesResponse, rubricOptionsResponse, groupsResponse] = await Promise.all([
     api.get<FacultyCourseHeaderApiResponse>(`/api/v1/faculty/courses/${parsedClassId}`),
     api.get<ProgrammingLanguageApiResponse[]>("/api/v1/faculty/programming-languages/all"),
     // NOTE: Assignment creation requires linking previously-created faculty rubrics from the same ownership scope.
     listFacultyRubricOptions(),
+    listFacultyCourseGroups(String(parsedClassId)),
   ]);
 
   const languageOptions: AssignmentCreateOption[] = languagesResponse.data
@@ -822,7 +883,62 @@ export async function getFacultyAssignmentCreatePageData(classId: string): Promi
     },
     languageOptions,
     rubricOptions,
+    mainGroupOptions: groupsResponse.map((g) => ({ id: String(g.id), label: g.name })),
     initialForm: { ...defaultCreateAssignmentForm },
+  };
+}
+
+function splitDateTimeForForm(value: string | null | undefined): { date: string; time: string } {
+  if (!value) {
+    return { date: "", time: "00:00" };
+  }
+  const normalized = value.trim().replace(" ", "T");
+  const [datePart = "", timePart = ""] = normalized.split("T");
+  const hhmm = timePart.slice(0, 5);
+  return {
+    date: datePart,
+    time: hhmm || "00:00",
+  };
+}
+
+export async function getFacultyAssignmentEditPageData(
+  classId: string,
+  assignmentId: string,
+): Promise<FacultyAssignmentCreatePageData> {
+  const parsedClassId = parseClassId(classId || defaultCreateAssignmentHeader.classId);
+  const parsedAssignmentId = Number(assignmentId);
+  if (!Number.isFinite(parsedAssignmentId) || parsedAssignmentId <= 0) {
+    throw new Error("Invalid assignment id.");
+  }
+
+  const [baseData, assignmentResponse] = await Promise.all([
+    getFacultyAssignmentCreatePageData(String(parsedClassId)),
+    api.get<AssignmentApiResponse>(`/api/v1/faculty/assignments/${parsedAssignmentId}`),
+  ]);
+
+  const assignment = assignmentResponse.data;
+  const availableFrom = splitDateTimeForForm(assignment.availableFrom);
+  const dueDate = splitDateTimeForForm(assignment.dueDate);
+  const lateDueDate = splitDateTimeForForm(assignment.lateDueDate);
+
+  return {
+    ...baseData,
+    initialForm: {
+      title: assignment.name ?? "",
+      description: assignment.description ?? "",
+      availableFromDate: availableFrom.date,
+      availableFromTime: availableFrom.time,
+      dueDate: dueDate.date,
+      dueTime: dueDate.time || "23:59",
+      lateDueDate: lateDueDate.date,
+      lateDueTime: lateDueDate.time || "23:59",
+      languageId: assignment.languageId ? String(assignment.languageId) : "",
+      submissionType: assignment.submissionType === "GROUP" ? "GROUP" : "INDIVIDUAL",
+      mainGroupId: assignment.mainGroupId ? String(assignment.mainGroupId) : "",
+      starterCodeUrl: assignment.starterCodeUrl ?? "",
+      rubricId: assignment.rubricId ? String(assignment.rubricId) : "",
+      totalPoints: assignment.totalPoints ?? 100,
+    },
   };
 }
 
@@ -844,6 +960,7 @@ export async function createFacultyAssignmentDraft(
     description: form.description.trim(),
     totalPoints: form.totalPoints,
     submissionType: form.submissionType,
+    ...(form.mainGroupId.trim() ? { mainGroupId: Number(form.mainGroupId) } : {}),
     starterCodeUrl: form.starterCodeUrl.trim() ? form.starterCodeUrl.trim() : null,
     availableFrom: buildOptionalDateTimePayload(form.availableFromDate, form.availableFromTime, "available-from date/time"),
     dueDate: buildDueDateTimePayload(form.dueDate, form.dueTime),
@@ -854,5 +971,40 @@ export async function createFacultyAssignmentDraft(
 
   // NOTE: Creation now calls backend directly so the assignment is persisted and visible to enrolled students.
   const { data } = await api.post<AssignmentApiResponse>("/api/v1/faculty/assignments", payload);
+  return { assignmentId: String(data.id) };
+}
+
+export async function updateFacultyAssignmentDraft(
+  assignmentId: string,
+  classId: string,
+  form: AssignmentCreateFormData,
+): Promise<{ assignmentId: string }> {
+  const parsedClassId = parseClassId(classId || defaultCreateAssignmentHeader.classId);
+  const parsedAssignmentId = Number(assignmentId);
+  if (!Number.isFinite(parsedAssignmentId) || parsedAssignmentId <= 0) {
+    throw new Error("Invalid assignment id.");
+  }
+  const parsedLanguageId = Number(form.languageId);
+  if (!Number.isFinite(parsedLanguageId) || parsedLanguageId <= 0) {
+    throw new Error("Select a programming language.");
+  }
+
+  const payload = {
+    // IMPORTANT: Keep this payload aligned with backend AssignmentRequest to avoid update failures.
+    courseId: parsedClassId,
+    languageId: parsedLanguageId,
+    name: form.title.trim(),
+    description: form.description.trim(),
+    totalPoints: form.totalPoints,
+    submissionType: form.submissionType,
+    ...(form.mainGroupId.trim() ? { mainGroupId: Number(form.mainGroupId) } : {}),
+    starterCodeUrl: form.starterCodeUrl.trim() ? form.starterCodeUrl.trim() : null,
+    availableFrom: buildOptionalDateTimePayload(form.availableFromDate, form.availableFromTime, "available-from date/time"),
+    dueDate: buildDueDateTimePayload(form.dueDate, form.dueTime),
+    lateDueDate: buildOptionalDateTimePayload(form.lateDueDate, form.lateDueTime, "late due date/time"),
+    ...(form.rubricId.trim() ? { rubricId: Number(form.rubricId) } : {}),
+  };
+
+  const { data } = await api.put<AssignmentApiResponse>(`/api/v1/faculty/assignments/${parsedAssignmentId}`, payload);
   return { assignmentId: String(data.id) };
 }

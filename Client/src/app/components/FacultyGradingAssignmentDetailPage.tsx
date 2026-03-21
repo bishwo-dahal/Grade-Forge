@@ -22,16 +22,10 @@ import {
   type AssignmentDetailPageTestSuiteSection,
 } from "./AssignmentDetailPage";
 import { getTestSuiteByAssignment } from "../../services/testSuiteService";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 function extractErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-  const apiMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
-  if (typeof apiMessage === "string" && apiMessage.trim()) {
-    return apiMessage;
-  }
-  return "Unable to load grading details.";
+  return getApiErrorMessage(error, "Unable to load grading details.");
 }
 
 function mapToAssignment(assignment: AssignmentDetail | null, description: AssignmentDescription | null): AssignmentDetailPageAssignment | null {
@@ -96,6 +90,7 @@ function mapToSubmissionRows(rows: FacultyAssignmentSubmissionRow[]): Assignment
       submissionId: row.submissionId,
       studentId: row.studentId ?? null,
       studentName: row.studentName,
+      subGroupName: row.subGroupName ?? null,
       submittedAt: formatSubmissionDisplayDate(row.submittedAt),
       status: row.marks == null ? "Ungraded" : "Graded",
       marks: row.marks,

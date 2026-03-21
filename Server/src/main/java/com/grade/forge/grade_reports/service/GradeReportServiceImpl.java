@@ -14,6 +14,8 @@ import com.grade.forge.grade_reports.dto.StudentCourseStatsDTO;
 import com.grade.forge.grade_reports.dto.StudentGradeDTO;
 import com.grade.forge.grading.entity.SubmissionGrade;
 import com.grade.forge.grading.repository.SubmissionGradeRepository;
+import com.grade.forge.group.entity.SubGroup;
+import com.grade.forge.group.repository.SubGroupRepository;
 import com.grade.forge.rubric.RubricType;
 import com.grade.forge.rubric.entity.Rubric;
 import com.grade.forge.rubric.entity.RubricSubCriteria;
@@ -49,6 +51,7 @@ public class GradeReportServiceImpl implements GradeReportService {
     private final EnrollmentRepository enrollmentRepository;
     private final SubmissionRepository submissionRepository;
     private final SubmissionGradeRepository submissionGradeRepository;
+    private final SubGroupRepository subGroupRepository;
 
     private static double roundTo2(double value) {
         return Math.round(value * 100.0) / 100.0;
@@ -173,13 +176,7 @@ public class GradeReportServiceImpl implements GradeReportService {
                     .toList();
         }
 
-        Map<Long, Submission> submissions = submissionRepository.findByAssignment_Id(assignment.getId()).stream()
-                .filter(submission -> submission.getStudent() != null)
-                .collect(Collectors.toMap(
-                        submission -> submission.getStudent().getId(),
-                        submission -> submission,
-                        (existing, replacement) -> existing.getSubmittedAt().isAfter(replacement.getSubmittedAt()) ? existing : replacement
-                ));
+        Map<Long, Submission> submissions = buildLatestByStudentForAssignment(assignment);
 
         LocalDateTime now = LocalDateTime.now();
         List<StudentAssignmentStatusDTO> studentStatuses = new ArrayList<>();
@@ -222,17 +219,69 @@ public class GradeReportServiceImpl implements GradeReportService {
     private Map<Long, Map<Long, Submission>> preloadSubmissions(List<Assignment> assignments) {
         Map<Long, Map<Long, Submission>> submissionsByAssignment = new HashMap<>();
         for (Assignment assignment : assignments) {
-            List<Submission> submissions = submissionRepository.findByAssignment_Id(assignment.getId());
-            Map<Long, Submission> latestByStudent = submissions.stream()
+            Map<Long, Submission> latestByStudent = buildLatestByStudentForAssignment(assignment);
+            submissionsByAssignment.put(assignment.getId(), latestByStudent);
+        }
+        return submissionsByAssignment;
+    }
+
+    private Map<Long, Submission> buildLatestByStudentForAssignment(Assignment assignment) {
+        List<Submission> submissions = submissionRepository.findByAssignment_Id(assignment.getId());
+        if (assignment.getMainGroup() == null) {
+            return submissions.stream()
                     .filter(submission -> submission.getStudent() != null)
                     .collect(Collectors.toMap(
                             submission -> submission.getStudent().getId(),
                             submission -> submission,
                             (existing, replacement) -> existing.getSubmittedAt().isAfter(replacement.getSubmittedAt()) ? existing : replacement
                     ));
-            submissionsByAssignment.put(assignment.getId(), latestByStudent);
         }
-        return submissionsByAssignment;
+
+        Long mainGroupId = assignment.getMainGroup().getId();
+        Map<Long, Long> studentToSubGroupId = new HashMap<>();
+        Map<Long, SubGroup> subGroupCache = new HashMap<>();
+        Map<Long, Submission> latestBySubGroup = new HashMap<>();
+
+        for (Submission submission : submissions) {
+            Student student = submission.getStudent();
+            if (student == null) {
+                continue;
+            }
+            Long subGroupId = studentToSubGroupId.computeIfAbsent(student.getId(), id ->
+                    subGroupRepository.findByMainGroup_IdAndStudents_Id(mainGroupId, id)
+                            .map(sg -> {
+                                subGroupCache.putIfAbsent(sg.getId(), sg);
+                                return sg.getId();
+                            })
+                            .orElse(null));
+            if (subGroupId == null) {
+                continue;
+            }
+            latestBySubGroup.merge(subGroupId, submission,
+                    (existing, replacement) -> existing.getSubmittedAt().isAfter(replacement.getSubmittedAt()) ? existing : replacement);
+        }
+
+        Map<Long, Submission> latestByStudent = new HashMap<>();
+        for (Map.Entry<Long, Submission> entry : latestBySubGroup.entrySet()) {
+            Long subGroupId = entry.getKey();
+            Submission latest = entry.getValue();
+            SubGroup sg = subGroupCache.computeIfAbsent(subGroupId, id -> subGroupRepository.findById(id).orElse(null));
+            if (sg == null || sg.getStudents() == null) {
+                continue;
+            }
+            for (Student s : sg.getStudents()) {
+                latestByStudent.put(s.getId(), latest);
+            }
+        }
+        return latestByStudent;
+    }
+
+    private Submission latestSubGroupSubmission(Assignment assignment, Student student, Map<Long, Map<Long, Submission>> submissionsByAssignment) {
+        if (assignment.getMainGroup() == null) {
+            return submissionsByAssignment.getOrDefault(assignment.getId(), Map.of()).get(student.getId());
+        }
+        Map<Long, Submission> latestByStudent = submissionsByAssignment.getOrDefault(assignment.getId(), Map.of());
+        return latestByStudent.get(student.getId());
     }
 
     private AssignmentGradeDTO buildAssignmentGrade(Student student,
@@ -311,16 +360,14 @@ public class GradeReportServiceImpl implements GradeReportService {
         double allTotal = 0.0;
 
         for (Assignment assignment : assignments) {
-            List<Submission> subs = submissionRepository.findByAssignment_IdAndStudent_Id(assignment.getId(), studentId);
-            Submission latest = subs.stream()
-                    .max(Comparator.comparing(Submission::getSubmittedAt))
-                    .orElse(null);
+            Map<Long, Submission> latestByStudent = buildLatestByStudentForAssignment(assignment);
+            Submission latest = latestByStudent.get(studentId);
 
-            final double maxScore = assignment.getTotalPoints() != null ? assignment.getTotalPoints().doubleValue() : 0.0;
-            allTotal += maxScore;
+             final double maxScore = assignment.getTotalPoints() != null ? assignment.getTotalPoints().doubleValue() : 0.0;
+             allTotal += maxScore;
 
-            if (latest == null) {
-                // Missing if past due date.
+             if (latest == null) {
+                 // Missing if past due date.
                 String status = determineMissingStatus(assignment, now);
                 if (STATUS_MISSING.equals(status)) {
                     missingAssignments += 1;
@@ -407,5 +454,4 @@ public class GradeReportServiceImpl implements GradeReportService {
         );
     }
 }
-
 

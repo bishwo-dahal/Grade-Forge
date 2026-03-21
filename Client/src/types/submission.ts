@@ -1,6 +1,7 @@
 // NOTE: UI-driven types; add fields only when the UI needs them to avoid premature complexity.
 
 import type { RubricItem } from "./grade";
+import type { GroupStudentResponse } from "./courseGroup";
 
 export type SubmissionStatus =
   | "not-graded"
@@ -111,6 +112,10 @@ export interface FacultyAssignmentSubmissionRow {
   submittedAt: string;
   marks: number | null;
   files: SubmissionFileItem[];
+  /** Present when assignment is group-assigned (faculty view). */
+  subGroupId?: number | null;
+  subGroupName?: string | null;
+  subGroupMembers?: GroupStudentResponse[] | null;
 }
 
 // NOTE: Faculty editor selector options are flattened from submission rows so view components stay data-agnostic.

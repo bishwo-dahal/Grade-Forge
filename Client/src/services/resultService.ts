@@ -242,12 +242,32 @@ function latestSubmission(submissions: SubmissionApiResponse[]): SubmissionApiRe
   })[0];
 }
 
-async function loadAssignmentResultWorkspaceSource(assignmentId: string): Promise<AssignmentResultWorkspaceSource> {
+async function loadAssignmentResultWorkspaceSource(
+  assignmentId: string,
+  courseIdOverride?: number | string,
+): Promise<AssignmentResultWorkspaceSource> {
   const parsedAssignmentId = parseAssignmentId(assignmentId);
   const authenticatedRole = getAuthenticatedRole();
   if (authenticatedRole === "FACULTY") {
     // FIX: Faculty assignment pages cannot load results through student-only endpoints.
     return loadFacultyAssignmentResultWorkspaceSource(parsedAssignmentId);
+  }
+
+  if (courseIdOverride != null) {
+    const parsedCourseId = Number(courseIdOverride);
+    if (Number.isFinite(parsedCourseId) && parsedCourseId > 0) {
+      const { data: matchedAssignment } = await api.get<AssignmentApiResponse>(
+        `/api/v1/student/assignments/course/${parsedCourseId}/${parsedAssignmentId}`,
+      );
+      const { data: submissions } = await api.get<SubmissionApiResponse[]>(
+        `/api/v1/student/submissions/assignment?assignmentId=${parsedAssignmentId}`,
+      );
+
+      return {
+        assignment: matchedAssignment,
+        submissions,
+      } satisfies AssignmentResultWorkspaceSource;
+    }
   }
 
   const cacheKey = String(parsedAssignmentId);
@@ -260,20 +280,27 @@ async function loadAssignmentResultWorkspaceSource(assignmentId: string): Promis
     // NOTE: Student route includes only assignmentId, so we discover the owning course by scanning enrolled classes.
     const { data: enrolledCourses } = await api.get<StudentEnrolledCourseApiResponse[]>("/api/v1/student/classes/enrolled");
     for (const course of enrolledCourses) {
-      const { data: assignments } = await api.get<AssignmentApiResponse[]>(`/api/v1/student/assignments/course/${course.id}`);
-      const matchedAssignment = assignments.find((assignment) => assignment.id === parsedAssignmentId);
-      if (!matchedAssignment) {
-        continue;
+      try {
+        const { data: matchedAssignment } = await api.get<AssignmentApiResponse>(
+          `/api/v1/student/assignments/course/${course.id}/${parsedAssignmentId}`,
+        );
+
+        const { data: submissions } = await api.get<SubmissionApiResponse[]>(
+          `/api/v1/student/submissions/assignment?assignmentId=${parsedAssignmentId}`,
+        );
+
+        return {
+          assignment: matchedAssignment,
+          submissions,
+        } satisfies AssignmentResultWorkspaceSource;
+      } catch (error: any) {
+        const status = error?.response?.status as number | undefined;
+        // Some backends return 400 instead of 404 when the assignment doesn't belong to the course.
+        if (status === 404 || status === 400) {
+          continue;
+        }
+        throw error;
       }
-
-      const { data: submissions } = await api.get<SubmissionApiResponse[]>(
-        `/api/v1/student/submissions/assignment?assignmentId=${parsedAssignmentId}`,
-      );
-
-      return {
-        assignment: matchedAssignment,
-        submissions,
-      } satisfies AssignmentResultWorkspaceSource;
     }
 
     throw new Error("Assignment result not found.");
@@ -477,8 +504,11 @@ export async function getOverallGradeSummary(classId?: string): Promise<OverallG
   };
 }
 
-export async function getAssignmentResult(assignmentId: string): Promise<AssignmentResult> {
-  const workspaceSource = await loadAssignmentResultWorkspaceSource(assignmentId);
+export async function getAssignmentResult(
+  assignmentId: string,
+  courseIdOverride?: number | string,
+): Promise<AssignmentResult> {
+  const workspaceSource = await loadAssignmentResultWorkspaceSource(assignmentId, courseIdOverride);
   const latest = latestSubmission(workspaceSource.submissions);
   const score = Number(latest?.marks ?? 0);
 

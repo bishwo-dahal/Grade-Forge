@@ -526,7 +526,7 @@ const facultyAssignments: FacultyAssignment[] = [
   },
 ];
 
-interface CourseApiResponse {
+export interface CourseApiResponse {
   id: number;
   name: string;
   courseCode: string;
@@ -790,6 +790,11 @@ async function getFacultyCourseById(courseId: number): Promise<CourseApiResponse
   return data;
 }
 
+export async function getFacultyCourseDetailsById(courseId: string): Promise<CourseApiResponse> {
+  const id = toCourseId(courseId);
+  return getFacultyCourseById(id);
+}
+
 async function fetchStudentAssignmentsWithSubmissions(courseId: number): Promise<
   Array<{ assignment: AssignmentApiResponse; submissions: SubmissionApiResponse[] }>
 > {
@@ -1024,6 +1029,24 @@ export async function createFacultyCourse(form: ClassCreateFormData): Promise<vo
   // IMPORTANT: If user is not assigned as faculty by university admin, backend returns 400.
   // IMPORTANT: Changing this payload shape requires backend coordination with CourseRequestDto.
   await api.post("/api/v1/faculty/courses/create", payload);
+}
+
+export async function updateFacultyCourse(courseId: string, form: ClassCreateFormData): Promise<CourseApiResponse> {
+  const payload = toCreatePayload(form);
+  const id = toCourseId(courseId);
+  const { data } = await api.put<CourseApiResponse>(`/api/v1/faculty/courses/${id}`, payload);
+  return data;
+}
+
+export async function deleteFacultyCourse(courseId: string): Promise<void> {
+  const id = toCourseId(courseId);
+  await api.delete(`/api/v1/faculty/courses/${id}`);
+}
+
+export async function toggleFacultyCourseActive(courseId: string): Promise<CourseApiResponse> {
+  const id = toCourseId(courseId);
+  const { data } = await api.patch<CourseApiResponse>(`/api/v1/faculty/courses/disable/${id}`);
+  return data;
 }
 
 export async function listEnrolledCourses(): Promise<CourseCard[]> {
@@ -1501,4 +1524,12 @@ export async function listFacultyAssignments(classId: string): Promise<FacultyAs
       status,
     };
   });
+}
+
+export async function deleteFacultyAssignment(assignmentId: string): Promise<void> {
+  const parsedAssignmentId = Number(assignmentId);
+  if (!Number.isFinite(parsedAssignmentId) || parsedAssignmentId <= 0) {
+    throw new Error("Invalid assignment id.");
+  }
+  await api.delete(`/api/v1/faculty/assignments/${parsedAssignmentId}`);
 }

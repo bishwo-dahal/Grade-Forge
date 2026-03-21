@@ -10,5 +10,9 @@ import java.util.List;
 public interface SubmissionFileRepository extends JpaRepository<SubmissionFile, Long> {
 
     List<SubmissionFile> findBySubmission_IdOrderById(Long submissionId);
+
+    List<SubmissionFile> findBySubmission_IdIn(List<Long> submissionIds);
+
+    void deleteBySubmission_IdIn(List<Long> submissionIds);
 }
 

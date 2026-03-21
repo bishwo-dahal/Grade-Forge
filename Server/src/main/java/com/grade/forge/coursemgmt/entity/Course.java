@@ -3,6 +3,7 @@ package com.grade.forge.coursemgmt.entity;
 import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.courseassistant.entity.CourseAssistant;
 import com.grade.forge.faculty.entity.Faculty;
+import com.grade.forge.group.entity.MainGroup;
 import com.grade.forge.semester.entity.Semester;
 import com.grade.forge.enrollment.entity.Enrollment;
 import jakarta.persistence.*;
@@ -74,5 +75,9 @@ public class Course {
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<CourseAssistant> assistants = new ArrayList<>();
+
+    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<MainGroup> mainGroups = new ArrayList<>();
 
 }

@@ -70,8 +70,10 @@ public class FacultyCourseController {
      * @return the updated course
      */
     @PutMapping("/{id}")
-    public ResponseEntity<CourseResponseDto> updateCourse(@PathVariable Long id, @RequestBody CourseRequestDto courseRequestDto) {
-        CourseResponseDto updatedCourse = courseService.updateCourse(id, courseRequestDto);
+    public ResponseEntity<CourseResponseDto> updateCourse(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                           @PathVariable Long id,
+                                                           @RequestBody CourseRequestDto courseRequestDto) {
+        CourseResponseDto updatedCourse = courseService.updateCourseForFaculty(id, courseRequestDto, customUserDetails.getUsername());
         return new ResponseEntity<>(updatedCourse, HttpStatus.OK);
     }
 
@@ -81,8 +83,9 @@ public class FacultyCourseController {
      * @return the disabled course
      */
     @PatchMapping("/disable/{id}")
-    public ResponseEntity<CourseResponseDto> disableCourse(@PathVariable Long id) {
-        CourseResponseDto disabledCourse = courseService.disableCourse(id);
+    public ResponseEntity<CourseResponseDto> disableCourse(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                          @PathVariable Long id) {
+        CourseResponseDto disabledCourse = courseService.disableCourseForFaculty(id, customUserDetails.getUsername());
         return new ResponseEntity<>(disabledCourse, HttpStatus.OK);
     }
 
@@ -92,8 +95,8 @@ public class FacultyCourseController {
      * @return success message
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteCourse(@PathVariable Long id) {
-        courseService.deleteCourse(id);
+    public ResponseEntity<String> deleteCourse(@AuthenticationPrincipal CustomUserDetails customUserDetails, @PathVariable Long id) {
+        courseService.deleteCourseForFaculty(id, customUserDetails.getUsername());
         return new ResponseEntity<>("Course deleted successfully", HttpStatus.OK);
     }
 

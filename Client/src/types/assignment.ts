@@ -1,5 +1,7 @@
 // NOTE: UI-driven types; add fields only when the UI needs them to avoid premature complexity.
 
+import type { GroupStudentResponse } from "./courseGroup";
+
 export type AssignmentStatus = "not_submitted" | "submitted" | "late" | "graded";
 
 export interface AssignmentDetail {
@@ -27,6 +29,14 @@ export interface AssignmentDetail {
   hasStarterCode: boolean;
   submissionType?: string;
   starterCodeUrl?: string | null;
+  /**
+   * When assignment is group-assigned (`submissionType === "GROUP"`), this is the main group selected by the faculty.
+   * Backend may also provide the subgroup assignment for the latest submission.
+   */
+  mainGroupId?: number | null;
+  mainGroupName?: string | null;
+  subGroupName?: string | null;
+  subGroupMembers?: GroupStudentResponse[] | null;
   rubricName?: string | null;
   rubricId?: number | null;
 }
@@ -139,6 +149,8 @@ export interface AssignmentCreateFormData {
   lateDueTime: string;
   languageId: string;
   submissionType: AssignmentSubmissionType;
+  // NOTE: When submissionType is GROUP, backend requires assigning an assignment to a main group.
+  mainGroupId: string;
   // NOTE: Starter code file upload is handled elsewhere; assignment create stores URL reference only.
   starterCodeUrl: string;
   // NOTE: Rubric linkage is optional and references pre-created faculty rubrics.
@@ -150,5 +162,6 @@ export interface FacultyAssignmentCreatePageData {
   header: FacultyAssignmentCreatePageHeader;
   languageOptions: AssignmentCreateOption[];
   rubricOptions: AssignmentCreateOption[];
+  mainGroupOptions: AssignmentCreateOption[];
   initialForm: AssignmentCreateFormData;
 }

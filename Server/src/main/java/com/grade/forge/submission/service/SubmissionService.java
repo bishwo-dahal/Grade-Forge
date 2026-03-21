@@ -3,6 +3,10 @@ package com.grade.forge.submission.service;
 import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.assignment.repository.AssignmentRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
+import com.grade.forge.group.dto.GroupStudentResponse;
+import com.grade.forge.group.entity.MainGroup;
+import com.grade.forge.group.entity.SubGroup;
+import com.grade.forge.group.repository.SubGroupRepository;
 import com.grade.forge.student.entity.Student;
 import com.grade.forge.student.repository.StudentRepository;
 import com.grade.forge.submission.dto.SubmissionFileResponse;
@@ -49,6 +53,7 @@ public class SubmissionService {
     private final FacultyRepository facultyRepository;
     private final GradingAssistantRepository gradingAssistantRepository;
     private final CourseAssistantRepository courseAssistantRepository;
+    private final SubGroupRepository subGroupRepository;
 
     public SubmissionResponse submitAssignment(String userEmail, Long assignmentId, List<MultipartFile> files) {
         validateRequest(assignmentId, files);
@@ -67,6 +72,8 @@ public class SubmissionService {
         submission.setStudent(student);
         submission.setSubmittedAt(LocalDateTime.now());
         submission.setStatus(SubmissionStatus.SUBMITTED);
+        submission.setMarks(null);
+        submission.setFeedback(null);
 
         List<SubmissionFile> submissionFiles = fileStorageService.uploadSubmissionFiles(
                 submission,
@@ -97,14 +104,31 @@ public class SubmissionService {
 
     @Transactional(readOnly = true)
     public SubmissionResponse getSubmissionForCurrentStudent(String userEmail, Long submissionId) {
+        Users user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + userEmail));
+        Student student = studentRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found for user email: " + userEmail));
+
         Submission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
-
-        if (!submission.getStudent().getUser().getEmail().equalsIgnoreCase(userEmail)) {
-            throw new IllegalArgumentException("You are not allowed to access this submission");
+        Assignment assignment = submission.getAssignment();
+        if (assignment.getMainGroup() == null) {
+            ensureStudentCanViewSubmissionForAssignment(student, submission);
+            return mapToResponse(submission);
         }
 
-        return mapToResponse(submission);
+        List<Long> subGroupStudentIds = getStudentIdsForRequesterSubGroup(assignment.getMainGroup(), student.getId());
+        List<Submission> submissions = submissionRepository.findByAssignment_IdAndStudent_IdIn(assignment.getId(), subGroupStudentIds);
+        if (submissions.isEmpty()) {
+            throw new IllegalArgumentException("You are not assigned to a sub group for this assignment");
+        }
+
+        Submission latest = submissions.stream()
+                .max(this::compareBySubmittedAt)
+                .orElse(submission);
+
+        ensureStudentCanViewSubmissionForAssignment(student, latest);
+        return mapToResponse(latest);
     }
 
     @Transactional(readOnly = true)
@@ -118,10 +142,23 @@ public class SubmissionService {
         Assignment assignment = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId));
 
-        List<Submission> submissions = submissionRepository.findByAssignment_IdAndStudent_Id(assignment.getId(), student.getId());
-        return submissions.stream()
+        if (assignment.getMainGroup() == null) {
+            List<Submission> submissions = submissionRepository.findByAssignment_IdAndStudent_Id(assignment.getId(), student.getId());
+            return submissions.stream().map(this::mapToResponse).toList();
+        }
+
+        List<Long> subGroupStudentIds = getStudentIdsForRequesterSubGroupOrEmpty(assignment.getMainGroup(), student.getId());
+        if (subGroupStudentIds.isEmpty()) {
+            log.warn("Student {} requested submissions for grouped assignment {} but is not in any subgroup", student.getId(), assignmentId);
+            return List.of();
+        }
+
+        return submissionRepository.findByAssignment_Id(assignment.getId()).stream()
+                .filter(s -> subGroupStudentIds.contains(s.getStudent().getId()))
+                .max(this::compareBySubmittedAt)
                 .map(this::mapToResponse)
-                .toList();
+                .map(List::of)
+                .orElse(List.of());
     }
 
     @Transactional(readOnly = true)
@@ -137,7 +174,36 @@ public class SubmissionService {
         }
 
         List<Submission> submissions = submissionRepository.findByAssignment_Id(assignmentId);
+
+        if (assignment.getMainGroup() == null) {
+            // Non-grouped: surface latest submission per student.
+            return submissions.stream()
+                    .collect(Collectors.toMap(s -> s.getStudent().getId(), s -> s, this::pickLatest))
+                    .values().stream()
+                    .map(this::mapToSummaryResponse)
+                    .toList();
+        }
+
+        // Grouped: surface latest submission per subgroup.
+        Long mainGroupId = assignment.getMainGroup().getId();
+        // Cache subgroup lookups by student to reduce queries.
+        java.util.Map<Long, Long> studentToSubGroup = new java.util.HashMap<>();
+
         return submissions.stream()
+                .flatMap(submission -> {
+                    Long studentId = submission.getStudent().getId();
+                    Long subGroupId = studentToSubGroup.computeIfAbsent(studentId, id ->
+                            subGroupRepository.findByMainGroup_IdAndStudents_Id(mainGroupId, id)
+                                    .map(SubGroup::getId)
+                                    .orElse(null));
+                    if (subGroupId == null) {
+                        return java.util.stream.Stream.<java.util.Map.Entry<Long, Submission>>empty();
+                    }
+                    java.util.Map.Entry<Long, Submission> entry = new java.util.AbstractMap.SimpleEntry<>(subGroupId, submission);
+                    return java.util.stream.Stream.of(entry);
+                })
+                .collect(Collectors.toMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue, this::pickLatest))
+                .values().stream()
                 .map(this::mapToSummaryResponse)
                 .toList();
     }
@@ -153,8 +219,9 @@ public class SubmissionService {
         if (!submission.getAssignment().getCourse().getFaculty().getId().equals(faculty.getId())) {
             throw new IllegalArgumentException("You are not allowed to view this submission");
         }
-
-        return mapToResponse(submission);
+        Assignment assignment = submission.getAssignment();
+        Submission latest = latestSubGroupSubmission(assignment, submission.getStudent().getId(), submission);
+        return mapToResponse(latest);
     }
 
     @Transactional
@@ -169,15 +236,17 @@ public class SubmissionService {
             throw new IllegalArgumentException("You are not allowed to grade this submission");
         }
 
+        Submission target = latestSubGroupSubmission(submission.getAssignment(), submission.getStudent().getId(), submission);
+
         if (request.getMarks() != null) {
-            submission.setMarks(request.getMarks());
+            target.setMarks(request.getMarks());
         }
         if (request.getFeedback() != null) {
-            submission.setFeedback(request.getFeedback());
+            target.setFeedback(request.getFeedback());
         }
-        submission.setStatus(SubmissionStatus.GRADED);
+        target.setStatus(SubmissionStatus.GRADED);
 
-        Submission saved = submissionRepository.save(submission);
+        Submission saved = submissionRepository.save(target);
         return mapToResponse(saved);
     }
 
@@ -207,7 +276,8 @@ public class SubmissionService {
 
         validateGradingAssistantCourseAccess(gradingAssistant.getId(), submission.getAssignment().getCourse().getId());
 
-        return mapToResponse(submission);
+        Submission latest = latestSubGroupSubmission(submission.getAssignment(), submission.getStudent().getId(), submission);
+        return mapToResponse(latest);
     }
 
     @Transactional
@@ -220,15 +290,17 @@ public class SubmissionService {
 
         validateGradingAssistantCourseAccess(gradingAssistant.getId(), submission.getAssignment().getCourse().getId());
 
+        Submission target = latestSubGroupSubmission(submission.getAssignment(), submission.getStudent().getId(), submission);
+
         if (request.getMarks() != null) {
-            submission.setMarks(request.getMarks());
+            target.setMarks(request.getMarks());
         }
         if (request.getFeedback() != null) {
-            submission.setFeedback(request.getFeedback());
+            target.setFeedback(request.getFeedback());
         }
-        submission.setStatus(SubmissionStatus.GRADED);
+        target.setStatus(SubmissionStatus.GRADED);
 
-        Submission saved = submissionRepository.save(submission);
+        Submission saved = submissionRepository.save(target);
         return mapToResponse(saved);
     }
 
@@ -250,6 +322,13 @@ public class SubmissionService {
     }
 
     private SubmissionResponse mapToResponse(Submission submission) {
+        SubGroup subGroup = null;
+        if (submission.getAssignment().getMainGroup() != null) {
+            subGroup = subGroupRepository.findByMainGroup_IdAndStudents_Id(
+                    submission.getAssignment().getMainGroup().getId(), submission.getStudent().getId())
+                    .orElse(null);
+        }
+
         return SubmissionResponse.builder()
                 .id(submission.getId())
                 .assignmentId(submission.getAssignment().getId())
@@ -266,7 +345,49 @@ public class SubmissionService {
                 .feedback(submission.getFeedback())
                 .submittedAt(submission.getSubmittedAt())
                 .status(submission.getStatus())
+                .subGroupId(subGroup != null ? subGroup.getId() : null)
+                .subGroupName(subGroup != null ? subGroup.getName() : null)
+                .subGroupMembers(subGroup == null ? List.of() : subGroup.getStudents().stream()
+                        .map(s -> GroupStudentResponse.builder()
+                                .id(s.getId())
+                                .name(s.getUser() != null ? s.getUser().getName() : null)
+                                .email(s.getUser() != null ? s.getUser().getEmail() : null)
+                                .cwid(s.getCwid())
+                                .build())
+                        .toList())
                 .build();
+    }
+
+    private void ensureStudentCanViewSubmissionForAssignment(Student requester, Submission submission) {
+        if (submission.getStudent().getId().equals(requester.getId())) {
+            return; // always allow own submission
+        }
+
+        Assignment assignment = submission.getAssignment();
+        MainGroup mainGroup = assignment.getMainGroup();
+        if (mainGroup == null) {
+            throw new IllegalArgumentException("You are not allowed to access this submission");
+        }
+
+        List<Long> subGroupStudentIds = getStudentIdsForRequesterSubGroup(mainGroup, requester.getId());
+        if (!subGroupStudentIds.contains(submission.getStudent().getId())) {
+            throw new IllegalArgumentException("You are not allowed to access this submission");
+        }
+    }
+
+    private List<Long> getStudentIdsForRequesterSubGroup(MainGroup mainGroup, Long requesterStudentId) {
+        SubGroup requesterGroup = subGroupRepository.findByMainGroup_IdAndStudents_Id(mainGroup.getId(), requesterStudentId)
+                .orElseThrow(() -> new IllegalArgumentException("You are not assigned to a sub group for this assignment"));
+        return requesterGroup.getStudents().stream()
+                .map(Student::getId)
+                .toList();
+    }
+
+    private List<Long> getStudentIdsForRequesterSubGroupOrEmpty(MainGroup mainGroup, Long requesterStudentId) {
+        return subGroupRepository.findByMainGroup_IdAndStudents_Id(mainGroup.getId(), requesterStudentId)
+                .map(SubGroup::getStudents)
+                .map(students -> students.stream().map(Student::getId).toList())
+                .orElse(List.of());
     }
 
     private SubmissionSummaryResponse mapToSummaryResponse(Submission submission) {
@@ -280,6 +401,29 @@ public class SubmissionService {
                 .status(submission.getStatus())
                 .submittedAt(submission.getSubmittedAt())
                 .build();
+    }
+
+    private int compareBySubmittedAt(Submission a, Submission b) {
+        LocalDateTime ta = a.getSubmittedAt();
+        LocalDateTime tb = b.getSubmittedAt();
+        if (ta == null && tb == null) return 0;
+        if (ta == null) return -1;
+        if (tb == null) return 1;
+        return ta.compareTo(tb);
+    }
+
+    private Submission pickLatest(Submission a, Submission b) {
+        return compareBySubmittedAt(a, b) >= 0 ? a : b;
+    }
+
+    private Submission latestSubGroupSubmission(Assignment assignment, Long studentId, Submission fallback) {
+        if (assignment.getMainGroup() == null) {
+            return fallback;
+        }
+        List<Long> subGroupStudentIds = getStudentIdsForRequesterSubGroup(assignment.getMainGroup(), studentId);
+        return submissionRepository.findByAssignment_IdAndStudent_IdIn(assignment.getId(), subGroupStudentIds).stream()
+                .max(this::compareBySubmittedAt)
+                .orElse(fallback);
     }
 
     private SubmissionFileResponse mapToFileResponse(SubmissionFile file) {

@@ -4,7 +4,9 @@ import { Link, useNavigate, useParams } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import {
   createFacultyAssignmentDraft,
+  getFacultyAssignmentEditPageData,
   getFacultyAssignmentCreatePageData,
+  updateFacultyAssignmentDraft,
 } from "../../services/assignmentService";
 import { getRubric, getUnweightedRubricTotalPoints } from "../../services/rubricService";
 import { createTestSuite } from "../../services/testSuiteService";
@@ -13,6 +15,7 @@ import type { TestSuitePayload } from "../../types/testSuite";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 interface FacultyCreateAssignmentViewProps {
   // NOTE: This component is presentation-only. Data and handlers are injected by the page/container.
@@ -37,6 +40,7 @@ interface FacultyCreateAssignmentViewProps {
   onCloseSuccessModal: () => void;
   onGoBackToClass: () => void;
   onSubmit: () => void;
+  mode: "create" | "edit";
 }
 
 interface TestCaseRow {
@@ -76,6 +80,7 @@ function FacultyCreateAssignmentView({
   onGoBackToClass,
   onSubmit,
   testCasesAdded = false,
+  mode,
 }: FacultyCreateAssignmentViewProps) {
   const courseCode = pageData?.header.courseCode ?? "CS 2400";
 
@@ -91,10 +96,12 @@ function FacultyCreateAssignmentView({
             {courseCode}
           </Link>
           <span className="mx-2 text-[#9CA6B6]">/</span>
-          <span className="font-medium text-[#2B2A2A]">Create Assignment</span>
+          <span className="font-medium text-[#2B2A2A]">{mode === "edit" ? "Edit Assignment" : "Create Assignment"}</span>
         </div>
 
-        <h1 className="text-[34px] font-semibold leading-tight text-[#1F2430]">Create New Assignment</h1>
+        <h1 className="text-[34px] font-semibold leading-tight text-[#1F2430]">
+          {mode === "edit" ? "Edit Assignment" : "Create New Assignment"}
+        </h1>
 
         {errorMessage ? (
           <p className="mt-5 rounded-xl border border-[#F3CDD1] bg-[#FDEBEC] px-3 py-2 text-[13px] text-[#C23A42]">
@@ -176,6 +183,27 @@ function FacultyCreateAssignmentView({
                       <option value="INDIVIDUAL">Individual</option>
                       <option value="GROUP">Group</option>
                     </select>
+
+                    {form.submissionType === "GROUP" ? (
+                      <div className="mt-4">
+                        <label htmlFor="assignment-main-group" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                          Main Group <span className="text-[#D84E57]">*</span>
+                        </label>
+                        <select
+                          id="assignment-main-group"
+                          value={form.mainGroupId}
+                          onChange={(event) => onFieldChange("mainGroupId", event.target.value)}
+                          className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                        >
+                          <option value="">Select main group</option>
+                          {pageData.mainGroupOptions.map((group) => (
+                            <option key={group.id} value={group.id}>
+                              {group.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </section>
@@ -478,7 +506,7 @@ function FacultyCreateAssignmentView({
                   disabled={isSaving}
                   className="rounded-xl bg-[#2B2A2A] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#3a3939] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isSaving ? "Creating..." : "Create Assignment"}
+                  {isSaving ? (mode === "edit" ? "Saving..." : "Creating...") : mode === "edit" ? "Save Changes" : "Create Assignment"}
                 </button>
               </div>
             </>
@@ -488,10 +516,12 @@ function FacultyCreateAssignmentView({
         {showSuccessModal ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div className="w-full max-w-md rounded-2xl border border-[#DDE4F0] bg-white p-6 shadow-2xl">
-              <h3 className="text-[20px] font-semibold text-[#1F2430]">Assignment Created</h3>
+              <h3 className="text-[20px] font-semibold text-[#1F2430]">
+                {mode === "edit" ? "Assignment Updated" : "Assignment Created"}
+              </h3>
               {/* NOTE: Success confirmation is modal-based so faculty can clearly confirm completion before navigation. */}
               <p className="mt-2 text-[14px] text-[#5D6A80]">
-                Your assignment was created successfully.
+                {mode === "edit" ? "Your assignment was updated successfully." : "Your assignment was created successfully."}
                 {testCasesAdded ? " Test cases were added." : ""}
               </p>
               <div className="mt-6 flex items-center justify-end gap-3">
@@ -519,16 +549,14 @@ function FacultyCreateAssignmentView({
 }
 
 function extractErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-  return "Unable to create assignment right now. Please try again.";
+  return getApiErrorMessage(error, "Unable to create assignment right now. Please try again.");
 }
 
 export function FacultyCreateAssignmentPage() {
   const navigate = useNavigate();
-  const { classId } = useParams();
+  const { classId, assignmentId } = useParams();
   const resolvedClassId = classId ?? "1";
+  const mode: "create" | "edit" = assignmentId ? "edit" : "create";
   const loggedInUser = getAuthenticatedUser();
   const displayName = loggedInUser?.name ?? "Dr. Sarah Miller";
   const displayEmail = loggedInUser?.email ?? "smiller@university.edu";
@@ -561,7 +589,9 @@ export function FacultyCreateAssignmentPage() {
     setIsLoading(true);
     setErrorMessage(null);
     // NOTE: Page-level data loading keeps this form view presentation-only and backend-ready.
-    getFacultyAssignmentCreatePageData(resolvedClassId)
+    (mode === "edit" && assignmentId
+      ? getFacultyAssignmentEditPageData(resolvedClassId, assignmentId)
+      : getFacultyAssignmentCreatePageData(resolvedClassId))
       .then((data) => {
         setPageData(data);
         setForm(data.initialForm);
@@ -570,7 +600,7 @@ export function FacultyCreateAssignmentPage() {
         setErrorMessage(extractErrorMessage(error));
       })
       .finally(() => setIsLoading(false));
-  }, [resolvedClassId]);
+  }, [resolvedClassId, mode, assignmentId]);
 
   const canSubmit = useMemo(() => {
     if (!form) {
@@ -587,7 +617,8 @@ export function FacultyCreateAssignmentPage() {
       form.dueDate.trim().length > 0 &&
       form.dueTime.trim().length > 0 &&
       form.languageId.trim().length > 0 &&
-      (form.submissionType === "INDIVIDUAL" || form.submissionType === "GROUP") &&
+      (form.submissionType === "INDIVIDUAL" ||
+        (form.submissionType === "GROUP" && form.mainGroupId.trim().length > 0)) &&
       Number.isFinite(form.totalPoints) &&
       form.totalPoints > 0
     );
@@ -687,10 +718,13 @@ export function FacultyCreateAssignmentPage() {
     setIsSaving(true);
     setErrorMessage(null);
     try {
-      const { assignmentId } = await createFacultyAssignmentDraft(resolvedClassId, form);
+      const savedAssignmentId =
+        mode === "edit" && assignmentId
+          ? (await updateFacultyAssignmentDraft(assignmentId, resolvedClassId, form)).assignmentId
+          : (await createFacultyAssignmentDraft(resolvedClassId, form)).assignmentId;
       const hasTestCases = testSuiteDraft.testCases.some((c) => c.output.trim().length > 0);
       setTestCasesAdded(false);
-      if (hasTestCases) {
+      if (mode === "create" && hasTestCases) {
         const payload: TestSuitePayload = {
           title: testSuiteDraft.title.trim() || "Test Suite",
           description: testSuiteDraft.description.trim(),
@@ -705,7 +739,7 @@ export function FacultyCreateAssignmentPage() {
             })),
         };
         if (payload.testCases.length > 0) {
-          await createTestSuite(assignmentId, payload);
+          await createTestSuite(savedAssignmentId, payload);
           setTestCasesAdded(true);
         }
       }
@@ -797,6 +831,7 @@ export function FacultyCreateAssignmentPage() {
           onCloseSuccessModal={handleCloseSuccessModal}
           onGoBackToClass={handleGoBackToClass}
           onSubmit={handleSubmit}
+          mode={mode}
         />
       }
     />

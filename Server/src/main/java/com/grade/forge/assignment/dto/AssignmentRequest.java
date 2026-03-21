@@ -26,4 +26,5 @@ public class AssignmentRequest {
     private LocalDateTime dueDate;
     private LocalDateTime lateDueDate;
     private Long rubricId;
+    private Long mainGroupId;
 }

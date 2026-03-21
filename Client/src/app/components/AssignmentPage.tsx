@@ -46,18 +46,12 @@ import type {
 import type { Rubric } from "../../types/rubric";
 import type { TestSuiteDetail } from "../../types/testSuite";
 import type { TestRunJobStatusResponse } from "../../types/runTests";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
-type TabType = 'description' | 'tests' | 'rubric' | 'results';
+type TabType = 'description' | 'tests' | 'rubric' | 'group' | 'results';
 
 function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  const apiMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
-  if (typeof apiMessage === "string" && apiMessage.trim()) {
-    return apiMessage;
-  }
-  return "Unable to save changes.";
+  return getApiErrorMessage(error, "Unable to save changes.");
 }
 
 export function AssignmentPage() {
@@ -70,6 +64,7 @@ export function AssignmentPage() {
 
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     if (tabParam === "tests") return "tests";
+    if (tabParam === "group") return "group";
     if (isFacultyRole && submissionId) return "results";
     return "description";
   });
@@ -97,6 +92,31 @@ export function AssignmentPage() {
   /** Custom stdin for "run with my input" (students); lives in Test Cases tab, used when Run Tests is clicked. */
   const [customStdin, setCustomStdin] = useState("");
 
+  const selectedFacultySubmission = useMemo(() => {
+    if (!isFacultyRole || !submissionId) return null;
+    const match = facultySubmissionRows.find((r) => String(r.submissionId) === String(submissionId));
+    return match ?? null;
+  }, [facultySubmissionRows, isFacultyRole, submissionId]);
+
+  const effectiveFacultySubmission = useMemo(() => {
+    if (!isFacultyRole) return null;
+    if (selectedFacultySubmission) return selectedFacultySubmission;
+    // On assignment route without /submission/:id, fall back to first grouped submission.
+    return (
+      facultySubmissionRows.find((r) => (r.subGroupMembers?.length ?? 0) > 0) ??
+      facultySubmissionRows[0] ??
+      null
+    );
+  }, [facultySubmissionRows, isFacultyRole, selectedFacultySubmission]);
+
+  const groupTabEnabled = useMemo(() => {
+    if (!assignment) return false;
+    if (assignment.submissionType !== "GROUP") return false;
+    return Boolean(assignment.mainGroupId && assignment.mainGroupName?.trim());
+  }, [assignment]);
+
+  const showGroupTab = groupTabEnabled;
+
   const facultySubmissionFileOptions = useMemo(() => {
     if (!isFacultyRole) {
       return [];
@@ -119,14 +139,15 @@ export function AssignmentPage() {
     // FIX: Invalidate assignment/result caches before loading so newly submitted files appear immediately in faculty/student views.
     invalidateAssignmentWorkspaceCache(resolvedId);
     invalidateAssignmentResultCache(resolvedId);
-    const [assignmentData, descriptionData, rubricData, resultsData, codeExamplesData, facultyRows] = await Promise.all([
+    const [assignmentData, descriptionData, rubricData, codeExamplesData, facultyRows] = await Promise.all([
       getAssignmentDetailById(resolvedId),
       getAssignmentDescription(resolvedId),
       listRubricCategories(resolvedId),
-      getAssignmentResult(resolvedId),
       getEditorCodeExamples(resolvedId),
       isFacultyRole ? listFacultyAssignmentSubmissionFiles(resolvedId) : Promise.resolve([]),
     ]);
+
+    const resultsData = await getAssignmentResult(resolvedId);
 
     setAssignment(assignmentData);
     setDescription(descriptionData);
@@ -175,8 +196,8 @@ export function AssignmentPage() {
     setFacultyPreviewErrorMessage(null);
     // NOTE: Keep data loading centralized in page container so assignment panels remain presentation-only.
     loadAssignmentWorkspace(resolvedId)
-      .catch(() => {
-        setErrorMessage("Unable to load assignment data.");
+      .catch((error) => {
+        setErrorMessage(getErrorMessage(error));
       })
       .finally(() => setIsLoading(false));
   }, [assignmentId, loadAssignmentWorkspace]);
@@ -404,6 +425,8 @@ export function AssignmentPage() {
                 onTabChange={setActiveTab}
                 hasResults={hasSubmitted}
                 isFacultyView={isFacultyRole}
+                showGroupTab={showGroupTab}
+                groupTabEnabled={groupTabEnabled}
               />
 
               {/* Tab Content */}
@@ -487,6 +510,69 @@ export function AssignmentPage() {
                   )
                 )}
                 {activeTab === 'rubric' && <GradingRubricPanel rubricCategories={rubricCategories} />}
+                {activeTab === 'group' && (
+                  <div className="pt-4">
+                    {isFacultyRole ? (
+                      <>
+                        <div className="pb-2 border-b border-gray-200 mb-4">
+                          <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Group</h3>
+                          <p className="text-[14px] font-medium text-[#2B2A2A]">
+                            {assignment?.mainGroupName ?? "—"}
+                          </p>
+                        </div>
+                        {effectiveFacultySubmission?.subGroupMembers?.length ? (
+                          <div className="space-y-2">
+                            {effectiveFacultySubmission.subGroupMembers.map((m) => (
+                              <div
+                                key={m.id}
+                                className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-[13px] font-medium text-[#2B2A2A] truncate">{m.name}</p>
+                                  <p className="text-[12px] text-gray-500 truncate">{m.email}</p>
+                                </div>
+                                <span className="text-[11px] uppercase tracking-wide text-gray-400 flex-shrink-0">
+                                  {m.cwid}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[13px] text-gray-600">No group assigned for this submission.</p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div className="pb-2 border-b border-gray-200 mb-4">
+                          <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Group</h3>
+                          <p className="text-[14px] font-medium text-[#2B2A2A]">
+                            {assignment?.mainGroupName ?? "—"}
+                          </p>
+                        </div>
+                        {assignment?.subGroupMembers?.length ? (
+                          <div className="space-y-2">
+                            {assignment.subGroupMembers.map((m) => (
+                              <div
+                                key={m.id}
+                                className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-[13px] font-medium text-[#2B2A2A] truncate">{m.name}</p>
+                                  <p className="text-[12px] text-gray-500 truncate">{m.email}</p>
+                                </div>
+                                <span className="text-[11px] uppercase tracking-wide text-gray-400 flex-shrink-0">
+                                  {m.cwid}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[13px] text-gray-600">No group assigned for this submission.</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
                 {activeTab === 'results' && (
                   <ResultsPanel
                     results={results}

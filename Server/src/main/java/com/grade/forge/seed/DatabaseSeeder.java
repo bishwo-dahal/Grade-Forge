@@ -133,9 +133,10 @@ public class DatabaseSeeder implements CommandLineRunner {
     private void seedUsers() {
         createUserIfNotExists("University Admin", "university@gmail.com", "university", Role.UNIVERSITY_ADMIN);
         createUserIfNotExists("University Admin Two", "university1@gmail.com", "university", Role.UNIVERSITY_ADMIN);
-        createUserIfNotExists("Student One", "student@gmail.com", "student", Role.STUDENT);
-        createUserIfNotExists("Student Two", "student1@gmail.com", "student", Role.STUDENT);
-        createUserIfNotExists("Student Three", "student2@gmail.com", "student", Role.STUDENT);
+
+        studentSeeds().forEach(seed ->
+                createUserIfNotExists(seed.name(), seed.email(), "student", Role.STUDENT)
+        );
     }
 
     private void createUserIfNotExists(String name, String email, String rawPassword, Role role) {
@@ -320,15 +321,33 @@ public class DatabaseSeeder implements CommandLineRunner {
                     return assignmentRepository.save(a);
                 });
 
-        // Ensure sample students exist and enroll them into courses.
-        Student studentOne = getOrCreateStudentForUser("student@gmail.com", "S1001");
-        Student studentTwo = getOrCreateStudentForUser("student1@gmail.com", "S1002");
-        Student studentThree = getOrCreateStudentForUser("student2@gmail.com", "S1003");
+        List<Student> seededStudents = new ArrayList<>();
+        for (StudentSeed studentSeed : studentSeeds()) {
+            seededStudents.add(getOrCreateStudentForUser(studentSeed.email(), studentSeed.cwid()));
+        }
+
+        Student studentOne = seededStudents.get(0);
+        Student studentTwo = seededStudents.get(1);
+        Student studentThree = seededStudents.get(2);
 
         enrollIfNotExists(studentOne, cs101);
         enrollIfNotExists(studentTwo, cs101);
         enrollIfNotExists(studentThree, cs101);
         enrollIfNotExists(studentOne, cs102);
+
+        Course testCourse = courseRepository.findByCourseCodeIgnoreCase("TEST-COURSE")
+                .orElseGet(() -> {
+                    Course c = new Course();
+                    c.setName("Test Course");
+                    c.setCourseCode("TEST-COURSE");
+                    c.setSection("T1");
+                    c.setDescription("Seeded course for quick demos");
+                    c.setSemester(semester2);
+                    c.setFaculty(primaryFaculty);
+                    return courseRepository.save(c);
+                });
+
+        seededStudents.forEach(student -> enrollIfNotExists(student, testCourse));
 
         seedRubrics(primaryFaculty, fabricAssignment, jukeboxAssignment, initialsAssignment);
         seedAdditionalRubrics(primaryFaculty, wordLengthAssignment, pricesAssignment, fabricAssignment);
@@ -385,6 +404,10 @@ public class DatabaseSeeder implements CommandLineRunner {
     }
 
     private void enrollIfNotExists(Student student, Course course) {
+        if (course.getEnrollments() == null) {
+            course.setEnrollments(new ArrayList<>());
+        }
+
         boolean exists = course.getEnrollments()
                 .stream()
                 .anyMatch(e -> e.getStudent().getId().equals(student.getId()));
@@ -399,6 +422,23 @@ public class DatabaseSeeder implements CommandLineRunner {
 
         course.getEnrollments().add(enrollment);
         courseRepository.save(course);
+    }
+
+    private List<StudentSeed> studentSeeds() {
+        return List.of(
+                new StudentSeed("Alex Carter", "student@gmail.com", "S2000"),
+                new StudentSeed("Ava Rivers", "student1@gmail.com", "S2001"),
+                new StudentSeed("Liam Brooks", "student2@gmail.com", "S2002"),
+                new StudentSeed("Noah Patel", "student3@gmail.com", "S2003"),
+                new StudentSeed("Mia Chen", "student4@gmail.com", "S2004"),
+                new StudentSeed("Ethan Silva", "student5@gmail.com", "S2005"),
+                new StudentSeed("Olivia Torres", "student6@gmail.com", "S2006"),
+                new StudentSeed("Lucas Bennett", "student7@gmail.com", "S2007"),
+                new StudentSeed("Sophia Turner", "student8@gmail.com", "S2008")
+        );
+    }
+
+    private record StudentSeed(String name, String email, String cwid) {
     }
 
     private Rubric createDigitalJukeboxRubric(Faculty faculty) {

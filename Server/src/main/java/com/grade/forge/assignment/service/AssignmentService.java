@@ -8,10 +8,19 @@ import com.grade.forge.assignment.repository.AssignmentRepository;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
+import com.grade.forge.group.entity.MainGroup;
+import com.grade.forge.group.repository.MainGroupRepository;
 import com.grade.forge.programminglanguage.entity.ProgrammingLanguage;
 import com.grade.forge.programminglanguage.repository.ProgrammingLanguageRepository;
 import com.grade.forge.rubric.entity.Rubric;
 import com.grade.forge.rubric.repository.RubricRepository;
+import com.grade.forge.execution.repository.TestRunJobRepository;
+import com.grade.forge.execution.repository.TestCaseResultRepository;
+import com.grade.forge.submission.entity.Submission;
+import com.grade.forge.submission.repository.SubmissionRepository;
+import com.grade.forge.submission.repository.SubmissionFileRepository;
+import org.springframework.transaction.annotation.Propagation;
+import com.grade.forge.testsuite.entity.TestCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +39,11 @@ public class AssignmentService {
     private final CourseRepository courseRepository;
     private final ProgrammingLanguageRepository programmingLanguageRepository;
     private final RubricRepository rubricRepository;
+    private final MainGroupRepository mainGroupRepository;
+    private final TestRunJobRepository testRunJobRepository;
+    private final TestCaseResultRepository testCaseResultRepository;
+    private final SubmissionRepository submissionRepository;
+    private final SubmissionFileRepository submissionFileRepository;
 
     public AssignmentResponse createAssignment(AssignmentRequest request, String userEmail) {
         validateCreate(request);
@@ -55,6 +69,14 @@ public class AssignmentService {
         assignment.setCourse(course);
         assignment.setProgrammingLanguage(language);
         assignment.setRubric(rubric);
+        if (request.getMainGroupId() != null) {
+            MainGroup mainGroup = mainGroupRepository.findById(request.getMainGroupId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Main group not found with id: " + request.getMainGroupId()));
+            if (!Objects.equals(mainGroup.getCourse().getId(), course.getId())) {
+                throw new IllegalArgumentException("Main group does not belong to the course");
+            }
+            assignment.setMainGroup(mainGroup);
+        }
 
         Assignment saved = assignmentRepository.save(assignment);
         return mapToResponse(saved);
@@ -109,6 +131,14 @@ public class AssignmentService {
             }
             assignment.setRubric(rubric);
         }
+        if (request.getMainGroupId() != null) {
+            MainGroup mainGroup = mainGroupRepository.findById(request.getMainGroupId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Main group not found with id: " + request.getMainGroupId()));
+            if (!Objects.equals(mainGroup.getCourse().getId(), currentCourse.getId())) {
+                throw new IllegalArgumentException("Main group does not belong to the assignment's course");
+            }
+            assignment.setMainGroup(mainGroup);
+        }
 
         validateTimeline(assignment.getAvailableFrom(), assignment.getDueDate(), assignment.getLateDueDate());
 
@@ -139,7 +169,54 @@ public class AssignmentService {
     public void deleteAssignment(Long id) {
         Assignment assignment = assignmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + id));
+        cleanupTestRunsAndResults(assignment);
+        cleanupSubmissions(assignment);
         assignmentRepository.delete(assignment);
+    }
+
+    private void cleanupSubmissions(Assignment assignment) {
+        List<Submission> submissions = submissionRepository.findByAssignment_Id(assignment.getId());
+        if (submissions.isEmpty()) {
+            return;
+        }
+
+        List<Long> submissionIds = submissions.stream()
+                .map(Submission::getId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        if (!submissionIds.isEmpty()) {
+            // Clean up test run jobs tied to these submissions (and their results) before deleting submissions/files.
+            List<Long> testRunJobIds = testRunJobRepository.findBySubmission_IdIn(submissionIds).stream()
+                    .map(trj -> trj.getId())
+                    .filter(Objects::nonNull)
+                    .toList();
+            if (!testRunJobIds.isEmpty()) {
+                testCaseResultRepository.deleteByTestRunJob_IdIn(testRunJobIds);
+                testRunJobRepository.deleteByIdIn(testRunJobIds);
+            }
+
+            submissionFileRepository.deleteAllInBatch(
+                    submissionFileRepository.findBySubmission_IdIn(submissionIds)
+            );
+        }
+
+        submissionRepository.deleteAllInBatch(submissions);
+    }
+
+    private void cleanupTestRunsAndResults(Assignment assignment) {
+        List<Long> testCaseIds = List.of();
+        if (assignment.getTestSuite() != null && assignment.getTestSuite().getTestCases() != null) {
+            testCaseIds = assignment.getTestSuite().getTestCases().stream()
+                    .map(TestCase::getId)
+                    .filter(Objects::nonNull)
+                    .toList();
+        }
+        if (!testCaseIds.isEmpty()) {
+            testCaseResultRepository.deleteByTestCase_IdIn(testCaseIds);
+        }
+
+        testRunJobRepository.deleteByAssignment_Id(assignment.getId());
     }
 
     private void validateCreate(AssignmentRequest request) {
@@ -203,6 +280,8 @@ public class AssignmentService {
                 .lateDueDate(assignment.getLateDueDate())
                 .rubricId(assignment.getRubric() != null ? assignment.getRubric().getId() : null)
                 .rubricName(assignment.getRubric() != null ? assignment.getRubric().getName() : null)
+                .mainGroupId(assignment.getMainGroup() != null ? assignment.getMainGroup().getId() : null)
+                .mainGroupName(assignment.getMainGroup() != null ? assignment.getMainGroup().getName() : null)
                 .build();
     }
 

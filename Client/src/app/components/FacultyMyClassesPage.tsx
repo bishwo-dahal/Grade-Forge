@@ -8,6 +8,7 @@ import { SegmentedFilter } from "./ui/SegmentedFilter";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 type FacultyClassFilter = "all" | "active" | "archived";
 
@@ -192,17 +193,6 @@ function FacultyMyClassesView({
   );
 }
 
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (typeof error === "object" && error !== null) {
-    const response = (error as { response?: { data?: { message?: unknown } } }).response;
-    const message = response?.data?.message;
-    if (typeof message === "string" && message.trim().length > 0) {
-      return message;
-    }
-  }
-  return fallback;
-}
-
 export function FacultyMyClassesPage() {
   const navigate = useNavigate();
   const loggedInUser = getAuthenticatedUser();
@@ -227,7 +217,7 @@ export function FacultyMyClassesPage() {
     setError(null);
     listFacultyMyClasses()
       .then(setClasses)
-      .catch((loadError) => setError(getErrorMessage(loadError, "Could not load faculty classes.")))
+      .catch((loadError) => setError(getApiErrorMessage(loadError, "Could not load faculty classes.")))
       .finally(() => setIsLoading(false));
   }, []);
 
