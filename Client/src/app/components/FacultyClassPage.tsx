@@ -16,7 +16,6 @@ import {
   AlertCircle,
   UserPlus,
   Edit,
-  Copy,
   Trash2,
   MoreVertical,
   Filter,
@@ -644,17 +643,6 @@ function AssignmentsSection() {
                       className="relative flex items-center justify-end gap-2"
                       onClick={(event) => event.stopPropagation()}
                     >
-                      {/* Accessibility: icon-only action buttons need labels for screen readers. */}
-                      <Link
-                        aria-label="Open assignment detail"
-                        to={`/faculty/class/${resolvedClassId}/assignments/${assignment.id}/edit`}
-                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                      >
-                        <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                      </Link>
-                      <button aria-label="Duplicate assignment" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                        <Copy className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                      </button>
                       <button
                         aria-label="More assignment actions"
                         className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
@@ -670,6 +658,14 @@ function AssignmentsSection() {
                           className="absolute right-0 top-9 z-20 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
                           onClick={(event) => event.stopPropagation()}
                         >
+                          <Link
+                            to={`/faculty/class/${resolvedClassId}/assignments/${assignment.id}/edit`}
+                            onClick={() => setOpenAssignmentActionsId(null)}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[#2B2A2A] hover:bg-gray-50"
+                          >
+                            <Edit className="h-4 w-4" strokeWidth={2} />
+                            Edit Assignment
+                          </Link>
                           <button
                             type="button"
                             onClick={() => {
