@@ -548,9 +548,6 @@ function AssignmentsSection() {
                 Due Date
               </th>
               <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Submissions
-              </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Status
               </th>
               <th className="text-right px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
@@ -571,9 +568,6 @@ function AssignmentsSection() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="h-4 w-16 rounded bg-gray-200 animate-pulse" />
                   </td>
                   <td className="px-6 py-4">
                     <div className="h-6 w-20 rounded-md bg-gray-100 animate-pulse" />
@@ -622,11 +616,6 @@ function AssignmentsSection() {
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-[13px] text-gray-600">{assignment.dueDate}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-[13px] text-gray-600">
-                      {assignment.submissions}/{assignment.totalStudents}
-                    </span>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium ${
@@ -690,7 +679,7 @@ function AssignmentsSection() {
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="px-6 py-6 text-center text-[13px] text-gray-600">
+                <td colSpan={5} className="px-6 py-6 text-center text-[13px] text-gray-600">
                   No assignments found for this class.
                 </td>
               </tr>
