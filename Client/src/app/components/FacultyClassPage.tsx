@@ -100,7 +100,7 @@ const SECTION_PATH_SEGMENTS = [
 ] as const;
 
 type SectionType = (typeof SECTION_PATH_SEGMENTS)[number];
-type RosterFilter = "all" | "active" | "inactive" | "unassigned";
+type RosterFilter = "all" | "active" | "inactive";
 
 function isValidSection(segment: string | undefined): segment is SectionType {
   return segment != null && SECTION_PATH_SEGMENTS.includes(segment as SectionType);
@@ -1868,12 +1868,10 @@ function StudentsSection({
   const filterItems = useMemo<SegmentedFilterItem<RosterFilter>[]>(() => {
     const activeCount = rosterRows.filter((row) => row.status === "active").length;
     const inactiveCount = rosterRows.filter((row) => row.status === "inactive").length;
-    const unassignedCount = rosterRows.filter((row) => row.status === "unassigned").length;
     return [
       { id: "all", label: "All", count: rosterRows.length },
       { id: "active", label: "Active", count: activeCount },
       { id: "inactive", label: "Inactive", count: inactiveCount },
-      { id: "unassigned", label: "Unassigned", count: unassignedCount },
     ];
   }, [rosterRows]);
 
