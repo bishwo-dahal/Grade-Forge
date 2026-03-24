@@ -450,7 +450,6 @@ function StatCard({
 function AssignmentsSection() {
   const { classId } = useParams();
   const resolvedClassId = classId || "1";
-  const [selectedAssignments, setSelectedAssignments] = useState<string[]>([]);
   // NOTE: Assignments now load from backend-driven class service mapping.
   const [assignments, setAssignments] = useState<FacultyAssignment[]>([]);
   const [isAssignmentsLoading, setIsAssignmentsLoading] = useState(true);
@@ -485,7 +484,6 @@ function AssignmentsSection() {
     try {
       await deleteFacultyAssignment(assignmentDeleteTarget.id);
       setAssignmentDeleteTarget(null);
-      setSelectedAssignments((prev) => prev.filter((id) => id !== assignmentDeleteTarget.id));
       await loadAssignments();
     } catch (error) {
       setAssignmentActionError(getErrorMessage(error));
@@ -545,7 +543,16 @@ function AssignmentsSection() {
                 Language
               </th>
               <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                Available From
+              </th>
+              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Due Date
+              </th>
+              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                Late Due Date
+              </th>
+              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                Total Points
               </th>
               <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Status
@@ -570,6 +577,15 @@ function AssignmentsSection() {
                     <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
                   </td>
                   <td className="px-6 py-4">
+                    <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="h-4 w-10 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-6 py-4">
                     <div className="h-6 w-20 rounded-md bg-gray-100 animate-pulse" />
                   </td>
                   <td className="px-6 py-4">
@@ -588,26 +604,12 @@ function AssignmentsSection() {
                   className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === assignments.length - 1 ? 'border-b-0' : ''}`}
                 >
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedAssignments.includes(assignment.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedAssignments([...selectedAssignments, assignment.id]);
-                          } else {
-                            setSelectedAssignments(selectedAssignments.filter(id => id !== assignment.id));
-                          }
-                        }}
-                        className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
-                      />
-                      <Link
-                        to={`/faculty/class/${resolvedClassId}/assignment/${assignment.id}`}
-                        className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
-                      >
-                        {assignment.name}
-                      </Link>
-                    </div>
+                    <Link
+                      to={`/faculty/class/${resolvedClassId}/assignment/${assignment.id}`}
+                      className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
+                    >
+                      {assignment.name}
+                    </Link>
                   </td>
                   <td className="px-6 py-4">
                     <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-[12px] font-medium text-gray-700">
@@ -615,7 +617,16 @@ function AssignmentsSection() {
                     </span>
                   </td>
                   <td className="px-6 py-4">
+                    <span className="text-[13px] text-gray-600">{assignment.availableFrom}</span>
+                  </td>
+                  <td className="px-6 py-4">
                     <span className="text-[13px] text-gray-600">{assignment.dueDate}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-[13px] text-gray-600">{assignment.lateDueDate}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-[13px] font-medium text-[#2B2A2A]">{assignment.totalPoints}</span>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium ${
@@ -679,7 +690,7 @@ function AssignmentsSection() {
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="px-6 py-6 text-center text-[13px] text-gray-600">
+                <td colSpan={8} className="px-6 py-6 text-center text-[13px] text-gray-600">
                   No assignments found for this class.
                 </td>
               </tr>
