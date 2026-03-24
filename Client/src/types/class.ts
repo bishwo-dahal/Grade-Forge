@@ -140,7 +140,9 @@ export interface ClassAssignment {
   id: string;
   title: string;
   language: string;
+  availableFrom: string;
   dueDate: string;
+  lateDueDate: string;
   status: "upcoming" | "submitted" | "graded";
   grade: number | null;
   totalPoints: number;
