@@ -376,23 +376,32 @@ function AssignmentsSection() {
         </p>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <table className="w-full">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+        <table className="w-full min-w-[1080px]">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="text-center px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Assignment
               </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="text-center px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Language
               </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[200px] text-center px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                Available From
+              </th>
+              <th className="w-[200px] text-center px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Due Date
               </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[200px] text-center px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                Late Due Date
+              </th>
+              <th className="w-[92px] text-center px-3 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                Total Points
+              </th>
+              <th className="w-[112px] text-center px-3 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Status
               </th>
-              <th className="text-right px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[100px] text-right px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Grade
               </th>
             </tr>
@@ -406,7 +415,7 @@ function AssignmentsSection() {
                   ${index === assignments.length - 1 ? 'border-b-0' : ''}
                 `}
               >
-                <td className="px-6 py-4">
+                <td className="px-6 py-4 text-center">
                   <Link
                     to={`/assignment/${assignment.id}`}
                     className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
@@ -414,21 +423,30 @@ function AssignmentsSection() {
                     {assignment.title}
                   </Link>
                 </td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-[12px] font-medium text-gray-700">
+                <td className="px-6 py-4 text-center">
+                  <span className="inline-flex items-center text-[12px] font-medium text-gray-700">
                     {assignment.language}
                   </span>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-6 py-4 text-center">
+                  <span className="text-[13px] text-gray-600">{assignment.availableFrom}</span>
+                </td>
+                <td className="px-6 py-4 text-center">
                   <span className="text-[13px] text-gray-600">{assignment.dueDate}</span>
                 </td>
-                <td className="px-6 py-4">
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${
+                <td className="px-6 py-4 text-center">
+                  <span className="text-[13px] text-gray-600">{assignment.lateDueDate}</span>
+                </td>
+                <td className="px-3 py-4 text-center">
+                  <span className="text-[13px] font-medium text-[#2B2A2A] whitespace-nowrap">{assignment.totalPoints}</span>
+                </td>
+                <td className="px-3 py-4 text-center">
+                  <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] font-medium ${
                     assignment.status === 'graded'
-                      ? 'bg-green-50 text-green-600'
+                      ? 'text-green-600'
                       : assignment.status === 'submitted'
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'bg-orange-50 text-orange-600'
+                      ? 'text-blue-600'
+                      : 'text-orange-600'
                   }`}>
                     {assignment.status === 'graded' && <CheckCircle2 className="w-3 h-3" strokeWidth={2} />}
                     {assignment.status === 'submitted' && <Clock className="w-3 h-3" strokeWidth={2} />}
