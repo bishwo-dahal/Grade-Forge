@@ -611,7 +611,7 @@ function AssignmentsSection() {
                     </Link>
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-[12px] font-medium text-gray-700">
+                    <span className="inline-flex items-center text-[12px] font-medium text-gray-700">
                       {assignment.language}
                     </span>
                   </td>
@@ -628,12 +628,12 @@ function AssignmentsSection() {
                     <span className="text-[13px] font-medium text-[#2B2A2A] whitespace-nowrap">{assignment.totalPoints}</span>
                   </td>
                   <td className="px-3 py-4 text-center">
-                    <span className={`inline-flex items-center whitespace-nowrap px-2 py-1 rounded-md text-[12px] font-medium ${
+                    <span className={`inline-flex items-center whitespace-nowrap text-[12px] font-medium ${
                       assignment.status === 'published'
-                        ? 'bg-green-50 text-green-600'
+                        ? 'text-green-600'
                         : assignment.status === 'closed'
-                        ? 'bg-gray-100 text-gray-600'
-                        : 'bg-orange-50 text-orange-600'
+                        ? 'text-gray-600'
+                        : 'text-orange-600'
                     }`}>
                       {assignment.status}
                     </span>
