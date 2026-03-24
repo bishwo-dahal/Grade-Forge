@@ -541,13 +541,13 @@ function AssignmentsSection() {
               <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Language
               </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[200px] text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Available From
               </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[200px] text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Due Date
               </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[200px] text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Late Due Date
               </th>
               <th className="w-[92px] text-left px-3 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
