@@ -150,7 +150,10 @@ export interface FacultyAssignment {
   id: string;
   name: string;
   language: string;
+  availableFrom: string;
   dueDate: string;
+  lateDueDate: string;
+  totalPoints: number;
   submissions: number;
   totalStudents: number;
   status: "published" | "closed" | "draft";
