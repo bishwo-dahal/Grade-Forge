@@ -295,6 +295,9 @@ public class AssignmentService {
         response.setAvailableFrom(assignment.getAvailableFrom());
         response.setDueDate(assignment.getDueDate());
         response.setLateDueDate(assignment.getLateDueDate());
+        response.setLanguageName(assignment.getProgrammingLanguage() != null
+                ? assignment.getProgrammingLanguage().getName()
+                : null);
         return response;
     }
 }
