@@ -535,28 +535,28 @@ function AssignmentsSection() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="text-center px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Assignment
               </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="text-center px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Language
               </th>
-              <th className="w-[200px] text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[200px] text-center px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Available From
               </th>
-              <th className="w-[200px] text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[200px] text-center px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Due Date
               </th>
-              <th className="w-[200px] text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[200px] text-center px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Late Due Date
               </th>
-              <th className="w-[92px] text-left px-3 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[92px] text-center px-3 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Total Points
               </th>
-              <th className="w-[112px] text-left px-3 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[112px] text-center px-3 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Status
               </th>
-              <th className="w-[84px] text-right px-3 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[84px] text-center px-3 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Actions
               </th>
             </tr>
@@ -602,7 +602,7 @@ function AssignmentsSection() {
                   key={assignment.id}
                   className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === assignments.length - 1 ? 'border-b-0' : ''}`}
                 >
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-center">
                     <Link
                       to={`/faculty/class/${resolvedClassId}/assignment/${assignment.id}`}
                       className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
@@ -610,24 +610,24 @@ function AssignmentsSection() {
                       {assignment.name}
                     </Link>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-center">
                     <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-[12px] font-medium text-gray-700">
                       {assignment.language}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-center">
                     <span className="text-[13px] text-gray-600">{assignment.availableFrom}</span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-center">
                     <span className="text-[13px] text-gray-600">{assignment.dueDate}</span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-center">
                     <span className="text-[13px] text-gray-600">{assignment.lateDueDate}</span>
                   </td>
-                  <td className="px-3 py-4">
+                  <td className="px-3 py-4 text-center">
                     <span className="text-[13px] font-medium text-[#2B2A2A] whitespace-nowrap">{assignment.totalPoints}</span>
                   </td>
-                  <td className="px-3 py-4">
+                  <td className="px-3 py-4 text-center">
                     <span className={`inline-flex items-center whitespace-nowrap px-2 py-1 rounded-md text-[12px] font-medium ${
                       assignment.status === 'published'
                         ? 'bg-green-50 text-green-600'
@@ -638,9 +638,9 @@ function AssignmentsSection() {
                       {assignment.status}
                     </span>
                   </td>
-                  <td className="px-3 py-4 text-right">
+                  <td className="px-3 py-4 text-center">
                     <div
-                      className="relative flex items-center justify-end gap-2"
+                      className="relative flex items-center justify-center gap-2"
                       onClick={(event) => event.stopPropagation()}
                     >
                       <button
