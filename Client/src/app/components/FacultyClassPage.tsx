@@ -2022,7 +2022,6 @@ function StudentsSection({
               <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Student</th>
               <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Email</th>
               <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Status</th>
-              <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Group</th>
               <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Progress</th>
               <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Avg Score</th>
               <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Last Activity</th>
@@ -2048,9 +2047,6 @@ function StudentsSection({
                   </td>
                   <td className="px-4 py-4">
                     <div className="h-6 w-16 rounded-md bg-gray-100 animate-pulse" />
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="h-4 w-20 rounded bg-gray-200 animate-pulse" />
                   </td>
                   <td className="px-4 py-4">
                     <div className="space-y-2 animate-pulse">
@@ -2111,9 +2107,6 @@ function StudentsSection({
                     </span>
                   </td>
                   <td className="px-4 py-4">
-                    <span className="text-[13px] text-gray-700">{student.group}</span>
-                  </td>
-                  <td className="px-4 py-4">
                     <div className="w-28 h-2 bg-gray-100 rounded-full overflow-hidden mb-1">
                       <div className="h-full bg-[#5A7ACD]" style={{ width: `${Math.min(100, student.completionPercent)}%` }} />
                     </div>
@@ -2151,7 +2144,7 @@ function StudentsSection({
               ))
             ) : (
               <tr>
-                <td colSpan={9} className="px-6 py-6 text-center text-[13px] text-gray-600">
+                <td colSpan={8} className="px-6 py-6 text-center text-[13px] text-gray-600">
                   No students found for this filter.
                 </td>
               </tr>
