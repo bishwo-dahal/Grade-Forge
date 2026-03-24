@@ -550,13 +550,13 @@ function AssignmentsSection() {
               <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Late Due Date
               </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[92px] text-left px-3 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Total Points
               </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[112px] text-left px-3 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Status
               </th>
-              <th className="text-right px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[84px] text-right px-3 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Actions
               </th>
             </tr>
@@ -581,13 +581,13 @@ function AssignmentsSection() {
                   <td className="px-6 py-4">
                     <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-3 py-4">
                     <div className="h-4 w-10 rounded bg-gray-200 animate-pulse" />
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-3 py-4">
                     <div className="h-6 w-20 rounded-md bg-gray-100 animate-pulse" />
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-3 py-4">
                     <div className="flex items-center justify-end gap-2">
                       <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse" />
                       <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse" />
@@ -624,11 +624,11 @@ function AssignmentsSection() {
                   <td className="px-6 py-4">
                     <span className="text-[13px] text-gray-600">{assignment.lateDueDate}</span>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className="text-[13px] font-medium text-[#2B2A2A]">{assignment.totalPoints}</span>
+                  <td className="px-3 py-4">
+                    <span className="text-[13px] font-medium text-[#2B2A2A] whitespace-nowrap">{assignment.totalPoints}</span>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium ${
+                  <td className="px-3 py-4">
+                    <span className={`inline-flex items-center whitespace-nowrap px-2 py-1 rounded-md text-[12px] font-medium ${
                       assignment.status === 'published'
                         ? 'bg-green-50 text-green-600'
                         : assignment.status === 'closed'
@@ -638,7 +638,7 @@ function AssignmentsSection() {
                       {assignment.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-3 py-4 text-right">
                     <div
                       className="relative flex items-center justify-end gap-2"
                       onClick={(event) => event.stopPropagation()}
