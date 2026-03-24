@@ -123,6 +123,8 @@ export interface AssignmentDetailPageProps {
   submissionsSectionSubtitle?: string;
   /** Optional speed-grading entry for faculty assignment detail pages. */
   speedGradingLink?: { to: string; label: string };
+  /** Optional compact submissions count shown next to speed grading entry. */
+  submissionsCountLabel?: string;
   /** Optional link for faculty to manage test cases (opens assignment workspace). */
   testCasesLink?: { to: string; label: string };
   /** Optional test suite to display (like rubric section). */
@@ -141,6 +143,7 @@ export function AssignmentDetailPage({
   onRefreshSubmissions,
   submissionsSectionSubtitle = "Review and grade student submissions for this assignment.",
   speedGradingLink,
+  submissionsCountLabel,
   testCasesLink,
   testSuiteSection,
 }: AssignmentDetailPageProps) {
@@ -511,6 +514,11 @@ export function AssignmentDetailPage({
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {submissionsCountLabel ? (
+                <span className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-medium text-[#2B2A2A]">
+                  {submissionsCountLabel}
+                </span>
+              ) : null}
               {speedGradingLink ? (
                 <Link
                   to={speedGradingLink.to}
