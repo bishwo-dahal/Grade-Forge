@@ -240,8 +240,28 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
         max_risk_score: number;
       }
     | undefined;
+  const derivedAuthorshipSummary = authorshipSummary ?? (() => {
+    if (!results.length) return undefined;
+    const scores = results.map((r) => Number(r.ai_features?.risk_score ?? 0));
+    const high = scores.filter((s) => s >= 0.75).length;
+    const medium = scores.filter((s) => s >= 0.45 && s < 0.75).length;
+    const maxRisk = scores.length ? Math.max(...scores) : 0;
+    const hasAnySignal = scores.some((s) => s > 0);
+    if (!hasAnySignal) return undefined;
+    return {
+      total_students: results.length,
+      high_risk_students: high,
+      medium_risk_students: medium,
+      max_risk_score: maxRisk,
+    };
+  })();
   const aiDisclaimer = typeof payload?.ai_features?.disclaimer === "string" ? payload.ai_features.disclaimer : null;
   const selectedRow = results.find((r) => r.student_id === drawerStudentId) ?? null;
+  const currentStudentResult = studentId ? results[0] ?? null : null;
+  const aiTopRows = [...results]
+    .sort((a, b) => Number(b.ai_features?.risk_score ?? 0) - Number(a.ai_features?.risk_score ?? 0))
+    .filter((r) => Number(r.ai_features?.risk_score ?? 0) > 0)
+    .slice(0, 3);
   const isTerminal = report?.status === "COMPLETED" || report?.status === "FAILED";
   const isRunning = report?.status === "PENDING" || report?.status === "RUNNING";
 
@@ -257,7 +277,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
     <div className="p-6">
       <div className="flex items-center justify-between gap-3 mb-4">
         <h2 className="text-lg font-semibold text-[#2B2A2A]">
-          {studentId ? "Similarity (this submission)" : "Similarity Report"}
+          {studentId ? "Similarity and AI" : "Similarity Report"}
         </h2>
         {isFaculty && !studentId && (
           <button
@@ -304,32 +324,39 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
             {report.triggerType === "DEADLINE" && " (automatic after deadline)"}
           </p>
 
-          {!studentId && summary && (
+          {(summary || studentId) && (
             <>
-              <div className="mb-3 inline-flex flex-wrap gap-3 text-[12px] text-gray-700">
-                <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
-                  Students: {summary.total_students}
-                </span>
-                <span className="px-2 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
-                  Similarity flagged: {summary.flagged_students}
-                </span>
-                <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
-                  Max similarity: {Math.round((summary.max_similarity ?? 0) * 100)}%
-                </span>
-                {authorshipSummary && (
-                  <>
-                    <span className="px-2 py-1 rounded-full bg-red-50 border border-red-200 text-red-700">
-                      AI high risk: {authorshipSummary.high_risk_students}
+              {!studentId && summary && (
+                <div className="mb-3 inline-flex flex-wrap gap-3 text-[12px] text-gray-700">
+                  <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
+                    Students: {summary.total_students}
+                  </span>
+                  <span className="px-2 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
+                    Similarity flagged: {summary.flagged_students}
+                  </span>
+                  <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
+                    Max similarity: {Math.round((summary.max_similarity ?? 0) * 100)}%
+                  </span>
+                  {derivedAuthorshipSummary && (
+                    <>
+                      <span className="px-2 py-1 rounded-full bg-red-50 border border-red-200 text-red-700">
+                        AI high risk: {derivedAuthorshipSummary.high_risk_students}
+                      </span>
+                      <span className="px-2 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700">
+                        AI medium risk: {derivedAuthorshipSummary.medium_risk_students}
+                      </span>
+                      <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
+                        Max AI risk: {Math.round((derivedAuthorshipSummary.max_risk_score ?? 0) * 100)}%
+                      </span>
+                    </>
+                  )}
+                  {!derivedAuthorshipSummary && (
+                    <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200 text-gray-600">
+                      AI summary unavailable in this report (regenerate to include).
                     </span>
-                    <span className="px-2 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700">
-                      AI medium risk: {authorshipSummary.medium_risk_students}
-                    </span>
-                    <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
-                      Max AI risk: {Math.round((authorshipSummary.max_risk_score ?? 0) * 100)}%
-                    </span>
-                  </>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
               {aiDisclaimer && (
                 <p className="mb-4 text-[12px] text-gray-600">
                   {aiDisclaimer}
@@ -338,58 +365,92 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
               <p className="mb-4 text-[12px] text-gray-600">
                 Current version combines style-based heuristics with a small similarity-context weight for triage only.
               </p>
-              {!studentId && (
-                <div className="mb-4 flex items-center gap-2 text-[12px] text-gray-700">
-                  <span>View:</span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("similarity")}
-                    className={
-                      "px-2 py-0.5 rounded-full border text-xs " +
-                      (activeTab === "similarity"
-                        ? "border-amber-300 bg-amber-50 text-amber-700"
-                        : "border-gray-300 bg-white text-gray-600")
-                    }
-                  >
-                    Similarity
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("ai")}
-                    className={
-                      "px-2 py-0.5 rounded-full border text-xs " +
-                      (activeTab === "ai"
-                        ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                        : "border-gray-300 bg-white text-gray-600")
-                    }
-                  >
-                    AI risk
-                  </button>
-                  <span>Sort rows by:</span>
-                  <button
-                    type="button"
-                    onClick={() => setSortMode("ai_risk")}
-                    className={
-                      "px-2 py-0.5 rounded-full border text-xs " +
-                      (sortMode === "ai_risk"
-                        ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                        : "border-gray-300 bg-white text-gray-600")
-                    }
-                  >
-                    AI risk
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSortMode("similarity")}
-                    className={
-                      "px-2 py-0.5 rounded-full border text-xs " +
-                      (sortMode === "similarity"
-                        ? "border-amber-300 bg-amber-50 text-amber-700"
-                        : "border-gray-300 bg-white text-gray-600")
-                    }
-                  >
-                    Similarity
-                  </button>
+              {!studentId && aiTopRows.length > 0 && (
+                <div className="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
+                  <p className="text-[12px] font-medium text-indigo-800 mb-2">AI at a glance</p>
+                  <div className="space-y-1 text-[12px] text-indigo-900">
+                    {aiTopRows.map((r) => {
+                      const pct = Math.round(Number(r.ai_features?.risk_score ?? 0) * 100);
+                      const reason = Array.isArray(r.ai_features?.top_reasons) ? r.ai_features.top_reasons[0] : "";
+                      return (
+                        <p key={r.student_id} className="truncate">
+                          <span className="font-mono">Student {r.student_id}</span> - {pct}% risk
+                          {reason ? ` - ${reason}` : ""}
+                        </p>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <div className="mb-4 flex items-center gap-2 text-[12px] text-gray-700">
+                <span>View:</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("similarity")}
+                  className={
+                    "px-2 py-0.5 rounded-full border text-xs " +
+                    (activeTab === "similarity"
+                      ? "border-amber-300 bg-amber-50 text-amber-700"
+                      : "border-gray-300 bg-white text-gray-600")
+                  }
+                >
+                  Similarity
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("ai")}
+                  className={
+                    "px-2 py-0.5 rounded-full border text-xs " +
+                    (activeTab === "ai"
+                      ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                      : "border-gray-300 bg-white text-gray-600")
+                  }
+                >
+                  AI risk
+                </button>
+                {!studentId && (
+                  <>
+                    <span>Sort rows by:</span>
+                    <button
+                      type="button"
+                      onClick={() => setSortMode("ai_risk")}
+                      className={
+                        "px-2 py-0.5 rounded-full border text-xs " +
+                        (sortMode === "ai_risk"
+                          ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                          : "border-gray-300 bg-white text-gray-600")
+                      }
+                    >
+                      AI risk
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSortMode("similarity")}
+                      className={
+                        "px-2 py-0.5 rounded-full border text-xs " +
+                        (sortMode === "similarity"
+                          ? "border-amber-300 bg-amber-50 text-amber-700"
+                          : "border-gray-300 bg-white text-gray-600")
+                      }
+                    >
+                      Similarity
+                    </button>
+                  </>
+                )}
+              </div>
+              {currentStudentResult && (
+                <div className="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3 text-[12px]">
+                  <p className="font-medium text-indigo-800 mb-1">AI summary (this submission)</p>
+                  <p className="text-indigo-900">
+                    Risk: {String(currentStudentResult.ai_features?.risk_level ?? "none").toUpperCase()} ·{" "}
+                    {Math.round(Number(currentStudentResult.ai_features?.risk_score ?? 0) * 100)}%
+                  </p>
+                  {Array.isArray(currentStudentResult.ai_features?.top_reasons) &&
+                    currentStudentResult.ai_features.top_reasons.length > 0 && (
+                      <p className="text-indigo-900 mt-1">
+                        Reason: {currentStudentResult.ai_features.top_reasons[0]}
+                      </p>
+                    )}
                 </div>
               )}
             </>
