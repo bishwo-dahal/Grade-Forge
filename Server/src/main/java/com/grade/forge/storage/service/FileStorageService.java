@@ -18,6 +18,7 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -120,12 +121,9 @@ public class FileStorageService {
 
     private AssignmentStarterFile uploadStarterFile(Assignment assignment, MultipartFile multipartFile) {
         String originalName = validateAndGetName(multipartFile);
-        String ext = extractExtension(originalName);
 
-        enforceAllowedExtension(assignment.getProgrammingLanguage(), ext);
-
-        String key = String.format("uploads/faculty/course/%d/assignment/%d/starter/%s-%s",
-                assignment.getCourse().getId(), assignment.getId(), UUID.randomUUID(), originalName);
+        String key = String.format("uploads/assignment/startercodefiles/%d/%s-%s",
+                assignment.getId(), UUID.randomUUID(), originalName);
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucketName)
@@ -188,6 +186,19 @@ public class FileStorageService {
         log.info("Presign key: [{}]", key);
         log.info("Generated presigned URL: {}", url);
         return url;
+    }
+
+    public void deleteObjects(List<String> keys) {
+        if (keys == null || keys.isEmpty()) {
+            return;
+        }
+        keys.forEach(key -> {
+            DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(key)
+                    .build();
+            getClient().deleteObject(deleteRequest);
+        });
     }
 
     /**
