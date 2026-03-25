@@ -20,7 +20,29 @@ export interface GraderReportResultItem {
   similarity_warning: string | null;
   matches_count?: number;
   comparisons: GraderReportComparison[];
-  ai_features: Record<string, unknown>;
+  ai_features: {
+    risk_score?: number;
+    risk_level?: "none" | "low" | "medium" | "high";
+    top_reasons?: string[];
+    signals?: Array<{
+      kind: string;
+      weight: number;
+      value?: number | string;
+      reason: string;
+      cohort_median?: number;
+    }>;
+    metrics?: {
+      code_lines?: number;
+      comment_ratio?: number;
+      avg_line_length?: number;
+      line_length_std?: number;
+      long_identifier_ratio?: number;
+      non_ascii_count?: number;
+      em_dash_count?: number;
+      marker_hits?: number;
+    };
+    [key: string]: unknown;
+  };
 }
 
 export interface GraderReportComparison {
@@ -55,6 +77,18 @@ export interface GraderReportResultPayload {
       flagged_students: number;
       max_similarity: number;
     };
+    authorship_risk_summary?: {
+      total_students: number;
+      high_risk_students: number;
+      medium_risk_students: number;
+      max_risk_score: number;
+    };
+    model_info?: {
+      name?: string;
+      type?: string;
+      uses_training_data?: boolean;
+    };
+    disclaimer?: string;
     // Allow any future assignment-level AI features.
     [key: string]: unknown;
   };

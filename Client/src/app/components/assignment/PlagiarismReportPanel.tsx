@@ -223,6 +223,15 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
   const summary = payload?.ai_features?.summary as
     | { total_students: number; flagged_students: number; max_similarity: number }
     | undefined;
+  const authorshipSummary = payload?.ai_features?.authorship_risk_summary as
+    | {
+        total_students: number;
+        high_risk_students: number;
+        medium_risk_students: number;
+        max_risk_score: number;
+      }
+    | undefined;
+  const aiDisclaimer = typeof payload?.ai_features?.disclaimer === "string" ? payload.ai_features.disclaimer : null;
   const isTerminal = report?.status === "COMPLETED" || report?.status === "FAILED";
   const isRunning = report?.status === "PENDING" || report?.status === "RUNNING";
 
@@ -286,17 +295,40 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
           </p>
 
           {!studentId && summary && (
-            <div className="mb-4 inline-flex flex-wrap gap-3 text-[12px] text-gray-700">
-              <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
-                Students: {summary.total_students}
-              </span>
-              <span className="px-2 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
-                Flagged: {summary.flagged_students}
-              </span>
-              <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
-                Max similarity: {Math.round((summary.max_similarity ?? 0) * 100)}%
-              </span>
-            </div>
+            <>
+              <div className="mb-3 inline-flex flex-wrap gap-3 text-[12px] text-gray-700">
+                <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
+                  Students: {summary.total_students}
+                </span>
+                <span className="px-2 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
+                  Similarity flagged: {summary.flagged_students}
+                </span>
+                <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
+                  Max similarity: {Math.round((summary.max_similarity ?? 0) * 100)}%
+                </span>
+                {authorshipSummary && (
+                  <>
+                    <span className="px-2 py-1 rounded-full bg-red-50 border border-red-200 text-red-700">
+                      AI high risk: {authorshipSummary.high_risk_students}
+                    </span>
+                    <span className="px-2 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700">
+                      AI medium risk: {authorshipSummary.medium_risk_students}
+                    </span>
+                    <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
+                      Max AI risk: {Math.round((authorshipSummary.max_risk_score ?? 0) * 100)}%
+                    </span>
+                  </>
+                )}
+              </div>
+              {aiDisclaimer && (
+                <p className="mb-4 text-[12px] text-gray-600">
+                  {aiDisclaimer}
+                </p>
+              )}
+              <p className="mb-4 text-[12px] text-gray-600">
+                Current version combines style-based heuristics with a small similarity-context weight for triage only.
+              </p>
+            </>
           )}
 
           {results.length === 0 ? (
@@ -311,13 +343,14 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
                     <tr>
                       <th className="px-4 py-2 font-medium text-[#2B2A2A]">Student</th>
                       <th className="px-4 py-2 font-medium text-[#2B2A2A]">Similarity</th>
+                      <th className="px-4 py-2 font-medium text-[#2B2A2A]">AI risk</th>
                       <th className="px-4 py-2 font-medium text-[#2B2A2A]">Warning</th>
                       <th className="px-4 py-2 w-8" />
                     </tr>
                   </thead>
                   <tbody>
                     <tr className="border-b border-gray-100 bg-gray-50/60">
-                      <td colSpan={4} className="px-4 py-2">
+                      <td colSpan={5} className="px-4 py-2">
                         <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-700">
                           <span className="mr-1 text-gray-500">Filter comparisons:</span>
                           <button
@@ -400,6 +433,33 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
                                 </span>
                               )}
                             </td>
+                            <td className="px-4 py-2 text-[13px]">
+                              {(() => {
+                                const aiScore = Number(row.ai_features?.risk_score ?? 0);
+                                const aiLevel = String(row.ai_features?.risk_level ?? "none");
+                                const aiPct = Math.round(aiScore * 100);
+                                const reasons = Array.isArray(row.ai_features?.top_reasons)
+                                  ? row.ai_features.top_reasons.slice(0, 2)
+                                  : [];
+                                if (aiLevel === "none" && aiPct <= 0) return <span className="text-gray-500">—</span>;
+                                const levelClass =
+                                  aiLevel === "high"
+                                    ? "border-red-200 bg-red-50 text-red-700"
+                                    : aiLevel === "medium"
+                                    ? "border-orange-200 bg-orange-50 text-orange-700"
+                                    : "border-gray-200 bg-gray-50 text-gray-700";
+                                return (
+                                  <div className="space-y-1">
+                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] border ${levelClass}`}>
+                                      {aiLevel.toUpperCase()} · {aiPct}%
+                                    </span>
+                                    {reasons.length > 0 && (
+                                      <p className="text-[11px] text-gray-600 max-w-[260px] line-clamp-2">{reasons.join(" ")}</p>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </td>
                             <td className="px-4 py-2 text-gray-600 text-[13px] max-w-[200px] truncate">
                               {row.similarity_warning ?? "—"}
                             </td>
@@ -419,8 +479,20 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
                           </tr>
                           {isExpanded && hasComparisons && (
                             <tr className="bg-gray-50/50">
-                              <td colSpan={4} className="px-4 py-3">
+                              <td colSpan={5} className="px-4 py-3">
                                 <div className="space-y-3 text-[13px]">
+                                  {Array.isArray(row.ai_features?.signals) && row.ai_features.signals.length > 0 && (
+                                    <div className="rounded border border-indigo-100 bg-indigo-50/50 p-3">
+                                      <p className="text-[12px] font-medium text-indigo-800 mb-1">AI risk reasons (heuristic)</p>
+                                      <ul className="text-[12px] text-indigo-900 list-disc pl-4 space-y-1">
+                                        {row.ai_features.signals.slice(0, 5).map((signal, sIdx) => (
+                                          <li key={sIdx}>
+                                            {signal.reason} (weight {Math.round((Number(signal.weight) || 0) * 100)}%)
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
                                   {row.comparisons
                                     .filter((comp) => {
                                       if (filterMode === "all") return true;

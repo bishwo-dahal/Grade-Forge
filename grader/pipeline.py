@@ -1,16 +1,22 @@
 """Run all grader steps and return combined results."""
 from data_parser import Assignment
+from ai_detection import analyze_ai_risk
 from plagiarism import run_similarity_check, HIGHLIGHT_START, HIGHLIGHT_END
 
 
 def run_pipeline(assignment: Assignment) -> dict:
     """Run all steps (similarity, etc.) and merge per-student results."""
     by_student = {s.student_id: {} for s in assignment.submissions}
+    similarity_by_student = {}
 
     results, comparisons = run_similarity_check(assignment)
     for r in results:
+        similarity_by_student[r["student_id"]] = r.get("similarity_score", 0.0)
         sid = r.pop("student_id")
         by_student[sid].update(r)
+
+    ai_analysis = analyze_ai_risk(assignment, similarity_by_student)
+    ai_by_student = ai_analysis.get("by_student", {})
 
     # Simple assignment-level summary for quick frontend visuals / risk overview.
     total_students = len(by_student)
@@ -31,9 +37,7 @@ def run_pipeline(assignment: Assignment) -> dict:
             elif sid == right_id:
                 out.append({"left": c["right"], "right": c["left"], "overlap_tokens": c.get("overlap_tokens")})
         by_student[sid]["comparisons"] = out
-        # Extensible object for future AI-derived features per student (e.g. is_ai_generated, explanation).
-        if "ai_features" not in by_student[sid]:
-            by_student[sid]["ai_features"] = {}
+        by_student[sid]["ai_features"] = ai_by_student.get(sid, {})
 
     return {
         "assignment_id": assignment.assignment_id,
@@ -45,6 +49,9 @@ def run_pipeline(assignment: Assignment) -> dict:
                 "total_students": total_students,
                 "flagged_students": flagged_students,
                 "max_similarity": round(max_similarity_overall, 2),
-            }
+            },
+            "authorship_risk_summary": ai_analysis.get("summary", {}),
+            "model_info": ai_analysis.get("model_info", {}),
+            "disclaimer": ai_analysis.get("disclaimer"),
         },
     }
