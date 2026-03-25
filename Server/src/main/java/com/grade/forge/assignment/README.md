@@ -10,7 +10,8 @@ This project now supports optional multi-file starter code stored in S3 alongsid
 - `PUT /api/v1/faculty/assignments/{id}` (multipart)
   - Parts:
     - `assignment` (JSON, partial `AssignmentRequest` for fields to update)
-    - `starterFiles` (optional file[]; if present, replaces existing starter files; send empty list to clear)
+    - `retainStarterFileIds` (optional JSON array of existing starter file IDs to keep; any existing file not listed is deleted)
+    - `starterFiles` (optional file[]; new uploads are added on top of retained files)
 - `GET /api/v1/faculty/assignments/{id}` returns `AssignmentResponse` (includes presigned download URLs for starter files)
 
 ## Request JSON (`AssignmentRequest`)
@@ -47,7 +48,7 @@ This project now supports optional multi-file starter code stored in S3 alongsid
     {
       "id": 42,
       "fileName": "starter.py",
-      "fileKey": "uploads/faculty/course/1/assignment/10/starter/uuid-starter.py",
+      "fileKey": "uploads/assignment/startercodefiles/10/uuid-starter.py",
       "fileType": "text/x-python",
       "fileSize": 1234,
       "downloadUrl": "<presigned GET url>"
@@ -64,6 +65,8 @@ This project now supports optional multi-file starter code stored in S3 alongsid
 ```
 
 ## Notes
-- Starter files are validated against the assignment language allowed extensions (plus .txt/.csv) and stored in S3 under `uploads/faculty/course/{courseId}/assignment/{assignmentId}/starter/`.
+- Starter files accept any extension and are stored in S3 under `uploads/assignment/startercodefiles/{assignmentId}/`.
 - Responses include presigned download URLs (short-lived) for each starter file, similar to submission file responses.
+
+
 

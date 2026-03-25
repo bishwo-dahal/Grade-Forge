@@ -49,8 +49,9 @@ public class AssignmentController {
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<AssignmentResponse> updateAssignment(@PathVariable Long id,
                                                                @RequestPart("assignment") AssignmentRequest request,
-                                                               @RequestPart(value = "starterFiles", required = false) List<MultipartFile> starterFiles) {
-        AssignmentResponse updated = assignmentService.updateAssignment(id, request, starterFiles);
+                                                               @RequestPart(value = "starterFiles", required = false) List<MultipartFile> starterFiles,
+                                                               @RequestPart(value = "retainStarterFileIds", required = false) List<Long> retainStarterFileIds) {
+        AssignmentResponse updated = assignmentService.updateAssignment(id, request, starterFiles, retainStarterFileIds);
         return new ResponseEntity<>(updated, HttpStatus.OK);
     }
 

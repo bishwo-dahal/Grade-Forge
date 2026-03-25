@@ -7,7 +7,6 @@ import {
   getFacultyAssignmentEditPageData,
   getFacultyAssignmentCreatePageData,
   updateFacultyAssignmentDraft,
-  type UpdateFacultyAssignmentStarterEditOptions,
 } from "../../services/assignmentService";
 import { getRubric, getUnweightedRubricTotalPoints } from "../../services/rubricService";
 import { createTestSuite } from "../../services/testSuiteService";
@@ -667,6 +666,10 @@ export function FacultyCreateAssignmentPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [testCasesAdded, setTestCasesAdded] = useState(false);
   const [totalPointsLockedByRubric, setTotalPointsLockedByRubric] = useState(false);
+  /** Snapshot of server starter files when edit page loaded (for dirty detection). */
+  const [initialStarterSnapshot, setInitialStarterSnapshot] = useState<AssignmentExistingStarterFile[]>([]);
+  /** Edit mode: starter files still included on save; user can remove before save. */
+  const [retainedStarterFiles, setRetainedStarterFiles] = useState<AssignmentExistingStarterFile[]>([]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -684,6 +687,24 @@ export function FacultyCreateAssignmentPage() {
       })
       .finally(() => setIsLoading(false));
   }, [resolvedClassId, mode, assignmentId]);
+
+  useEffect(() => {
+    if (!pageData) {
+      return;
+    }
+    if (mode === "edit") {
+      const existing = pageData.existingStarterFiles ?? [];
+      setInitialStarterSnapshot(existing);
+      setRetainedStarterFiles(existing);
+    } else {
+      setInitialStarterSnapshot([]);
+      setRetainedStarterFiles([]);
+    }
+  }, [pageData, mode, assignmentId]);
+
+  const handleRemoveRetainedStarter = (id: number) => {
+    setRetainedStarterFiles((previous) => previous.filter((f) => f.id !== id));
+  };
 
   const canSubmit = useMemo(() => {
     if (!form) {
@@ -798,7 +819,12 @@ export function FacultyCreateAssignmentPage() {
     try {
       const savedAssignmentId =
         mode === "edit" && assignmentId
-          ? (await updateFacultyAssignmentDraft(assignmentId, resolvedClassId, form)).assignmentId
+          ? (
+              await updateFacultyAssignmentDraft(assignmentId, resolvedClassId, form, {
+                initialExisting: initialStarterSnapshot,
+                retainedExisting: retainedStarterFiles,
+              })
+            ).assignmentId
           : (await createFacultyAssignmentDraft(resolvedClassId, form)).assignmentId;
       const hasTestCases = testSuiteDraft.testCases.some((c) => c.output.trim().length > 0);
       setTestCasesAdded(false);
@@ -890,7 +916,8 @@ export function FacultyCreateAssignmentPage() {
         <FacultyCreateAssignmentView
           classId={resolvedClassId}
           pageData={pageData}
-          existingStarterFiles={pageData?.existingStarterFiles ?? []}
+          retainedStarterFiles={retainedStarterFiles}
+          onRemoveRetainedStarter={handleRemoveRetainedStarter}
           form={form}
           testSuiteDraft={testSuiteDraft}
           isLoading={isLoading}

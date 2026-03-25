@@ -95,7 +95,7 @@ public class AssignmentService {
         return mapToResponse(saved);
     }
 
-    public AssignmentResponse updateAssignment(Long id, AssignmentRequest request, List<MultipartFile> starterFiles) {
+    public AssignmentResponse updateAssignment(Long id, AssignmentRequest request, List<MultipartFile> starterFiles, List<Long> retainStarterFileIds) {
         Assignment assignment = assignmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + id));
 
@@ -154,32 +154,7 @@ public class AssignmentService {
 
         Assignment saved = assignmentRepository.save(assignment);
 
-        if (Boolean.TRUE.equals(request.getClearStarterFiles())) {
-            List<AssignmentStarterFile> existingStarters = assignmentStarterFileRepository.findByAssignment_Id(saved.getId());
-            if (!existingStarters.isEmpty()) {
-                fileStorageService.deleteObjects(existingStarters.stream()
-                        .map(AssignmentStarterFile::getFileKey)
-                        .toList());
-            }
-            assignmentStarterFileRepository.deleteByAssignment_Id(saved.getId());
-            saved.setStarterFiles(List.of());
-        } else if (starterFiles != null) {
-            List<AssignmentStarterFile> existing = assignmentStarterFileRepository.findByAssignment_Id(saved.getId());
-            if (!existing.isEmpty()) {
-                fileStorageService.deleteObjects(existing.stream()
-                        .map(AssignmentStarterFile::getFileKey)
-                        .toList());
-            }
-
-            assignmentStarterFileRepository.deleteByAssignment_Id(saved.getId());
-            List<AssignmentStarterFile> newStarterFiles = fileStorageService.uploadAssignmentStarterFiles(saved, starterFiles);
-            if (!newStarterFiles.isEmpty()) {
-                assignmentStarterFileRepository.saveAll(newStarterFiles);
-                saved.setStarterFiles(newStarterFiles);
-            } else {
-                saved.setStarterFiles(List.of());
-            }
-        }
+        handleStarterFilesUpdate(saved, starterFiles, retainStarterFileIds);
 
         return mapToResponse(saved);
     }
@@ -349,5 +324,39 @@ public class AssignmentService {
                 .fileSize(file.getFileSize())
                 .downloadUrl(fileStorageService.generatePresignedDownloadUrl(file.getFileKey(), file.getFileName()))
                 .build();
+    }
+
+    private void handleStarterFilesUpdate(Assignment assignment,
+                                          List<MultipartFile> newFiles,
+                                          List<Long> retainStarterFileIds) {
+        List<AssignmentStarterFile> existing = assignmentStarterFileRepository.findByAssignment_Id(assignment.getId());
+
+        List<AssignmentStarterFile> toKeep = existing;
+        if (retainStarterFileIds != null) {
+            List<AssignmentStarterFile> toRemove = existing.stream()
+                    .filter(f -> f.getId() != null && !retainStarterFileIds.contains(f.getId()))
+                    .toList();
+
+            if (!toRemove.isEmpty()) {
+                fileStorageService.deleteObjects(toRemove.stream().map(AssignmentStarterFile::getFileKey).toList());
+                assignmentStarterFileRepository.deleteAllInBatch(toRemove);
+            }
+
+            toKeep = existing.stream()
+                    .filter(f -> f.getId() != null && retainStarterFileIds.contains(f.getId()))
+                    .toList();
+        }
+
+        List<AssignmentStarterFile> updated = new java.util.ArrayList<>(toKeep);
+
+        if (newFiles != null) {
+            List<AssignmentStarterFile> uploaded = fileStorageService.uploadAssignmentStarterFiles(assignment, newFiles);
+            if (!uploaded.isEmpty()) {
+                assignmentStarterFileRepository.saveAll(uploaded);
+                updated.addAll(uploaded);
+            }
+        }
+
+        assignment.setStarterFiles(updated);
     }
 }
