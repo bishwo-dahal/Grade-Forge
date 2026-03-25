@@ -11,7 +11,11 @@ export interface ScoreRingItem {
 interface CircularScorePanelProps {
   items: ScoreRingItem[];
   /** Optional title above the rings */
-  title?: string;
+  title?: string | null;
+  ringSize?: number;
+  strokeWidth?: number;
+  compact?: boolean;
+  minimal?: boolean;
 }
 
 function AnimatedRing({
@@ -62,18 +66,24 @@ function AnimatedRing({
   );
 }
 
-export function CircularScorePanel({ items, title = "Scores" }: CircularScorePanelProps) {
-  const size = 72;
-  const strokeWidth = 6;
+export function CircularScorePanel({
+  items,
+  title = "Scores",
+  ringSize = 72,
+  strokeWidth = 6,
+  compact = false,
+  minimal = false,
+}: CircularScorePanelProps) {
+  const size = ringSize;
 
   return (
-    <div className="p-4">
-      {title && (
+    <div className={minimal ? "p-0" : compact ? "p-2" : "p-4"}>
+      {title && title.trim() !== "" && (
         <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-3">
           {title}
         </h3>
       )}
-      <div className="flex flex-wrap items-center gap-4">
+      <div className={`flex flex-wrap items-center ${minimal ? "gap-2" : compact ? "gap-2" : "gap-4"}`}>
         {items.map((item, index) => {
           const percent = item.percent ?? 0;
           const displayValue =
@@ -83,7 +93,7 @@ export function CircularScorePanel({ items, title = "Scores" }: CircularScorePan
                 ? `${item.percent}%`
                 : "—";
           return (
-            <div key={item.label} className="flex items-center gap-2">
+            <div key={item.label} className={minimal ? "flex items-center" : "flex items-center gap-2"}>
               <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
                 <AnimatedRing
                   percent={Math.min(100, Math.max(0, percent))}
@@ -99,14 +109,16 @@ export function CircularScorePanel({ items, title = "Scores" }: CircularScorePan
                   {displayValue}
                 </div>
               </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-[11px] font-medium text-gray-500 truncate">
-                  {item.label}
-                </span>
-                <span className="text-[12px] text-[#2B2A2A] font-medium truncate">
-                  {item.value != null ? item.value : item.percent != null ? `${item.percent}%` : "—"}
-                </span>
-              </div>
+              {!minimal && (
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[11px] font-medium text-gray-500 truncate">
+                    {item.label}
+                  </span>
+                  <span className="text-[12px] text-[#2B2A2A] font-medium truncate">
+                    {item.value != null ? item.value : item.percent != null ? `${item.percent}%` : "—"}
+                  </span>
+                </div>
+              )}
             </div>
           );
         })}

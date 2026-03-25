@@ -51,6 +51,8 @@ import type { GradingAssistantRubricResponse } from "../../types/gradingAssistan
 import type { TestRunJobStatusResponse } from "../../types/runTests";
 import { roundTo2 } from "../../utils/number";
 import type { PublicTestCase } from "../../types/submission";
+import { getLatestGraderReportForStudent } from "../../services/graderReportService";
+import type { GraderReportResultItem } from "../../types/graderReport";
 
 type GradingTabType = "description" | "tests" | "plagiarism" | "rubric" | "group";
 
@@ -231,6 +233,10 @@ export function AssignmentGradingPage() {
       }
     >
   >({});
+
+  // Latest grader report-derived scores (used by the compact rings).
+  const [similarityScore, setSimilarityScore] = useState<number | null>(null);
+  const [aiRiskScore, setAiRiskScore] = useState<number | null>(null);
 
   const backToAssignmentUrl = isFaculty
     ? `/faculty/class/${classId}/assignment/${assignmentId}`
@@ -441,13 +447,69 @@ export function AssignmentGradingPage() {
     return () => clearInterval(interval);
   }, [resolvedSubmissionId, runResult?.status]);
 
+  // Load latest grader report scores for this student so the compact rings update immediately.
+  useEffect(() => {
+    if (!assignmentId || !studentId) return;
+    const aId = Number(assignmentId);
+    if (!Number.isFinite(aId) || aId <= 0) return;
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const latest = await getLatestGraderReportForStudent(aId, studentId);
+        if (cancelled) return;
+        if (!latest?.student) {
+          setSimilarityScore(null);
+          setAiRiskScore(null);
+          return;
+        }
+        setSimilarityScore(
+          typeof latest.student.similarity_score === "number" ? latest.student.similarity_score : null
+        );
+        const risk =
+          typeof latest.student.ai_features?.risk_score === "number"
+            ? latest.student.ai_features.risk_score
+            : null;
+        setAiRiskScore(risk);
+      } catch {
+        // Keep placeholders on errors.
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [assignmentId, studentId]);
+
   const scoreItems = useMemo(
-    () => [
-      { label: "Plagiarism", value: null as number | null, percent: 0, color: "#FEB05D" },
-      { label: "AI", value: null as number | null, percent: 0, color: "#5A7ACD" },
-      { label: "AI Grader Score", value: null as number | null, percent: null, color: "#1E7A3F" },
-    ],
-    []
+    () => {
+      const getSeverityColor = (pct: number) => {
+        if (pct >= 85) return "#DC2626"; // red
+        if (pct >= 60) return "#F59E0B"; // amber
+        if (pct > 0) return "#16A34A"; // green
+        return "#D1D5DB"; // gray
+      };
+
+      const plagiarismPct = similarityScore != null ? Math.round(similarityScore * 100) : 0;
+      const aiPct = aiRiskScore != null ? Math.round(aiRiskScore * 100) : 0;
+
+      return [
+        {
+          label: "Plagiarism",
+          value: null as number | null,
+          percent: plagiarismPct,
+          color: getSeverityColor(plagiarismPct),
+        },
+        {
+          label: "AI",
+          value: null as number | null,
+          percent: aiPct,
+          color: getSeverityColor(aiPct),
+        },
+      ];
+    },
+    [similarityScore, aiRiskScore]
   );
 
   const handleRunTests = useCallback(
@@ -739,20 +801,64 @@ export function AssignmentGradingPage() {
                       </button>
                     )}
                   </div>
-                  <div className="mt-0.5 text-[11px] text-gray-500">
-                    {submissionFiles.length <= 1
-                      ? `File: ${submissionFiles[0]?.fileName ?? "—"}`
-                      : `Files: ${submissionFiles.length} files`}
+                  <div className="mt-0.5 flex items-center justify-between gap-3 text-[11px] text-gray-500">
+                    <div className="min-w-0">
+                      {submissionFiles.length <= 1
+                        ? `File: ${submissionFiles[0]?.fileName ?? "—"}`
+                        : `Files: ${submissionFiles.length} files`}
+                    </div>
+                    <div className="flex-shrink-0" />
                   </div>
-                  {isFaculty && (submissionMarks != null || (submissionFeedback != null && submissionFeedback.trim() !== "")) ? (
+
+                  {/* Grade & feedback section */}
+                  {isFaculty ? (
                     <div className="mt-3 pt-3 border-t border-gray-200">
-                      <div className="text-[12px] font-medium text-gray-500 uppercase tracking-wide mb-1">Grade & feedback</div>
-                      <div className="text-[13px] text-[#2B2A2A]">
-                        <span className="font-medium">
-                          {submissionMarks != null
-                            ? `${submissionMarks} / ${assignment.points?.total ?? "—"}`
-                            : "—"}
-                        </span>
+                      <div className="flex items-start justify-between gap-3 mb-1">
+                        <div className="min-w-0">
+                          <div className="text-[12px] font-medium text-gray-500 uppercase tracking-wide">Grade & feedback</div>
+                          <div className="mt-1 text-[13px] text-[#2B2A2A]">
+                            <span className="font-medium">
+                              {submissionMarks != null
+                                ? `${submissionMarks} / ${assignment.points?.total ?? "—"}`
+                                : "—"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <CircularScorePanel
+                            items={scoreItems}
+                            title={null}
+                            ringSize={48}
+                            strokeWidth={5}
+                            compact
+                            minimal
+                          />
+                          <div className="flex flex-col gap-1 text-[11px] text-gray-600">
+                            <div className="flex items-center gap-1">
+                              <span
+                                className="inline-block w-2.5 h-2.5 rounded-sm"
+                                style={{ backgroundColor: scoreItems[0]?.color ?? "#D1D5DB" }}
+                              />
+                              <span>Plagiarism</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span
+                                className="inline-block w-2.5 h-2.5 rounded-sm"
+                                style={{ backgroundColor: scoreItems[1]?.color ?? "#D1D5DB" }}
+                              />
+                              <span>AI</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleOpenGradeClick}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2B2A2A] hover:bg-[#3a3939] text-white text-[13px] font-medium"
+                          >
+                            <CheckSquare className="w-3.5 h-3.5" strokeWidth={2} />
+                            Grade
+                          </button>
+                        </div>
                       </div>
                       {submissionFeedback != null && submissionFeedback.trim() !== "" ? (
                         <div className="mt-1.5 text-[12px] text-gray-600 line-clamp-3 break-words">
@@ -875,21 +981,6 @@ export function AssignmentGradingPage() {
                   )}
                 </div>
 
-                {/* Scores - sticky to bottom of left panel so always visible */}
-                <div className="sticky bottom-0 z-10 flex-shrink-0 mt-auto border-t border-gray-200 bg-white">
-                  <div className="px-4 py-3 flex items-center justify-between gap-2 border-b border-gray-100">
-                    <span className="text-[13px] font-medium text-[#2B2A2A]">Grade</span>
-                    <button
-                      type="button"
-                      onClick={handleOpenGradeClick}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2B2A2A] hover:bg-[#3a3939] text-white text-[13px] font-medium"
-                    >
-                      <CheckSquare className="w-3.5 h-3.5" strokeWidth={2} />
-                      Grade
-                    </button>
-                  </div>
-                  <CircularScorePanel items={scoreItems} title="Scores" />
-                </div>
               </div>
             </div>
           </Panel>
