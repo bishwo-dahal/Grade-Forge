@@ -168,9 +168,11 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
+  const [drawerStudentId, setDrawerStudentId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"similarity" | "ai">("similarity");
   const [filterMode, setFilterMode] = useState<"all" | "high_struct" | "high_token">("all");
   const [sortMode, setSortMode] = useState<"ai_risk" | "similarity">("ai_risk");
+  const [showAllComparisons, setShowAllComparisons] = useState(false);
 
   const fetchLatest = useCallback(async () => {
     if (!assignmentId) return;
@@ -239,6 +241,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
       }
     | undefined;
   const aiDisclaimer = typeof payload?.ai_features?.disclaimer === "string" ? payload.ai_features.disclaimer : null;
+  const selectedRow = results.find((r) => r.student_id === drawerStudentId) ?? null;
   const isTerminal = report?.status === "COMPLETED" || report?.status === "FAILED";
   const isRunning = report?.status === "PENDING" || report?.status === "RUNNING";
 
@@ -337,6 +340,31 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
               </p>
               {!studentId && (
                 <div className="mb-4 flex items-center gap-2 text-[12px] text-gray-700">
+                  <span>View:</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("similarity")}
+                    className={
+                      "px-2 py-0.5 rounded-full border text-xs " +
+                      (activeTab === "similarity"
+                        ? "border-amber-300 bg-amber-50 text-amber-700"
+                        : "border-gray-300 bg-white text-gray-600")
+                    }
+                  >
+                    Similarity
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("ai")}
+                    className={
+                      "px-2 py-0.5 rounded-full border text-xs " +
+                      (activeTab === "ai"
+                        ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                        : "border-gray-300 bg-white text-gray-600")
+                    }
+                  >
+                    AI risk
+                  </button>
                   <span>Sort rows by:</span>
                   <button
                     type="button"
@@ -378,15 +406,24 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
                       <th className="px-4 py-2 font-medium text-[#2B2A2A]">Student</th>
-                      <th className="px-4 py-2 font-medium text-[#2B2A2A]">Similarity</th>
-                      <th className="px-4 py-2 font-medium text-[#2B2A2A]">AI risk</th>
-                      <th className="px-4 py-2 font-medium text-[#2B2A2A]">Warning</th>
+                      {activeTab === "similarity" ? (
+                        <>
+                          <th className="px-4 py-2 font-medium text-[#2B2A2A]">Similarity</th>
+                          <th className="px-4 py-2 font-medium text-[#2B2A2A]">Warning</th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="px-4 py-2 font-medium text-[#2B2A2A]">AI risk</th>
+                          <th className="px-4 py-2 font-medium text-[#2B2A2A]">Top reason</th>
+                        </>
+                      )}
                       <th className="px-4 py-2 w-8" />
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b border-gray-100 bg-gray-50/60">
-                      <td colSpan={5} className="px-4 py-2">
+                    {activeTab === "similarity" && (
+                      <tr className="border-b border-gray-100 bg-gray-50/60">
+                        <td colSpan={4} className="px-4 py-2">
                         <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-700">
                           <span className="mr-1 text-gray-500">Filter comparisons:</span>
                           <button
@@ -426,13 +463,13 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
                             High token
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
+                    )}
                     {results.map((row: GraderReportResultItem) => {
                       const simPct = Math.round((row.similarity_score ?? 0) * 100);
-                      const hasComparisons = row.comparisons?.length > 0;
-                      const matchesCount = (row as any).matches_count as number | undefined;
-                      const riskLevel =
+                      const matchesCount = (row as { matches_count?: number }).matches_count;
+                      const simRiskLevel =
                         simPct >= 75
                           ? "High"
                           : simPct >= 40
@@ -440,178 +477,200 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
                           : matchesCount && matchesCount > 0
                           ? "Low"
                           : "None";
-                      const isExpanded = studentId ? true : expandedStudentId === row.student_id;
+                      const aiScore = Number(row.ai_features?.risk_score ?? 0);
+                      const aiLevel = String(row.ai_features?.risk_level ?? "none");
+                      const aiPct = Math.round(aiScore * 100);
+                      const primaryReason = Array.isArray(row.ai_features?.top_reasons)
+                        ? row.ai_features.top_reasons[0]
+                        : "";
                       return (
-                        <React.Fragment key={row.student_id}>
-                          <tr className="border-b border-gray-100 hover:bg-gray-50/80">
-                            <td className="px-4 py-2 font-mono text-[13px]">{row.student_id}</td>
-                            <td className="px-4 py-2">
-                              <span
-                                className={
-                                  simPct >= 50 ? "font-semibold text-amber-600" : "text-gray-700"
-                                }
-                              >
-                                {simPct}%
-                              </span>
-                              {riskLevel !== "None" && (
-                                <span
-                                  className={
-                                    "ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] border " +
-                                    (riskLevel === "High"
-                                      ? "border-red-200 bg-red-50 text-red-700"
-                                      : riskLevel === "Medium"
-                                      ? "border-amber-200 bg-amber-50 text-amber-700"
-                                      : "border-gray-200 bg-gray-50 text-gray-600")
-                                  }
-                                >
-                                  {riskLevel} risk
-                                  {matchesCount ? ` · ${matchesCount} match${matchesCount > 1 ? "es" : ""}` : ""}
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-4 py-2 text-[13px]">
-                              {(() => {
-                                const aiScore = Number(row.ai_features?.risk_score ?? 0);
-                                const aiLevel = String(row.ai_features?.risk_level ?? "none");
-                                const aiPct = Math.round(aiScore * 100);
-                                const reasons = Array.isArray(row.ai_features?.top_reasons)
-                                  ? row.ai_features.top_reasons.slice(0, 2)
-                                  : [];
-                                if (aiLevel === "none" && aiPct <= 0) return <span className="text-gray-500">—</span>;
-                                const levelClass =
-                                  aiLevel === "high"
-                                    ? "border-red-200 bg-red-50 text-red-700"
-                                    : aiLevel === "medium"
-                                    ? "border-orange-200 bg-orange-50 text-orange-700"
-                                    : "border-gray-200 bg-gray-50 text-gray-700";
-                                return (
-                                  <div className="space-y-1">
-                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] border ${levelClass}`}>
-                                      {aiLevel.toUpperCase()} · {aiPct}%
-                                    </span>
-                                    {reasons.length > 0 && (
-                                      <p className="text-[11px] text-gray-600 max-w-[260px] line-clamp-2">{reasons.join(" ")}</p>
-                                    )}
-                                  </div>
-                                );
-                              })()}
-                            </td>
-                            <td className="px-4 py-2 text-gray-600 text-[13px] max-w-[200px] truncate">
-                              {row.similarity_warning ?? "—"}
-                            </td>
-                            <td className="px-4 py-2">
-                              {hasComparisons && !studentId && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setExpandedStudentId(isExpanded ? null : row.student_id)
-                                  }
-                                  className="text-[#5A7ACD] hover:underline text-[13px]"
-                                >
-                                  {isExpanded ? "Hide" : "Show"} comparisons
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                          {isExpanded && hasComparisons && (
-                            <tr className="bg-gray-50/50">
-                              <td colSpan={5} className="px-4 py-3">
-                                <div className="space-y-3 text-[13px]">
-                                  {Array.isArray(row.ai_features?.signals) && row.ai_features.signals.length > 0 && (
-                                    <div className="rounded border border-indigo-100 bg-indigo-50/50 p-3">
-                                      <p className="text-[12px] font-medium text-indigo-800 mb-1">AI risk reasons (heuristic)</p>
-                                      <ul className="text-[12px] text-indigo-900 list-disc pl-4 space-y-1">
-                                        {row.ai_features.signals.slice(0, 5).map((signal, sIdx) => (
-                                          <li key={sIdx}>
-                                            {signal.reason} (weight {Math.round((Number(signal.weight) || 0) * 100)}%)
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-                                  {row.ai_features?.llm_rationale &&
-                                    typeof row.ai_features.llm_rationale === "object" && (
-                                      <div className="rounded border border-violet-100 bg-violet-50/50 p-3">
-                                        <p className="text-[12px] font-medium text-violet-800 mb-1">
-                                          Optional LLM explanation
-                                        </p>
-                                        <p className="text-[12px] text-violet-900">
-                                          {(row.ai_features.llm_rationale as { summary?: string }).summary ?? "—"}
-                                        </p>
-                                      </div>
-                                    )}
-                                  {row.comparisons
-                                    .filter((comp) => {
-                                      if (filterMode === "all") return true;
-                                      const struct = comp.left.structural_similarity ?? 0;
-                                      const token = comp.left.token_similarity ?? 0;
-                                      if (filterMode === "high_struct") {
-                                        return struct >= 0.7;
-                                      }
-                                      if (filterMode === "high_token") {
-                                        return token >= 0.7;
-                                      }
-                                      return true;
-                                    })
-                                    .map((comp, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="rounded border border-gray-200 bg-white p-3"
-                                    >
-                                      <div className="mb-2 text-[11px] text-gray-600">
-                                        {typeof comp.left.token_similarity === "number" &&
-                                        typeof comp.left.structural_similarity === "number" ? (
-                                          <>
-                                            Token:{" "}
-                                            {Math.round((comp.left.token_similarity ?? 0) * 100)}% · Structural:{" "}
-                                            {Math.round((comp.left.structural_similarity ?? 0) * 100)}% · Combined:{" "}
-                                            {Math.round(
-                                              (comp.left.combined_similarity ?? comp.left.similarity ?? 0) * 100
-                                            )}
-                                            %
-                                          </>
-                                        ) : (
-                                          <>Similarity details unavailable</>
-                                        )}
-                                      </div>
-                                      <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                          <p className="font-medium text-gray-700 mb-1">
-                                            You (left) — {Math.round((comp.left.similarity ?? 0) * 100)}%
-                                          </p>
-                                          <pre className="whitespace-pre-wrap break-words text-[12px] bg-gray-50 p-2 rounded max-h-72 overflow-auto">
-                                            {renderHighlightedCode(
-                                              comp.left.code,
-                                              highlightMarkers,
-                                              "bg-amber-200/70 text-gray-900 rounded-sm px-0.5"
-                                            )}
-                                          </pre>
-                                        </div>
-                                        <div>
-                                          <p className="font-medium text-gray-700 mb-1">
-                                            Other (right) — {Math.round((comp.right.similarity ?? 0) * 100)}%
-                                          </p>
-                                          <pre className="whitespace-pre-wrap break-words text-[12px] bg-gray-50 p-2 rounded max-h-72 overflow-auto">
-                                            {renderHighlightedCode(
-                                              comp.right.code,
-                                              highlightMarkers,
-                                              "bg-emerald-200/70 text-gray-900 rounded-sm px-0.5"
-                                            )}
-                                          </pre>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
+                        <tr key={row.student_id} className="border-b border-gray-100 hover:bg-gray-50/80">
+                          <td className="px-4 py-2 font-mono text-[13px]">{row.student_id}</td>
+                          {activeTab === "similarity" ? (
+                            <>
+                              <td className="px-4 py-2">
+                                <span className={simPct >= 50 ? "font-semibold text-amber-600" : "text-gray-700"}>{simPct}%</span>
+                                {simRiskLevel !== "None" && (
+                                  <span
+                                    className={
+                                      "ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] border " +
+                                      (simRiskLevel === "High"
+                                        ? "border-red-200 bg-red-50 text-red-700"
+                                        : simRiskLevel === "Medium"
+                                        ? "border-amber-200 bg-amber-50 text-amber-700"
+                                        : "border-gray-200 bg-gray-50 text-gray-600")
+                                    }
+                                  >
+                                    {simRiskLevel} risk
+                                  </span>
+                                )}
                               </td>
-                            </tr>
+                              <td className="px-4 py-2 text-gray-600 text-[13px] max-w-[220px] truncate">
+                                {row.similarity_warning ?? "—"}
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-4 py-2 text-[13px]">
+                                {aiLevel === "none" && aiPct <= 0 ? (
+                                  <span className="text-gray-500">—</span>
+                                ) : (
+                                  <span
+                                    className={
+                                      "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] border " +
+                                      (aiLevel === "high"
+                                        ? "border-red-200 bg-red-50 text-red-700"
+                                        : aiLevel === "medium"
+                                        ? "border-orange-200 bg-orange-50 text-orange-700"
+                                        : "border-gray-200 bg-gray-50 text-gray-700")
+                                    }
+                                  >
+                                    {aiLevel.toUpperCase()} · {aiPct}%
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 text-gray-600 text-[12px] max-w-[320px] truncate">
+                                {primaryReason || "—"}
+                              </td>
+                            </>
                           )}
-                        </React.Fragment>
+                          <td className="px-4 py-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDrawerStudentId(row.student_id);
+                                setShowAllComparisons(false);
+                              }}
+                              className="text-[#5A7ACD] hover:underline text-[13px]"
+                            >
+                              View
+                            </button>
+                          </td>
+                        </tr>
                       );
                     })}
                   </tbody>
                 </table>
               </div>
+              {selectedRow && (
+                <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4">
+                  <div className="mt-8 w-full max-w-6xl rounded-xl border border-gray-200 bg-white shadow-xl">
+                    <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                      <h3 className="text-[14px] font-semibold text-[#2B2A2A]">
+                        Student {selectedRow.student_id} details
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setDrawerStudentId(null)}
+                        className="text-[12px] text-gray-500 hover:text-gray-700"
+                      >
+                        Close
+                      </button>
+                    </div>
+                    <div className="max-h-[80vh] overflow-y-auto p-4">
+                      {Array.isArray(selectedRow.ai_features?.signals) && selectedRow.ai_features.signals.length > 0 && (
+                        <div className="rounded border border-indigo-100 bg-indigo-50/50 p-3 mb-3">
+                          <p className="text-[12px] font-medium text-indigo-800 mb-1">AI risk reasons (heuristic)</p>
+                          <ul className="text-[12px] text-indigo-900 list-disc pl-4 space-y-1">
+                            {selectedRow.ai_features.signals.slice(0, 5).map((signal, sIdx) => (
+                              <li key={sIdx}>
+                                {signal.reason} (weight {Math.round((Number(signal.weight) || 0) * 100)}%)
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {selectedRow.ai_features?.llm_rationale &&
+                        typeof selectedRow.ai_features.llm_rationale === "object" && (
+                          <div className="rounded border border-violet-100 bg-violet-50/50 p-3 mb-3">
+                            <p className="text-[12px] font-medium text-violet-800 mb-1">Optional LLM explanation</p>
+                            <p className="text-[12px] text-violet-900">
+                              {(selectedRow.ai_features.llm_rationale as { summary?: string }).summary ?? "—"}
+                            </p>
+                          </div>
+                        )}
+                      {activeTab === "similarity" && (
+                        <div className="space-y-3 text-[13px]">
+                          {(() => {
+                            const filteredComparisons = selectedRow.comparisons.filter((comp) => {
+                              if (filterMode === "all") return true;
+                              const struct = comp.left.structural_similarity ?? 0;
+                              const token = comp.left.token_similarity ?? 0;
+                              if (filterMode === "high_struct") return struct >= 0.7;
+                              if (filterMode === "high_token") return token >= 0.7;
+                              return true;
+                            });
+                            const visibleComparisons = showAllComparisons
+                              ? filteredComparisons
+                              : filteredComparisons.slice(0, 2);
+                            return (
+                              <>
+                                <div className="flex items-center justify-between text-[12px] text-gray-600">
+                                  <span>
+                                    Showing {visibleComparisons.length} of {filteredComparisons.length} comparison
+                                    {filteredComparisons.length === 1 ? "" : "s"}
+                                  </span>
+                                  {filteredComparisons.length > 2 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowAllComparisons((v) => !v)}
+                                      className="text-[#5A7ACD] hover:underline"
+                                    >
+                                      {showAllComparisons ? "Show fewer" : "Show all comparisons"}
+                                    </button>
+                                  )}
+                                </div>
+                                {visibleComparisons.map((comp, idx) => (
+                              <div key={idx} className="rounded border border-gray-200 bg-white p-3">
+                                <div className="mb-2 text-[11px] text-gray-600">
+                                  {typeof comp.left.token_similarity === "number" &&
+                                  typeof comp.left.structural_similarity === "number" ? (
+                                    <>
+                                      Token: {Math.round((comp.left.token_similarity ?? 0) * 100)}% · Structural:{" "}
+                                      {Math.round((comp.left.structural_similarity ?? 0) * 100)}% · Combined:{" "}
+                                      {Math.round((comp.left.combined_similarity ?? comp.left.similarity ?? 0) * 100)}%
+                                    </>
+                                  ) : (
+                                    <>Similarity details unavailable</>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <p className="font-medium text-gray-700 mb-1">
+                                      You (left) — {Math.round((comp.left.similarity ?? 0) * 100)}%
+                                    </p>
+                                    <pre className="whitespace-pre-wrap break-words text-[12px] bg-gray-50 p-2 rounded max-h-72 overflow-auto">
+                                      {renderHighlightedCode(
+                                        comp.left.code,
+                                        highlightMarkers,
+                                        "bg-amber-200/70 text-gray-900 rounded-sm px-0.5"
+                                      )}
+                                    </pre>
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-700 mb-1">
+                                      Other (right) — {Math.round((comp.right.similarity ?? 0) * 100)}%
+                                    </p>
+                                    <pre className="whitespace-pre-wrap break-words text-[12px] bg-gray-50 p-2 rounded max-h-72 overflow-auto">
+                                      {renderHighlightedCode(
+                                        comp.right.code,
+                                        highlightMarkers,
+                                        "bg-emerald-200/70 text-gray-900 rounded-sm px-0.5"
+                                      )}
+                                    </pre>
+                                  </div>
+                                </div>
+                              </div>
+                                ))}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>
