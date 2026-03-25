@@ -32,6 +32,7 @@ interface UniversityMonitorViewProps {
   isLoading: boolean;
   error: string | null;
   hasSearched: boolean;
+  hasFilters: boolean;
   page: number;
   onPageChange: (page: number) => void;
   userInput: string;
@@ -49,6 +50,7 @@ interface UniversityMonitorViewProps {
   showAdvanced: boolean;
   onToggleAdvanced: () => void;
   onSearch: () => void;
+  onReset: () => void;
   onRefresh: () => void;
 }
 
@@ -57,6 +59,7 @@ function UniversityMonitorView({
   isLoading,
   error,
   hasSearched,
+  hasFilters,
   page,
   onPageChange,
   userInput,
@@ -74,6 +77,7 @@ function UniversityMonitorView({
   showAdvanced,
   onToggleAdvanced,
   onSearch,
+  onReset,
   onRefresh,
 }: UniversityMonitorViewProps) {
   const logs: ActivityLogEntry[] = data?.logs ?? [];
@@ -197,6 +201,14 @@ function UniversityMonitorView({
               className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#2B2A2A] px-5 text-[14px] font-semibold text-white disabled:opacity-50"
             >
               Search
+            </button>
+            <button
+              type="button"
+              onClick={onReset}
+              disabled={isLoading || !hasFilters}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#CFD2D9] bg-white px-5 text-[14px] font-semibold text-[#2B2A2A] disabled:opacity-50"
+            >
+              Reset
             </button>
             <button
               type="button"
@@ -337,6 +349,14 @@ export function UniversityMonitorPage() {
     };
   }, [userInput, roleFilter, statusFilter, dateFilter, startFilter, endFilter]);
 
+  const hasFilters =
+    userInput.trim().length > 0 ||
+    roleFilter.trim().length > 0 ||
+    statusFilter.trim().length > 0 ||
+    dateFilter.trim().length > 0 ||
+    startFilter.trim().length > 0 ||
+    endFilter.trim().length > 0;
+
   const load = useCallback(
     async (pageToLoad: number, filters: NonNullable<typeof appliedFilters>) => {
       setIsLoading(true);
@@ -366,6 +386,21 @@ export function UniversityMonitorPage() {
     await load(0, filters);
   }, [buildFilters, load]);
 
+  const onReset = useCallback(() => {
+    setUserInput("");
+    setRoleFilter("");
+    setStatusFilter("");
+    setDateFilter("");
+    setStartFilter("");
+    setEndFilter("");
+    setAppliedFilters(null);
+    setPage(0);
+    setHasSearched(false);
+    setData(null);
+    setError(null);
+    setShowAdvanced(false);
+  }, []);
+
   const onPageChange = useCallback(
     async (nextPage: number) => {
       if (!appliedFilters) return;
@@ -386,6 +421,7 @@ export function UniversityMonitorPage() {
       isLoading={isLoading}
       error={error}
       hasSearched={hasSearched}
+      hasFilters={hasFilters}
       page={page}
       onPageChange={onPageChange}
       userInput={userInput}
@@ -403,6 +439,7 @@ export function UniversityMonitorPage() {
       showAdvanced={showAdvanced}
       onToggleAdvanced={() => setShowAdvanced((v) => !v)}
       onSearch={onSearch}
+      onReset={onReset}
       onRefresh={onRefresh}
     />
   );
