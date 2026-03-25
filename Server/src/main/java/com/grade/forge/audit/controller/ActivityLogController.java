@@ -49,8 +49,13 @@ public class ActivityLogController {
     ) {
         List<Map<String, Object>> logs = new ArrayList<>();
 
-        LocalDate effectiveDate = date != null && !date.isBlank() ? parseDateOrDateTime(date) : LocalDate.now(ZoneOffset.UTC);
-        List<Path> filesToRead = resolveFiles(date);
+        boolean dateProvided = date != null && !date.isBlank();
+        LocalDate effectiveDate = dateProvided ? parseDateOrDateTime(date) : LocalDate.now(ZoneOffset.UTC);
+        if (dateProvided && effectiveDate == null) {
+            return empty(page, size);
+        }
+
+        List<Path> filesToRead = resolveFiles(effectiveDate, dateProvided);
         Instant startInstant = parseTimeOnDate(start, effectiveDate);
         Instant endInstant = parseTimeOnDate(end, effectiveDate);
         for (Path path : filesToRead) {
@@ -76,12 +81,11 @@ public class ActivityLogController {
         return ResponseEntity.ok(response);
     }
 
-    private List<Path> resolveFiles(String date) {
-        if (date == null || date.isBlank()) {
+    private List<Path> resolveFiles(LocalDate parsedDate, boolean dateProvided) {
+        if (!dateProvided) {
             Path active = Path.of(ACTIVE_LOG);
             return Files.exists(active) ? List.of(active) : List.of();
         }
-        LocalDate parsedDate = parseDateOrDateTime(date);
         if (parsedDate == null) {
             return List.of();
         }
@@ -157,9 +161,18 @@ public class ActivityLogController {
         if (raw == null || raw.isBlank()) {
             return null;
         }
-        try {
-            return LocalDate.parse(raw, DATE_FORMATTER);
-        } catch (Exception ignore) {
+        // Accept common date formats and full ISO date-times; return date portion in UTC.
+        List<DateTimeFormatter> dateFormats = List.of(
+                DATE_FORMATTER,
+                DateTimeFormatter.ofPattern("MM/dd/yyyy"),
+                DateTimeFormatter.ofPattern("yyyy/MM/dd")
+        );
+        for (DateTimeFormatter fmt : dateFormats) {
+            try {
+                return LocalDate.parse(raw, fmt);
+            } catch (Exception ignore) {
+                // try next
+            }
         }
         try {
             return Instant.parse(raw).atZone(ZoneOffset.UTC).toLocalDate();
@@ -172,11 +185,33 @@ public class ActivityLogController {
         if (timeRaw == null || timeRaw.isBlank() || date == null) {
             return null;
         }
-        try {
-            return date.atTime(java.time.LocalTime.parse(timeRaw)).toInstant(ZoneOffset.UTC);
-        } catch (Exception ex) {
-            return null;
+        // Try ISO first (e.g., 23:41 or 23:41:05), then common 12/24-hour patterns case-insensitively.
+        List<DateTimeFormatter> timeFormats = List.of(
+                java.time.format.DateTimeFormatter.ISO_LOCAL_TIME,
+                new java.time.format.DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("HH:mm").toFormatter(),
+                new java.time.format.DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("HH:mm:ss").toFormatter(),
+                new java.time.format.DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("hh:mm a").toFormatter(),
+                new java.time.format.DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("hh:mm:ss a").toFormatter()
+        );
+        for (DateTimeFormatter fmt : timeFormats) {
+            try {
+                return date.atTime(java.time.LocalTime.parse(timeRaw.trim(), fmt)).toInstant(ZoneOffset.UTC);
+            } catch (Exception ignore) {
+                // try next
+            }
         }
+        return null;
+    }
+
+    private ResponseEntity<Map<String, Object>> empty(int page, int size) {
+        Map<String, Object> response = Map.of(
+                "logs", List.of(),
+                "total", 0,
+                "page", page,
+                "size", size,
+                "pages", 0
+        );
+        return ResponseEntity.ok(response);
     }
 }
 
