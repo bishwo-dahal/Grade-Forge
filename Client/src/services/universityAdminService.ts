@@ -1,5 +1,7 @@
 import type {
   AcademicSemester,
+  ActivityLogPageResponse,
+  ActivityLogQueryParams,
   FacultyApiResponse,
   FacultyCreatePayload,
   FacultyMember,
@@ -172,4 +174,19 @@ export function listDepartmentOptions(): Promise<string[]> {
 export function listUniversityCourses(): Promise<UniversityCourseRow[]> {
   // TODO(backend): Replace with university courses listing endpoint and keep return shape stable.
   return Promise.resolve(universityCourses);
+}
+
+export async function fetchActivityLogs(params: ActivityLogQueryParams): Promise<ActivityLogPageResponse> {
+  const { page = 0, size = 20, user, role, status, date } = params;
+  const { data } = await api.get<ActivityLogPageResponse>("/api/v1/university_admin/activity", {
+    params: {
+      page,
+      size,
+      ...(user?.trim() ? { user: user.trim() } : {}),
+      ...(role?.trim() ? { role: role.trim() } : {}),
+      ...(status?.trim() ? { status: status.trim() } : {}),
+      ...(date?.trim() ? { date: date.trim() } : {}),
+    },
+  });
+  return data;
 }

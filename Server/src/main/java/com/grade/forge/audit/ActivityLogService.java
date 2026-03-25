@@ -1,0 +1,45 @@
+package com.grade.forge.audit;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.stereotype.Service;
+
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+@Service
+public class ActivityLogService {
+
+    private static final Logger activityLogger = LoggerFactory.getLogger("ACTIVITY_LOGGER");
+    private static final ObjectMapper mapper = new ObjectMapper();
+
+    public void log(Authentication authentication, String action, String details, String status) {
+        String role = "unknown";
+        String user = "anonymous";
+        if (authentication != null) {
+            user = authentication.getName();
+            GrantedAuthority authority = authentication.getAuthorities() != null && !authentication.getAuthorities().isEmpty()
+                    ? authentication.getAuthorities().iterator().next()
+                    : null;
+            role = authority != null ? authority.getAuthority() : role;
+        }
+        log(role, user, action, details, status);
+    }
+
+    public void log(String role,String user, String action, String details, String status) {
+        try {
+            Map<String, String> entry = new LinkedHashMap<>();
+            entry.put("timestamp", Instant.now().toString());
+            entry.put("role", role);
+            entry.put("user", user);
+            entry.put("action", action);
+            entry.put("details", details);
+            entry.put("status", status);
+            activityLogger.info(mapper.writeValueAsString(entry));
+        } catch (Exception ignored) {}
+    }
+}

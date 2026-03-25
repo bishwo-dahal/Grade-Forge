@@ -1,5 +1,6 @@
 package com.grade.forge.execution.controller;
 
+import com.grade.forge.audit.ActivityLogService;
 import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.assignment.dto.AssignmentResponse;
 import com.grade.forge.assignment.service.AssignmentService;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,9 +36,11 @@ public class RunTestsStudentAssignmentController {
     private final RunTestsSyncService runTestsSyncService;
     private final AssignmentService assignmentService;
     private final CourseService courseService;
+    private final ActivityLogService activityLogService;
 
     @PostMapping(value = "/{assignmentId}/run-tests", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<TestRunJobStatusResponse> runTestsWithFiles(
+            Authentication authentication,
             @AuthenticationPrincipal CustomUserDetails user,
             @org.springframework.web.bind.annotation.PathVariable Long assignmentId,
             @RequestPart("files") List<MultipartFile> files,
@@ -62,7 +66,9 @@ public class RunTestsStudentAssignmentController {
                 .passedCount(passed)
                 .totalCount(publicResults.size())
                 .build();
-        return ResponseEntity.ok(safe);
+        ResponseEntity<TestRunJobStatusResponse> response = ResponseEntity.ok(safe);
+        activityLogService.log(authentication, "Requested test run", "Assignment ID: " + assignmentId, "success");
+        return response;
     }
 
     /**

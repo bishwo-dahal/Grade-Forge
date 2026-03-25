@@ -104,3 +104,31 @@ export interface LanguageCreatePayload {
   /** Optional comma-separated list of allowed source extensions (e.g. ".py,.txt,.csv"). */
   allowedExtensions?: string;
 }
+
+/** Activity log row from `/university_admin/activity`. */
+export interface ActivityLogEntry {
+  timestamp: string;
+  role: string;
+  user: string;
+  action: string;
+  details: string;
+  status: string;
+}
+
+export interface ActivityLogPageResponse {
+  size: number;
+  page: number;
+  pages: number;
+  total: number;
+  logs: ActivityLogEntry[];
+}
+
+export interface ActivityLogQueryParams {
+  page?: number;
+  size?: number;
+  user?: string;
+  role?: string;
+  status?: string;
+  /** ISO date `yyyy-MM-dd` when filtering by day. */
+  date?: string;
+}

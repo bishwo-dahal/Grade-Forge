@@ -1,5 +1,6 @@
 package com.grade.forge.grading.controller;
 
+import com.grade.forge.audit.ActivityLogService;
 import com.grade.forge.grading.dto.SubmissionGradeBatchRequest;
 import com.grade.forge.grading.dto.SubmissionGradeBatchResponse;
 import com.grade.forge.grading.service.SubmissionGradeService;
@@ -7,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -16,18 +18,31 @@ import org.springframework.web.bind.annotation.*;
 public class SubmissionGradeController {
 
     private final SubmissionGradeService submissionGradeService;
+    private final ActivityLogService activityLogService;
 
     @PostMapping
-    public ResponseEntity<SubmissionGradeBatchResponse> create(@RequestBody SubmissionGradeBatchRequest request) {
-        SubmissionGradeBatchResponse created = submissionGradeService.createGrades(request);
-        return new ResponseEntity<>(created, HttpStatus.CREATED);
+    public ResponseEntity<SubmissionGradeBatchResponse> create(Authentication authentication, @RequestBody SubmissionGradeBatchRequest request) {
+        try {
+            SubmissionGradeBatchResponse created = submissionGradeService.createGrades(request);
+            activityLogService.log(authentication, "Created submission grades", "Submission ID: " + request.getSubmissionId(), "success");
+            return new ResponseEntity<>(created, HttpStatus.CREATED);
+        } catch (Exception ex) {
+            activityLogService.log(authentication, "Created submission grades", "Submission ID: " + request.getSubmissionId(), "failed");
+            throw ex;
+        }
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<SubmissionGradeBatchResponse> update(@PathVariable("id") Long submissionId,
+    public ResponseEntity<SubmissionGradeBatchResponse> update(Authentication authentication, @PathVariable("id") Long submissionId,
                                                                @RequestBody SubmissionGradeBatchRequest request) {
-        SubmissionGradeBatchResponse updated = submissionGradeService.replaceGrades(submissionId, request);
-        return new ResponseEntity<>(updated, HttpStatus.OK);
+        try {
+            SubmissionGradeBatchResponse updated = submissionGradeService.replaceGrades(submissionId, request);
+            activityLogService.log(authentication, "Updated submission grades", "Submission ID: " + submissionId, "success");
+            return new ResponseEntity<>(updated, HttpStatus.OK);
+        } catch (Exception ex) {
+            activityLogService.log(authentication, "Updated submission grades", "Submission ID: " + submissionId, "failed");
+            throw ex;
+        }
     }
 
     @GetMapping("/{submissionId}")
@@ -43,8 +58,14 @@ public class SubmissionGradeController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        submissionGradeService.deleteGrade(id);
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    public ResponseEntity<Void> delete(Authentication authentication, @PathVariable Long id) {
+        try {
+            submissionGradeService.deleteGrade(id);
+            activityLogService.log(authentication, "Deleted submission grade", "Grade ID: " + id, "success");
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        } catch (Exception ex) {
+            activityLogService.log(authentication, "Deleted submission grade", "Grade ID: " + id, "failed");
+            throw ex;
+        }
     }
 }

@@ -1,5 +1,6 @@
 package com.grade.forge.gradingassistant.controller;
 
+import com.grade.forge.audit.ActivityLogService;
 import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.gradingassistant.dto.GradingAssistantRequest;
 import com.grade.forge.gradingassistant.dto.GradingAssistantResponse;
@@ -8,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,34 +22,39 @@ import java.util.List;
 public class GradingAssistantFaultyController {
 
     private final GradingAssistantService gradingAssistantService;
+    private final ActivityLogService activityLogService;
 
     @PostMapping
-    public ResponseEntity<GradingAssistantResponse> create(@AuthenticationPrincipal CustomUserDetails customUserDetails, @RequestBody GradingAssistantRequest request) {
+    public ResponseEntity<GradingAssistantResponse> create(Authentication authentication, @AuthenticationPrincipal CustomUserDetails customUserDetails, @RequestBody GradingAssistantRequest request) {
         GradingAssistantResponse response = gradingAssistantService.createGradingAssistant(request, customUserDetails.getUserId());
+        activityLogService.log(authentication, "Created grading assistant", "Name: " + response.getName(), "success");
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @GetMapping
-    public ResponseEntity<List<GradingAssistantResponse>> getAll(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+    public ResponseEntity<List<GradingAssistantResponse>> getAll(Authentication authentication, @AuthenticationPrincipal CustomUserDetails customUserDetails) {
         List<GradingAssistantResponse> response = gradingAssistantService.getAllGradingAssistants(customUserDetails.getUserId());
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<GradingAssistantResponse> getOne(@PathVariable Long id, @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+    public ResponseEntity<GradingAssistantResponse> getOne(Authentication authentication, @PathVariable Long id, @AuthenticationPrincipal CustomUserDetails customUserDetails) {
         GradingAssistantResponse response = gradingAssistantService.getGradingAssistant(id, customUserDetails.getUserId());
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<GradingAssistantResponse> update(@PathVariable Long id, @AuthenticationPrincipal CustomUserDetails customUserDetails, @RequestBody GradingAssistantRequest request) {
+    public ResponseEntity<GradingAssistantResponse> update(Authentication authentication, @PathVariable Long id, @AuthenticationPrincipal CustomUserDetails customUserDetails, @RequestBody GradingAssistantRequest request) {
         GradingAssistantResponse response = gradingAssistantService.updateGradingAssistant(id, request, customUserDetails.getUserId());
+        activityLogService.log(authentication, "Updated grading assistant", "Grading assistant: " + response.getName(), "success");
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id, @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+    public ResponseEntity<Void> delete(Authentication authentication, @PathVariable Long id, @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+        GradingAssistantResponse toRemove = gradingAssistantService.getGradingAssistant(id, customUserDetails.getUserId());
         gradingAssistantService.deleteGradingAssistant(id, customUserDetails.getUserId());
+        activityLogService.log(authentication, "Removed grading assistant", "Grading assistant: " + (toRemove != null ? toRemove.getName() : ""), "success");
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 }

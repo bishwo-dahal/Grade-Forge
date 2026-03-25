@@ -1,12 +1,14 @@
 package com.grade.forge.coursemgmt.controller;
 
+import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.coursemgmt.dto.CourseRequestDto;
 import com.grade.forge.coursemgmt.dto.CourseResponseDto;
 import com.grade.forge.coursemgmt.service.CourseService;
-import com.grade.forge.configuration.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +21,7 @@ public class FacultyCourseController {
 
 
     private final CourseService courseService;
+    private final ActivityLogService activityLogService;
 
     /**
      * Create a new course
@@ -26,8 +29,9 @@ public class FacultyCourseController {
      * @return the created course
      */
     @PostMapping("/create")
-    public ResponseEntity<CourseResponseDto> createCourse(@AuthenticationPrincipal CustomUserDetails customUserDetails, @RequestBody CourseRequestDto courseRequestDto) {
+    public ResponseEntity<CourseResponseDto> createCourse(Authentication authentication, @AuthenticationPrincipal CustomUserDetails customUserDetails, @RequestBody CourseRequestDto courseRequestDto) {
         CourseResponseDto createdCourse = courseService.createCourse(customUserDetails.getUsername(), courseRequestDto);
+        activityLogService.log(authentication, "Created course", "Course: " + courseRequestDto.getName(), "success");
         return new ResponseEntity<>(createdCourse, HttpStatus.CREATED);
     }
 
@@ -37,7 +41,7 @@ public class FacultyCourseController {
      * @return the course
      */
     @GetMapping("/{id}")
-    public ResponseEntity<CourseResponseDto> getCourseById(@PathVariable Long id) {
+    public ResponseEntity<CourseResponseDto> getCourseById(Authentication authentication, @PathVariable Long id) {
         CourseResponseDto course = courseService.getCourseById(id);
         return new ResponseEntity<>(course, HttpStatus.OK);
     }
@@ -48,7 +52,7 @@ public class FacultyCourseController {
      * Get all courses for the authenticated faculty user
      */
     @GetMapping
-    public ResponseEntity<List<CourseResponseDto>> getCoursesForCurrentUser(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+    public ResponseEntity<List<CourseResponseDto>> getCoursesForCurrentUser(Authentication authentication, @AuthenticationPrincipal CustomUserDetails customUserDetails) {
         List<CourseResponseDto> courses = courseService.getCoursesByUserEmail(customUserDetails.getUsername());
         return new ResponseEntity<>(courses, HttpStatus.OK);
     }
@@ -58,7 +62,7 @@ public class FacultyCourseController {
      * @return list of active courses
      */
     @GetMapping("/active")
-    public ResponseEntity<List<CourseResponseDto>> getActiveCourses() {
+    public ResponseEntity<List<CourseResponseDto>> getActiveCourses(Authentication authentication) {
         List<CourseResponseDto> courses = courseService.getActiveCourses();
         return new ResponseEntity<>(courses, HttpStatus.OK);
     }
@@ -70,11 +74,18 @@ public class FacultyCourseController {
      * @return the updated course
      */
     @PutMapping("/{id}")
-    public ResponseEntity<CourseResponseDto> updateCourse(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+    public ResponseEntity<CourseResponseDto> updateCourse(Authentication authentication,
+                                                           @AuthenticationPrincipal CustomUserDetails customUserDetails,
                                                            @PathVariable Long id,
                                                            @RequestBody CourseRequestDto courseRequestDto) {
-        CourseResponseDto updatedCourse = courseService.updateCourseForFaculty(id, courseRequestDto, customUserDetails.getUsername());
-        return new ResponseEntity<>(updatedCourse, HttpStatus.OK);
+        try {
+            CourseResponseDto updatedCourse = courseService.updateCourseForFaculty(id, courseRequestDto, customUserDetails.getUsername());
+            activityLogService.log(authentication, "Updated course", "Course: " + courseRequestDto.getName(), "success");
+            return new ResponseEntity<>(updatedCourse, HttpStatus.OK);
+        } catch (Exception ex) {
+            activityLogService.log(authentication, "Updated course", "Course: " + courseRequestDto.getName(), "failed");
+            throw ex;
+        }
     }
 
     /**
@@ -83,10 +94,16 @@ public class FacultyCourseController {
      * @return the disabled course
      */
     @PatchMapping("/disable/{id}")
-    public ResponseEntity<CourseResponseDto> disableCourse(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+    public ResponseEntity<CourseResponseDto> disableCourse(Authentication authentication, @AuthenticationPrincipal CustomUserDetails customUserDetails,
                                                           @PathVariable Long id) {
-        CourseResponseDto disabledCourse = courseService.disableCourseForFaculty(id, customUserDetails.getUsername());
-        return new ResponseEntity<>(disabledCourse, HttpStatus.OK);
+        try {
+            CourseResponseDto disabledCourse = courseService.disableCourseForFaculty(id, customUserDetails.getUsername());
+            activityLogService.log(authentication, "Disabled course", "Course: " + disabledCourse.getName(), "success");
+            return new ResponseEntity<>(disabledCourse, HttpStatus.OK);
+        } catch (Exception ex) {
+            activityLogService.log(authentication, "Disabled course", "Course ID: " + id, "failed");
+            throw ex;
+        }
     }
 
     /**
@@ -95,9 +112,16 @@ public class FacultyCourseController {
      * @return success message
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteCourse(@AuthenticationPrincipal CustomUserDetails customUserDetails, @PathVariable Long id) {
-        courseService.deleteCourseForFaculty(id, customUserDetails.getUsername());
-        return new ResponseEntity<>("Course deleted successfully", HttpStatus.OK);
+    public ResponseEntity<String> deleteCourse(Authentication authentication, @AuthenticationPrincipal CustomUserDetails customUserDetails, @PathVariable Long id) {
+        CourseResponseDto deleted = courseService.getCourseById(id);
+        try {
+            courseService.deleteCourseForFaculty(id, customUserDetails.getUsername());
+            activityLogService.log(authentication, "Deleted course", "Course: " + (deleted != null ? deleted.getName() : ("ID " + id)), "success");
+            return new ResponseEntity<>("Course deleted successfully", HttpStatus.OK);
+        } catch (Exception ex) {
+            activityLogService.log(authentication, "Deleted course", "Course: " + (deleted != null ? deleted.getName() : ("ID " + id)) + " failed: " + ex.getMessage(), "failed");
+            throw ex;
+        }
     }
 
 }
