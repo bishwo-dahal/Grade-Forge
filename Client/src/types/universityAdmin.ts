@@ -131,4 +131,8 @@ export interface ActivityLogQueryParams {
   status?: string;
   /** ISO date `yyyy-MM-dd` when filtering by day. */
   date?: string;
+  /** Optional start timestamp (e.g. ISO string or datetime-local value). */
+  start?: string;
+  /** Optional end timestamp (e.g. ISO string or datetime-local value). */
+  end?: string;
 }

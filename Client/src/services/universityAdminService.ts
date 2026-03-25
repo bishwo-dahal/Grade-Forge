@@ -177,7 +177,7 @@ export function listUniversityCourses(): Promise<UniversityCourseRow[]> {
 }
 
 export async function fetchActivityLogs(params: ActivityLogQueryParams): Promise<ActivityLogPageResponse> {
-  const { page = 0, size = 20, user, role, status, date } = params;
+  const { page = 0, size = 20, user, role, status, date, start, end } = params;
   const { data } = await api.get<ActivityLogPageResponse>("/api/v1/university_admin/activity", {
     params: {
       page,
@@ -186,6 +186,8 @@ export async function fetchActivityLogs(params: ActivityLogQueryParams): Promise
       ...(role?.trim() ? { role: role.trim() } : {}),
       ...(status?.trim() ? { status: status.trim() } : {}),
       ...(date?.trim() ? { date: date.trim() } : {}),
+      ...(start?.trim() ? { start: start.trim() } : {}),
+      ...(end?.trim() ? { end: end.trim() } : {}),
     },
   });
   return data;

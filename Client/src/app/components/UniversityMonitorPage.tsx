@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import type { ActivityLogEntry, ActivityLogPageResponse } from "../../types/universityAdmin";
 import { fetchActivityLogs } from "../../services/universityAdminService";
@@ -31,6 +31,7 @@ interface UniversityMonitorViewProps {
   data: ActivityLogPageResponse | null;
   isLoading: boolean;
   error: string | null;
+  hasSearched: boolean;
   page: number;
   onPageChange: (page: number) => void;
   userInput: string;
@@ -41,6 +42,11 @@ interface UniversityMonitorViewProps {
   onStatusFilterChange: (value: string) => void;
   dateFilter: string;
   onDateFilterChange: (value: string) => void;
+  startFilter: string;
+  onStartFilterChange: (value: string) => void;
+  endFilter: string;
+  onEndFilterChange: (value: string) => void;
+  onSearch: () => void;
   onRefresh: () => void;
 }
 
@@ -48,6 +54,7 @@ function UniversityMonitorView({
   data,
   isLoading,
   error,
+  hasSearched,
   page,
   onPageChange,
   userInput,
@@ -58,6 +65,11 @@ function UniversityMonitorView({
   onStatusFilterChange,
   dateFilter,
   onDateFilterChange,
+  startFilter,
+  onStartFilterChange,
+  endFilter,
+  onEndFilterChange,
+  onSearch,
   onRefresh,
 }: UniversityMonitorViewProps) {
   const logs: ActivityLogEntry[] = data?.logs ?? [];
@@ -73,15 +85,25 @@ function UniversityMonitorView({
           <h1 className="text-[28px] leading-none font-bold text-[#2B2A2A]">Monitor</h1>
           <p className="mt-3 text-[14px] text-[#5D6A80]">System activity and audit log</p>
         </div>
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={isLoading}
-          className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#CFD2D9] bg-white px-4 text-[14px] font-semibold text-[#2B2A2A] disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} strokeWidth={2} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onSearch}
+            disabled={isLoading}
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#2B2A2A] px-4 text-[14px] font-semibold text-white disabled:opacity-50"
+          >
+            Search
+          </button>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={!hasSearched || isLoading}
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#CFD2D9] bg-white px-4 text-[14px] font-semibold text-[#2B2A2A] disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} strokeWidth={2} />
+            Refresh
+          </button>
+        </div>
       </section>
 
       <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -138,6 +160,30 @@ function UniversityMonitorView({
             className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
           />
         </div>
+        <div>
+          <label htmlFor="monitor-filter-start" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+            Start
+          </label>
+          <input
+            id="monitor-filter-start"
+            type="datetime-local"
+            value={startFilter}
+            onChange={(e) => onStartFilterChange(e.target.value)}
+            className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+          />
+        </div>
+        <div>
+          <label htmlFor="monitor-filter-end" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+            End
+          </label>
+          <input
+            id="monitor-filter-end"
+            type="datetime-local"
+            value={endFilter}
+            onChange={(e) => onEndFilterChange(e.target.value)}
+            className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+          />
+        </div>
       </section>
 
       {error && <p className="mt-4 text-[14px] text-[#C23A42]">{error}</p>}
@@ -150,7 +196,7 @@ function UniversityMonitorView({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              disabled={page <= 0 || isLoading}
+              disabled={!hasSearched || page <= 0 || isLoading}
               onClick={() => onPageChange(page - 1)}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#CFD2D9] bg-white text-[#2B2A2A] disabled:opacity-40"
               aria-label="Previous page"
@@ -162,7 +208,7 @@ function UniversityMonitorView({
             </span>
             <button
               type="button"
-              disabled={totalPages <= 1 || page >= totalPages - 1 || isLoading}
+              disabled={!hasSearched || totalPages <= 1 || page >= totalPages - 1 || isLoading}
               onClick={() => onPageChange(page + 1)}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#CFD2D9] bg-white text-[#2B2A2A] disabled:opacity-40"
               aria-label="Next page"
@@ -185,40 +231,44 @@ function UniversityMonitorView({
               </tr>
             </thead>
             <tbody>
-              {isLoading
-                ? Array.from({ length: 5 }).map((_, index) => (
-                    <tr key={`monitor-log-skeleton-${index}`} className="border-b border-gray-100 last:border-b-0">
-                      <td className="px-6 py-4" colSpan={6}>
-                        <div className="h-4 w-full animate-pulse rounded bg-[#F1F3F7]" />
-                      </td>
-                    </tr>
-                  ))
-                : logs.length === 0
-                  ? (
-                      <tr>
-                        <td colSpan={6} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
-                          No log entries match the current filters.
-                        </td>
-                      </tr>
-                    )
-                  : (
-                      logs.map((log, index) => (
-                        <tr key={`${log.timestamp}-${index}`} className="border-b border-gray-100 last:border-b-0">
-                          <td className="px-6 py-4 text-[13px] whitespace-nowrap text-[#2B2A2A]">{formatTimestamp(log.timestamp)}</td>
-                          <td className="px-6 py-4 text-[13px] text-[#44506B]">{log.role}</td>
-                          <td className="px-6 py-4 text-[13px] text-[#44506B]">{log.user}</td>
-                          <td className="px-6 py-4 text-[13px] font-medium text-[#2B2A2A]">{log.action}</td>
-                          <td className="px-6 py-4 text-[13px] text-[#5D6A80] max-w-[320px]">{log.details}</td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={`inline-flex rounded-lg px-2.5 py-1 text-[12px] font-semibold ring-1 ring-inset ${statusBadgeClass(log.status)}`}
-                            >
-                              {log.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    )}
+              {!hasSearched ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                    Click <span className="font-semibold text-[#2B2A2A]">Search</span> to load activity logs.
+                  </td>
+                </tr>
+              ) : isLoading ? (
+                Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={`monitor-log-skeleton-${index}`} className="border-b border-gray-100 last:border-b-0">
+                    <td className="px-6 py-4" colSpan={6}>
+                      <div className="h-4 w-full animate-pulse rounded bg-[#F1F3F7]" />
+                    </td>
+                  </tr>
+                ))
+              ) : logs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                    No log entries match the current filters.
+                  </td>
+                </tr>
+              ) : (
+                logs.map((log, index) => (
+                  <tr key={`${log.timestamp}-${index}`} className="border-b border-gray-100 last:border-b-0">
+                    <td className="px-6 py-4 text-[13px] whitespace-nowrap text-[#2B2A2A]">{formatTimestamp(log.timestamp)}</td>
+                    <td className="px-6 py-4 text-[13px] text-[#44506B]">{log.role}</td>
+                    <td className="px-6 py-4 text-[13px] text-[#44506B]">{log.user}</td>
+                    <td className="px-6 py-4 text-[13px] font-medium text-[#2B2A2A]">{log.action}</td>
+                    <td className="px-6 py-4 text-[13px] text-[#5D6A80] max-w-[320px]">{log.details}</td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex rounded-lg px-2.5 py-1 text-[12px] font-semibold ring-1 ring-inset ${statusBadgeClass(log.status)}`}
+                      >
+                        {log.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -227,116 +277,105 @@ function UniversityMonitorView({
   );
 }
 
-interface MonitorPagedSliceProps {
-  filterKey: string;
-  userInput: string;
-  onUserInputChange: (value: string) => void;
-  roleFilter: string;
-  onRoleFilterChange: (value: string) => void;
-  statusFilter: string;
-  onStatusFilterChange: (value: string) => void;
-  dateFilter: string;
-  onDateFilterChange: (value: string) => void;
-}
+export function UniversityMonitorPage() {
+  const [userInput, setUserInput] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [startFilter, setStartFilter] = useState("");
+  const [endFilter, setEndFilter] = useState("");
 
-/** Owns page state so remounting on filter changes resets pagination without racing the API. */
-function MonitorPagedSlice({
-  filterKey,
-  userInput,
-  onUserInputChange,
-  roleFilter,
-  onRoleFilterChange,
-  statusFilter,
-  onStatusFilterChange,
-  dateFilter,
-  onDateFilterChange,
-}: MonitorPagedSliceProps) {
   const [page, setPage] = useState(0);
   const [data, setData] = useState<ActivityLogPageResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
 
-  const [debouncedUser, role, status, date] = filterKey.split("\0");
+  const [appliedFilters, setAppliedFilters] = useState<{
+    user?: string;
+    role?: string;
+    status?: string;
+    date?: string;
+    start?: string;
+    end?: string;
+  } | null>(null);
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetchActivityLogs({
-        page,
-        size: PAGE_SIZE,
-        user: debouncedUser || undefined,
-        role: role || undefined,
-        status: status || undefined,
-        date: date || undefined,
-      });
-      setData(response);
-    } catch (e) {
-      setError(getApiErrorMessage(e, "Could not load activity logs."));
-      setData(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [page, debouncedUser, role, status, date]);
+  const buildFilters = useCallback(() => {
+    return {
+      user: userInput.trim() || undefined,
+      role: roleFilter.trim() || undefined,
+      status: statusFilter.trim() || undefined,
+      date: dateFilter.trim() || undefined,
+      start: startFilter.trim() || undefined,
+      end: endFilter.trim() || undefined,
+    };
+  }, [userInput, roleFilter, statusFilter, dateFilter, startFilter, endFilter]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const load = useCallback(
+    async (pageToLoad: number, filters: NonNullable<typeof appliedFilters>) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await fetchActivityLogs({
+          ...filters,
+          page: pageToLoad,
+          size: PAGE_SIZE,
+        });
+        setData(response);
+      } catch (e) {
+        setError(getApiErrorMessage(e, "Could not load activity logs."));
+        setData(null);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [setData]
+  );
+
+  const onSearch = useCallback(async () => {
+    const filters = buildFilters();
+    setAppliedFilters(filters);
+    setPage(0);
+    setHasSearched(true);
+    await load(0, filters);
+  }, [buildFilters, load]);
+
+  const onPageChange = useCallback(
+    async (nextPage: number) => {
+      if (!appliedFilters) return;
+      setPage(nextPage);
+      await load(nextPage, appliedFilters);
+    },
+    [appliedFilters, load]
+  );
+
+  const onRefresh = useCallback(async () => {
+    if (!appliedFilters) return;
+    await load(page, appliedFilters);
+  }, [appliedFilters, load, page]);
 
   return (
     <UniversityMonitorView
       data={data}
       isLoading={isLoading}
       error={error}
+      hasSearched={hasSearched}
       page={page}
-      onPageChange={setPage}
-      userInput={userInput}
-      onUserInputChange={onUserInputChange}
-      roleFilter={roleFilter}
-      onRoleFilterChange={onRoleFilterChange}
-      statusFilter={statusFilter}
-      onStatusFilterChange={onStatusFilterChange}
-      dateFilter={dateFilter}
-      onDateFilterChange={onDateFilterChange}
-      onRefresh={load}
-    />
-  );
-}
-
-export function UniversityMonitorPage() {
-  const [userInput, setUserInput] = useState("");
-  const [debouncedUser, setDebouncedUser] = useState("");
-
-  const [roleInput, setRoleInput] = useState("");
-  const [debouncedRole, setDebouncedRole] = useState("");
-
-  const [statusFilter, setStatusFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedUser(userInput.trim()), 400);
-    return () => window.clearTimeout(timer);
-  }, [userInput]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedRole(roleInput.trim()), 400);
-    return () => window.clearTimeout(timer);
-  }, [roleInput]);
-
-  const filterKey = [debouncedUser, debouncedRole, statusFilter.trim(), dateFilter.trim()].join("\0");
-
-  return (
-    <MonitorPagedSlice
-      key={filterKey}
-      filterKey={filterKey}
+      onPageChange={onPageChange}
       userInput={userInput}
       onUserInputChange={setUserInput}
-      roleFilter={roleInput}
-      onRoleFilterChange={setRoleInput}
+      roleFilter={roleFilter}
+      onRoleFilterChange={setRoleFilter}
       statusFilter={statusFilter}
       onStatusFilterChange={setStatusFilter}
       dateFilter={dateFilter}
       onDateFilterChange={setDateFilter}
+      startFilter={startFilter}
+      onStartFilterChange={setStartFilter}
+      endFilter={endFilter}
+      onEndFilterChange={setEndFilter}
+      onSearch={onSearch}
+      onRefresh={onRefresh}
     />
   );
 }
