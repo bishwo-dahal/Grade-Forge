@@ -329,34 +329,30 @@ public class AssignmentService {
     private void handleStarterFilesUpdate(Assignment assignment,
                                           List<MultipartFile> newFiles,
                                           List<Long> retainStarterFileIds) {
-        List<AssignmentStarterFile> existing = assignmentStarterFileRepository.findByAssignment_Id(assignment.getId());
+        List<AssignmentStarterFile> managedList = assignment.getStarterFiles();
+        if (managedList == null) {
+            managedList = new java.util.ArrayList<>();
+            assignment.setStarterFiles(managedList);
+        }
 
-        List<AssignmentStarterFile> toKeep = existing;
         if (retainStarterFileIds != null) {
-            List<AssignmentStarterFile> toRemove = existing.stream()
+            List<AssignmentStarterFile> toRemove = managedList.stream()
                     .filter(f -> f.getId() != null && !retainStarterFileIds.contains(f.getId()))
                     .toList();
 
             if (!toRemove.isEmpty()) {
                 fileStorageService.deleteObjects(toRemove.stream().map(AssignmentStarterFile::getFileKey).toList());
                 assignmentStarterFileRepository.deleteAllInBatch(toRemove);
+                managedList.removeAll(toRemove); // mutate managed collection to satisfy orphanRemoval
             }
-
-            toKeep = existing.stream()
-                    .filter(f -> f.getId() != null && retainStarterFileIds.contains(f.getId()))
-                    .toList();
         }
-
-        List<AssignmentStarterFile> updated = new java.util.ArrayList<>(toKeep);
 
         if (newFiles != null) {
             List<AssignmentStarterFile> uploaded = fileStorageService.uploadAssignmentStarterFiles(assignment, newFiles);
             if (!uploaded.isEmpty()) {
                 assignmentStarterFileRepository.saveAll(uploaded);
-                updated.addAll(uploaded);
+                managedList.addAll(uploaded); // add to managed collection
             }
         }
-
-        assignment.setStarterFiles(updated);
     }
 }
