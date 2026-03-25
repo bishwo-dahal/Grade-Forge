@@ -137,7 +137,7 @@ function UniversityMonitorView({
               >
                 <option value="">All</option>
                 <option value="success">Success</option>
-                <option value="failure">Failure</option>
+                <option value="failed">Failed</option>
               </select>
             </div>
             <div>
@@ -205,7 +205,6 @@ function UniversityMonitorView({
             <button
               type="button"
               onClick={onReset}
-              disabled={isLoading || !hasFilters}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#CFD2D9] bg-white px-5 text-[14px] font-semibold text-[#2B2A2A] disabled:opacity-50"
             >
               Reset
@@ -393,13 +392,28 @@ export function UniversityMonitorPage() {
     setDateFilter("");
     setStartFilter("");
     setEndFilter("");
-    setAppliedFilters(null);
     setPage(0);
-    setHasSearched(false);
+    setHasSearched(true);
+    setAppliedFilters({
+      user: undefined,
+      role: undefined,
+      status: undefined,
+      date: undefined,
+      start: undefined,
+      end: undefined,
+    });
     setData(null);
     setError(null);
     setShowAdvanced(false);
-  }, []);
+    void load(0, {
+      user: undefined,
+      role: undefined,
+      status: undefined,
+      date: undefined,
+      start: undefined,
+      end: undefined,
+    });
+  }, [load]);
 
   const onPageChange = useCallback(
     async (nextPage: number) => {
