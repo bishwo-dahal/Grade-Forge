@@ -13,15 +13,15 @@ import java.util.List;
 @Repository
 public interface AssignmentStarterFileRepository extends JpaRepository<AssignmentStarterFile, Long> {
     List<AssignmentStarterFile> findByAssignment_Id(Long assignmentId);
-    void deleteByAssignment_Id(Long assignmentId);
 
     /**
-     * Hard-delete starter file rows not in {@code keepIds} for this assignment (ids are DB primary keys).
+     * Delete only starter file rows for this assignment whose ids are explicitly unkept
+     * (must belong to {@code assignmentId}; primary keys in {@code unkeptIds}).
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("DELETE FROM AssignmentStarterFile f WHERE f.assignment.id = :assignmentId AND f.id NOT IN :keepIds")
-    int deleteByAssignment_IdAndIdNotIn(
+    @Query("DELETE FROM AssignmentStarterFile f WHERE f.assignment.id = :assignmentId AND f.id IN :unkeptIds")
+    int deleteByAssignment_IdAndIdIn(
             @Param("assignmentId") Long assignmentId,
-            @Param("keepIds") Collection<Long> keepIds);
+            @Param("unkeptIds") Collection<Long> unkeptIds);
 }
 

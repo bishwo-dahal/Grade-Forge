@@ -201,12 +201,11 @@ public class AssignmentService {
                     .map(AssignmentStarterFile::getFileKey)
                     .filter(Objects::nonNull)
                     .toList());
-            // Bulk JPQL delete so unkept rows are removed from assignment_starter_files (not only detached from session).
-            if (keepIds.isEmpty()) {
-                assignmentStarterFileRepository.deleteByAssignment_Id(saved.getId());
-            } else {
-                assignmentStarterFileRepository.deleteByAssignment_IdAndIdNotIn(saved.getId(), keepIds);
-            }
+            List<Long> unkeptIds = toRemove.stream()
+                    .map(AssignmentStarterFile::getId)
+                    .filter(Objects::nonNull)
+                    .toList();
+            assignmentStarterFileRepository.deleteByAssignment_IdAndIdIn(saved.getId(), unkeptIds);
         }
 
         if (newFiles != null && !newFiles.isEmpty()) {
