@@ -49,9 +49,10 @@ public class ActivityLogController {
     ) {
         List<Map<String, Object>> logs = new ArrayList<>();
 
+        LocalDate effectiveDate = date != null && !date.isBlank() ? parseDateOrDateTime(date) : LocalDate.now(ZoneOffset.UTC);
         List<Path> filesToRead = resolveFiles(date);
-        Instant startInstant = parseInstant(start);
-        Instant endInstant = parseInstant(end);
+        Instant startInstant = parseTimeOnDate(start, effectiveDate);
+        Instant endInstant = parseTimeOnDate(end, effectiveDate);
         for (Path path : filesToRead) {
             readFile(path, user, role, status, startInstant, endInstant, logs);
         }
@@ -152,17 +153,6 @@ public class ActivityLogController {
         }
     }
 
-    private Instant parseInstant(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return null;
-        }
-        try {
-            return Instant.parse(raw);
-        } catch (Exception ex) {
-            return null;
-        }
-    }
-
     private LocalDate parseDateOrDateTime(String raw) {
         if (raw == null || raw.isBlank()) {
             return null;
@@ -174,6 +164,17 @@ public class ActivityLogController {
         try {
             return Instant.parse(raw).atZone(ZoneOffset.UTC).toLocalDate();
         } catch (Exception ignore) {
+            return null;
+        }
+    }
+
+    private Instant parseTimeOnDate(String timeRaw, LocalDate date) {
+        if (timeRaw == null || timeRaw.isBlank() || date == null) {
+            return null;
+        }
+        try {
+            return date.atTime(java.time.LocalTime.parse(timeRaw)).toInstant(ZoneOffset.UTC);
+        } catch (Exception ex) {
             return null;
         }
     }

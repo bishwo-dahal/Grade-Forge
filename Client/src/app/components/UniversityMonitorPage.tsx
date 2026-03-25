@@ -46,6 +46,8 @@ interface UniversityMonitorViewProps {
   onStartFilterChange: (value: string) => void;
   endFilter: string;
   onEndFilterChange: (value: string) => void;
+  showAdvanced: boolean;
+  onToggleAdvanced: () => void;
   onSearch: () => void;
   onRefresh: () => void;
 }
@@ -69,6 +71,8 @@ function UniversityMonitorView({
   onStartFilterChange,
   endFilter,
   onEndFilterChange,
+  showAdvanced,
+  onToggleAdvanced,
   onSearch,
   onRefresh,
 }: UniversityMonitorViewProps) {
@@ -160,30 +164,44 @@ function UniversityMonitorView({
             className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
           />
         </div>
-        <div>
-          <label htmlFor="monitor-filter-start" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-            Start
-          </label>
-          <input
-            id="monitor-filter-start"
-            type="datetime-local"
-            value={startFilter}
-            onChange={(e) => onStartFilterChange(e.target.value)}
-            className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-          />
+        <div className="md:col-span-2 xl:col-span-4">
+          <button
+            type="button"
+            onClick={onToggleAdvanced}
+            className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-[#CFD2D9] bg-white px-4 text-[14px] font-semibold text-[#2B2A2A]"
+          >
+            {showAdvanced ? "Hide advanced search" : "Advanced search"}
+          </button>
         </div>
-        <div>
-          <label htmlFor="monitor-filter-end" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-            End
-          </label>
-          <input
-            id="monitor-filter-end"
-            type="datetime-local"
-            value={endFilter}
-            onChange={(e) => onEndFilterChange(e.target.value)}
-            className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-          />
-        </div>
+
+        {showAdvanced && (
+          <>
+            <div>
+              <label htmlFor="monitor-filter-start" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                Start
+              </label>
+              <input
+                id="monitor-filter-start"
+                type="time"
+                value={startFilter}
+                onChange={(e) => onStartFilterChange(e.target.value)}
+                className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+              />
+            </div>
+            <div>
+              <label htmlFor="monitor-filter-end" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                End
+              </label>
+              <input
+                id="monitor-filter-end"
+                type="time"
+                value={endFilter}
+                onChange={(e) => onEndFilterChange(e.target.value)}
+                className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+              />
+            </div>
+          </>
+        )}
       </section>
 
       {error && <p className="mt-4 text-[14px] text-[#C23A42]">{error}</p>}
@@ -284,6 +302,7 @@ export function UniversityMonitorPage() {
   const [dateFilter, setDateFilter] = useState("");
   const [startFilter, setStartFilter] = useState("");
   const [endFilter, setEndFilter] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [page, setPage] = useState(0);
   const [data, setData] = useState<ActivityLogPageResponse | null>(null);
@@ -374,6 +393,8 @@ export function UniversityMonitorPage() {
       onStartFilterChange={setStartFilter}
       endFilter={endFilter}
       onEndFilterChange={setEndFilter}
+      showAdvanced={showAdvanced}
+      onToggleAdvanced={() => setShowAdvanced((v) => !v)}
       onSearch={onSearch}
       onRefresh={onRefresh}
     />
