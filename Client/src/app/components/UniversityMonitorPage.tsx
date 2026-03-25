@@ -89,119 +89,126 @@ function UniversityMonitorView({
           <h1 className="text-[28px] leading-none font-bold text-[#2B2A2A]">Monitor</h1>
           <p className="mt-3 text-[14px] text-[#5D6A80]">System activity and audit log</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onSearch}
-            disabled={isLoading}
-            className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#2B2A2A] px-4 text-[14px] font-semibold text-white disabled:opacity-50"
-          >
-            Search
-          </button>
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={!hasSearched || isLoading}
-            className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#CFD2D9] bg-white px-4 text-[14px] font-semibold text-[#2B2A2A] disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} strokeWidth={2} />
-            Refresh
-          </button>
-        </div>
       </section>
 
-      <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div>
-          <label htmlFor="monitor-filter-user" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-            User email
-          </label>
-          <input
-            id="monitor-filter-user"
-            type="text"
-            value={userInput}
-            onChange={(e) => onUserInputChange(e.target.value)}
-            placeholder="e.g. faculty@gmail.com"
-            className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] placeholder:text-[#8791A5] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-          />
-        </div>
-        <div>
-          <label htmlFor="monitor-filter-role" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-            Role
-          </label>
-          <input
-            id="monitor-filter-role"
-            type="text"
-            value={roleFilter}
-            onChange={(e) => onRoleFilterChange(e.target.value)}
-            placeholder="e.g. FACULTY"
-            className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] placeholder:text-[#8791A5] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-          />
-        </div>
-        <div>
-          <label htmlFor="monitor-filter-status" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-            Status
-          </label>
-          <select
-            id="monitor-filter-status"
-            value={statusFilter}
-            onChange={(e) => onStatusFilterChange(e.target.value)}
-            className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-          >
-            <option value="">All</option>
-            <option value="success">Success</option>
-            <option value="failure">Failure</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor="monitor-filter-date" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-            Date
-          </label>
-          <input
-            id="monitor-filter-date"
-            type="date"
-            value={dateFilter}
-            onChange={(e) => onDateFilterChange(e.target.value)}
-            className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-          />
-        </div>
-        <div className="md:col-span-2 xl:col-span-4">
-          <button
-            type="button"
-            onClick={onToggleAdvanced}
-            className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-[#CFD2D9] bg-white px-4 text-[14px] font-semibold text-[#2B2A2A]"
-          >
-            {showAdvanced ? "Hide advanced search" : "Advanced search"}
-          </button>
-        </div>
+      <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="flex-1">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <label htmlFor="monitor-filter-user" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                User email
+              </label>
+              <input
+                id="monitor-filter-user"
+                type="text"
+                value={userInput}
+                onChange={(e) => onUserInputChange(e.target.value)}
+                placeholder="e.g. faculty@gmail.com"
+                className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] placeholder:text-[#8791A5] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+              />
+            </div>
+            <div>
+              <label htmlFor="monitor-filter-role" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                Role
+              </label>
+              <input
+                id="monitor-filter-role"
+                type="text"
+                value={roleFilter}
+                onChange={(e) => onRoleFilterChange(e.target.value)}
+                placeholder="e.g. FACULTY"
+                className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] placeholder:text-[#8791A5] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+              />
+            </div>
+            <div>
+              <label htmlFor="monitor-filter-status" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                Status
+              </label>
+              <select
+                id="monitor-filter-status"
+                value={statusFilter}
+                onChange={(e) => onStatusFilterChange(e.target.value)}
+                className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+              >
+                <option value="">All</option>
+                <option value="success">Success</option>
+                <option value="failure">Failure</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="monitor-filter-date" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                Date
+              </label>
+              <input
+                id="monitor-filter-date"
+                type="date"
+                value={dateFilter}
+                onChange={(e) => onDateFilterChange(e.target.value)}
+                className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+              />
+            </div>
+            <div className="md:col-span-2 xl:col-span-4">
+              <button
+                type="button"
+                onClick={onToggleAdvanced}
+                className="inline-flex items-center gap-2 text-[13px] font-semibold text-[#345079] hover:text-[#2B2A2A] transition-colors"
+              >
+                {showAdvanced ? "Hide advanced search" : "Advanced search"}
+              </button>
+              <span className="ml-2 text-[12px] text-[#7A859A]">(time range)</span>
+            </div>
+            {showAdvanced && (
+              <>
+                <div>
+                  <label htmlFor="monitor-filter-start" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                    Start
+                  </label>
+                  <input
+                    id="monitor-filter-start"
+                    type="time"
+                    value={startFilter}
+                    onChange={(e) => onStartFilterChange(e.target.value)}
+                    className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="monitor-filter-end" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                    End
+                  </label>
+                  <input
+                    id="monitor-filter-end"
+                    type="time"
+                    value={endFilter}
+                    onChange={(e) => onEndFilterChange(e.target.value)}
+                    className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+          </div>
 
-        {showAdvanced && (
-          <>
-            <div>
-              <label htmlFor="monitor-filter-start" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-                Start
-              </label>
-              <input
-                id="monitor-filter-start"
-                type="time"
-                value={startFilter}
-                onChange={(e) => onStartFilterChange(e.target.value)}
-                className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-              />
-            </div>
-            <div>
-              <label htmlFor="monitor-filter-end" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-                End
-              </label>
-              <input
-                id="monitor-filter-end"
-                type="time"
-                value={endFilter}
-                onChange={(e) => onEndFilterChange(e.target.value)}
-                className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-              />
-            </div>
-          </>
-        )}
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-end xl:w-auto xl:items-end">
+            <button
+              type="button"
+              onClick={onSearch}
+              disabled={isLoading}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#2B2A2A] px-5 text-[14px] font-semibold text-white disabled:opacity-50"
+            >
+              Search
+            </button>
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={!hasSearched || isLoading}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#CFD2D9] bg-white px-5 text-[14px] font-semibold text-[#2B2A2A] disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} strokeWidth={2} />
+              Refresh
+            </button>
+          </div>
+        </div>
       </section>
 
       {error && <p className="mt-4 text-[14px] text-[#C23A42]">{error}</p>}
