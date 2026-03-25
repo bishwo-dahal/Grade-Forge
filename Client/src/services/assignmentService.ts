@@ -3,6 +3,7 @@ import type {
   AssignmentCreateOption,
   AssignmentDescription,
   AssignmentDetail,
+  AssignmentExistingStarterFile,
   AssignmentSummary,
   EditorCodeExamples,
   FacultyAssignmentCreatePageData,
@@ -970,7 +971,11 @@ export async function getFacultyAssignmentEditPageData(
 }
 
 /** JSON body for `@RequestPart("assignment")` — must match backend `AssignmentRequest` (no starter files here). */
-function buildFacultyAssignmentRequestPayload(form: AssignmentCreateFormData, parsedClassId: number): Record<string, unknown> {
+function buildFacultyAssignmentRequestPayload(
+  form: AssignmentCreateFormData,
+  parsedClassId: number,
+  options?: { clearStarterFiles?: boolean },
+): Record<string, unknown> {
   const parsedLanguageId = Number(form.languageId);
   if (!Number.isFinite(parsedLanguageId) || parsedLanguageId <= 0) {
     throw new Error("Select a programming language.");
@@ -987,17 +992,58 @@ function buildFacultyAssignmentRequestPayload(form: AssignmentCreateFormData, pa
     dueDate: buildDueDateTimePayload(form.dueDate, form.dueTime),
     lateDueDate: buildOptionalDateTimePayload(form.lateDueDate, form.lateDueTime, "late due date/time"),
     ...(form.rubricId.trim() ? { rubricId: Number(form.rubricId) } : {}),
+    ...(options?.clearStarterFiles ? { clearStarterFiles: true } : {}),
   };
 }
 
-function buildFacultyAssignmentMultipartForm(form: AssignmentCreateFormData, parsedClassId: number): FormData {
-  const payload = buildFacultyAssignmentRequestPayload(form, parsedClassId);
+function buildFacultyAssignmentMultipartForm(
+  form: AssignmentCreateFormData,
+  parsedClassId: number,
+  options?: {
+    /** When set, append these instead of `form.starterFiles`. */
+    starterFilesToAppend?: File[];
+    /** When true, do not send any `starterFiles` parts (edit: leave server starter files unchanged). */
+    omitStarterFileParts?: boolean;
+    clearStarterFiles?: boolean;
+  },
+): FormData {
+  const payload = buildFacultyAssignmentRequestPayload(form, parsedClassId, {
+    clearStarterFiles: options?.clearStarterFiles,
+  });
   const formData = new FormData();
   formData.append("assignment", new Blob([JSON.stringify(payload)], { type: "application/json" }));
-  for (const file of form.starterFiles) {
+  if (options?.omitStarterFileParts || options?.clearStarterFiles) {
+    return formData;
+  }
+  const files = options?.starterFilesToAppend ?? form.starterFiles;
+  for (const file of files) {
     formData.append("starterFiles", file);
   }
   return formData;
+}
+
+/** Download retained starter files (presigned URLs) so they can be re-uploaded in a full replacement update. */
+async function fetchRetainedStarterFilesAsFiles(retained: AssignmentExistingStarterFile[]): Promise<File[]> {
+  const out: File[] = [];
+  for (const item of retained) {
+    if (!item.downloadUrl?.trim()) {
+      throw new Error(`Starter file "${item.fileName}" has no download link. Remove it and upload again, or refresh the page.`);
+    }
+    const response = await fetch(item.downloadUrl);
+    if (!response.ok) {
+      throw new Error(
+        `Could not load "${item.fileName}" (${response.status}). Check network or CORS; you can remove it and upload a new copy.`,
+      );
+    }
+    const blob = await response.blob();
+    out.push(new File([blob], item.fileName, { type: blob.type || "application/octet-stream" }));
+  }
+  return out;
+}
+
+export interface UpdateFacultyAssignmentStarterEditOptions {
+  initialExisting: AssignmentExistingStarterFile[];
+  retainedExisting: AssignmentExistingStarterFile[];
 }
 
 export async function createFacultyAssignmentDraft(
@@ -1014,13 +1060,39 @@ export async function updateFacultyAssignmentDraft(
   assignmentId: string,
   classId: string,
   form: AssignmentCreateFormData,
+  starterEdit?: UpdateFacultyAssignmentStarterEditOptions,
 ): Promise<{ assignmentId: string }> {
   const parsedClassId = parseClassId(classId || defaultCreateAssignmentHeader.classId);
   const parsedAssignmentId = Number(assignmentId);
   if (!Number.isFinite(parsedAssignmentId) || parsedAssignmentId <= 0) {
     throw new Error("Invalid assignment id.");
   }
-  const formData = buildFacultyAssignmentMultipartForm(form, parsedClassId);
+
+  let formData: FormData;
+
+  if (!starterEdit) {
+    formData = buildFacultyAssignmentMultipartForm(form, parsedClassId);
+  } else {
+    const { initialExisting, retainedExisting } = starterEdit;
+    const newFiles = form.starterFiles;
+    const initialKey = JSON.stringify([...initialExisting.map((f) => f.id)].sort((a, b) => a - b));
+    const retainedKey = JSON.stringify([...retainedExisting.map((f) => f.id)].sort((a, b) => a - b));
+    const starterSectionDirty = initialKey !== retainedKey || newFiles.length > 0;
+
+    if (!starterSectionDirty) {
+      formData = buildFacultyAssignmentMultipartForm(form, parsedClassId, { omitStarterFileParts: true });
+    } else if (retainedExisting.length === 0 && newFiles.length === 0) {
+      formData = buildFacultyAssignmentMultipartForm(form, parsedClassId, {
+        omitStarterFileParts: true,
+        clearStarterFiles: true,
+      });
+    } else {
+      const retainedAsFiles = await fetchRetainedStarterFilesAsFiles(retainedExisting);
+      const allFiles = [...retainedAsFiles, ...newFiles];
+      formData = buildFacultyAssignmentMultipartForm(form, parsedClassId, { starterFilesToAppend: allFiles });
+    }
+  }
+
   const { data } = await api.put<AssignmentApiResponse>(`/api/v1/faculty/assignments/${parsedAssignmentId}`, formData);
   return { assignmentId: String(data.id) };
 }

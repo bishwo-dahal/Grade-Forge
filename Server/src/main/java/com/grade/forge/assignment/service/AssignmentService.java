@@ -154,7 +154,23 @@ public class AssignmentService {
 
         Assignment saved = assignmentRepository.save(assignment);
 
-        if (starterFiles != null) {
+        if (Boolean.TRUE.equals(request.getClearStarterFiles())) {
+            List<AssignmentStarterFile> existingStarters = assignmentStarterFileRepository.findByAssignment_Id(saved.getId());
+            if (!existingStarters.isEmpty()) {
+                fileStorageService.deleteObjects(existingStarters.stream()
+                        .map(AssignmentStarterFile::getFileKey)
+                        .toList());
+            }
+            assignmentStarterFileRepository.deleteByAssignment_Id(saved.getId());
+            saved.setStarterFiles(List.of());
+        } else if (starterFiles != null) {
+            List<AssignmentStarterFile> existing = assignmentStarterFileRepository.findByAssignment_Id(saved.getId());
+            if (!existing.isEmpty()) {
+                fileStorageService.deleteObjects(existing.stream()
+                        .map(AssignmentStarterFile::getFileKey)
+                        .toList());
+            }
+
             assignmentStarterFileRepository.deleteByAssignment_Id(saved.getId());
             List<AssignmentStarterFile> newStarterFiles = fileStorageService.uploadAssignmentStarterFiles(saved, starterFiles);
             if (!newStarterFiles.isEmpty()) {

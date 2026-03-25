@@ -7,6 +7,7 @@ import {
   getFacultyAssignmentEditPageData,
   getFacultyAssignmentCreatePageData,
   updateFacultyAssignmentDraft,
+  type UpdateFacultyAssignmentStarterEditOptions,
 } from "../../services/assignmentService";
 import { getRubric, getUnweightedRubricTotalPoints } from "../../services/rubricService";
 import { createTestSuite } from "../../services/testSuiteService";
@@ -25,7 +26,9 @@ interface FacultyCreateAssignmentViewProps {
   // NOTE: This component is presentation-only. Data and handlers are injected by the page/container.
   classId: string;
   pageData: FacultyAssignmentCreatePageData | null;
-  existingStarterFiles: AssignmentExistingStarterFile[];
+  /** Edit mode: server-side starter files still kept; user can remove or download. */
+  retainedStarterFiles: AssignmentExistingStarterFile[];
+  onRemoveRetainedStarter: (id: number) => void;
   form: AssignmentCreateFormData | null;
   testSuiteDraft: TestSuiteDraftState | null;
   isLoading: boolean;
@@ -66,7 +69,8 @@ interface TestSuiteDraftState {
 function FacultyCreateAssignmentView({
   classId,
   pageData,
-  existingStarterFiles,
+  retainedStarterFiles,
+  onRemoveRetainedStarter,
   form,
   testSuiteDraft,
   isLoading,
@@ -343,29 +347,44 @@ function FacultyCreateAssignmentView({
                       Starter files
                     </label>
                     <p className="mb-2 text-[12px] text-[#6D7B91]">
-                      Optional. Any file type is allowed (source, data, zip, images, etc.). Upload one or more files, or leave empty.{" "}
-                      {mode === "edit" && existingStarterFiles.length > 0
-                        ? "Uploading new files replaces all starter files listed below."
-                        : null}
+                      Optional. Any file type is allowed (source, data, zip, images, etc.).{" "}
+                      {mode === "edit"
+                        ? "Remove files you no longer need, add new ones below, then save. Saving applies the full starter set."
+                        : "Upload one or more files, or leave empty."}
                     </p>
-                    {mode === "edit" && existingStarterFiles.length > 0 ? (
-                      <ul className="mb-3 space-y-1 rounded-xl border border-[#E5E9F2] bg-white px-3 py-2 text-[13px] text-[#30415F]">
-                        {existingStarterFiles.map((f) => (
-                          <li key={f.id} className="flex items-center gap-2">
-                            <span className="truncate">{f.fileName}</span>
-                            {f.downloadUrl ? (
-                              <a
-                                href={f.downloadUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="shrink-0 text-[#5A7ACD] hover:underline"
-                              >
-                                Download
-                              </a>
-                            ) : null}
-                          </li>
-                        ))}
-                      </ul>
+                    {mode === "edit" && retainedStarterFiles.length > 0 ? (
+                      <div className="mb-3">
+                        <p className="mb-1.5 text-[12px] font-medium text-[#30415F]">Current starter files</p>
+                        <ul className="space-y-1 rounded-xl border border-[#E5E9F2] bg-white px-3 py-2 text-[13px] text-[#30415F]">
+                          {retainedStarterFiles.map((f) => (
+                            <li key={f.id} className="flex items-center justify-between gap-2">
+                              <span className="min-w-0 truncate">{f.fileName}</span>
+                              <span className="flex shrink-0 items-center gap-2">
+                                {f.downloadUrl ? (
+                                  <a
+                                    href={f.downloadUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[#5A7ACD] hover:underline"
+                                  >
+                                    Download
+                                  </a>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  onClick={() => onRemoveRetainedStarter(f.id)}
+                                  className="text-[12px] text-[#C23A42] hover:underline"
+                                >
+                                  Remove
+                                </button>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {mode === "edit" ? (
+                      <p className="mb-2 text-[12px] text-[#6D7B91]">Add new starter files</p>
                     ) : null}
                     <input
                       id="assignment-starter-files"
@@ -380,28 +399,33 @@ function FacultyCreateAssignmentView({
                       }}
                     />
                     {form.starterFiles.length > 0 ? (
-                      <ul className="mt-3 space-y-1.5">
-                        {form.starterFiles.map((file, index) => (
-                          <li
-                            key={`${file.name}-${index}-${file.size}`}
-                            className="flex items-center justify-between gap-2 rounded-lg border border-[#E5E9F2] bg-white px-3 py-2 text-[13px]"
-                          >
-                            <span className="truncate text-[#1F2430]">{file.name}</span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                onFieldChange(
-                                  "starterFiles",
-                                  form.starterFiles.filter((_, i) => i !== index),
-                                )
-                              }
-                              className="shrink-0 text-[12px] text-[#C23A42] hover:underline"
+                      <div className="mt-3">
+                        {mode === "edit" ? (
+                          <p className="mb-1.5 text-[12px] font-medium text-[#30415F]">New files to upload</p>
+                        ) : null}
+                        <ul className="space-y-1.5">
+                          {form.starterFiles.map((file, index) => (
+                            <li
+                              key={`${file.name}-${index}-${file.size}`}
+                              className="flex items-center justify-between gap-2 rounded-lg border border-[#E5E9F2] bg-white px-3 py-2 text-[13px]"
                             >
-                              Remove
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
+                              <span className="truncate text-[#1F2430]">{file.name}</span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onFieldChange(
+                                    "starterFiles",
+                                    form.starterFiles.filter((_, i) => i !== index),
+                                  )
+                                }
+                                className="shrink-0 text-[12px] text-[#C23A42] hover:underline"
+                              >
+                                Remove
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     ) : null}
                   </div>
                 </div>

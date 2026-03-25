@@ -26,4 +26,6 @@ public class AssignmentRequest {
     private LocalDateTime lateDueDate;
     private Long rubricId;
     private Long mainGroupId;
+    /** When true on update, removes all starter files without uploading new ones (multipart may omit starterFiles). */
+    private Boolean clearStarterFiles;
 }
