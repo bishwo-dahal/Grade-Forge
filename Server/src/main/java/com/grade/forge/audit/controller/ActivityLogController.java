@@ -58,6 +58,10 @@ public class ActivityLogController {
         List<Path> filesToRead = resolveFiles(effectiveDate, dateProvided);
         Instant startInstant = parseTimeOnDate(start, effectiveDate);
         Instant endInstant = parseTimeOnDate(end, effectiveDate);
+        if (startInstant != null && endInstant != null && endInstant.isBefore(startInstant)) {
+            // If end time is earlier than start time on the same date, treat it as open-ended until end of day.
+            endInstant = null;
+        }
         for (Path path : filesToRead) {
             readFile(path, user, role, status, startInstant, endInstant, logs);
         }
