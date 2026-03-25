@@ -4,9 +4,15 @@ import type { AssignmentDescription } from "../../../types/assignment";
 interface DescriptionPanelProps {
   // NOTE: Data is injected by the page to keep this panel presentation-only.
   description: AssignmentDescription | null;
+  starterCodeFiles?: Array<{ fileName: string; downloadUrl: string }>;
+  starterCodeUrl?: string | null;
 }
 
-export function DescriptionPanel({ description }: DescriptionPanelProps) {
+export function DescriptionPanel({
+  description,
+  starterCodeFiles,
+  starterCodeUrl,
+}: DescriptionPanelProps) {
   if (!description) {
     return null;
   }
@@ -63,17 +69,40 @@ export function DescriptionPanel({ description }: DescriptionPanelProps) {
         </div>
       </div>
 
-      {/* Starter Code */}
-      <div className="mb-8">
-        <h3 className="text-[15px] font-semibold text-[#2B2A2A] mb-3">Starter Code</h3>
-        <p className="text-[14px] text-gray-600 mb-3">
-          Download the starter code template to begin your implementation:
-        </p>
-        <button className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-[#2B2A2A] rounded-lg transition-colors text-[13px] font-medium">
-          <Download className="w-4 h-4" strokeWidth={2} />
-          Download Starter Code
-        </button>
-      </div>
+      {/* Starter Code — links come from API (presigned URLs). */}
+      {(starterCodeFiles?.length ?? 0) > 0 || starterCodeUrl ? (
+        <div className="mb-8">
+          <h3 className="text-[15px] font-semibold text-[#2B2A2A] mb-3">Starter Code</h3>
+          <p className="text-[14px] text-gray-600 mb-3">
+            Download the starter files to begin your implementation:
+          </p>
+          <div className="flex flex-col gap-2">
+            {(starterCodeFiles ?? []).map((f, idx) => (
+              <a
+                key={`${f.fileName}-${idx}`}
+                href={f.downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-[#2B2A2A] rounded-lg transition-colors text-[13px] font-medium w-fit"
+              >
+                <Download className="w-4 h-4 shrink-0" strokeWidth={2} />
+                {f.fileName}
+              </a>
+            ))}
+            {starterCodeUrl && !(starterCodeFiles?.length ?? 0) ? (
+              <a
+                href={starterCodeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-[#2B2A2A] rounded-lg transition-colors text-[13px] font-medium w-fit break-all"
+              >
+                <Download className="w-4 h-4 shrink-0" strokeWidth={2} />
+                {starterCodeUrl}
+              </a>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {/* CLEANUP: Rubric details live in dedicated Grading Rubric tab to avoid duplicate sections in Description. */}
 

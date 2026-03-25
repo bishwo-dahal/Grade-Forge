@@ -42,6 +42,8 @@ export interface AssignmentDetailPageAssignment {
   availableFrom?: string | null;
   lateDueDate?: string | null;
   starterCodeUrl?: string | null;
+  /** Presigned download links for starter files (multipart uploads). */
+  starterCodeFiles?: Array<{ fileName: string; downloadUrl: string }>;
   /** Linked rubric name (assignment-level); rubric criteria shown in rubricSection. */
   rubricName?: string | null;
 }
@@ -123,6 +125,8 @@ export interface AssignmentDetailPageProps {
   submissionsSectionSubtitle?: string;
   /** Optional speed-grading entry for faculty assignment detail pages. */
   speedGradingLink?: { to: string; label: string };
+  /** Optional compact submissions count shown next to speed grading entry. */
+  submissionsCountLabel?: string;
   /** Optional link for faculty to manage test cases (opens assignment workspace). */
   testCasesLink?: { to: string; label: string };
   /** Optional test suite to display (like rubric section). */
@@ -141,6 +145,7 @@ export function AssignmentDetailPage({
   onRefreshSubmissions,
   submissionsSectionSubtitle = "Review and grade student submissions for this assignment.",
   speedGradingLink,
+  submissionsCountLabel,
   testCasesLink,
   testSuiteSection,
 }: AssignmentDetailPageProps) {
@@ -346,7 +351,23 @@ export function AssignmentDetailPage({
                     <h4 className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-0.5">
                       Starter code
                     </h4>
-                    {assignment.starterCodeUrl ? (
+                    {(assignment.starterCodeFiles?.length ?? 0) > 0 ? (
+                      <ul className="space-y-1.5">
+                        {assignment.starterCodeFiles!.map((f, idx) => (
+                          <li key={`${f.fileName}-${idx}`}>
+                            <a
+                              href={f.downloadUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-[14px] text-[#5A7ACD] hover:underline break-all"
+                            >
+                              <Download className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                              <span>{f.fileName}</span>
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : assignment.starterCodeUrl ? (
                       <a
                         href={assignment.starterCodeUrl}
                         target="_blank"
@@ -511,6 +532,11 @@ export function AssignmentDetailPage({
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {submissionsCountLabel ? (
+                <span className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-medium text-[#2B2A2A]">
+                  {submissionsCountLabel}
+                </span>
+              ) : null}
               {speedGradingLink ? (
                 <Link
                   to={speedGradingLink.to}
@@ -792,6 +818,12 @@ function formatDateGA(iso: string | null | undefined): string {
 
 function mapGAAssignment(a: AssignmentDetailResponse | null): AssignmentDetailPageAssignment | null {
   if (!a) return null;
+  const starterCodeFiles =
+    a.starterCodeFiles
+      ?.map((f) =>
+        f.downloadUrl && f.fileName ? { fileName: f.fileName, downloadUrl: f.downloadUrl } : null,
+      )
+      .filter((item): item is { fileName: string; downloadUrl: string } => item !== null) ?? [];
   return {
     id: String(a.id),
     title: a.name,
@@ -804,6 +836,7 @@ function mapGAAssignment(a: AssignmentDetailResponse | null): AssignmentDetailPa
     availableFrom: formatDateGA(a.availableFrom),
     lateDueDate: formatDateGA(a.lateDueDate),
     starterCodeUrl: a.starterCodeUrl ?? null,
+    starterCodeFiles: starterCodeFiles.length > 0 ? starterCodeFiles : undefined,
     rubricName: a.rubricName ?? null,
   };
 }

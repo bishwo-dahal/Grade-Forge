@@ -22,6 +22,7 @@ export interface AssignmentDetailResponse {
   totalPoints?: number | null;
   submissionType?: string | null;
   starterCodeUrl?: string | null;
+  starterCodeFiles?: Array<{ fileName: string; downloadUrl?: string | null }> | null;
   availableFrom?: string | null;
   dueDate?: string | null;
   lateDueDate?: string | null;

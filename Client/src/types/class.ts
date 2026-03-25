@@ -140,7 +140,9 @@ export interface ClassAssignment {
   id: string;
   title: string;
   language: string;
+  availableFrom: string;
   dueDate: string;
+  lateDueDate: string;
   status: "upcoming" | "submitted" | "graded";
   grade: number | null;
   totalPoints: number;
@@ -150,7 +152,10 @@ export interface FacultyAssignment {
   id: string;
   name: string;
   language: string;
+  availableFrom: string;
   dueDate: string;
+  lateDueDate: string;
+  totalPoints: number;
   submissions: number;
   totalStudents: number;
   status: "published" | "closed" | "draft";

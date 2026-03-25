@@ -3,8 +3,11 @@ package com.grade.forge.assignment.service;
 import com.grade.forge.assignment.dto.AssignmentBasicResponse;
 import com.grade.forge.assignment.dto.AssignmentRequest;
 import com.grade.forge.assignment.dto.AssignmentResponse;
+import com.grade.forge.assignment.dto.AssignmentStarterFileResponse;
 import com.grade.forge.assignment.entity.Assignment;
+import com.grade.forge.assignment.entity.AssignmentStarterFile;
 import com.grade.forge.assignment.repository.AssignmentRepository;
+import com.grade.forge.assignment.repository.AssignmentStarterFileRepository;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
@@ -19,11 +22,12 @@ import com.grade.forge.execution.repository.TestCaseResultRepository;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.repository.SubmissionRepository;
 import com.grade.forge.submission.repository.SubmissionFileRepository;
-import org.springframework.transaction.annotation.Propagation;
+import com.grade.forge.storage.service.FileStorageService;
 import com.grade.forge.testsuite.entity.TestCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -44,8 +48,10 @@ public class AssignmentService {
     private final TestCaseResultRepository testCaseResultRepository;
     private final SubmissionRepository submissionRepository;
     private final SubmissionFileRepository submissionFileRepository;
+    private final AssignmentStarterFileRepository assignmentStarterFileRepository;
+    private final FileStorageService fileStorageService;
 
-    public AssignmentResponse createAssignment(AssignmentRequest request, String userEmail) {
+    public AssignmentResponse createAssignment(AssignmentRequest request, List<MultipartFile> files, String userEmail) {
         validateCreate(request);
         Course course = courseRepository.findById(request.getCourseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + request.getCourseId()));
@@ -79,10 +85,17 @@ public class AssignmentService {
         }
 
         Assignment saved = assignmentRepository.save(assignment);
+
+        List<AssignmentStarterFile> starterFileEntities = fileStorageService.uploadAssignmentStarterFiles(saved, files);
+        if (!starterFileEntities.isEmpty()) {
+            assignmentStarterFileRepository.saveAll(starterFileEntities);
+            saved.setStarterFiles(starterFileEntities);
+        }
+
         return mapToResponse(saved);
     }
 
-    public AssignmentResponse updateAssignment(Long id, AssignmentRequest request) {
+    public AssignmentResponse updateAssignment(Long id, AssignmentRequest request, List<MultipartFile> newFiles) {
         Assignment assignment = assignmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + id));
 
@@ -110,9 +123,6 @@ public class AssignmentService {
         }
         if (request.getSubmissionType() != null) {
             assignment.setSubmissionType(request.getSubmissionType());
-        }
-        if (request.getStarterCodeUrl() != null) {
-            assignment.setStarterCodeUrl(request.getStarterCodeUrl());
         }
         if (request.getAvailableFrom() != null) {
             assignment.setAvailableFrom(request.getAvailableFrom());
@@ -143,7 +153,67 @@ public class AssignmentService {
         validateTimeline(assignment.getAvailableFrom(), assignment.getDueDate(), assignment.getLateDueDate());
 
         Assignment saved = assignmentRepository.save(assignment);
-        return mapToResponse(saved);
+
+        handleStarterFilesUpdate(saved, request, newFiles);
+
+        Assignment refreshed = assignmentRepository.findById(saved.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + saved.getId()));
+        return mapToResponse(refreshed);
+    }
+
+    /**
+     * Updates starter files when {@code keepFileIds} is set and/or new {@code files} parts are sent.
+     * If both are absent (keepFileIds null and no new files), existing starter files are unchanged.
+     */
+    private void handleStarterFilesUpdate(Assignment saved, AssignmentRequest request, List<MultipartFile> newFiles) {
+        if (request.getKeepFileIds() == null && (newFiles == null || newFiles.isEmpty())) {
+            return;
+        }
+
+        List<AssignmentStarterFile> existing = assignmentStarterFileRepository.findByAssignment_Id(saved.getId());
+        // JSON numbers often deserialize as Integer; JPA ids are Long — normalize so contains() / removal works.
+        List<Long> keepIds;
+        if (request.getKeepFileIds() != null) {
+            keepIds = request.getKeepFileIds().stream()
+                    .filter(Objects::nonNull)
+                    .map(id -> ((Number) id).longValue())
+                    .toList();
+        } else {
+            keepIds = existing.stream()
+                    .map(AssignmentStarterFile::getId)
+                    .filter(Objects::nonNull)
+                    .toList();
+        }
+
+        for (Long keepId : keepIds) {
+            boolean known = existing.stream().anyMatch(f -> Objects.equals(f.getId(), keepId));
+            if (!known) {
+                throw new IllegalArgumentException("keepFileIds contains id not on this assignment: " + keepId);
+            }
+        }
+
+        List<AssignmentStarterFile> toRemove = existing.stream()
+                .filter(f -> keepIds.stream().noneMatch(k -> Objects.equals(k, f.getId())))
+                .toList();
+
+        if (!toRemove.isEmpty()) {
+            fileStorageService.deleteObjects(toRemove.stream()
+                    .map(AssignmentStarterFile::getFileKey)
+                    .filter(Objects::nonNull)
+                    .toList());
+            List<Long> unkeptIds = toRemove.stream()
+                    .map(AssignmentStarterFile::getId)
+                    .filter(Objects::nonNull)
+                    .toList();
+            assignmentStarterFileRepository.deleteByAssignment_IdAndIdIn(saved.getId(), unkeptIds);
+        }
+
+        if (newFiles != null && !newFiles.isEmpty()) {
+            List<AssignmentStarterFile> uploaded = fileStorageService.uploadAssignmentStarterFiles(saved, newFiles);
+            if (!uploaded.isEmpty()) {
+                assignmentStarterFileRepository.saveAll(uploaded);
+            }
+        }
     }
 
     public AssignmentResponse getAssignment(Long id) {
@@ -255,7 +325,6 @@ public class AssignmentService {
         assignment.setDescription(request.getDescription());
         assignment.setTotalPoints(request.getTotalPoints());
         assignment.setSubmissionType(request.getSubmissionType());
-        assignment.setStarterCodeUrl(request.getStarterCodeUrl());
         assignment.setAvailableFrom(request.getAvailableFrom());
         assignment.setDueDate(request.getDueDate());
         assignment.setLateDueDate(request.getLateDueDate());
@@ -274,7 +343,9 @@ public class AssignmentService {
                 .description(assignment.getDescription())
                 .totalPoints(assignment.getTotalPoints())
                 .submissionType(assignment.getSubmissionType())
-                .starterCodeUrl(assignment.getStarterCodeUrl())
+                .starterCodeFiles(assignment.getStarterFiles() == null ? List.of() : assignment.getStarterFiles().stream()
+                        .map(this::mapStarterFileToResponse)
+                        .toList())
                 .availableFrom(assignment.getAvailableFrom())
                 .dueDate(assignment.getDueDate())
                 .lateDueDate(assignment.getLateDueDate())
@@ -295,6 +366,20 @@ public class AssignmentService {
         response.setAvailableFrom(assignment.getAvailableFrom());
         response.setDueDate(assignment.getDueDate());
         response.setLateDueDate(assignment.getLateDueDate());
+        response.setLanguageName(assignment.getProgrammingLanguage() != null
+                ? assignment.getProgrammingLanguage().getName()
+                : null);
         return response;
+    }
+
+    private AssignmentStarterFileResponse mapStarterFileToResponse(AssignmentStarterFile file) {
+        return AssignmentStarterFileResponse.builder()
+                .id(file.getId())
+                .fileName(file.getFileName())
+                .fileKey(file.getFileKey())
+                .fileType(file.getFileType())
+                .fileSize(file.getFileSize())
+                .downloadUrl(fileStorageService.generatePresignedDownloadUrl(file.getFileKey(), file.getFileName()))
+                .build();
     }
 }

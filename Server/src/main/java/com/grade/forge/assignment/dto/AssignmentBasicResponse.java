@@ -20,5 +20,6 @@ public class AssignmentBasicResponse {
     private LocalDateTime availableFrom;
     private LocalDateTime dueDate;
     private LocalDateTime lateDueDate;
+    private String languageName;
 
 }

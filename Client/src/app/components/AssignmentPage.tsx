@@ -431,7 +431,13 @@ export function AssignmentPage() {
 
               {/* Tab Content */}
               <div className="flex-1 overflow-y-auto">
-                {activeTab === 'description' && <DescriptionPanel description={description} />}
+                {activeTab === 'description' && (
+                  <DescriptionPanel
+                    description={description}
+                    starterCodeFiles={assignment?.starterCodeFiles}
+                    starterCodeUrl={assignment?.starterCodeUrl ?? null}
+                  />
+                )}
                 {activeTab === 'tests' && (
                   isFacultyRole ? (
                     <TestSuiteFormPanel

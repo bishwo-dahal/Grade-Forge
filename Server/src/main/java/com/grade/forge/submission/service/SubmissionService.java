@@ -67,6 +67,10 @@ public class SubmissionService {
         Assignment assignment = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId));
 
+        boolean assignmentHasTests = assignment.getTestSuite() != null
+                && assignment.getTestSuite().getTestCases() != null
+                && !assignment.getTestSuite().getTestCases().isEmpty();
+
         Submission submission = new Submission();
         submission.setAssignment(assignment);
         submission.setStudent(student);
@@ -92,9 +96,14 @@ public class SubmissionService {
         // Runs in its own transaction; failures here should not block the submission.
         try {
             // Ensure the new submission row is flushed so the separate transaction can see it.
-            submissionRepository.flush();
-            log.info("Student saved ID is: {}", saved.getId());
-            testRunJobService.requestRunTests(saved.getId());
+            if (assignmentHasTests) {
+                submissionRepository.flush();
+                log.info("Student saved ID is: {}", saved.getId());
+                testRunJobService.requestRunTests(saved.getId());
+            } else {
+                log.info("Skipping test run enqueue for submission {} because assignment {} has no test cases.",
+                        saved.getId(), assignment.getId());
+            }
         } catch (Exception e) {
             log.warn("Failed to enqueue test run for submission {}: {}", saved.getId(), e.getMessage());
         }
