@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams, useNavigate } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { 
   Settings, 
   ChevronLeft, 
@@ -89,6 +89,9 @@ import {
   TooltipTrigger,
 } from "./ui/tooltip";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
+import { clearAuthenticated, getAuthenticatedUser } from "../auth";
+import { AuthTopBar } from "./layout/AuthTopBar";
+import type { SettingsSection as TopBarSettingsSection } from "./layout/AuthTopBar";
 
 const SECTION_PATH_SEGMENTS = [
   "dashboard",
@@ -154,6 +157,25 @@ export function FacultyClassPage() {
     semester: "",
     instructor: "",
     role: "",
+  };
+  const loggedInUser = getAuthenticatedUser();
+  const displayName = loggedInUser?.name ?? "Dr. Sarah Miller";
+  const displayEmail = loggedInUser?.email ?? "smiller@university.edu";
+  const displayInitials =
+    displayName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "GF";
+
+  const goToSettingsSection = (section: TopBarSettingsSection) => {
+    navigate(`/settings?section=${section}`);
+  };
+
+  const handleLogout = () => {
+    clearAuthenticated();
+    navigate("/signin", { replace: true });
   };
 
   return (
@@ -224,6 +246,14 @@ export function FacultyClassPage() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        <AuthTopBar
+          roleView="faculty"
+          profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
+          searchPlaceholder="Search calendar, assignments..."
+          onSettingsSectionSelect={goToSettingsSection}
+          onLogout={handleLogout}
+        />
+
         {/* Top Header */}
         <header className="bg-white border-b border-gray-200 px-8 py-6">
           <div className="flex items-start justify-between gap-3">
@@ -1977,8 +2007,8 @@ function StudentsSection({
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative w-full md:max-w-xl">
+        <div className="flex flex-wrap items-center gap-3 md:flex-nowrap">
+          <div className="relative w-full md:w-auto md:flex-1 md:max-w-[460px]">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={2} />
             <input
               value={rosterSearchValue}
@@ -1989,7 +2019,7 @@ function StudentsSection({
             />
           </div>
           <SegmentedFilter
-            className="ml-auto"
+            className="md:ml-1"
             items={filterItems}
             value={activeFilter}
             onValueChange={(value) => setActiveFilter(value)}
