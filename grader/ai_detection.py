@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import re
 import statistics
+import hashlib
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
@@ -42,6 +43,9 @@ class SubmissionMetrics:
     non_ascii_count: int
     em_dash_count: int
     marker_hits: int
+    approx_cyclomatic_markers: int
+    template_cluster_size: int
+    test_pass_ratio: float
 
     @property
     def comment_ratio(self) -> float:
@@ -71,6 +75,8 @@ def _extract_metrics(submission: Submission, language: str) -> SubmissionMetrics
     non_ascii_count = 0
     em_dash_count = 0
     marker_hits = 0
+    complexity_markers = 0
+    normalized_hashes: List[str] = []
 
     paths = submission.file_paths if isinstance(submission.file_paths, list) else [submission.file_paths]
     for path in paths:
@@ -86,6 +92,15 @@ def _extract_metrics(submission: Submission, language: str) -> SubmissionMetrics
         em_dash_count += content.count("—")
         lowered = content.lower()
         marker_hits += sum(lowered.count(token) for token in COMMENT_MARKERS)
+        complexity_markers += sum(
+            lowered.count(token)
+            for token in (" if ", " elif ", " else", " for ", " while ", " case ", " catch ", "&&", "||", " try ")
+        )
+        normalized = re.sub(r"\d+", "0", content)
+        normalized = IDENT_RE.sub("id", normalized)
+        normalized = re.sub(r"\s+", " ", normalized).strip()
+        if normalized:
+            normalized_hashes.append(hashlib.sha1(normalized.encode("utf-8", errors="ignore")).hexdigest())
 
         for ident in IDENT_RE.findall(content):
             identifier_count += 1
@@ -105,7 +120,11 @@ def _extract_metrics(submission: Submission, language: str) -> SubmissionMetrics
     line_len_std = statistics.pstdev(line_lengths) if len(line_lengths) > 1 else 0.0
     long_identifier_ratio = (long_identifier_count / identifier_count) if identifier_count else 0.0
 
-    return SubmissionMetrics(
+    raw_passes = int(getattr(submission.test_results, "public_pass", 0)) + int(getattr(submission.test_results, "private_pass", 0))
+    # test_pass_ratio gets normalized in analyze_ai_risk using assignment totals.
+    submission_hash = min(normalized_hashes) if normalized_hashes else ""
+
+    metrics = SubmissionMetrics(
         student_id=submission.student_id,
         code_lines=code_lines,
         comment_lines=comment_lines,
@@ -115,7 +134,24 @@ def _extract_metrics(submission: Submission, language: str) -> SubmissionMetrics
         non_ascii_count=non_ascii_count,
         em_dash_count=em_dash_count,
         marker_hits=marker_hits,
+        approx_cyclomatic_markers=complexity_markers,
+        template_cluster_size=0,
+        test_pass_ratio=float(max(0, raw_passes)),
     )
+    setattr(metrics, "_template_hash", submission_hash)
+    return metrics
+
+
+def _compute_template_cluster_sizes(metrics: List[SubmissionMetrics]) -> None:
+    clusters: Dict[str, int] = {}
+    for m in metrics:
+        key = getattr(m, "_template_hash", "")
+        if not key:
+            continue
+        clusters[key] = clusters.get(key, 0) + 1
+    for m in metrics:
+        key = getattr(m, "_template_hash", "")
+        m.template_cluster_size = clusters.get(key, 1 if key else 0)
 
 
 def _cohort_stats(values: List[float]) -> Tuple[float, float]:
@@ -159,17 +195,23 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
       }
     """
     metrics = [_extract_metrics(sub, assignment.language) for sub in assignment.submissions]
+    _compute_template_cluster_sizes(metrics)
+    total_assignment_tests = max(1, int(assignment.public_tests) + int(assignment.private_tests))
+    for m in metrics:
+        m.test_pass_ratio = min(1.0, m.test_pass_ratio / float(total_assignment_tests))
     by_student: Dict[str, Dict[str, object]] = {}
 
     comment_values = [m.comment_ratio for m in metrics]
     line_len_values = [m.avg_line_len for m in metrics]
     line_std_values = [m.line_len_std for m in metrics]
     ident_values = [m.long_identifier_ratio for m in metrics]
+    complexity_values = [m.approx_cyclomatic_markers / max(1, m.code_lines) for m in metrics]
 
     comment_med, comment_scale = _cohort_stats(comment_values)
     line_med, line_scale = _cohort_stats(line_len_values)
     std_med, std_scale = _cohort_stats(line_std_values)
     ident_med, ident_scale = _cohort_stats(ident_values)
+    complexity_med, complexity_scale = _cohort_stats(complexity_values)
 
     high_count = 0
     medium_count = 0
@@ -235,6 +277,34 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
                     "value": round(m.long_identifier_ratio, 3),
                     "cohort_median": round(ident_med, 3),
                     "reason": "Very long identifier usage is an outlier for this cohort.",
+                }
+            )
+
+        complexity_density = m.approx_cyclomatic_markers / max(1, m.code_lines)
+        complexity_strength = _robust_outlier_strength(complexity_density, complexity_med, complexity_scale)
+        if complexity_strength > 0 and m.test_pass_ratio < 0.35:
+            weight = 0.14 * complexity_strength
+            score += weight
+            signals.append(
+                {
+                    "kind": "complexity_mismatch",
+                    "weight": round(weight, 3),
+                    "value": round(complexity_density, 3),
+                    "cohort_median": round(complexity_med, 3),
+                    "reason": "Code complexity appears unusually high relative to low test performance.",
+                }
+            )
+
+        if m.template_cluster_size >= 3:
+            # Shared normalized scaffolds across many students can indicate generated/template-heavy code.
+            cluster_weight = min(0.2, 0.05 + (m.template_cluster_size - 2) * 0.03)
+            score += cluster_weight
+            signals.append(
+                {
+                    "kind": "template_fingerprint_cluster",
+                    "weight": round(cluster_weight, 3),
+                    "value": m.template_cluster_size,
+                    "reason": "Submission belongs to a repeated scaffold cluster across the cohort.",
                 }
             )
 
@@ -313,6 +383,9 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
                 "non_ascii_count": m.non_ascii_count,
                 "em_dash_count": m.em_dash_count,
                 "marker_hits": m.marker_hits,
+                "approx_complexity_markers": m.approx_cyclomatic_markers,
+                "template_cluster_size": m.template_cluster_size,
+                "test_pass_ratio": round(m.test_pass_ratio, 3),
             },
         }
 

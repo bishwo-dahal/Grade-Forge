@@ -170,6 +170,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
   const [error, setError] = useState<string | null>(null);
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<"all" | "high_struct" | "high_token">("all");
+  const [sortMode, setSortMode] = useState<"ai_risk" | "similarity">("ai_risk");
 
   const fetchLatest = useCallback(async () => {
     if (!assignmentId) return;
@@ -218,7 +219,13 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
 
   const payload = report?.result ? parseResultPayload(report.result) : null;
   const allResults = payload?.results ?? [];
-  const results = studentId ? allResults.filter((r) => r.student_id === String(studentId)) : allResults;
+  const filteredResults = studentId ? allResults.filter((r) => r.student_id === String(studentId)) : allResults;
+  const results = [...filteredResults].sort((a, b) => {
+    if (sortMode === "similarity") {
+      return (b.similarity_score ?? 0) - (a.similarity_score ?? 0);
+    }
+    return Number(b.ai_features?.risk_score ?? 0) - Number(a.ai_features?.risk_score ?? 0);
+  });
   const highlightMarkers = payload?.highlight_markers ?? { start: ">>", end: "<<" };
   const summary = payload?.ai_features?.summary as
     | { total_students: number; flagged_students: number; max_similarity: number }
@@ -328,6 +335,35 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
               <p className="mb-4 text-[12px] text-gray-600">
                 Current version combines style-based heuristics with a small similarity-context weight for triage only.
               </p>
+              {!studentId && (
+                <div className="mb-4 flex items-center gap-2 text-[12px] text-gray-700">
+                  <span>Sort rows by:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSortMode("ai_risk")}
+                    className={
+                      "px-2 py-0.5 rounded-full border text-xs " +
+                      (sortMode === "ai_risk"
+                        ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                        : "border-gray-300 bg-white text-gray-600")
+                    }
+                  >
+                    AI risk
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSortMode("similarity")}
+                    className={
+                      "px-2 py-0.5 rounded-full border text-xs " +
+                      (sortMode === "similarity"
+                        ? "border-amber-300 bg-amber-50 text-amber-700"
+                        : "border-gray-300 bg-white text-gray-600")
+                    }
+                  >
+                    Similarity
+                  </button>
+                </div>
+              )}
             </>
           )}
 
@@ -493,6 +529,17 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
                                       </ul>
                                     </div>
                                   )}
+                                  {row.ai_features?.llm_rationale &&
+                                    typeof row.ai_features.llm_rationale === "object" && (
+                                      <div className="rounded border border-violet-100 bg-violet-50/50 p-3">
+                                        <p className="text-[12px] font-medium text-violet-800 mb-1">
+                                          Optional LLM explanation
+                                        </p>
+                                        <p className="text-[12px] text-violet-900">
+                                          {(row.ai_features.llm_rationale as { summary?: string }).summary ?? "—"}
+                                        </p>
+                                      </div>
+                                    )}
                                   {row.comparisons
                                     .filter((comp) => {
                                       if (filterMode === "all") return true;

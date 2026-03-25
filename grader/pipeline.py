@@ -1,6 +1,7 @@
 """Run all grader steps and return combined results."""
 from data_parser import Assignment
 from ai_detection import analyze_ai_risk
+from llm_rationale import generate_llm_rationales
 from plagiarism import run_similarity_check, HIGHLIGHT_START, HIGHLIGHT_END
 
 
@@ -17,6 +18,7 @@ def run_pipeline(assignment: Assignment) -> dict:
 
     ai_analysis = analyze_ai_risk(assignment, similarity_by_student)
     ai_by_student = ai_analysis.get("by_student", {})
+    rationale_mode = generate_llm_rationales(ai_by_student)
 
     # Simple assignment-level summary for quick frontend visuals / risk overview.
     total_students = len(by_student)
@@ -53,5 +55,6 @@ def run_pipeline(assignment: Assignment) -> dict:
             "authorship_risk_summary": ai_analysis.get("summary", {}),
             "model_info": ai_analysis.get("model_info", {}),
             "disclaimer": ai_analysis.get("disclaimer"),
+            "rationale_mode": rationale_mode,
         },
     }

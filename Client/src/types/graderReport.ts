@@ -31,6 +31,12 @@ export interface GraderReportResultItem {
       reason: string;
       cohort_median?: number;
     }>;
+    llm_rationale?: {
+      summary?: string;
+      caveats?: string[];
+      model?: string;
+      source?: string;
+    };
     metrics?: {
       code_lines?: number;
       comment_ratio?: number;
@@ -89,6 +95,7 @@ export interface GraderReportResultPayload {
       uses_training_data?: boolean;
     };
     disclaimer?: string;
+    rationale_mode?: "deterministic_only" | "llm_assisted";
     // Allow any future assignment-level AI features.
     [key: string]: unknown;
   };
