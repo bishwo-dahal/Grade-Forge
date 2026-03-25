@@ -703,7 +703,9 @@ export function FacultyCreateAssignmentPage() {
   }, [pageData, mode, assignmentId]);
 
   const handleRemoveRetainedStarter = (id: number) => {
-    setRetainedStarterFiles((previous) => previous.filter((f) => f.id !== id));
+    setRetainedStarterFiles((previous) =>
+      previous.filter((f) => Number(f.id) !== Number(id)),
+    );
   };
 
   const canSubmit = useMemo(() => {
@@ -817,15 +819,27 @@ export function FacultyCreateAssignmentPage() {
     setIsSaving(true);
     setErrorMessage(null);
     try {
-      const savedAssignmentId =
-        mode === "edit" && assignmentId
-          ? (
-              await updateFacultyAssignmentDraft(assignmentId, resolvedClassId, form, {
-                initialExisting: initialStarterSnapshot,
-                retainedExisting: retainedStarterFiles,
-              })
-            ).assignmentId
-          : (await createFacultyAssignmentDraft(resolvedClassId, form)).assignmentId;
+      let savedAssignmentId: string;
+      if (mode === "edit" && assignmentId) {
+        const result = await updateFacultyAssignmentDraft(assignmentId, resolvedClassId, form, {
+          initialExisting: initialStarterSnapshot,
+          retainedExisting: retainedStarterFiles,
+        });
+        savedAssignmentId = result.assignmentId;
+        const nextStarter =
+          result.assignment.starterCodeFiles?.map((f) => ({
+            id: Number(f.id),
+            fileName: f.fileName,
+            downloadUrl: f.downloadUrl ?? null,
+          })) ?? [];
+        setRetainedStarterFiles(nextStarter);
+        setInitialStarterSnapshot(nextStarter);
+        setPageData((previous) =>
+          previous ? { ...previous, existingStarterFiles: nextStarter } : previous,
+        );
+      } else {
+        savedAssignmentId = (await createFacultyAssignmentDraft(resolvedClassId, form)).assignmentId;
+      }
       const hasTestCases = testSuiteDraft.testCases.some((c) => c.output.trim().length > 0);
       setTestCasesAdded(false);
       if (mode === "create" && hasTestCases) {

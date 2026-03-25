@@ -970,17 +970,17 @@ export async function getFacultyAssignmentEditPageData(
   };
 }
 
-/** JSON body for `@RequestPart("assignment")` — must match backend `AssignmentRequest` (no starter files here). */
+/** JSON body for `@RequestPart("assignment")` — must match backend `AssignmentRequest`. */
 function buildFacultyAssignmentRequestPayload(
   form: AssignmentCreateFormData,
   parsedClassId: number,
-  options?: { clearStarterFiles?: boolean },
+  options?: { keepFileIds?: number[] },
 ): Record<string, unknown> {
   const parsedLanguageId = Number(form.languageId);
   if (!Number.isFinite(parsedLanguageId) || parsedLanguageId <= 0) {
     throw new Error("Select a programming language.");
   }
-  return {
+  const payload: Record<string, unknown> = {
     courseId: parsedClassId,
     languageId: parsedLanguageId,
     name: form.title.trim(),
@@ -992,53 +992,46 @@ function buildFacultyAssignmentRequestPayload(
     dueDate: buildDueDateTimePayload(form.dueDate, form.dueTime),
     lateDueDate: buildOptionalDateTimePayload(form.lateDueDate, form.lateDueTime, "late due date/time"),
     ...(form.rubricId.trim() ? { rubricId: Number(form.rubricId) } : {}),
-    ...(options?.clearStarterFiles ? { clearStarterFiles: true } : {}),
   };
+  if (options?.keepFileIds !== undefined) {
+    payload.keepFileIds = options.keepFileIds;
+  }
+  return payload;
 }
 
 function buildFacultyAssignmentMultipartForm(
   form: AssignmentCreateFormData,
   parsedClassId: number,
   options?: {
-    /** When set, append these instead of `form.starterFiles`. */
-    starterFilesToAppend?: File[];
-    /** When true, do not send any `starterFiles` parts (edit: leave server starter files unchanged). */
-    omitStarterFileParts?: boolean;
-    clearStarterFiles?: boolean;
+    /** Append these instead of `form.starterFiles` (multipart part name `files`). */
+    filesToAppend?: File[];
+    /** When true, no multipart `files` parts. */
+    omitFileParts?: boolean;
+    /** Update only: IDs of existing starter files to keep (sent inside assignment JSON). */
+    keepFileIds?: number[];
   },
 ): FormData {
   const payload = buildFacultyAssignmentRequestPayload(form, parsedClassId, {
-    clearStarterFiles: options?.clearStarterFiles,
+    keepFileIds: options?.keepFileIds,
   });
   const formData = new FormData();
-  formData.append("assignment", new Blob([JSON.stringify(payload)], { type: "application/json" }));
-  if (options?.omitStarterFileParts || options?.clearStarterFiles) {
+  // Filename helps Spring MVC bind the JSON part reliably as application/json.
+  formData.append(
+    "assignment",
+    new Blob([JSON.stringify(payload)], { type: "application/json" }),
+    "assignment.json",
+  );
+  if (options?.omitFileParts) {
     return formData;
   }
-  const files = options?.starterFilesToAppend ?? form.starterFiles;
+  const files =
+    options != null && Object.prototype.hasOwnProperty.call(options, "filesToAppend")
+      ? options.filesToAppend ?? []
+      : form.starterFiles;
   for (const file of files) {
-    formData.append("starterFiles", file);
+    formData.append("files", file);
   }
   return formData;
-}
-
-/** Download retained starter files (presigned URLs) so they can be re-uploaded in a full replacement update. */
-async function fetchRetainedStarterFilesAsFiles(retained: AssignmentExistingStarterFile[]): Promise<File[]> {
-  const out: File[] = [];
-  for (const item of retained) {
-    if (!item.downloadUrl?.trim()) {
-      throw new Error(`Starter file "${item.fileName}" has no download link. Remove it and upload again, or refresh the page.`);
-    }
-    const response = await fetch(item.downloadUrl);
-    if (!response.ok) {
-      throw new Error(
-        `Could not load "${item.fileName}" (${response.status}). Check network or CORS; you can remove it and upload a new copy.`,
-      );
-    }
-    const blob = await response.blob();
-    out.push(new File([blob], item.fileName, { type: blob.type || "application/octet-stream" }));
-  }
-  return out;
 }
 
 export interface UpdateFacultyAssignmentStarterEditOptions {
@@ -1061,7 +1054,7 @@ export async function updateFacultyAssignmentDraft(
   classId: string,
   form: AssignmentCreateFormData,
   starterEdit?: UpdateFacultyAssignmentStarterEditOptions,
-): Promise<{ assignmentId: string }> {
+): Promise<{ assignmentId: string; assignment: AssignmentApiResponse }> {
   const parsedClassId = parseClassId(classId || defaultCreateAssignmentHeader.classId);
   const parsedAssignmentId = Number(assignmentId);
   if (!Number.isFinite(parsedAssignmentId) || parsedAssignmentId <= 0) {
@@ -1075,24 +1068,27 @@ export async function updateFacultyAssignmentDraft(
   } else {
     const { initialExisting, retainedExisting } = starterEdit;
     const newFiles = form.starterFiles;
-    const initialKey = JSON.stringify([...initialExisting.map((f) => f.id)].sort((a, b) => a - b));
-    const retainedKey = JSON.stringify([...retainedExisting.map((f) => f.id)].sort((a, b) => a - b));
+    const sortNumericIds = (items: AssignmentExistingStarterFile[]) =>
+      [...items.map((f) => Number(f.id))].sort((a, b) => a - b);
+    const initialKey = JSON.stringify(sortNumericIds(initialExisting));
+    const retainedKey = JSON.stringify(sortNumericIds(retainedExisting));
     const starterSectionDirty = initialKey !== retainedKey || newFiles.length > 0;
 
     if (!starterSectionDirty) {
-      formData = buildFacultyAssignmentMultipartForm(form, parsedClassId, { omitStarterFileParts: true });
+      formData = buildFacultyAssignmentMultipartForm(form, parsedClassId, { omitFileParts: true });
     } else if (retainedExisting.length === 0 && newFiles.length === 0) {
       formData = buildFacultyAssignmentMultipartForm(form, parsedClassId, {
-        omitStarterFileParts: true,
-        clearStarterFiles: true,
+        keepFileIds: [],
+        omitFileParts: true,
       });
     } else {
-      const retainedAsFiles = await fetchRetainedStarterFilesAsFiles(retainedExisting);
-      const allFiles = [...retainedAsFiles, ...newFiles];
-      formData = buildFacultyAssignmentMultipartForm(form, parsedClassId, { starterFilesToAppend: allFiles });
+      formData = buildFacultyAssignmentMultipartForm(form, parsedClassId, {
+        keepFileIds: retainedExisting.map((f) => Number(f.id)),
+        filesToAppend: newFiles,
+      });
     }
   }
 
   const { data } = await api.put<AssignmentApiResponse>(`/api/v1/faculty/assignments/${parsedAssignmentId}`, formData);
-  return { assignmentId: String(data.id) };
+  return { assignmentId: String(data.id), assignment: data };
 }

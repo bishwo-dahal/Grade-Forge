@@ -154,7 +154,7 @@ export interface AssignmentCreateFormData {
   submissionType: AssignmentSubmissionType;
   // NOTE: When submissionType is GROUP, backend requires assigning an assignment to a main group.
   mainGroupId: string;
-  /** New starter files to upload (multipart `starterFiles`); any file type. Omit empty; edit without new files keeps existing server-side files. */
+  /** New files to upload (multipart part name `files`); any file type. On edit, combined with `keepFileIds` in the assignment JSON. */
   starterFiles: File[];
   // NOTE: Rubric linkage is optional and references pre-created faculty rubrics.
   rubricId: string;

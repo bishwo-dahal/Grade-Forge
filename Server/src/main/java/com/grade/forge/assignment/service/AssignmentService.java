@@ -51,7 +51,7 @@ public class AssignmentService {
     private final AssignmentStarterFileRepository assignmentStarterFileRepository;
     private final FileStorageService fileStorageService;
 
-    public AssignmentResponse createAssignment(AssignmentRequest request, List<MultipartFile> starterFiles, String userEmail) {
+    public AssignmentResponse createAssignment(AssignmentRequest request, List<MultipartFile> files, String userEmail) {
         validateCreate(request);
         Course course = courseRepository.findById(request.getCourseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + request.getCourseId()));
@@ -86,7 +86,7 @@ public class AssignmentService {
 
         Assignment saved = assignmentRepository.save(assignment);
 
-        List<AssignmentStarterFile> starterFileEntities = fileStorageService.uploadAssignmentStarterFiles(saved, starterFiles);
+        List<AssignmentStarterFile> starterFileEntities = fileStorageService.uploadAssignmentStarterFiles(saved, files);
         if (!starterFileEntities.isEmpty()) {
             assignmentStarterFileRepository.saveAll(starterFileEntities);
             saved.setStarterFiles(starterFileEntities);
@@ -95,7 +95,7 @@ public class AssignmentService {
         return mapToResponse(saved);
     }
 
-    public AssignmentResponse updateAssignment(Long id, AssignmentRequest request, List<MultipartFile> starterFiles, List<Long> retainStarterFileIds) {
+    public AssignmentResponse updateAssignment(Long id, AssignmentRequest request, List<MultipartFile> newFiles) {
         Assignment assignment = assignmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + id));
 
@@ -154,9 +154,67 @@ public class AssignmentService {
 
         Assignment saved = assignmentRepository.save(assignment);
 
-        handleStarterFilesUpdate(saved, starterFiles, retainStarterFileIds);
+        handleStarterFilesUpdate(saved, request, newFiles);
 
-        return mapToResponse(saved);
+        Assignment refreshed = assignmentRepository.findById(saved.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + saved.getId()));
+        return mapToResponse(refreshed);
+    }
+
+    /**
+     * Updates starter files when {@code keepFileIds} is set and/or new {@code files} parts are sent.
+     * If both are absent (keepFileIds null and no new files), existing starter files are unchanged.
+     */
+    private void handleStarterFilesUpdate(Assignment saved, AssignmentRequest request, List<MultipartFile> newFiles) {
+        if (request.getKeepFileIds() == null && (newFiles == null || newFiles.isEmpty())) {
+            return;
+        }
+
+        List<AssignmentStarterFile> existing = assignmentStarterFileRepository.findByAssignment_Id(saved.getId());
+        // JSON numbers often deserialize as Integer; JPA ids are Long — normalize so contains() / removal works.
+        List<Long> keepIds;
+        if (request.getKeepFileIds() != null) {
+            keepIds = request.getKeepFileIds().stream()
+                    .filter(Objects::nonNull)
+                    .map(id -> ((Number) id).longValue())
+                    .toList();
+        } else {
+            keepIds = existing.stream()
+                    .map(AssignmentStarterFile::getId)
+                    .filter(Objects::nonNull)
+                    .toList();
+        }
+
+        for (Long keepId : keepIds) {
+            boolean known = existing.stream().anyMatch(f -> Objects.equals(f.getId(), keepId));
+            if (!known) {
+                throw new IllegalArgumentException("keepFileIds contains id not on this assignment: " + keepId);
+            }
+        }
+
+        List<AssignmentStarterFile> toRemove = existing.stream()
+                .filter(f -> keepIds.stream().noneMatch(k -> Objects.equals(k, f.getId())))
+                .toList();
+
+        if (!toRemove.isEmpty()) {
+            fileStorageService.deleteObjects(toRemove.stream()
+                    .map(AssignmentStarterFile::getFileKey)
+                    .filter(Objects::nonNull)
+                    .toList());
+            // Bulk JPQL delete so unkept rows are removed from assignment_starter_files (not only detached from session).
+            if (keepIds.isEmpty()) {
+                assignmentStarterFileRepository.deleteByAssignment_Id(saved.getId());
+            } else {
+                assignmentStarterFileRepository.deleteByAssignment_IdAndIdNotIn(saved.getId(), keepIds);
+            }
+        }
+
+        if (newFiles != null && !newFiles.isEmpty()) {
+            List<AssignmentStarterFile> uploaded = fileStorageService.uploadAssignmentStarterFiles(saved, newFiles);
+            if (!uploaded.isEmpty()) {
+                assignmentStarterFileRepository.saveAll(uploaded);
+            }
+        }
     }
 
     public AssignmentResponse getAssignment(Long id) {
@@ -324,35 +382,5 @@ public class AssignmentService {
                 .fileSize(file.getFileSize())
                 .downloadUrl(fileStorageService.generatePresignedDownloadUrl(file.getFileKey(), file.getFileName()))
                 .build();
-    }
-
-    private void handleStarterFilesUpdate(Assignment assignment,
-                                          List<MultipartFile> newFiles,
-                                          List<Long> retainStarterFileIds) {
-        List<AssignmentStarterFile> managedList = assignment.getStarterFiles();
-        if (managedList == null) {
-            managedList = new java.util.ArrayList<>();
-            assignment.setStarterFiles(managedList);
-        }
-
-        if (retainStarterFileIds != null) {
-            List<AssignmentStarterFile> toRemove = managedList.stream()
-                    .filter(f -> f.getId() != null && !retainStarterFileIds.contains(f.getId()))
-                    .toList();
-
-            if (!toRemove.isEmpty()) {
-                fileStorageService.deleteObjects(toRemove.stream().map(AssignmentStarterFile::getFileKey).toList());
-                assignmentStarterFileRepository.deleteAllInBatch(toRemove);
-                managedList.removeAll(toRemove); // mutate managed collection to satisfy orphanRemoval
-            }
-        }
-
-        if (newFiles != null) {
-            List<AssignmentStarterFile> uploaded = fileStorageService.uploadAssignmentStarterFiles(assignment, newFiles);
-            if (!uploaded.isEmpty()) {
-                assignmentStarterFileRepository.saveAll(uploaded);
-                managedList.addAll(uploaded); // add to managed collection
-            }
-        }
     }
 }

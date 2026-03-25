@@ -27,8 +27,8 @@ public class AssignmentController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<AssignmentResponse> createAssignment(@AuthenticationPrincipal CustomUserDetails customUserDetails,
                                                                @RequestPart("assignment") AssignmentRequest request,
-                                                               @RequestPart(value = "starterFiles", required = false) List<MultipartFile> starterFiles) {
-        AssignmentResponse created = assignmentService.createAssignment(request, starterFiles, customUserDetails.getUsername());
+                                                               @RequestPart(value = "files", required = false) List<MultipartFile> files) {
+        AssignmentResponse created = assignmentService.createAssignment(request, files, customUserDetails.getUsername());
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
 
@@ -49,9 +49,8 @@ public class AssignmentController {
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<AssignmentResponse> updateAssignment(@PathVariable Long id,
                                                                @RequestPart("assignment") AssignmentRequest request,
-                                                               @RequestPart(value = "starterFiles", required = false) List<MultipartFile> starterFiles,
-                                                               @RequestPart(value = "retainStarterFileIds", required = false) List<Long> retainStarterFileIds) {
-        AssignmentResponse updated = assignmentService.updateAssignment(id, request, starterFiles, retainStarterFileIds);
+                                                               @RequestPart(value = "files", required = false) List<MultipartFile> files) {
+        AssignmentResponse updated = assignmentService.updateAssignment(id, request, files);
         return new ResponseEntity<>(updated, HttpStatus.OK);
     }
 

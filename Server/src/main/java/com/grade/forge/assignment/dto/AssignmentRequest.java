@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -26,6 +27,9 @@ public class AssignmentRequest {
     private LocalDateTime lateDueDate;
     private Long rubricId;
     private Long mainGroupId;
-    /** When true on update, removes all starter files without uploading new ones (multipart may omit starterFiles). */
-    private Boolean clearStarterFiles;
+    /**
+     * Update only: IDs of existing starter files to keep. Omit (null) to leave starter files unchanged.
+     * Use an empty list to remove all existing files when not uploading replacements.
+     */
+    private List<Long> keepFileIds;
 }
