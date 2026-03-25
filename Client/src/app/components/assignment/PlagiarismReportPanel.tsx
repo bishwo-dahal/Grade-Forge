@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { Link, useParams } from "react-router";
 import {
   requestGraderReport,
   getGraderReportLatest,
@@ -164,6 +165,7 @@ interface PlagiarismReportPanelProps {
 }
 
 export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: PlagiarismReportPanelProps) {
+  const { classId } = useParams<{ classId?: string }>();
   const [report, setReport] = useState<GraderReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -698,7 +700,8 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
                                 <div className="grid grid-cols-2 gap-3">
                                   <div>
                                     <p className="font-medium text-gray-700 mb-1">
-                                      You (left) — {Math.round((comp.left.similarity ?? 0) * 100)}%
+                                      {(comp.left.student_name || (comp.left.student_id ? `Student ${comp.left.student_id}` : "You"))} (left) —{" "}
+                                      {Math.round((comp.left.similarity ?? 0) * 100)}%
                                     </p>
                                     <pre className="whitespace-pre-wrap break-words text-[12px] bg-gray-50 p-2 rounded max-h-72 overflow-auto">
                                       {renderHighlightedCode(
@@ -710,7 +713,17 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
                                   </div>
                                   <div>
                                     <p className="font-medium text-gray-700 mb-1">
-                                      Other (right) — {Math.round((comp.right.similarity ?? 0) * 100)}%
+                                      {classId && comp.right.student_id ? (
+                                        <Link
+                                          to={`/faculty/class/${classId}/students/${comp.right.student_id}`}
+                                          className="text-[#5A7ACD] hover:underline"
+                                        >
+                                          {comp.right.student_name || `Student ${comp.right.student_id}`}
+                                        </Link>
+                                      ) : (
+                                        (comp.right.student_name || (comp.right.student_id ? `Student ${comp.right.student_id}` : "Other student"))
+                                      )}{" "}
+                                      (right) — {Math.round((comp.right.similarity ?? 0) * 100)}%
                                     </p>
                                     <pre className="whitespace-pre-wrap break-words text-[12px] bg-gray-50 p-2 rounded max-h-72 overflow-auto">
                                       {renderHighlightedCode(

@@ -15,6 +15,7 @@ export interface GraderReportResponse {
 /** One student's result in the pipeline output (parsed from result JSON). */
 export interface GraderReportResultItem {
   student_id: string;
+  student_name?: string | null;
   final_grade: number;
   similarity_score: number;
   similarity_warning: string | null;
@@ -54,6 +55,7 @@ export interface GraderReportResultItem {
 export interface GraderReportComparison {
   left: {
     student_id: string;
+    student_name?: string | null;
     file_path: string;
     code: string;
     similarity: number;
@@ -63,6 +65,7 @@ export interface GraderReportComparison {
   };
   right: {
     student_id: string;
+    student_name?: string | null;
     file_path: string;
     code: string;
     similarity: number;

@@ -212,6 +212,9 @@ public class GraderReportRunnerService {
 
             Map<String, Object> sub = new LinkedHashMap<>();
             sub.put("student_id", studentId);
+            sub.put("student_name", submission.getStudent() != null && submission.getStudent().getUser() != null
+                    ? submission.getStudent().getUser().getName()
+                    : null);
             if (filePaths.size() == 1) {
                 sub.put("file_path", filePaths.get(0));
             } else {
