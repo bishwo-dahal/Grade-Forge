@@ -340,10 +340,10 @@ function FacultyCreateAssignmentView({
 
                   <div className="lg:col-span-2">
                     <label htmlFor="assignment-starter-files" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                      Starter code files
+                      Starter files
                     </label>
                     <p className="mb-2 text-[12px] text-[#6D7B91]">
-                      Optional. Upload one or more files, or leave empty.{" "}
+                      Optional. Any file type is allowed (source, data, zip, images, etc.). Upload one or more files, or leave empty.{" "}
                       {mode === "edit" && existingStarterFiles.length > 0
                         ? "Uploading new files replaces all starter files listed below."
                         : null}
@@ -371,6 +371,7 @@ function FacultyCreateAssignmentView({
                       id="assignment-starter-files"
                       type="file"
                       multiple
+                      accept="*/*"
                       className="block w-full text-[13px] text-[#30415F] file:mr-3 file:rounded-lg file:border file:border-[#D8DFEC] file:bg-white file:px-3 file:py-1.5 file:text-[13px] file:font-medium file:text-[#30415F] hover:file:bg-[#F3F6FB]"
                       onChange={(event) => {
                         const list = event.target.files ? Array.from(event.target.files) : [];
