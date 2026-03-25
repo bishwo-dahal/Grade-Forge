@@ -44,6 +44,7 @@ function mapToAssignment(assignment: AssignmentDetail | null, description: Assig
     availableFrom: assignment.availableFrom ?? null,
     lateDueDate: assignment.lateDueDate ?? null,
     starterCodeUrl: assignment.starterCodeUrl ?? null,
+    starterCodeFiles: assignment.starterCodeFiles,
     rubricName: assignment.rubricName ?? null,
   };
 }

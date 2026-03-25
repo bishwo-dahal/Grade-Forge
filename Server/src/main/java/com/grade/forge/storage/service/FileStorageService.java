@@ -1,8 +1,9 @@
 package com.grade.forge.storage.service;
 
-import com.grade.forge.exceptionhandler.IncorrectFileException;
 import com.grade.forge.assignment.entity.Assignment;
+import com.grade.forge.assignment.entity.AssignmentStarterFile;
 import com.grade.forge.assignment.repository.AssignmentRepository;
+import com.grade.forge.exceptionhandler.IncorrectFileException;
 import com.grade.forge.programminglanguage.entity.ProgrammingLanguage;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.entity.SubmissionFile;
@@ -68,46 +69,31 @@ public class FileStorageService {
                 .collect(Collectors.toList());
     }
 
+    public List<AssignmentStarterFile> uploadAssignmentStarterFiles(Assignment assignment,
+                                                                    List<MultipartFile> files) {
+        if (files == null || files.isEmpty()) {
+            return List.of();
+        }
+        return files.stream()
+                .map(file -> uploadStarterFile(assignment, file))
+                .collect(Collectors.toList());
+    }
+
     private SubmissionFile uploadSingleFile(Submission submission,
                                             Long studentId,
                                             Long courseId,
                                             Long assignmentId,
                                             MultipartFile multipartFile) {
-        String fileId = UUID.randomUUID().toString();
-        String originalName = multipartFile.getOriginalFilename();
-
-        if (originalName == null) {
-            throw new IncorrectFileException("Incorrect File Type");
-        }
-
-        String lower = originalName.toLowerCase();
-        int dotIndex = lower.lastIndexOf('.');
-        String ext = dotIndex >= 0 ? lower.substring(dotIndex) : "";
+        String originalName = validateAndGetName(multipartFile);
+        String ext = extractExtension(originalName);
 
         Assignment assignment = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new IncorrectFileException("Assignment not found for file upload."));
-        ProgrammingLanguage language = assignment.getProgrammingLanguage();
 
-        boolean allowedByLanguage = false;
-        if (language != null && language.getAllowedExtensions() != null && !language.getAllowedExtensions().isBlank()) {
-            String[] parts = language.getAllowedExtensions().split(",");
-            for (String part : parts) {
-                String trimmed = part.trim().toLowerCase();
-                if (!trimmed.isEmpty() && trimmed.equals(ext)) {
-                    allowedByLanguage = true;
-                    break;
-                }
-            }
-        }
-
-        boolean isTextOrCsv = ".txt".equals(ext) || ".csv".equals(ext);
-        if (!allowedByLanguage && !isTextOrCsv) {
-            throw new IncorrectFileException("Incorrect File Type");
-        }
+        enforceAllowedExtension(assignment.getProgrammingLanguage(), ext);
 
         String key = String.format("uploads/student/%d/course/%d/assignment/%d/file/%s-%s",
-                studentId, courseId, assignmentId, fileId, originalName);
-
+                studentId, courseId, assignmentId, UUID.randomUUID(), originalName);
 
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
@@ -130,6 +116,70 @@ public class FileStorageService {
         file.setFileType(multipartFile.getContentType());
         file.setFileSize(multipartFile.getSize());
         return file;
+    }
+
+    private AssignmentStarterFile uploadStarterFile(Assignment assignment, MultipartFile multipartFile) {
+        String originalName = validateAndGetName(multipartFile);
+        String ext = extractExtension(originalName);
+
+        enforceAllowedExtension(assignment.getProgrammingLanguage(), ext);
+
+        String key = String.format("uploads/faculty/course/%d/assignment/%d/starter/%s-%s",
+                assignment.getCourse().getId(), assignment.getId(), UUID.randomUUID(), originalName);
+
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .contentType(multipartFile.getContentType())
+                .build();
+
+        try {
+            getClient().putObject(putObjectRequest,
+                    RequestBody.fromInputStream(multipartFile.getInputStream(), multipartFile.getSize()));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload starter file to S3", e);
+        }
+
+        AssignmentStarterFile file = new AssignmentStarterFile();
+        file.setAssignment(assignment);
+        file.setFileName(originalName);
+        file.setFileKey(key);
+        file.setFileType(multipartFile.getContentType());
+        file.setFileSize(multipartFile.getSize());
+        return file;
+    }
+
+    private String validateAndGetName(MultipartFile multipartFile) {
+        String originalName = multipartFile.getOriginalFilename();
+        if (originalName == null) {
+            throw new IncorrectFileException("Incorrect File Type");
+        }
+        return originalName;
+    }
+
+    private String extractExtension(String originalName) {
+        String lower = originalName.toLowerCase();
+        int dotIndex = lower.lastIndexOf('.');
+        return dotIndex >= 0 ? lower.substring(dotIndex) : "";
+    }
+
+    private void enforceAllowedExtension(ProgrammingLanguage language, String ext) {
+        boolean allowedByLanguage = false;
+        if (language != null && language.getAllowedExtensions() != null && !language.getAllowedExtensions().isBlank()) {
+            String[] parts = language.getAllowedExtensions().split(",");
+            for (String part : parts) {
+                String trimmed = part.trim().toLowerCase();
+                if (!trimmed.isEmpty() && trimmed.equals(ext)) {
+                    allowedByLanguage = true;
+                    break;
+                }
+            }
+        }
+
+        boolean isTextOrCsv = ".txt".equals(ext) || ".csv".equals(ext);
+        if (!allowedByLanguage && !isTextOrCsv) {
+            throw new IncorrectFileException("Incorrect File Type");
+        }
     }
 
 

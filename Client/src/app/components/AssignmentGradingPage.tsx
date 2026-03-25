@@ -793,7 +793,13 @@ export function AssignmentGradingPage() {
 
                 {/* Tab content - grows with content, panel scrolls */}
                 <div className="flex-1 min-h-0">
-                  {activeTab === "description" && <DescriptionPanel description={description} />}
+                  {activeTab === "description" && (
+                    <DescriptionPanel
+                      description={description}
+                      starterCodeFiles={assignment?.starterCodeFiles}
+                      starterCodeUrl={assignment?.starterCodeUrl ?? null}
+                    />
+                  )}
                   {activeTab === "tests" && (
                     <PublicTestsPanel
                       testCases={[]}

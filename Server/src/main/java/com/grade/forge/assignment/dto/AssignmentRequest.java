@@ -21,7 +21,6 @@ public class AssignmentRequest {
     private String description;
     private Integer totalPoints;
     private SubmissionType submissionType;
-    private String starterCodeUrl;
     private LocalDateTime availableFrom;
     private LocalDateTime dueDate;
     private LocalDateTime lateDueDate;

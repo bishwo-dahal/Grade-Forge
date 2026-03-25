@@ -1,49 +1,69 @@
-# Assignment Controller API
+# Assignment API notes
 
-Faculty-facing endpoints to manage assignments (including optional main group linkage).
+This project now supports optional multi-file starter code stored in S3 alongside submissions.
 
-Base path: `/api/v1/faculty/assignments`
+## Endpoints (faculty)
+- `POST /api/v1/faculty/assignments` (multipart)
+  - Parts:
+    - `assignment` (JSON, `AssignmentRequest`)
+    - `starterFiles` (optional file[])
+- `PUT /api/v1/faculty/assignments/{id}` (multipart)
+  - Parts:
+    - `assignment` (JSON, partial `AssignmentRequest` for fields to update)
+    - `starterFiles` (optional file[]; if present, replaces existing starter files; send empty list to clear)
+- `GET /api/v1/faculty/assignments/{id}` returns `AssignmentResponse` (includes presigned download URLs for starter files)
 
-## Create assignment
-- `POST /api/v1/faculty/assignments`
-- Body includes course/language details and optional `mainGroupId`:
+## Request JSON (`AssignmentRequest`)
 ```json
 {
   "courseId": 1,
-  "languageId": 2,
-  "name": "HW1",
-  "description": "Intro",
+  "languageId": 1,
+  "name": "Assignment 1",
+  "description": "Intro to loops",
   "totalPoints": 100,
-  "submissionType": "ONLINE",
-  "availableFrom": "2024-09-01T00:00:00",
-  "dueDate": "2024-09-10T23:59:00",
-  "lateDueDate": "2024-09-12T23:59:00",
-  "starterCodeUrl": "https://.../repo.zip",
+  "submissionType": "FILE", // enum
+  "availableFrom": "2024-01-01T12:00:00",
+  "dueDate": "2024-01-08T12:00:00",
+  "lateDueDate": "2024-01-10T12:00:00",
   "rubricId": 5,
-  "mainGroupId": 10
+  "mainGroupId": 3
 }
 ```
-- 201 response: `AssignmentResponse` (includes `mainGroupId`/`mainGroupName`).
 
-## Get assignment by id
-- `GET /api/v1/faculty/assignments/{id}`
-- 200 response: `AssignmentResponse`.
+## Response JSON (`AssignmentResponse`)
+```json
+{
+  "id": 10,
+  "courseId": 1,
+  "courseName": "CS101",
+  "languageId": 1,
+  "languageName": "Python",
+  "languageAllowedExtensions": ".py,.txt,.csv",
+  "name": "Assignment 1",
+  "description": "Intro to loops",
+  "totalPoints": 100,
+  "submissionType": "FILE",
+  "starterCodeFiles": [
+    {
+      "id": 42,
+      "fileName": "starter.py",
+      "fileKey": "uploads/faculty/course/1/assignment/10/starter/uuid-starter.py",
+      "fileType": "text/x-python",
+      "fileSize": 1234,
+      "downloadUrl": "<presigned GET url>"
+    }
+  ],
+  "availableFrom": "2024-01-01T12:00:00",
+  "dueDate": "2024-01-08T12:00:00",
+  "lateDueDate": "2024-01-10T12:00:00",
+  "rubricId": 5,
+  "rubricName": "Loops rubric",
+  "mainGroupId": 3,
+  "mainGroupName": "Group A"
+}
+```
 
-## List assignments by course
-- `GET /api/v1/faculty/assignments/course/{courseId}`
-- 200 response: `List<AssignmentBasicResponse>`.
-
-## Update assignment
-- `PUT /api/v1/faculty/assignments/{id}`
-- Body mirrors create; include `mainGroupId` to change the linked group (must belong to the same course).
-- 200 response: updated `AssignmentResponse`.
-
-## Delete assignment
-- `DELETE /api/v1/faculty/assignments/{id}`
-- 200 response: confirmation message.
-
-## Validation notes
-- `mainGroupId`, when provided, must belong to the same course as the assignment.
-- Rubric must belong to the same faculty as the course.
-- Standard timeline checks: `dueDate` after `availableFrom`, `lateDueDate` after `dueDate` (if provided).
+## Notes
+- Starter files are validated against the assignment language allowed extensions (plus .txt/.csv) and stored in S3 under `uploads/faculty/course/{courseId}/assignment/{assignmentId}/starter/`.
+- Responses include presigned download URLs (short-lived) for each starter file, similar to submission file responses.
 

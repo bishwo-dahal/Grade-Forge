@@ -592,7 +592,8 @@ interface AssignmentApiResponse {
   description: string | null;
   totalPoints: number;
   submissionType: string;
-  starterCodeUrl: string | null;
+  starterCodeUrl?: string | null;
+  starterCodeFiles?: Array<{ id: number; fileName: string; downloadUrl?: string | null }> | null;
   availableFrom: string | null;
   dueDate: string | null;
   lateDueDate: string | null;

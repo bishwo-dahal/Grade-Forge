@@ -10,7 +10,11 @@ import {
 } from "../../services/assignmentService";
 import { getRubric, getUnweightedRubricTotalPoints } from "../../services/rubricService";
 import { createTestSuite } from "../../services/testSuiteService";
-import type { AssignmentCreateFormData, FacultyAssignmentCreatePageData } from "../../types/assignment";
+import type {
+  AssignmentCreateFormData,
+  AssignmentExistingStarterFile,
+  FacultyAssignmentCreatePageData,
+} from "../../types/assignment";
 import type { TestSuitePayload } from "../../types/testSuite";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
@@ -21,6 +25,7 @@ interface FacultyCreateAssignmentViewProps {
   // NOTE: This component is presentation-only. Data and handlers are injected by the page/container.
   classId: string;
   pageData: FacultyAssignmentCreatePageData | null;
+  existingStarterFiles: AssignmentExistingStarterFile[];
   form: AssignmentCreateFormData | null;
   testSuiteDraft: TestSuiteDraftState | null;
   isLoading: boolean;
@@ -61,6 +66,7 @@ interface TestSuiteDraftState {
 function FacultyCreateAssignmentView({
   classId,
   pageData,
+  existingStarterFiles,
   form,
   testSuiteDraft,
   isLoading,
@@ -333,17 +339,69 @@ function FacultyCreateAssignmentView({
                   </div>
 
                   <div className="lg:col-span-2">
-                    <label htmlFor="assignment-starter-code-url" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                      Starter Code URL
+                    <label htmlFor="assignment-starter-files" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                      Starter code files
                     </label>
+                    <p className="mb-2 text-[12px] text-[#6D7B91]">
+                      Optional. Upload one or more files, or leave empty.{" "}
+                      {mode === "edit" && existingStarterFiles.length > 0
+                        ? "Uploading new files replaces all starter files listed below."
+                        : null}
+                    </p>
+                    {mode === "edit" && existingStarterFiles.length > 0 ? (
+                      <ul className="mb-3 space-y-1 rounded-xl border border-[#E5E9F2] bg-white px-3 py-2 text-[13px] text-[#30415F]">
+                        {existingStarterFiles.map((f) => (
+                          <li key={f.id} className="flex items-center gap-2">
+                            <span className="truncate">{f.fileName}</span>
+                            {f.downloadUrl ? (
+                              <a
+                                href={f.downloadUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="shrink-0 text-[#5A7ACD] hover:underline"
+                              >
+                                Download
+                              </a>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
                     <input
-                      id="assignment-starter-code-url"
-                      type="url"
-                      value={form.starterCodeUrl}
-                      onChange={(event) => onFieldChange("starterCodeUrl", event.target.value)}
-                      placeholder="https://..."
-                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                      id="assignment-starter-files"
+                      type="file"
+                      multiple
+                      className="block w-full text-[13px] text-[#30415F] file:mr-3 file:rounded-lg file:border file:border-[#D8DFEC] file:bg-white file:px-3 file:py-1.5 file:text-[13px] file:font-medium file:text-[#30415F] hover:file:bg-[#F3F6FB]"
+                      onChange={(event) => {
+                        const list = event.target.files ? Array.from(event.target.files) : [];
+                        onFieldChange("starterFiles", [...form.starterFiles, ...list]);
+                        event.target.value = "";
+                      }}
                     />
+                    {form.starterFiles.length > 0 ? (
+                      <ul className="mt-3 space-y-1.5">
+                        {form.starterFiles.map((file, index) => (
+                          <li
+                            key={`${file.name}-${index}-${file.size}`}
+                            className="flex items-center justify-between gap-2 rounded-lg border border-[#E5E9F2] bg-white px-3 py-2 text-[13px]"
+                          >
+                            <span className="truncate text-[#1F2430]">{file.name}</span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onFieldChange(
+                                  "starterFiles",
+                                  form.starterFiles.filter((_, i) => i !== index),
+                                )
+                              }
+                              className="shrink-0 text-[12px] text-[#C23A42] hover:underline"
+                            >
+                              Remove
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </div>
                 </div>
               </section>
@@ -710,11 +768,6 @@ export function FacultyCreateAssignmentPage() {
         return;
       }
     }
-    if (form.starterCodeUrl.trim() && !/^https?:\/\//i.test(form.starterCodeUrl.trim())) {
-      setErrorMessage("Starter Code URL must start with http:// or https://");
-      return;
-    }
-
     setIsSaving(true);
     setErrorMessage(null);
     try {
@@ -812,6 +865,7 @@ export function FacultyCreateAssignmentPage() {
         <FacultyCreateAssignmentView
           classId={resolvedClassId}
           pageData={pageData}
+          existingStarterFiles={pageData?.existingStarterFiles ?? []}
           form={form}
           testSuiteDraft={testSuiteDraft}
           isLoading={isLoading}
