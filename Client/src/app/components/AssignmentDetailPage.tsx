@@ -17,6 +17,7 @@ import {
   requestGraderReport,
 } from "../../services/graderReportService";
 import type { GraderReportResultPayload } from "../../types/graderReport";
+import { getLlmReportBanner, type LlmReportBanner } from "../../utils/llmReportBanner";
 import type { AssignmentDetailResponse } from "../../types/gradingAssistantAssignment";
 import type { GradingAssistantRubricResponse } from "../../types/gradingAssistantRubric";
 import { roundTo2 } from "../../utils/number";
@@ -133,6 +134,22 @@ export interface AssignmentDetailPageProps {
   testSuiteSection?: AssignmentDetailPageTestSuiteSection | null;
 }
 
+/** Per-student slice of the latest grader report (similarity + AI authorship risk). */
+type GraderReportStudentSummary = {
+  similarityScore: number;
+  matchesCount?: number;
+  warning?: string | null;
+  aiRiskScore: number;
+  aiRiskLevel: "none" | "low" | "medium" | "high";
+};
+
+function formatAiRiskLevelLabel(level: GraderReportStudentSummary["aiRiskLevel"]): string {
+  if (level === "high") return "High";
+  if (level === "medium") return "Medium";
+  if (level === "low") return "Low";
+  return "None";
+}
+
 export function AssignmentDetailPage({
   assignment,
   rubricSection,
@@ -149,17 +166,12 @@ export function AssignmentDetailPage({
   testCasesLink,
   testSuiteSection,
 }: AssignmentDetailPageProps) {
-  const [plagSummary, setPlagSummary] = useState<
-    | {
-        byStudent: Record<
-          string,
-          { similarityScore: number; matchesCount?: number; warning?: string | null }
-        >;
-        loading: boolean;
-        error: string | null;
-      }
-    | null
-  >(null);
+  const [plagSummary, setPlagSummary] = useState<{
+    byStudent: Record<string, GraderReportStudentSummary>;
+    loading: boolean;
+    error: string | null;
+    llmErrorBanner: LlmReportBanner | null;
+  } | null>(null);
   const [plagRefreshKey, setPlagRefreshKey] = useState(0);
   const [plagRunStatus, setPlagRunStatus] = useState<
     "idle" | "requesting" | "running" | "completed" | "failed"
@@ -177,13 +189,13 @@ export function AssignmentDetailPage({
       return;
     }
     let cancelled = false;
-    setPlagSummary({ byStudent: {}, loading: true, error: null });
+    setPlagSummary({ byStudent: {}, loading: true, error: null, llmErrorBanner: null });
     (async () => {
       try {
         const report = await getGraderReportLatest(assignmentIdNumeric);
         if (!report || !report.result || report.status !== "COMPLETED") {
           if (!cancelled) {
-            setPlagSummary({ byStudent: {}, loading: false, error: null });
+            setPlagSummary({ byStudent: {}, loading: false, error: null, llmErrorBanner: null });
           }
           return;
         }
@@ -192,27 +204,40 @@ export function AssignmentDetailPage({
           payload = JSON.parse(report.result) as GraderReportResultPayload;
         } catch {
           if (!cancelled) {
-            setPlagSummary({ byStudent: {}, loading: false, error: "Failed to parse plagiarism report." });
+            setPlagSummary({
+              byStudent: {},
+              loading: false,
+              error: "Failed to parse Plagiarism & AI report.",
+              llmErrorBanner: null,
+            });
           }
           return;
         }
-        const map: Record<
-          string,
-          { similarityScore: number; matchesCount?: number; warning?: string | null }
-        > = {};
+        const llmErrorBanner = getLlmReportBanner(payload);
+        const map: Record<string, GraderReportStudentSummary> = {};
         for (const row of payload.results) {
+          const rawLevel = row.ai_features?.risk_level;
+          const aiRiskLevel: GraderReportStudentSummary["aiRiskLevel"] =
+            rawLevel === "high" || rawLevel === "medium" || rawLevel === "low" || rawLevel === "none"
+              ? rawLevel
+              : "none";
+          const rs = row.ai_features?.risk_score;
+          const aiRiskScore =
+            typeof rs === "number" && Number.isFinite(rs) ? Math.max(0, Math.min(1, rs)) : 0;
           map[row.student_id] = {
             similarityScore: row.similarity_score ?? 0,
             matchesCount: row.matches_count,
             warning: row.similarity_warning ?? null,
+            aiRiskScore,
+            aiRiskLevel,
           };
         }
         if (!cancelled) {
-          setPlagSummary({ byStudent: map, loading: false, error: null });
+          setPlagSummary({ byStudent: map, loading: false, error: null, llmErrorBanner });
         }
       } catch {
         if (!cancelled) {
-          setPlagSummary({ byStudent: {}, loading: false, error: null });
+          setPlagSummary({ byStudent: {}, loading: false, error: null, llmErrorBanner: null });
         }
       }
     })();
@@ -578,19 +603,19 @@ export function AssignmentDetailPage({
                   try {
                     await requestGraderReport(id);
                     setPlagRunStatus("running");
-                    setPlagRunMessage("Queued. Generating report…");
+                    setPlagRunMessage("Queued. Generating Plagiarism & AI report…");
                     const done = await pollGraderReportUntilDone(id, { intervalMs: 3000, timeoutMs: 300000 });
                     if (done.status === "COMPLETED") {
                       setPlagRunStatus("completed");
-                      setPlagRunMessage("Plagiarism report completed.");
+                      setPlagRunMessage("Plagiarism & AI report completed.");
                       setPlagRefreshKey((k) => k + 1);
                     } else {
                       setPlagRunStatus("failed");
-                      setPlagRunMessage(done.errorMessage ?? "Plagiarism report failed.");
+                      setPlagRunMessage(done.errorMessage ?? "Plagiarism & AI report failed.");
                     }
                   } catch (e) {
                     setPlagRunStatus("failed");
-                    setPlagRunMessage(e instanceof Error ? e.message : "Failed to run plagiarism check.");
+                    setPlagRunMessage(e instanceof Error ? e.message : "Failed to run Plagiarism & AI report.");
                   }
                 }}
               >
@@ -598,11 +623,16 @@ export function AssignmentDetailPage({
                 <span>
                   {plagRunStatus === "requesting" || plagRunStatus === "running"
                     ? "Running…"
-                    : "Run plagiarism check"}
+                    : "Run Plagiarism & AI report"}
                 </span>
               </button>
             </div>
           </div>
+          {plagSummary?.llmErrorBanner ? (
+            <div className="px-6 py-3 border-b border-amber-100 bg-amber-50 text-[12px] text-amber-900">
+              {plagSummary.llmErrorBanner.text}
+            </div>
+          ) : null}
           {plagRunMessage && (
             <div
               className={
@@ -615,7 +645,7 @@ export function AssignmentDetailPage({
           )}
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px]">
+            <table className="w-full min-w-[860px]">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50 text-left text-[12px] font-semibold text-gray-500 uppercase tracking-wide">
                   <th className="px-6 py-3">Student</th>
@@ -623,6 +653,7 @@ export function AssignmentDetailPage({
                   <th className="px-6 py-3">Status</th>
                   <th className="px-6 py-3">Score</th>
                   <th className="px-6 py-3">Plagiarism</th>
+                  <th className="px-6 py-3">AI risk</th>
                   <th className="px-6 py-3">Submitted</th>
                   <th className="px-6 py-3 text-right">Actions</th>
                 </tr>
@@ -647,6 +678,12 @@ export function AssignmentDetailPage({
                         <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
                       </td>
                       <td className="px-6 py-4">
+                        <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-24 rounded bg-gray-200 animate-pulse" />
+                      </td>
+                      <td className="px-6 py-4">
                         <div className="ml-auto h-8 w-20 rounded-lg bg-gray-100 animate-pulse" />
                       </td>
                     </tr>
@@ -662,6 +699,16 @@ export function AssignmentDetailPage({
                     const simPct = plag ? Math.round((plag.similarityScore ?? 0) * 100) : 0;
                     const riskLevel =
                       simPct >= 75 ? "High" : simPct >= 40 ? "Medium" : simPct > 0 ? "Low" : "None";
+                    const aiPct = plag ? Math.round((plag.aiRiskScore ?? 0) * 100) : 0;
+                    const aiLabel = plag ? formatAiRiskLevelLabel(plag.aiRiskLevel) : "None";
+                    const aiColorClass =
+                      aiPct >= 85
+                        ? "text-red-700"
+                        : aiPct >= 60
+                          ? "text-amber-700"
+                          : aiPct > 0
+                            ? "text-emerald-700"
+                            : "text-gray-700";
 
                     return (
                       <tr
@@ -721,6 +768,18 @@ export function AssignmentDetailPage({
                                 </span>
                               )}
                             </div>
+                          ) : (
+                            <span className="text-[12px] text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {plagSummary?.loading ? (
+                            <span className="text-[12px] text-gray-400">Loading…</span>
+                          ) : plag ? (
+                            <span className={`text-[13px] font-medium ${aiColorClass}`}>
+                              {aiPct}%
+                              {aiLabel !== "None" ? ` (${aiLabel})` : ""}
+                            </span>
                           ) : (
                             <span className="text-[12px] text-gray-400">—</span>
                           )}

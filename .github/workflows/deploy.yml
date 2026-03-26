@@ -130,6 +130,17 @@ jobs:
 
           docker stop "${CONTAINER_NAME}" >/dev/null 2>&1 || true
           docker rm "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+
+          # Plagiarism & AI / Ollama (optional GitHub secrets — see SETUP.md "Production: GitHub Actions")
+          GRADER_LLM_AI_SIGNAL_ENABLED_VAL="${{ secrets.GRADER_LLM_AI_SIGNAL_ENABLED }}"
+          GRADER_LLM_AI_SIGNAL_URL_VAL="${{ secrets.GRADER_LLM_AI_SIGNAL_URL }}"
+          GRADER_LLM_AI_SIGNAL_MODEL_VAL="${{ secrets.GRADER_LLM_AI_SIGNAL_MODEL }}"
+          GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC_VAL="${{ secrets.GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC }}"
+          if [ -z "${GRADER_LLM_AI_SIGNAL_ENABLED_VAL}" ]; then GRADER_LLM_AI_SIGNAL_ENABLED_VAL="false"; fi
+          if [ -z "${GRADER_LLM_AI_SIGNAL_URL_VAL}" ]; then GRADER_LLM_AI_SIGNAL_URL_VAL="http://host.docker.internal:11434/api/generate"; fi
+          if [ -z "${GRADER_LLM_AI_SIGNAL_MODEL_VAL}" ]; then GRADER_LLM_AI_SIGNAL_MODEL_VAL="llama3"; fi
+          if [ -z "${GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC_VAL}" ]; then GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC_VAL="120"; fi
+
           docker run -d \
             -p ${PORT}:8080 \
             --add-host=host.docker.internal:host-gateway \
@@ -144,6 +155,10 @@ jobs:
             -e CLOUD_AWS_CREDENTIAL_ACCESS_KEY="${{ secrets.CLOUD_AWS_CREDENTIAL_ACCESS_KEY }}" \
             -e CLOUD_AWS_CREDENTIAL_SECRET_KEY="${{ secrets.CLOUD_AWS_CREDENTIAL_SECRET_KEY }}" \
             -e CLOUD_AWS_REGION="${{ secrets.CLOUD_AWS_REGION }}" \
+            -e GRADER_LLM_AI_SIGNAL_ENABLED="${GRADER_LLM_AI_SIGNAL_ENABLED_VAL}" \
+            -e GRADER_LLM_AI_SIGNAL_URL="${GRADER_LLM_AI_SIGNAL_URL_VAL}" \
+            -e GRADER_LLM_AI_SIGNAL_MODEL="${GRADER_LLM_AI_SIGNAL_MODEL_VAL}" \
+            -e GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC="${GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC_VAL}" \
             --name "${CONTAINER_NAME}" \
             bishwodahal/grade-forge:${IMAGE_TAG}
           echo "Deployed bishwodahal/grade-forge:${IMAGE_TAG} on port ${PORT} (container: ${CONTAINER_NAME})"

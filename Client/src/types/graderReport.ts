@@ -15,17 +15,54 @@ export interface GraderReportResponse {
 /** One student's result in the pipeline output (parsed from result JSON). */
 export interface GraderReportResultItem {
   student_id: string;
+  student_name?: string | null;
   final_grade: number;
   similarity_score: number;
   similarity_warning: string | null;
   matches_count?: number;
   comparisons: GraderReportComparison[];
-  ai_features: Record<string, unknown>;
+  ai_features: {
+    risk_score?: number;
+    risk_level?: "none" | "low" | "medium" | "high";
+    top_reasons?: string[];
+    signals?: Array<{
+      kind: string;
+      weight: number;
+      value?: number | string;
+      reason: string;
+      cohort_median?: number;
+    }>;
+    llm_signal?: {
+      ai_likeness?: number;
+      tags?: string[];
+      uncertainty?: number;
+      model?: string | null;
+      source?: string | null;
+    };
+    llm_rationale?: {
+      summary?: string;
+      caveats?: string[];
+      model?: string;
+      source?: string;
+    };
+    metrics?: {
+      code_lines?: number;
+      comment_ratio?: number;
+      avg_line_length?: number;
+      line_length_std?: number;
+      long_identifier_ratio?: number;
+      non_ascii_count?: number;
+      em_dash_count?: number;
+      marker_hits?: number;
+    };
+    [key: string]: unknown;
+  };
 }
 
 export interface GraderReportComparison {
   left: {
     student_id: string;
+    student_name?: string | null;
     file_path: string;
     code: string;
     similarity: number;
@@ -35,6 +72,7 @@ export interface GraderReportComparison {
   };
   right: {
     student_id: string;
+    student_name?: string | null;
     file_path: string;
     code: string;
     similarity: number;
@@ -55,6 +93,30 @@ export interface GraderReportResultPayload {
       flagged_students: number;
       max_similarity: number;
     };
+    authorship_risk_summary?: {
+      total_students: number;
+      high_risk_students: number;
+      medium_risk_students: number;
+      max_risk_score: number;
+    };
+    model_info?: {
+      name?: string;
+      type?: string;
+      uses_training_data?: boolean;
+      llm_ai_signal_enabled?: boolean;
+      llm_ai_signal_populated?: boolean;
+      llm_ai_signal_attempts?: number;
+      /** 0 = no cap; positive = max submissions that receive an LLM call per report. */
+      llm_ai_signal_max_students_per_run?: number;
+      llm_ai_signal_students_with_evidence?: number;
+      /** Present when LLM was expected but the model did not return usable per-student evidence. */
+      llm_ai_signal_unavailable_reason?: string | null;
+      /** Set only when faculty should see an LLM failure notice. */
+      llm_ai_signal_report?: string | null;
+      llm_ai_signal_report_severity?: "info" | "warning";
+    };
+    disclaimer?: string;
+    rationale_mode?: "deterministic_only" | "llm_assisted";
     // Allow any future assignment-level AI features.
     [key: string]: unknown;
   };

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { Link, useParams } from "react-router";
 import {
   requestGraderReport,
   getGraderReportLatest,
@@ -9,6 +10,7 @@ import type {
   GraderReportResultPayload,
   GraderReportResultItem,
 } from "../../../types/graderReport";
+import { getLlmReportBanner } from "../../../utils/llmReportBanner";
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -164,12 +166,14 @@ interface PlagiarismReportPanelProps {
 }
 
 export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: PlagiarismReportPanelProps) {
+  const { classId } = useParams<{ classId?: string }>();
   const [report, setReport] = useState<GraderReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
+  const [drawerStudentId, setDrawerStudentId] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<"all" | "high_struct" | "high_token">("all");
+  const [showAllComparisons, setShowAllComparisons] = useState(false);
 
   const fetchLatest = useCallback(async () => {
     if (!assignmentId) return;
@@ -210,7 +214,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
       const done = await pollGraderReportUntilDone(assignmentId, { intervalMs: 3000, timeoutMs: 300000 });
       setReport(done);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to generate report.");
+      setError(e instanceof Error ? e.message : "Failed to run Plagiarism & AI report.");
     } finally {
       setGenerating(false);
     }
@@ -218,11 +222,51 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
 
   const payload = report?.result ? parseResultPayload(report.result) : null;
   const allResults = payload?.results ?? [];
-  const results = studentId ? allResults.filter((r) => r.student_id === String(studentId)) : allResults;
+  const filteredResults = studentId ? allResults.filter((r) => r.student_id === String(studentId)) : allResults;
+  const resultsByAiRisk = [...filteredResults].sort(
+    (a, b) => Number(b.ai_features?.risk_score ?? 0) - Number(a.ai_features?.risk_score ?? 0),
+  );
+  const resultsBySimilarity = [...filteredResults].sort(
+    (a, b) => (b.similarity_score ?? 0) - (a.similarity_score ?? 0),
+  );
   const highlightMarkers = payload?.highlight_markers ?? { start: ">>", end: "<<" };
   const summary = payload?.ai_features?.summary as
     | { total_students: number; flagged_students: number; max_similarity: number }
     | undefined;
+  const authorshipSummary = payload?.ai_features?.authorship_risk_summary as
+    | {
+        total_students: number;
+        high_risk_students: number;
+        medium_risk_students: number;
+        max_risk_score: number;
+      }
+    | undefined;
+  const derivedAuthorshipSummary = authorshipSummary ?? (() => {
+    if (!filteredResults.length) return undefined;
+    const scores = filteredResults.map((r) => Number(r.ai_features?.risk_score ?? 0));
+    const high = scores.filter((s) => s >= 0.75).length;
+    const medium = scores.filter((s) => s >= 0.45 && s < 0.75).length;
+    const maxRisk = scores.length ? Math.max(...scores) : 0;
+    const hasAnySignal = scores.some((s) => s > 0);
+    if (!hasAnySignal) return undefined;
+    return {
+      total_students: filteredResults.length,
+      high_risk_students: high,
+      medium_risk_students: medium,
+      max_risk_score: maxRisk,
+    };
+  })();
+  const aiDisclaimer = typeof payload?.ai_features?.disclaimer === "string" ? payload.ai_features.disclaimer : null;
+  const llmErrorBanner = getLlmReportBanner(payload);
+  const llmLayerEnabled = (() => {
+    const v = payload?.ai_features?.model_info?.llm_ai_signal_enabled as unknown;
+    if (v === true) return true;
+    if (typeof v === "string" && v.toLowerCase() === "true") return true;
+    return false;
+  })();
+  const selectedRow = filteredResults.find((r) => r.student_id === drawerStudentId) ?? null;
+  const currentStudentResult = studentId ? filteredResults[0] ?? null : null;
+  const aiTopRows = resultsByAiRisk.filter((r) => Number(r.ai_features?.risk_score ?? 0) > 0).slice(0, 3);
   const isTerminal = report?.status === "COMPLETED" || report?.status === "FAILED";
   const isRunning = report?.status === "PENDING" || report?.status === "RUNNING";
 
@@ -238,7 +282,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
     <div className="p-6">
       <div className="flex items-center justify-between gap-3 mb-4">
         <h2 className="text-lg font-semibold text-[#2B2A2A]">
-          {studentId ? "Similarity (this submission)" : "Similarity Report"}
+          Plagiarism & AI
         </h2>
         {isFaculty && !studentId && (
           <button
@@ -247,7 +291,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
             disabled={generating || isRunning}
             className="px-4 py-2 rounded-lg bg-[#2B2A2A] hover:bg-[#3a3939] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-medium"
           >
-            {generating || isRunning ? "Generating…" : "Generate report"}
+            {generating || isRunning ? "Generating…" : "Run Plagiarism & AI report"}
           </button>
         )}
       </div>
@@ -261,8 +305,8 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
       {!report && !loading && (
         <p className="text-[14px] text-gray-500">
           {studentId
-            ? "No plagiarism report is available yet for this assignment."
-            : `No report yet.${isFaculty ? " Click “Generate report” to run similarity analysis for this assignment." : ""}`}
+            ? "No Plagiarism & AI report is available yet for this assignment."
+            : `No report yet.${isFaculty ? " Click “Run Plagiarism & AI report” to analyze similarity and AI triage for this assignment." : ""}`}
         </p>
       )}
 
@@ -285,214 +329,484 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
             {report.triggerType === "DEADLINE" && " (automatic after deadline)"}
           </p>
 
-          {!studentId && summary && (
-            <div className="mb-4 inline-flex flex-wrap gap-3 text-[12px] text-gray-700">
-              <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
-                Students: {summary.total_students}
-              </span>
-              <span className="px-2 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
-                Flagged: {summary.flagged_students}
-              </span>
-              <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
-                Max similarity: {Math.round((summary.max_similarity ?? 0) * 100)}%
-              </span>
+          {llmErrorBanner && (
+            <div
+              className="mb-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-[13px] text-amber-900"
+              role="status"
+            >
+              {llmErrorBanner.text}
             </div>
           )}
 
-          {results.length === 0 ? (
+          {(summary || studentId) && (
+            <>
+              {!studentId && summary && (
+                <div className="mb-3 inline-flex flex-wrap gap-3 text-[12px] text-gray-700">
+                  <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
+                    Students: {summary.total_students}
+                  </span>
+                  <span className="px-2 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
+                    Similarity flagged: {summary.flagged_students}
+                  </span>
+                  <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
+                    Max similarity: {Math.round((summary.max_similarity ?? 0) * 100)}%
+                  </span>
+                  {derivedAuthorshipSummary && (
+                    <>
+                      <span className="px-2 py-1 rounded-full bg-red-50 border border-red-200 text-red-700">
+                        AI high risk: {derivedAuthorshipSummary.high_risk_students}
+                      </span>
+                      <span className="px-2 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700">
+                        AI medium risk: {derivedAuthorshipSummary.medium_risk_students}
+                      </span>
+                      <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200">
+                        Max AI risk: {Math.round((derivedAuthorshipSummary.max_risk_score ?? 0) * 100)}%
+                      </span>
+                    </>
+                  )}
+                  {!derivedAuthorshipSummary && (
+                    <span className="px-2 py-1 rounded-full bg-gray-50 border border-gray-200 text-gray-600">
+                      AI summary unavailable in this report (regenerate to include).
+                    </span>
+                  )}
+                </div>
+              )}
+              <section className="mb-8 mt-2" aria-labelledby="plagiarism-ai-risk-heading">
+                <h3 id="plagiarism-ai-risk-heading" className="text-[15px] font-semibold text-[#2B2A2A] mb-3">
+                  AI risk
+                </h3>
+                {aiDisclaimer && (
+                  <p className="mb-3 text-[12px] text-gray-600">
+                    {aiDisclaimer}
+                  </p>
+                )}
+                <p className="mb-4 text-[12px] text-gray-600">
+                  Current version combines style-based heuristics with a small similarity-context weight for triage only.
+                </p>
+                {!studentId && aiTopRows.length > 0 && (
+                  <div className="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
+                    <p className="text-[12px] font-medium text-indigo-800 mb-2">AI at a glance</p>
+                    <div className="space-y-1 text-[12px] text-indigo-900">
+                      {aiTopRows.map((r) => {
+                        const pct = Math.round(Number(r.ai_features?.risk_score ?? 0) * 100);
+                        const reason = Array.isArray(r.ai_features?.top_reasons) ? r.ai_features.top_reasons[0] : "";
+                        return (
+                          <p key={r.student_id} className="truncate">
+                            <span className="font-mono">Student {r.student_id}</span> - {pct}% risk
+                            {reason ? ` - ${reason}` : ""}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {currentStudentResult && (
+                  <div className="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3 text-[12px]">
+                    <p className="font-medium text-indigo-800 mb-1">AI summary (this submission)</p>
+                    <p className="text-indigo-900">
+                      Risk: {String(currentStudentResult.ai_features?.risk_level ?? "none").toUpperCase()} ·{" "}
+                      {Math.round(Number(currentStudentResult.ai_features?.risk_score ?? 0) * 100)}%
+                    </p>
+                    {Array.isArray(currentStudentResult.ai_features?.top_reasons) &&
+                      currentStudentResult.ai_features.top_reasons.length > 0 && (
+                        <p className="text-indigo-900 mt-1">
+                          Reason: {currentStudentResult.ai_features.top_reasons[0]}
+                        </p>
+                      )}
+                  </div>
+                )}
+              </section>
+            </>
+          )}
+
+          {filteredResults.length === 0 ? (
             <p className="text-[14px] text-gray-500">
-              {studentId ? "No plagiarism data found for this student in the latest report." : "No submissions in this report."}
+              {studentId
+                ? "No Plagiarism & AI data found for this student in the latest report."
+                : "No submissions in this report."}
             </p>
           ) : (
-            <div className="space-y-2">
-              <div className="overflow-x-auto rounded-lg border border-gray-200">
-                <table className="w-full text-left text-[14px]">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-4 py-2 font-medium text-[#2B2A2A]">Student</th>
-                      <th className="px-4 py-2 font-medium text-[#2B2A2A]">Similarity</th>
-                      <th className="px-4 py-2 font-medium text-[#2B2A2A]">Warning</th>
-                      <th className="px-4 py-2 w-8" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b border-gray-100 bg-gray-50/60">
-                      <td colSpan={4} className="px-4 py-2">
-                        <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-700">
-                          <span className="mr-1 text-gray-500">Filter comparisons:</span>
-                          <button
-                            type="button"
-                            onClick={() => setFilterMode("all")}
-                            className={
-                              "px-2 py-0.5 rounded-full border text-xs " +
-                              (filterMode === "all"
-                                ? "border-[#5A7ACD] bg-[#EEF3FF] text-[#2B2A2A]"
-                                : "border-gray-300 bg-white text-gray-600")
-                            }
-                          >
-                            All
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setFilterMode("high_struct")}
-                            className={
-                              "px-2 py-0.5 rounded-full border text-xs " +
-                              (filterMode === "high_struct"
-                                ? "border-emerald-400 bg-emerald-50 text-emerald-700"
-                                : "border-gray-300 bg-white text-gray-600")
-                            }
-                          >
-                            High structural
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setFilterMode("high_token")}
-                            className={
-                              "px-2 py-0.5 rounded-full border text-xs " +
-                              (filterMode === "high_token"
-                                ? "border-amber-400 bg-amber-50 text-amber-700"
-                                : "border-gray-300 bg-white text-gray-600")
-                            }
-                          >
-                            High token
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    {results.map((row: GraderReportResultItem) => {
-                      const simPct = Math.round((row.similarity_score ?? 0) * 100);
-                      const hasComparisons = row.comparisons?.length > 0;
-                      const matchesCount = (row as any).matches_count as number | undefined;
-                      const riskLevel =
-                        simPct >= 75
-                          ? "High"
-                          : simPct >= 40
-                          ? "Medium"
-                          : matchesCount && matchesCount > 0
-                          ? "Low"
-                          : "None";
-                      const isExpanded = studentId ? true : expandedStudentId === row.student_id;
-                      return (
-                        <React.Fragment key={row.student_id}>
-                          <tr className="border-b border-gray-100 hover:bg-gray-50/80">
+            <div className="space-y-10">
+              <section className="space-y-2" aria-labelledby="plagiarism-ai-table-heading">
+                <h3 id="plagiarism-ai-table-heading" className="text-[15px] font-semibold text-[#2B2A2A]">
+                  AI risk by student
+                </h3>
+                <p className="text-[12px] text-gray-500">Sorted by risk score (highest first).</p>
+                <div className="overflow-x-auto rounded-lg border border-gray-200">
+                  <table className="w-full min-w-[520px] text-left text-[14px]">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-2 font-medium text-[#2B2A2A]">Student</th>
+                        <th className="px-4 py-2 font-medium text-[#2B2A2A]">AI risk</th>
+                        <th className="px-4 py-2 font-medium text-[#2B2A2A]">Top reason</th>
+                        <th className="px-4 py-2 w-8" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resultsByAiRisk.map((row: GraderReportResultItem) => {
+                        const aiScore = Number(row.ai_features?.risk_score ?? 0);
+                        const aiLevel = String(row.ai_features?.risk_level ?? "none");
+                        const aiPct = Math.round(aiScore * 100);
+                        const primaryReason = Array.isArray(row.ai_features?.top_reasons)
+                          ? row.ai_features.top_reasons[0]
+                          : "";
+                        return (
+                          <tr key={row.student_id} className="border-b border-gray-100 hover:bg-gray-50/80">
+                            <td className="px-4 py-2 font-mono text-[13px]">{row.student_id}</td>
+                            <td className="px-4 py-2 text-[13px]">
+                              {aiLevel === "none" && aiPct <= 0 ? (
+                                <span className="text-gray-500">—</span>
+                              ) : (
+                                <span
+                                  className={
+                                    "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] border " +
+                                    (aiLevel === "high"
+                                      ? "border-red-200 bg-red-50 text-red-700"
+                                      : aiLevel === "medium"
+                                      ? "border-orange-200 bg-orange-50 text-orange-700"
+                                      : "border-gray-200 bg-gray-50 text-gray-700")
+                                  }
+                                >
+                                  {aiLevel.toUpperCase()} · {aiPct}%
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 text-gray-600 text-[12px] max-w-[320px] truncate">
+                              {primaryReason || "—"}
+                            </td>
+                            <td className="px-4 py-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDrawerStudentId(row.student_id);
+                                  setShowAllComparisons(false);
+                                }}
+                                className="text-[#5A7ACD] hover:underline text-[13px]"
+                              >
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="space-y-2" aria-labelledby="plagiarism-sim-table-heading">
+                <h3 id="plagiarism-sim-table-heading" className="text-[15px] font-semibold text-[#2B2A2A]">
+                  Similarity (plagiarism)
+                </h3>
+                <p className="text-[12px] text-gray-500">
+                  Sorted by similarity (highest first). Filters apply to paired code shown in View.
+                </p>
+                <div className="overflow-x-auto rounded-lg border border-gray-200">
+                  <table className="w-full min-w-[520px] text-left text-[14px]">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-2 font-medium text-[#2B2A2A]">Student</th>
+                        <th className="px-4 py-2 font-medium text-[#2B2A2A]">Similarity</th>
+                        <th className="px-4 py-2 font-medium text-[#2B2A2A]">Warning</th>
+                        <th className="px-4 py-2 w-8" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b border-gray-100 bg-gray-50/60">
+                        <td colSpan={4} className="px-4 py-2">
+                          <div className="flex flex-wrap items-center gap-2 text-[12px] text-gray-700">
+                            <span className="mr-1 text-gray-500">Filter comparisons:</span>
+                            <button
+                              type="button"
+                              onClick={() => setFilterMode("all")}
+                              className={
+                                "px-2 py-0.5 rounded-full border text-xs " +
+                                (filterMode === "all"
+                                  ? "border-[#5A7ACD] bg-[#EEF3FF] text-[#2B2A2A]"
+                                  : "border-gray-300 bg-white text-gray-600")
+                              }
+                            >
+                              All
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFilterMode("high_struct")}
+                              className={
+                                "px-2 py-0.5 rounded-full border text-xs " +
+                                (filterMode === "high_struct"
+                                  ? "border-emerald-400 bg-emerald-50 text-emerald-700"
+                                  : "border-gray-300 bg-white text-gray-600")
+                              }
+                            >
+                              High structural
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFilterMode("high_token")}
+                              className={
+                                "px-2 py-0.5 rounded-full border text-xs " +
+                                (filterMode === "high_token"
+                                  ? "border-amber-400 bg-amber-50 text-amber-700"
+                                  : "border-gray-300 bg-white text-gray-600")
+                              }
+                            >
+                              High token
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {resultsBySimilarity.map((row: GraderReportResultItem) => {
+                        const simPct = Math.round((row.similarity_score ?? 0) * 100);
+                        const matchesCount = (row as { matches_count?: number }).matches_count;
+                        const simRiskLevel =
+                          simPct >= 75
+                            ? "High"
+                            : simPct >= 40
+                            ? "Medium"
+                            : matchesCount && matchesCount > 0
+                            ? "Low"
+                            : "None";
+                        return (
+                          <tr key={row.student_id} className="border-b border-gray-100 hover:bg-gray-50/80">
                             <td className="px-4 py-2 font-mono text-[13px]">{row.student_id}</td>
                             <td className="px-4 py-2">
-                              <span
-                                className={
-                                  simPct >= 50 ? "font-semibold text-amber-600" : "text-gray-700"
-                                }
-                              >
-                                {simPct}%
-                              </span>
-                              {riskLevel !== "None" && (
+                              <span className={simPct >= 50 ? "font-semibold text-amber-600" : "text-gray-700"}>{simPct}%</span>
+                              {simRiskLevel !== "None" && (
                                 <span
                                   className={
                                     "ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] border " +
-                                    (riskLevel === "High"
+                                    (simRiskLevel === "High"
                                       ? "border-red-200 bg-red-50 text-red-700"
-                                      : riskLevel === "Medium"
+                                      : simRiskLevel === "Medium"
                                       ? "border-amber-200 bg-amber-50 text-amber-700"
                                       : "border-gray-200 bg-gray-50 text-gray-600")
                                   }
                                 >
-                                  {riskLevel} risk
-                                  {matchesCount ? ` · ${matchesCount} match${matchesCount > 1 ? "es" : ""}` : ""}
+                                  {simRiskLevel} risk
                                 </span>
                               )}
                             </td>
-                            <td className="px-4 py-2 text-gray-600 text-[13px] max-w-[200px] truncate">
+                            <td className="px-4 py-2 text-gray-600 text-[13px] max-w-[220px] truncate">
                               {row.similarity_warning ?? "—"}
                             </td>
                             <td className="px-4 py-2">
-                              {hasComparisons && !studentId && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setExpandedStudentId(isExpanded ? null : row.student_id)
-                                  }
-                                  className="text-[#5A7ACD] hover:underline text-[13px]"
-                                >
-                                  {isExpanded ? "Hide" : "Show"} comparisons
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDrawerStudentId(row.student_id);
+                                  setShowAllComparisons(false);
+                                }}
+                                className="text-[#5A7ACD] hover:underline text-[13px]"
+                              >
+                                View
+                              </button>
                             </td>
                           </tr>
-                          {isExpanded && hasComparisons && (
-                            <tr className="bg-gray-50/50">
-                              <td colSpan={4} className="px-4 py-3">
-                                <div className="space-y-3 text-[13px]">
-                                  {row.comparisons
-                                    .filter((comp) => {
-                                      if (filterMode === "all") return true;
-                                      const struct = comp.left.structural_similarity ?? 0;
-                                      const token = comp.left.token_similarity ?? 0;
-                                      if (filterMode === "high_struct") {
-                                        return struct >= 0.7;
-                                      }
-                                      if (filterMode === "high_token") {
-                                        return token >= 0.7;
-                                      }
-                                      return true;
-                                    })
-                                    .map((comp, idx) => (
-                                    <div
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+              {selectedRow && (
+                <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4">
+                  <div className="mt-8 w-full max-w-6xl rounded-xl border border-gray-200 bg-white shadow-xl">
+                    <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                      <h3 className="text-[14px] font-semibold text-[#2B2A2A]">
+                        Student {selectedRow.student_id} details
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setDrawerStudentId(null)}
+                        className="text-[12px] text-gray-500 hover:text-gray-700"
+                      >
+                        Close
+                      </button>
+                    </div>
+                    <div className="max-h-[80vh] overflow-y-auto p-4">
+                      {Array.isArray(selectedRow.ai_features?.signals) && selectedRow.ai_features.signals.length > 0 && (
+                        <div className="rounded border border-indigo-100 bg-indigo-50/50 p-3 mb-3">
+                          <p className="text-[12px] font-medium text-indigo-800 mb-1">AI risk reasons (heuristic + LLM)</p>
+                          <ul className="text-[12px] text-indigo-900 list-disc pl-4 space-y-1">
+                            {selectedRow.ai_features.signals.slice(0, 10).map((signal, sIdx) => (
+                              <li key={sIdx}>
+                                {signal.reason} (weight {Math.round((Number(signal.weight) || 0) * 100)}%)
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {selectedRow.ai_features?.llm_rationale &&
+                        typeof selectedRow.ai_features.llm_rationale === "object" && (
+                          <div className="rounded border border-violet-100 bg-violet-50/50 p-3 mb-3">
+                            <p className="text-[12px] font-medium text-violet-800 mb-1">Optional LLM explanation</p>
+                            <p className="text-[12px] text-violet-900">
+                              {(selectedRow.ai_features.llm_rationale as { summary?: string }).summary ?? "—"}
+                            </p>
+                          </div>
+                        )}
+                      {(() => {
+                        const sig = selectedRow.ai_features?.llm_signal;
+                        const llmObj = sig && typeof sig === "object" ? (sig as Record<string, unknown>) : null;
+                        const hasLlmData = Boolean(
+                          llmObj &&
+                            (llmObj.source != null ||
+                              Number(llmObj.ai_likeness ?? 0) > 0 ||
+                              (Array.isArray(llmObj.tags) && llmObj.tags.length > 0)),
+                        );
+                        if (!llmLayerEnabled && !hasLlmData) return null;
+                        if (hasLlmData && llmObj) {
+                          return (
+                            <div className="rounded border border-sky-100 bg-sky-50/50 p-3 mb-3">
+                              <p className="text-[12px] font-medium text-sky-800 mb-1">Optional LLM evidence</p>
+                              <p className="text-[12px] text-sky-900">
+                                Likeness: {Math.round((Number(llmObj.ai_likeness ?? 0) ?? 0) * 100)}% · Uncertainty:{" "}
+                                {Math.round((Number(llmObj.uncertainty ?? 0.5) ?? 0) * 100)}%
+                              </p>
+                              {Array.isArray(llmObj.tags) && llmObj.tags.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {llmObj.tags.slice(0, 8).map((t: unknown, idx: number) => (
+                                    <span
                                       key={idx}
-                                      className="rounded border border-gray-200 bg-white p-3"
+                                      className="inline-flex items-center rounded-full border border-sky-200 bg-white px-2 py-0.5 text-[11px] text-sky-800"
                                     >
-                                      <div className="mb-2 text-[11px] text-gray-600">
-                                        {typeof comp.left.token_similarity === "number" &&
-                                        typeof comp.left.structural_similarity === "number" ? (
-                                          <>
-                                            Token:{" "}
-                                            {Math.round((comp.left.token_similarity ?? 0) * 100)}% · Structural:{" "}
-                                            {Math.round((comp.left.structural_similarity ?? 0) * 100)}% · Combined:{" "}
-                                            {Math.round(
-                                              (comp.left.combined_similarity ?? comp.left.similarity ?? 0) * 100
-                                            )}
-                                            %
-                                          </>
-                                        ) : (
-                                          <>Similarity details unavailable</>
-                                        )}
-                                      </div>
-                                      <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                          <p className="font-medium text-gray-700 mb-1">
-                                            You (left) — {Math.round((comp.left.similarity ?? 0) * 100)}%
-                                          </p>
-                                          <pre className="whitespace-pre-wrap break-words text-[12px] bg-gray-50 p-2 rounded max-h-72 overflow-auto">
-                                            {renderHighlightedCode(
-                                              comp.left.code,
-                                              highlightMarkers,
-                                              "bg-amber-200/70 text-gray-900 rounded-sm px-0.5"
-                                            )}
-                                          </pre>
-                                        </div>
-                                        <div>
-                                          <p className="font-medium text-gray-700 mb-1">
-                                            Other (right) — {Math.round((comp.right.similarity ?? 0) * 100)}%
-                                          </p>
-                                          <pre className="whitespace-pre-wrap break-words text-[12px] bg-gray-50 p-2 rounded max-h-72 overflow-auto">
-                                            {renderHighlightedCode(
-                                              comp.right.code,
-                                              highlightMarkers,
-                                              "bg-emerald-200/70 text-gray-900 rounded-sm px-0.5"
-                                            )}
-                                          </pre>
-                                        </div>
-                                      </div>
-                                    </div>
+                                      {String(t)}
+                                    </span>
                                   ))}
                                 </div>
-                              </td>
-                            </tr>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        const mi = payload?.ai_features?.model_info as
+                          | {
+                              llm_ai_signal_max_students_per_run?: number;
+                              llm_ai_signal_students_with_evidence?: number;
+                            }
+                          | undefined;
+                        const maxLlm = mi?.llm_ai_signal_max_students_per_run;
+                        const capPositive = typeof maxLlm === "number" && maxLlm > 0;
+                        const evCount =
+                          typeof mi?.llm_ai_signal_students_with_evidence === "number"
+                            ? mi.llm_ai_signal_students_with_evidence
+                            : null;
+                        return (
+                          <div className="rounded border border-gray-200 bg-gray-50 p-3 mb-3">
+                            <p className="text-[12px] font-medium text-gray-800 mb-1">Optional LLM evidence</p>
+                            <p className="text-[12px] text-gray-700">
+                              This student has no optional LLM evidence on this report run.
+                              {capPositive ? (
+                                <>
+                                  {" "}
+                                  The model is only called for up to {maxLlm} submission(s) on this report
+                                  {evCount != null ? ` (${evCount} received evidence)` : ""}, so this student may be
+                                  outside that batch.
+                                </>
+                              ) : (
+                                <>
+                                  {" "}
+                                  There is no submission-count cap configured for this report
+                                  {evCount != null ? ` (${evCount} submission(s) received evidence overall)` : ""}.
+                                </>
+                              )}{" "}
+                              Otherwise this usually means no readable source files reached the grader for this
+                              submission, or the model did not return usable output for it. If an error notice appears at
+                              the top of this panel, it describes a broader failure for the whole report.
+                            </p>
+                          </div>
+                        );
+                      })()}
+                      <div className="space-y-3 text-[13px]">
+                          {(() => {
+                            const filteredComparisons = selectedRow.comparisons.filter((comp) => {
+                              if (filterMode === "all") return true;
+                              const struct = comp.left.structural_similarity ?? 0;
+                              const token = comp.left.token_similarity ?? 0;
+                              if (filterMode === "high_struct") return struct >= 0.7;
+                              if (filterMode === "high_token") return token >= 0.7;
+                              return true;
+                            });
+                            const visibleComparisons = showAllComparisons
+                              ? filteredComparisons
+                              : filteredComparisons.slice(0, 2);
+                            return (
+                              <>
+                                <div className="flex items-center justify-between text-[12px] text-gray-600">
+                                  <span>
+                                    Showing {visibleComparisons.length} of {filteredComparisons.length} comparison
+                                    {filteredComparisons.length === 1 ? "" : "s"}
+                                  </span>
+                                  {filteredComparisons.length > 2 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowAllComparisons((v) => !v)}
+                                      className="text-[#5A7ACD] hover:underline"
+                                    >
+                                      {showAllComparisons ? "Show fewer" : "Show all comparisons"}
+                                    </button>
+                                  )}
+                                </div>
+                                {visibleComparisons.map((comp, idx) => (
+                              <div key={idx} className="rounded border border-gray-200 bg-white p-3">
+                                <div className="mb-2 text-[11px] text-gray-600">
+                                  {typeof comp.left.token_similarity === "number" &&
+                                  typeof comp.left.structural_similarity === "number" ? (
+                                    <>
+                                      Token: {Math.round((comp.left.token_similarity ?? 0) * 100)}% · Structural:{" "}
+                                      {Math.round((comp.left.structural_similarity ?? 0) * 100)}% · Combined:{" "}
+                                      {Math.round((comp.left.combined_similarity ?? comp.left.similarity ?? 0) * 100)}%
+                                    </>
+                                  ) : (
+                                    <>Similarity details unavailable</>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <p className="font-medium text-gray-700 mb-1">
+                                      {(comp.left.student_name || (comp.left.student_id ? `Student ${comp.left.student_id}` : "You"))} (left) —{" "}
+                                      {Math.round((comp.left.similarity ?? 0) * 100)}%
+                                    </p>
+                                    <pre className="whitespace-pre-wrap break-words text-[12px] bg-gray-50 p-2 rounded max-h-72 overflow-auto">
+                                      {renderHighlightedCode(
+                                        comp.left.code,
+                                        highlightMarkers,
+                                        "bg-amber-200/70 text-gray-900 rounded-sm px-0.5"
+                                      )}
+                                    </pre>
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-700 mb-1">
+                                      {classId && comp.right.student_id ? (
+                                        <Link
+                                          to={`/faculty/class/${classId}/students/${comp.right.student_id}`}
+                                          className="text-[#5A7ACD] hover:underline"
+                                        >
+                                          {comp.right.student_name || `Student ${comp.right.student_id}`}
+                                        </Link>
+                                      ) : (
+                                        (comp.right.student_name || (comp.right.student_id ? `Student ${comp.right.student_id}` : "Other student"))
+                                      )}{" "}
+                                      (right) — {Math.round((comp.right.similarity ?? 0) * 100)}%
+                                    </p>
+                                    <pre className="whitespace-pre-wrap break-words text-[12px] bg-gray-50 p-2 rounded max-h-72 overflow-auto">
+                                      {renderHighlightedCode(
+                                        comp.right.code,
+                                        highlightMarkers,
+                                        "bg-emerald-200/70 text-gray-900 rounded-sm px-0.5"
+                                      )}
+                                    </pre>
+                                  </div>
+                                </div>
+                              </div>
+                                ))}
+                              </>
+                            );
+                          })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>
