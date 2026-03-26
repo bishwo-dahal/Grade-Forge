@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import type { ActivityLogEntry, ActivityLogPageResponse } from "../../types/universityAdmin";
 import { fetchActivityLogs } from "../../services/universityAdminService";
@@ -10,6 +10,15 @@ const timestampFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
   timeStyle: "medium",
 });
+
+function getTodayIsoDate(): string {
+  // Use local timezone so it matches the browser's `input type="date"` value expectations.
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 
 function formatTimestamp(iso: string): string {
   const d = new Date(iso);
@@ -319,7 +328,7 @@ export function UniversityMonitorPage() {
   const [userInput, setUserInput] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState(getTodayIsoDate());
   const [startFilter, setStartFilter] = useState("");
   const [endFilter, setEndFilter] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -338,6 +347,8 @@ export function UniversityMonitorPage() {
     start?: string;
     end?: string;
   } | null>(null);
+
+  const didInitialLoad = useRef(false);
 
   const buildFilters = useCallback(() => {
     return {
@@ -388,10 +399,11 @@ export function UniversityMonitorPage() {
   }, [buildFilters, load]);
 
   const onReset = useCallback(() => {
+    const today = getTodayIsoDate();
     setUserInput("");
     setRoleFilter("");
     setStatusFilter("");
-    setDateFilter("");
+    setDateFilter(today);
     setStartFilter("");
     setEndFilter("");
     setPage(0);
@@ -400,7 +412,7 @@ export function UniversityMonitorPage() {
       user: undefined,
       role: undefined,
       status: undefined,
-      date: undefined,
+      date: today,
       start: undefined,
       end: undefined,
     });
@@ -411,11 +423,22 @@ export function UniversityMonitorPage() {
       user: undefined,
       role: undefined,
       status: undefined,
-      date: undefined,
+      date: today,
       start: undefined,
       end: undefined,
     });
   }, [load]);
+
+  useEffect(() => {
+    if (didInitialLoad.current) return;
+    didInitialLoad.current = true;
+    const filters = buildFilters();
+    setAppliedFilters(filters);
+    setPage(0);
+    setHasSearched(true);
+    void load(0, filters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildFilters, load]);
 
   const onPageChange = useCallback(
     async (nextPage: number) => {
