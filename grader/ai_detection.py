@@ -12,9 +12,52 @@ import re
 import statistics
 import hashlib
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from data_parser import Assignment, Submission
+from llm_ai_signal import get_llm_ai_signals, is_llm_signal_env_enabled
+
+
+def _llm_faculty_report(
+    enabled: bool,
+    attempts: int,
+    populated: int,
+    unavailable: Optional[str],
+) -> Tuple[str, str]:
+    """
+    Faculty-facing one-liner about Ollama / LLM for this report.
+    Returns (message, severity) with severity in info | warning.
+    """
+    if not enabled:
+        return (
+            "Ollama (optional LLM) is turned off for this server — only built-in AI heuristics were used.",
+            "info",
+        )
+    if attempts < 0:
+        if unavailable:
+            return (f"Ollama / LLM step failed: {unavailable}", "warning")
+        return (
+            "The optional Ollama / LLM step failed unexpectedly. Similarity and built-in AI heuristics may still appear.",
+            "warning",
+        )
+    if attempts == 0:
+        return (
+            "Ollama is enabled, but no student code was sent to the model (missing or unreadable files on the grader). "
+            "Similarity and heuristics still ran.",
+            "warning",
+        )
+    if unavailable:
+        return (f"Ollama did not return usable LLM output: {unavailable}", "warning")
+    if populated < attempts:
+        return (
+            f"Ollama ran for {attempts} submission(s); optional LLM evidence was stored for {populated}. "
+            "Use the AI tab and student details for “Optional LLM evidence” where shown.",
+            "info",
+        )
+    return (
+        f"Ollama ran for {populated} submission(s). Use the AI tab / student details for optional LLM evidence.",
+        "info",
+    )
 
 
 IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -184,6 +227,29 @@ def _level_from_score(score: float) -> str:
     return "none"
 
 
+def _get_llm_weight() -> float:
+    """
+    Weight of the LLM-assisted contribution inside the final conservative risk score.
+    Kept small by default to reduce false positives.
+    """
+    raw = os.environ.get("GRADER_LLM_AI_SIGNAL_WEIGHT", "0.12")
+    try:
+        v = float(raw)
+        return max(0.0, min(1.0, v))
+    except ValueError:
+        return 0.12
+
+
+def _get_llm_min() -> float:
+    """Minimum ai_likeness to include an LLM signal at all."""
+    raw = os.environ.get("GRADER_LLM_AI_SIGNAL_MIN_LIKELINESS", "0.45")
+    try:
+        v = float(raw)
+        return max(0.0, min(1.0, v))
+    except ValueError:
+        return 0.6
+
+
 def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, float]) -> Dict[str, object]:
     """
     Returns:
@@ -216,6 +282,29 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
     high_count = 0
     medium_count = 0
     max_score = 0.0
+
+    llm_signals: Dict[str, Dict[str, object]] = {}
+    llm_unavailable_reason: str | None = None
+    llm_attempts = 0
+    try:
+        # Optional enrichment: LLM-assisted evidence tags and a cautious likeness score.
+        llm_signals, llm_unavailable_reason, llm_attempts = get_llm_ai_signals(assignment)
+    except Exception:
+        llm_signals = {}
+        llm_unavailable_reason = (
+            "LLM layer failed unexpectedly. Set GRADER_LLM_AI_SIGNAL_ENABLED=false to run without Ollama."
+        )
+        llm_attempts = -1
+
+    llm_report_text, llm_report_severity = _llm_faculty_report(
+        is_llm_signal_env_enabled(),
+        llm_attempts,
+        len(llm_signals),
+        llm_unavailable_reason,
+    )
+
+    llm_weight = _get_llm_weight()
+    llm_min = _get_llm_min()
 
     for m in metrics:
         signals: List[Dict[str, object]] = []
@@ -357,6 +446,50 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
                 }
             )
 
+        # Optional LLM-assisted signal (conservative contribution).
+        llm = llm_signals.get(m.student_id, {}) if isinstance(llm_signals, dict) else {}
+        try:
+            llm_likeness = float(llm.get("ai_likeness", 0.0) or 0.0)
+        except Exception:
+            llm_likeness = 0.0
+        try:
+            llm_uncertainty = float(llm.get("uncertainty", 0.5) or 0.5)
+        except Exception:
+            llm_uncertainty = 0.5
+        llm_strength = max(0.0, 1.0 - llm_uncertainty)
+        llm_contrib = 0.0
+        if llm_likeness >= llm_min:
+            llm_contrib = llm_weight * llm_likeness * llm_strength
+            score += llm_contrib
+            tags = llm.get("tags") if isinstance(llm.get("tags"), list) else []
+            tags = [str(t) for t in tags][:4]
+            signals.append(
+                {
+                    "kind": "llm_ai_likeness",
+                    "weight": round(llm_contrib, 3),
+                    "value": round(llm_likeness, 3),
+                    "uncertainty": round(llm_uncertainty, 3),
+                    "reason": "LLM-assisted evidence suggests AI-like patterns; treated as cautious triage signal.",
+                    "tags": tags,
+                }
+            )
+        elif m.student_id in llm_signals and llm_signals.get(m.student_id):
+            tags = llm.get("tags") if isinstance(llm.get("tags"), list) else []
+            tags = [str(t) for t in tags][:4]
+            signals.append(
+                {
+                    "kind": "llm_ai_likeness",
+                    "weight": 0.0,
+                    "value": round(llm_likeness, 3),
+                    "uncertainty": round(llm_uncertainty, 3),
+                    "reason": (
+                        f"Optional LLM likeness is {round(llm_likeness * 100)}% (below the {round(llm_min * 100)}% "
+                        "threshold for score impact). See Optional LLM evidence below."
+                    ),
+                    "tags": tags,
+                }
+            )
+
         # Clamp and classify.
         score = max(0.0, min(1.0, score))
         level = _level_from_score(score)
@@ -387,6 +520,13 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
                 "template_cluster_size": m.template_cluster_size,
                 "test_pass_ratio": round(m.test_pass_ratio, 3),
             },
+            "llm_signal": {
+                "ai_likeness": float(llm_signals.get(m.student_id, {}).get("ai_likeness", 0.0) or 0.0),
+                "tags": llm_signals.get(m.student_id, {}).get("tags", []),
+                "uncertainty": float(llm_signals.get(m.student_id, {}).get("uncertainty", 0.5) or 0.5),
+                "model": llm_signals.get(m.student_id, {}).get("model", None),
+                "source": llm_signals.get(m.student_id, {}).get("source", None),
+            }
         }
 
     total = len(metrics)
@@ -402,6 +542,16 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
             "name": "heuristic-ai-risk-v1",
             "type": "deterministic-signals",
             "uses_training_data": False,
+            "llm_ai_signal_enabled": is_llm_signal_env_enabled(),
+            "llm_ai_signal_populated": bool(llm_signals),
+            "llm_ai_signal_attempts": llm_attempts,
+            "llm_ai_signal_unavailable_reason": (
+                llm_unavailable_reason
+                if is_llm_signal_env_enabled() and llm_unavailable_reason
+                else None
+            ),
+            "llm_ai_signal_report": llm_report_text,
+            "llm_ai_signal_report_severity": llm_report_severity,
         },
         "disclaimer": (
             "AI authorship score is probabilistic triage support. "

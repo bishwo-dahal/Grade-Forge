@@ -52,6 +52,38 @@ public class GraderReportRunnerService {
     @Value("${grader.python-cmd:python3}")
     private String pythonCommand;
 
+    // Optional LLM-assisted AI evidence signals for grader AI authorship triage.
+    // Passed to the Python grader as environment variables so the grader can read via os.environ.
+    @Value("${grader.llm.ai-signal.enabled:true}")
+    private boolean llmAiSignalEnabled;
+
+    @Value("${grader.llm.ai-signal.url:http://localhost:11434/api/generate}")
+    private String llmAiSignalUrl;
+
+    @Value("${grader.llm.ai-signal.model:llama3}")
+    private String llmAiSignalModel;
+
+    @Value("${grader.llm.ai-signal.timeout-sec:30}")
+    private int llmAiSignalTimeoutSec;
+
+    @Value("${grader.llm.ai-signal.max-files:5}")
+    private int llmAiSignalMaxFiles;
+
+    @Value("${grader.llm.ai-signal.max-students:8}")
+    private int llmAiSignalMaxStudents;
+
+    @Value("${grader.llm.ai-signal.max-chars-total:9000}")
+    private int llmAiSignalMaxCharsTotal;
+
+    @Value("${grader.llm.ai-signal.max-chars-per-file:2500}")
+    private int llmAiSignalMaxCharsPerFile;
+
+    @Value("${grader.llm.ai-signal.min-likeliness:0.45}")
+    private double llmAiSignalMinLikeliness;
+
+    @Value("${grader.llm.ai-signal.weight:0.12}")
+    private double llmAiSignalWeight;
+
     private final GraderReportRepository graderReportRepository;
     private final AssignmentRepository assignmentRepository;
     private final SubmissionRepository submissionRepository;
@@ -246,6 +278,18 @@ public class GraderReportRunnerService {
 
         ProcessBuilder pb = new ProcessBuilder(pythonCommand, runPy.toString(), inputPath);
         pb.directory(graderPath.toFile());
+        // Ensure optional LLM AI signals are available in the grader process environment.
+        Map<String, String> env = pb.environment();
+        env.put("GRADER_LLM_AI_SIGNAL_ENABLED", Boolean.toString(llmAiSignalEnabled));
+        env.put("GRADER_LLM_AI_SIGNAL_URL", llmAiSignalUrl);
+        env.put("GRADER_LLM_AI_SIGNAL_MODEL", llmAiSignalModel);
+        env.put("GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC", Integer.toString(llmAiSignalTimeoutSec));
+        env.put("GRADER_LLM_AI_SIGNAL_MAX_FILES", Integer.toString(llmAiSignalMaxFiles));
+        env.put("GRADER_LLM_AI_SIGNAL_MAX_STUDENTS", Integer.toString(llmAiSignalMaxStudents));
+        env.put("GRADER_LLM_AI_SIGNAL_MAX_CHARS_TOTAL", Integer.toString(llmAiSignalMaxCharsTotal));
+        env.put("GRADER_LLM_AI_SIGNAL_MAX_CHARS_PER_FILE", Integer.toString(llmAiSignalMaxCharsPerFile));
+        env.put("GRADER_LLM_AI_SIGNAL_MIN_LIKELINESS", Double.toString(llmAiSignalMinLikeliness));
+        env.put("GRADER_LLM_AI_SIGNAL_WEIGHT", Double.toString(llmAiSignalWeight));
         pb.redirectErrorStream(false);
         Process process = pb.start();
 
