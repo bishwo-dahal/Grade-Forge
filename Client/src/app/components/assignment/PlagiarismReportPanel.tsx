@@ -10,6 +10,7 @@ import type {
   GraderReportResultPayload,
   GraderReportResultItem,
 } from "../../../types/graderReport";
+import { getOllamaReportBanner } from "../../../utils/ollamaReportBanner";
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -258,6 +259,13 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
     };
   })();
   const aiDisclaimer = typeof payload?.ai_features?.disclaimer === "string" ? payload.ai_features.disclaimer : null;
+  const ollamaReportBanner = getOllamaReportBanner(payload);
+  const llmLayerEnabled = (() => {
+    const v = payload?.ai_features?.model_info?.llm_ai_signal_enabled as unknown;
+    if (v === true) return true;
+    if (typeof v === "string" && v.toLowerCase() === "true") return true;
+    return false;
+  })();
   const selectedRow = results.find((r) => r.student_id === drawerStudentId) ?? null;
   const currentStudentResult = studentId ? results[0] ?? null : null;
   const aiTopRows = [...results]
@@ -325,6 +333,19 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
             Generated at {formatDate(report.generatedAt)}
             {report.triggerType === "DEADLINE" && " (automatic after deadline)"}
           </p>
+
+          {ollamaReportBanner && (
+            <div
+              className={
+                ollamaReportBanner.severity === "warning"
+                  ? "mb-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-[13px] text-amber-900"
+                  : "mb-4 p-3 rounded-lg border border-slate-200 bg-slate-50 text-[13px] text-slate-800"
+              }
+              role="status"
+            >
+              {ollamaReportBanner.text}
+            </div>
+          )}
 
           {(summary || studentId) && (
             <>
@@ -633,9 +654,9 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
                     <div className="max-h-[80vh] overflow-y-auto p-4">
                       {Array.isArray(selectedRow.ai_features?.signals) && selectedRow.ai_features.signals.length > 0 && (
                         <div className="rounded border border-indigo-100 bg-indigo-50/50 p-3 mb-3">
-                          <p className="text-[12px] font-medium text-indigo-800 mb-1">AI risk reasons (heuristic)</p>
+                          <p className="text-[12px] font-medium text-indigo-800 mb-1">AI risk reasons (heuristic + LLM)</p>
                           <ul className="text-[12px] text-indigo-900 list-disc pl-4 space-y-1">
-                            {selectedRow.ai_features.signals.slice(0, 5).map((signal, sIdx) => (
+                            {selectedRow.ai_features.signals.slice(0, 10).map((signal, sIdx) => (
                               <li key={sIdx}>
                                 {signal.reason} (weight {Math.round((Number(signal.weight) || 0) * 100)}%)
                               </li>
@@ -652,6 +673,51 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
                             </p>
                           </div>
                         )}
+                      {(() => {
+                        const sig = selectedRow.ai_features?.llm_signal;
+                        const llmObj = sig && typeof sig === "object" ? (sig as Record<string, unknown>) : null;
+                        const hasLlmData = Boolean(
+                          llmObj &&
+                            (llmObj.source != null ||
+                              Number(llmObj.ai_likeness ?? 0) > 0 ||
+                              (Array.isArray(llmObj.tags) && llmObj.tags.length > 0)),
+                        );
+                        if (!llmLayerEnabled && !hasLlmData) return null;
+                        if (hasLlmData && llmObj) {
+                          return (
+                            <div className="rounded border border-sky-100 bg-sky-50/50 p-3 mb-3">
+                              <p className="text-[12px] font-medium text-sky-800 mb-1">Optional LLM evidence</p>
+                              <p className="text-[12px] text-sky-900">
+                                Likeness: {Math.round((Number(llmObj.ai_likeness ?? 0) ?? 0) * 100)}% · Uncertainty:{" "}
+                                {Math.round((Number(llmObj.uncertainty ?? 0.5) ?? 0) * 100)}%
+                              </p>
+                              {Array.isArray(llmObj.tags) && llmObj.tags.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {llmObj.tags.slice(0, 8).map((t: unknown, idx: number) => (
+                                    <span
+                                      key={idx}
+                                      className="inline-flex items-center rounded-full border border-sky-200 bg-white px-2 py-0.5 text-[11px] text-sky-800"
+                                    >
+                                      {String(t)}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="rounded border border-gray-200 bg-gray-50 p-3 mb-3">
+                            <p className="text-[12px] font-medium text-gray-800 mb-1">Optional LLM evidence</p>
+                            <p className="text-[12px] text-gray-700">
+                              No LLM output was stored for this student on this report. Typical causes: Ollama was not
+                              reachable from the server, the model was missing or misnamed, or the model reply could not
+                              be parsed as JSON. Regenerate the report after Ollama is healthy, and read the Ollama
+                              status line at the top of this panel.
+                            </p>
+                          </div>
+                        );
+                      })()}
                       {activeTab === "similarity" && (
                         <div className="space-y-3 text-[13px]">
                           {(() => {

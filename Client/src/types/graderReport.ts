@@ -32,6 +32,13 @@ export interface GraderReportResultItem {
       reason: string;
       cohort_median?: number;
     }>;
+    llm_signal?: {
+      ai_likeness?: number;
+      tags?: string[];
+      uncertainty?: number;
+      model?: string | null;
+      source?: string | null;
+    };
     llm_rationale?: {
       summary?: string;
       caveats?: string[];
@@ -96,6 +103,14 @@ export interface GraderReportResultPayload {
       name?: string;
       type?: string;
       uses_training_data?: boolean;
+      llm_ai_signal_enabled?: boolean;
+      llm_ai_signal_populated?: boolean;
+      llm_ai_signal_attempts?: number;
+      /** Present when LLM was expected but Ollama/unparseable output prevented any student signal. */
+      llm_ai_signal_unavailable_reason?: string | null;
+      /** Faculty-facing sentence; always set on new grader runs. */
+      llm_ai_signal_report?: string;
+      llm_ai_signal_report_severity?: "info" | "warning";
     };
     disclaimer?: string;
     rationale_mode?: "deterministic_only" | "llm_assisted";
