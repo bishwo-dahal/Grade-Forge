@@ -24,13 +24,15 @@ import java.util.Map;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/v1/university_admin")
+@CrossOrigin(origins = "*")
+@RequestMapping({"/admin", "/api/v1/university_admin"})
 @RequiredArgsConstructor
 public class ActivityLogController {
 
-    private static final String ACTIVE_LOG = "logs/activity.log";
-    private static final String ARCHIVE_DIR = "logs/archived";
-    private static final String ARCHIVE_PREFIX = "activity-";
+    private static final Path LOG_DIR = Path.of("logs");
+    private static final Path ARCHIVE_DIR = Path.of("logs/archived");
+    private static final Path LEGACY_ACTIVE = Path.of("logs/activity.log");
+    private static final String FILE_PREFIX = "activity-";
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
@@ -59,8 +61,7 @@ public class ActivityLogController {
         Instant startInstant = parseTimeOnDate(start, effectiveDate);
         Instant endInstant = parseTimeOnDate(end, effectiveDate);
         if (startInstant != null && endInstant != null && endInstant.isBefore(startInstant)) {
-            // If end time is earlier than start time on the same date, treat it as open-ended until end of day.
-            endInstant = null;
+            return empty(page, size);
         }
         for (Path path : filesToRead) {
             readFile(path, user, role, status, startInstant, endInstant, logs);
@@ -86,20 +87,33 @@ public class ActivityLogController {
     }
 
     private List<Path> resolveFiles(LocalDate parsedDate, boolean dateProvided) {
-        if (!dateProvided) {
-            Path active = Path.of(ACTIVE_LOG);
-            return Files.exists(active) ? List.of(active) : List.of();
+        LocalDate targetDate = parsedDate != null ? parsedDate : LocalDate.now(ZoneOffset.UTC);
+        String prefix = FILE_PREFIX + DATE_FORMATTER.format(targetDate);
+
+        List<Path> results = new ArrayList<>();
+        if (!dateProvided && Files.exists(LEGACY_ACTIVE)) {
+            results.add(LEGACY_ACTIVE);
         }
-        if (parsedDate == null) {
+
+        results.addAll(findFiles(LOG_DIR, prefix));
+        results.addAll(findFiles(ARCHIVE_DIR, prefix));
+
+        if (results.isEmpty() && Files.exists(LEGACY_ACTIVE)) {
+            results.add(LEGACY_ACTIVE);
+        }
+
+        return results.stream()
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
+    private List<Path> findFiles(Path directory, String prefix) {
+        if (directory == null || !Files.isDirectory(directory)) {
             return List.of();
         }
-        Path archiveDir = Path.of(ARCHIVE_DIR);
-        if (!Files.isDirectory(archiveDir)) {
-            return List.of();
-        }
-        String prefix = ARCHIVE_PREFIX + DATE_FORMATTER.format(parsedDate);
         try {
-            return Files.list(archiveDir)
+            return Files.list(directory)
                     .filter(Files::isRegularFile)
                     .filter(p -> p.getFileName().toString().startsWith(prefix))
                     .sorted()
