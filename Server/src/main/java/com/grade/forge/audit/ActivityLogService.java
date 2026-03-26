@@ -3,9 +3,12 @@ package com.grade.forge.audit;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -36,10 +39,25 @@ public class ActivityLogService {
             entry.put("timestamp", Instant.now().toString());
             entry.put("role", role);
             entry.put("user", user);
+            entry.put("ip", resolveClientIp());
             entry.put("action", action);
             entry.put("details", details);
             entry.put("status", status);
             activityLogger.info(mapper.writeValueAsString(entry));
         } catch (Exception ignored) {}
+    }
+
+    private String resolveClientIp() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes == null) {
+            return "unknown";
+        }
+        HttpServletRequest request = attributes.getRequest();
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",", 2)[0].trim();
+        }
+        String remoteAddr = request.getRemoteAddr();
+        return remoteAddr != null ? remoteAddr : "unknown";
     }
 }
