@@ -81,7 +81,7 @@ public class GraderReportRunnerService {
     @Value("${grader.llm.ai-signal.min-likeliness:0.45}")
     private double llmAiSignalMinLikeliness;
 
-    @Value("${grader.llm.ai-signal.weight:0.12}")
+    @Value("${grader.llm.ai-signal.weight:0.20}")
     private double llmAiSignalWeight;
 
     private final GraderReportRepository graderReportRepository;

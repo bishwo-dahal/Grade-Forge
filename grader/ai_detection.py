@@ -220,15 +220,15 @@ def _level_from_score(score: float) -> str:
 
 def _get_llm_weight() -> float:
     """
-    Weight of the LLM-assisted contribution inside the final conservative risk score.
-    Kept small by default to reduce false positives.
+    Coefficient for the LLM-assisted term: contribution is weight * ai_likeness * (1 - uncertainty)
+    when likeness is above the minimum. Default 0.20; tune with GRADER_LLM_AI_SIGNAL_WEIGHT.
     """
-    raw = os.environ.get("GRADER_LLM_AI_SIGNAL_WEIGHT", "0.12")
+    raw = os.environ.get("GRADER_LLM_AI_SIGNAL_WEIGHT", "0.20")
     try:
         v = float(raw)
         return max(0.0, min(1.0, v))
     except ValueError:
-        return 0.12
+        return 0.20
 
 
 def _get_llm_min() -> float:
