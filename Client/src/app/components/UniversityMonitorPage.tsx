@@ -261,6 +261,7 @@ function UniversityMonitorView({
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Time</th>
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Role</th>
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">User</th>
+                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">IP</th>
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Action</th>
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Details</th>
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Status</th>
@@ -269,21 +270,21 @@ function UniversityMonitorView({
             <tbody>
               {!hasSearched ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                  <td colSpan={7} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
                     Click <span className="font-semibold text-[#2B2A2A]">Search</span> to load activity logs.
                   </td>
                 </tr>
               ) : isLoading ? (
                 Array.from({ length: 5 }).map((_, index) => (
                   <tr key={`monitor-log-skeleton-${index}`} className="border-b border-gray-100 last:border-b-0">
-                    <td className="px-6 py-4" colSpan={6}>
+                    <td className="px-6 py-4" colSpan={7}>
                       <div className="h-4 w-full animate-pulse rounded bg-[#F1F3F7]" />
                     </td>
                   </tr>
                 ))
               ) : logs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                  <td colSpan={7} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
                     No log entries match the current filters.
                   </td>
                 </tr>
@@ -293,6 +294,7 @@ function UniversityMonitorView({
                     <td className="px-6 py-4 text-[13px] whitespace-nowrap text-[#2B2A2A]">{formatTimestamp(log.timestamp)}</td>
                     <td className="px-6 py-4 text-[13px] text-[#44506B]">{log.role}</td>
                     <td className="px-6 py-4 text-[13px] text-[#44506B]">{log.user}</td>
+                    <td className="px-6 py-4 text-[13px] text-[#44506B] whitespace-nowrap">{log.ip ?? "—"}</td>
                     <td className="px-6 py-4 text-[13px] font-medium text-[#2B2A2A]">{log.action}</td>
                     <td className="px-6 py-4 text-[13px] text-[#5D6A80] max-w-[320px]">{log.details}</td>
                     <td className="px-6 py-4">

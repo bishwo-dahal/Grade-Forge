@@ -110,6 +110,11 @@ export interface ActivityLogEntry {
   timestamp: string;
   role: string;
   user: string;
+  /**
+   * Client IP resolved from request headers (e.g. `X-Forwarded-For`) when available.
+   * Optional to support older log files that may not have `ip`.
+   */
+  ip?: string;
   action: string;
   details: string;
   status: string;

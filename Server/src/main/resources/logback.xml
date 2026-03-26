@@ -3,7 +3,6 @@
     <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener"/>
 
     <property name="LOG_DIR" value="logs" />
-    <property name="ACTIVITY_LOG_FILE" value="${LOG_DIR}/activity.log"/>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -12,11 +11,11 @@
     </appender>
 
     <appender name="ACTIVITY_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${ACTIVITY_LOG_FILE}</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_DIR}/archived/activity-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxHistory>30</maxHistory>
+            <fileNamePattern>${LOG_DIR}/activity-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
             <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
         </rollingPolicy>
         <encoder>
             <pattern>%msg%n</pattern>
