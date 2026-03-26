@@ -37,17 +37,19 @@ public class ActivityLogController {
             @RequestParam(required = false)    String status,
             @RequestParam(required = false)    String date,
             @RequestParam(required = false)    String start,
-            @RequestParam(required = false)    String end
+            @RequestParam(required = false)    String end,
+            @RequestParam(required = false, name = "tz") String timezone
     ) {
+        ZoneId zone = resolveZone(timezone);
         boolean dateProvided = date != null && !date.isBlank();
-        LocalDate effectiveDate = dateProvided ? parseDateOrDateTime(date) : LocalDate.now(ZoneId.systemDefault());
+        LocalDate effectiveDate = dateProvided ? parseDateOrDateTime(date) : LocalDate.now(zone);
 
         if (dateProvided && effectiveDate == null) {
             return empty(page, size);
         }
 
-        Instant startInstant = parseTimeOnDate(start, effectiveDate);
-        Instant endInstant   = parseTimeOnDate(end,   effectiveDate);
+        Instant startInstant = parseTimeOnDate(start, effectiveDate, zone);
+        Instant endInstant   = parseTimeOnDate(end,   effectiveDate, zone);
 
         if (startInstant != null && endInstant != null && endInstant.isBefore(startInstant)) {
             return empty(page, size);
@@ -182,7 +184,7 @@ public class ActivityLogController {
         }
     }
 
-    private Instant parseTimeOnDate(String timeRaw, LocalDate date) {
+    private Instant parseTimeOnDate(String timeRaw, LocalDate date, ZoneId zone) {
         if (timeRaw == null || timeRaw.isBlank() || date == null) return null;
         List<DateTimeFormatter> formats = List.of(
                 DateTimeFormatter.ISO_LOCAL_TIME,
@@ -194,11 +196,27 @@ public class ActivityLogController {
         for (DateTimeFormatter fmt : formats) {
             try {
                 return date.atTime(LocalTime.parse(timeRaw.trim(), fmt))
-                        .atZone(ZoneId.systemDefault())
+                        .atZone(zone)
                         .toInstant();
             } catch (Exception ignore) {}
         }
         return null;
+    }
+
+    private ZoneId resolveZone(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return ZoneId.systemDefault();
+        }
+        try {
+            return ZoneId.of(raw.trim());
+        } catch (Exception ex) {
+            // Fallback to offset like "+05:00" or "-05:00"
+            try {
+                return ZoneId.ofOffset("UTC", ZoneOffset.of(raw.trim()));
+            } catch (Exception ignore) {
+                return ZoneId.systemDefault();
+            }
+        }
     }
 
     private ResponseEntity<Map<String, Object>> empty(int page, int size) {
