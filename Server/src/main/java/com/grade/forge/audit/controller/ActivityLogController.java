@@ -40,7 +40,7 @@ public class ActivityLogController {
             @RequestParam(required = false)    String end
     ) {
         boolean dateProvided = date != null && !date.isBlank();
-        LocalDate effectiveDate = dateProvided ? parseDateOrDateTime(date) : LocalDate.now(ZoneOffset.UTC);
+        LocalDate effectiveDate = dateProvided ? parseDateOrDateTime(date) : LocalDate.now(ZoneId.systemDefault());
 
         if (dateProvided && effectiveDate == null) {
             return empty(page, size);
@@ -194,7 +194,8 @@ public class ActivityLogController {
         for (DateTimeFormatter fmt : formats) {
             try {
                 return date.atTime(LocalTime.parse(timeRaw.trim(), fmt))
-                        .toInstant(ZoneOffset.UTC);
+                        .atZone(ZoneId.systemDefault())
+                        .toInstant();
             } catch (Exception ignore) {}
         }
         return null;
