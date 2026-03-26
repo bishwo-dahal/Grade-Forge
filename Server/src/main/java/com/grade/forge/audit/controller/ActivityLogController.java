@@ -4,93 +4,89 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.time.*;
+import java.time.format.*;
+import java.util.*;
+import java.util.stream.Stream;
 
 @RestController
-@CrossOrigin(origins = "*")
 @RequestMapping({"/admin", "/api/v1/university_admin"})
 @RequiredArgsConstructor
 public class ActivityLogController {
 
-    private static final Path LOG_DIR = Path.of("logs");
-    private static final Path ARCHIVE_DIR = Path.of("logs/archived");
+    private static final Path LOG_DIR      = Path.of("logs");
+    private static final Path ARCHIVE_DIR  = Path.of("logs/archived");
     private static final Path LEGACY_ACTIVE = Path.of("logs/activity.log");
     private static final String FILE_PREFIX = "activity-";
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     private final ObjectMapper objectMapper;
 
     @GetMapping("/activity")
     public ResponseEntity<Map<String, Object>> getActivity(
-            @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "20") int size,
-            @RequestParam(value = "user", required = false) String user,
-            @RequestParam(value = "role", required = false) String role,
-            @RequestParam(value = "status", required = false) String status,
-            @RequestParam(value = "date", required = false) String date,
-            @RequestParam(value = "start", required = false) String start,
-            @RequestParam(value = "end", required = false) String end
+            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false)    String user,
+            @RequestParam(required = false)    String role,
+            @RequestParam(required = false)    String status,
+            @RequestParam(required = false)    String date,
+            @RequestParam(required = false)    String start,
+            @RequestParam(required = false)    String end
     ) {
-        List<Map<String, Object>> logs = new ArrayList<>();
-
         boolean dateProvided = date != null && !date.isBlank();
         LocalDate effectiveDate = dateProvided ? parseDateOrDateTime(date) : LocalDate.now(ZoneOffset.UTC);
+
         if (dateProvided && effectiveDate == null) {
             return empty(page, size);
         }
 
-        List<Path> filesToRead = resolveFiles(effectiveDate, dateProvided);
         Instant startInstant = parseTimeOnDate(start, effectiveDate);
-        Instant endInstant = parseTimeOnDate(end, effectiveDate);
+        Instant endInstant   = parseTimeOnDate(end,   effectiveDate);
+
         if (startInstant != null && endInstant != null && endInstant.isBefore(startInstant)) {
             return empty(page, size);
         }
-        for (Path path : filesToRead) {
+
+        List<Path> files = resolveFiles(effectiveDate, dateProvided);
+        List<Map<String, Object>> logs = new ArrayList<>();
+
+        for (Path path : files) {
             readFile(path, user, role, status, startInstant, endInstant, logs);
         }
 
-        logs.sort(Comparator.comparing((Map<String, Object> m) -> parseTimestamp(m.get("timestamp"))).reversed());
+        logs.sort(Comparator.comparing(
+                (Map<String, Object> m) -> parseTimestamp(m.get("timestamp"))
+        ).reversed());
 
-        int total = logs.size();
-        int pages = size > 0 ? (int) Math.ceil(total / (double) size) : 0;
+        int total     = logs.size();
+        int pages     = size > 0 ? (int) Math.ceil(total / (double) size) : 0;
         int fromIndex = Math.max(0, page * size);
-        int toIndex = size > 0 ? Math.min(total, fromIndex + size) : total;
-        List<Map<String, Object>> pageContent = fromIndex <= toIndex ? logs.subList(fromIndex, toIndex) : List.of();
+        int toIndex   = size > 0 ? Math.min(total, fromIndex + size) : total;
 
-        Map<String, Object> response = Map.of(
-                "logs", pageContent,
+        List<Map<String, Object>> pageContent = fromIndex <= toIndex
+                ? logs.subList(fromIndex, toIndex)
+                : List.of();
+
+        return ResponseEntity.ok(Map.of(
+                "logs",  pageContent,
                 "total", total,
-                "page", page,
-                "size", size,
+                "page",  page,
+                "size",  size,
                 "pages", pages
-        );
-
-        return ResponseEntity.ok(response);
+        ));
     }
 
-    private List<Path> resolveFiles(LocalDate parsedDate, boolean dateProvided) {
-        LocalDate targetDate = parsedDate != null ? parsedDate : LocalDate.now(ZoneOffset.UTC);
-        String prefix = FILE_PREFIX + DATE_FORMATTER.format(targetDate);
-
+    private List<Path> resolveFiles(LocalDate targetDate, boolean dateProvided) {
+        String prefix = FILE_PREFIX + DATE_FMT.format(targetDate);
         List<Path> results = new ArrayList<>();
+
+        // Include legacy active file only when no date filter applied
         if (!dateProvided && Files.exists(LEGACY_ACTIVE)) {
             results.add(LEGACY_ACTIVE);
         }
@@ -98,22 +94,18 @@ public class ActivityLogController {
         results.addAll(findFiles(LOG_DIR, prefix));
         results.addAll(findFiles(ARCHIVE_DIR, prefix));
 
+        // Fallback to legacy if nothing found
         if (results.isEmpty() && Files.exists(LEGACY_ACTIVE)) {
             results.add(LEGACY_ACTIVE);
         }
 
-        return results.stream()
-                .distinct()
-                .sorted()
-                .toList();
+        return results.stream().distinct().sorted().toList();
     }
 
     private List<Path> findFiles(Path directory, String prefix) {
-        if (directory == null || !Files.isDirectory(directory)) {
-            return List.of();
-        }
-        try {
-            return Files.list(directory)
+        if (!Files.isDirectory(directory)) return List.of();
+        try (Stream<Path> stream = Files.list(directory)) {
+            return stream
                     .filter(Files::isRegularFile)
                     .filter(p -> p.getFileName().toString().startsWith(prefix))
                     .sorted()
@@ -123,32 +115,30 @@ public class ActivityLogController {
         }
     }
 
-    private void readFile(Path path, String user, String role, String status, Instant start, Instant end, List<Map<String, Object>> sink) {
-        try (var lines = Files.lines(path)) {
+    private void readFile(Path path, String user, String role, String status,
+                          Instant start, Instant end,
+                          List<Map<String, Object>> sink) {
+        try (Stream<String> lines = Files.lines(path)) {
             lines.map(this::safeParse)
                     .flatMap(Optional::stream)
-                    .filter(entry -> matches(entry, "user", user))
-                    .filter(entry -> matches(entry, "role", role))
-                    .filter(entry -> matches(entry, "status", status))
-                    .filter(entry -> withinTime(entry, start, end))
+                    .filter(e -> matches(e, "user",   user))
+                    .filter(e -> matches(e, "role",   role))
+                    .filter(e -> matches(e, "status", status))
+                    .filter(e -> withinTime(e, start, end))
                     .forEach(sink::add);
-        } catch (IOException ignored) {
-            // Per requirements, missing or unreadable files yield empty results without error.
-        }
+        } catch (IOException ignored) {}
     }
 
     private boolean withinTime(Map<String, Object> entry, Instant start, Instant end) {
         Instant ts = parseTimestamp(entry.get("timestamp"));
-        if (start != null && ts.isBefore(start)) {
-            return false;
-        }
-        if (end != null && ts.isAfter(end)) {
-            return false;
-        }
+        if (ts == Instant.MIN) return false;
+        if (start != null && ts.isBefore(start)) return false;
+        if (end   != null && ts.isAfter(end))    return false;
         return true;
     }
 
     private Optional<Map<String, Object>> safeParse(String line) {
+        if (line == null || line.isBlank()) return Optional.empty();
         try {
             return Optional.of(objectMapper.readValue(line, MAP_TYPE));
         } catch (Exception ex) {
@@ -157,40 +147,33 @@ public class ActivityLogController {
     }
 
     private boolean matches(Map<String, Object> entry, String key, String expected) {
-        if (expected == null || expected.isBlank()) {
-            return true;
-        }
+        if (expected == null || expected.isBlank()) return true;
         Object value = entry.get(key);
         return expected.equals(value != null ? value.toString() : null);
     }
 
+    // FIX: handles nanoseconds/microseconds e.g. 2026-03-26T06:44:07.969173Z
     private Instant parseTimestamp(Object value) {
-        if (value == null) {
-            return Instant.MIN;
-        }
+        if (value == null) return Instant.MIN;
         try {
-            return Instant.parse(value.toString());
+            String raw = value.toString();
+            // Trim anything beyond 3 decimal places before Z
+            raw = raw.replaceAll("(\\.\\d{3})\\d+(Z)$", "$1$2");
+            return Instant.parse(raw);
         } catch (Exception ex) {
             return Instant.MIN;
         }
     }
 
     private LocalDate parseDateOrDateTime(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return null;
-        }
-        // Accept common date formats and full ISO date-times; return date portion in UTC.
-        List<DateTimeFormatter> dateFormats = List.of(
-                DATE_FORMATTER,
+        if (raw == null || raw.isBlank()) return null;
+        List<DateTimeFormatter> formats = List.of(
+                DATE_FMT,
                 DateTimeFormatter.ofPattern("MM/dd/yyyy"),
                 DateTimeFormatter.ofPattern("yyyy/MM/dd")
         );
-        for (DateTimeFormatter fmt : dateFormats) {
-            try {
-                return LocalDate.parse(raw, fmt);
-            } catch (Exception ignore) {
-                // try next
-            }
+        for (DateTimeFormatter fmt : formats) {
+            try { return LocalDate.parse(raw, fmt); } catch (Exception ignore) {}
         }
         try {
             return Instant.parse(raw).atZone(ZoneOffset.UTC).toLocalDate();
@@ -200,36 +183,30 @@ public class ActivityLogController {
     }
 
     private Instant parseTimeOnDate(String timeRaw, LocalDate date) {
-        if (timeRaw == null || timeRaw.isBlank() || date == null) {
-            return null;
-        }
-        // Try ISO first (e.g., 23:41 or 23:41:05), then common 12/24-hour patterns case-insensitively.
-        List<DateTimeFormatter> timeFormats = List.of(
-                java.time.format.DateTimeFormatter.ISO_LOCAL_TIME,
-                new java.time.format.DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("HH:mm").toFormatter(),
-                new java.time.format.DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("HH:mm:ss").toFormatter(),
-                new java.time.format.DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("hh:mm a").toFormatter(),
-                new java.time.format.DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("hh:mm:ss a").toFormatter()
+        if (timeRaw == null || timeRaw.isBlank() || date == null) return null;
+        List<DateTimeFormatter> formats = List.of(
+                DateTimeFormatter.ISO_LOCAL_TIME,
+                new DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("HH:mm").toFormatter(),
+                new DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("HH:mm:ss").toFormatter(),
+                new DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("hh:mm a").toFormatter(),
+                new DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("hh:mm:ss a").toFormatter()
         );
-        for (DateTimeFormatter fmt : timeFormats) {
+        for (DateTimeFormatter fmt : formats) {
             try {
-                return date.atTime(java.time.LocalTime.parse(timeRaw.trim(), fmt)).toInstant(ZoneOffset.UTC);
-            } catch (Exception ignore) {
-                // try next
-            }
+                return date.atTime(LocalTime.parse(timeRaw.trim(), fmt))
+                        .toInstant(ZoneOffset.UTC);
+            } catch (Exception ignore) {}
         }
         return null;
     }
 
     private ResponseEntity<Map<String, Object>> empty(int page, int size) {
-        Map<String, Object> response = Map.of(
-                "logs", List.of(),
+        return ResponseEntity.ok(Map.of(
+                "logs",  List.of(),
                 "total", 0,
-                "page", page,
-                "size", size,
+                "page",  page,
+                "size",  size,
                 "pages", 0
-        );
-        return ResponseEntity.ok(response);
+        ));
     }
 }
-
