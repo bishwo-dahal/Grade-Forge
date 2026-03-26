@@ -207,7 +207,7 @@ export function AssignmentDetailPage({
             setPlagSummary({
               byStudent: {},
               loading: false,
-              error: "Failed to parse plagiarism report.",
+              error: "Failed to parse Plagiarism & AI report.",
               llmErrorBanner: null,
             });
           }
@@ -603,19 +603,19 @@ export function AssignmentDetailPage({
                   try {
                     await requestGraderReport(id);
                     setPlagRunStatus("running");
-                    setPlagRunMessage("Queued. Generating report…");
+                    setPlagRunMessage("Queued. Generating Plagiarism & AI report…");
                     const done = await pollGraderReportUntilDone(id, { intervalMs: 3000, timeoutMs: 300000 });
                     if (done.status === "COMPLETED") {
                       setPlagRunStatus("completed");
-                      setPlagRunMessage("Plagiarism report completed.");
+                      setPlagRunMessage("Plagiarism & AI report completed.");
                       setPlagRefreshKey((k) => k + 1);
                     } else {
                       setPlagRunStatus("failed");
-                      setPlagRunMessage(done.errorMessage ?? "Plagiarism report failed.");
+                      setPlagRunMessage(done.errorMessage ?? "Plagiarism & AI report failed.");
                     }
                   } catch (e) {
                     setPlagRunStatus("failed");
-                    setPlagRunMessage(e instanceof Error ? e.message : "Failed to run plagiarism check.");
+                    setPlagRunMessage(e instanceof Error ? e.message : "Failed to run Plagiarism & AI report.");
                   }
                 }}
               >
@@ -623,7 +623,7 @@ export function AssignmentDetailPage({
                 <span>
                   {plagRunStatus === "requesting" || plagRunStatus === "running"
                     ? "Running…"
-                    : "Run plagiarism check"}
+                    : "Run Plagiarism & AI report"}
                 </span>
               </button>
             </div>

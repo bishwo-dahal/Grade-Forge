@@ -214,7 +214,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
       const done = await pollGraderReportUntilDone(assignmentId, { intervalMs: 3000, timeoutMs: 300000 });
       setReport(done);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to generate report.");
+      setError(e instanceof Error ? e.message : "Failed to run Plagiarism & AI report.");
     } finally {
       setGenerating(false);
     }
@@ -282,7 +282,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
     <div className="p-6">
       <div className="flex items-center justify-between gap-3 mb-4">
         <h2 className="text-lg font-semibold text-[#2B2A2A]">
-          {studentId ? "Similarity and AI" : "Similarity Report"}
+          Plagiarism & AI
         </h2>
         {isFaculty && !studentId && (
           <button
@@ -291,7 +291,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
             disabled={generating || isRunning}
             className="px-4 py-2 rounded-lg bg-[#2B2A2A] hover:bg-[#3a3939] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-medium"
           >
-            {generating || isRunning ? "Generating…" : "Generate report"}
+            {generating || isRunning ? "Generating…" : "Run Plagiarism & AI report"}
           </button>
         )}
       </div>
@@ -305,8 +305,8 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
       {!report && !loading && (
         <p className="text-[14px] text-gray-500">
           {studentId
-            ? "No plagiarism report is available yet for this assignment."
-            : `No report yet.${isFaculty ? " Click “Generate report” to run similarity analysis for this assignment." : ""}`}
+            ? "No Plagiarism & AI report is available yet for this assignment."
+            : `No report yet.${isFaculty ? " Click “Run Plagiarism & AI report” to analyze similarity and AI triage for this assignment." : ""}`}
         </p>
       )}
 
@@ -421,7 +421,9 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
 
           {filteredResults.length === 0 ? (
             <p className="text-[14px] text-gray-500">
-              {studentId ? "No plagiarism data found for this student in the latest report." : "No submissions in this report."}
+              {studentId
+                ? "No Plagiarism & AI data found for this student in the latest report."
+                : "No submissions in this report."}
             </p>
           ) : (
             <div className="space-y-10">

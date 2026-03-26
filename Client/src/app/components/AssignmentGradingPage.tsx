@@ -876,7 +876,7 @@ export function AssignmentGradingPage() {
                       [
                         { id: "description" as const, label: "Description" },
                         { id: "tests" as const, label: "Tests" },
-                        { id: "plagiarism" as const, label: "Plagiarism" },
+                        { id: "plagiarism" as const, label: "Plagiarism & AI" },
                         { id: "rubric" as const, label: "Grading Rubric" },
                         ...(isFaculty ? [{ id: "group" as const, label: "Group" }] : []),
                       ] as const
