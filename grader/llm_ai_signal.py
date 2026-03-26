@@ -5,6 +5,8 @@ Design goals:
 - Do NOT use submission history (works on one snapshot).
 - Only provide a feature signal: it can be used to adjust ranking conservatively.
 - Default ON unless GRADER_LLM_AI_SIGNAL_ENABLED is false (0/false/no/off).
+- GRADER_LLM_AI_SIGNAL_MAX_STUDENTS: 0 or unset default = all submissions with readable code;
+  set a positive integer to cap calls per report (e.g. hosted API cost control).
 
 Expected LLM response format (JSON):
 {
@@ -118,15 +120,9 @@ def _short_request_error(e: Exception) -> str:
     msg = str(e).strip() or type(e).__name__
     low = msg.lower()
     if "connection refused" in low or "errno 111" in low:
-        return (
-            "Cannot reach Ollama (connection refused). Start Ollama or set GRADER_LLM_AI_SIGNAL_URL to a "
-            "reachable endpoint. Set GRADER_LLM_AI_SIGNAL_ENABLED=false to run reports without LLM."
-        )
+        return "Cannot reach the configured model endpoint (connection refused)."
     if "name or service not known" in low or "failed to resolve" in low or "errno -2" in low:
-        return (
-            "Cannot resolve the LLM host. Check GRADER_LLM_AI_SIGNAL_URL. "
-            "Set GRADER_LLM_AI_SIGNAL_ENABLED=false to disable LLM calls."
-        )
+        return "Cannot resolve the configured model host (check URL / DNS)."
     if "timed out" in low or "timeout" in low:
         return "LLM request timed out. Try GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC or check server load."
     return msg[:220]
@@ -138,10 +134,7 @@ def _http_error_message(e: urllib.error.HTTPError) -> str:
     except Exception:
         body = ""
     if e.code == 404:
-        return (
-            "Ollama returned 404 (model or route not found). Run `ollama pull` for your model or check "
-            "GRADER_LLM_AI_SIGNAL_MODEL / URL."
-        )
+        return "The model server returned 404 (unknown model or path)."
     return f"LLM HTTP error {e.code}" + (f": {body}" if body else "")
 
 
@@ -175,8 +168,7 @@ def _call_llm(prompt: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     if parsed is not None and "ai_likeness" in parsed:
         return parsed, None
     return None, (
-        "Ollama responded but the model output was not usable JSON with ai_likeness. "
-        "Try another model or disable LLM with GRADER_LLM_AI_SIGNAL_ENABLED=false."
+        "The model reply could not be used as structured LLM evidence (expected JSON with ai_likeness)."
     )
 
 
@@ -185,7 +177,7 @@ def get_llm_ai_signals(assignment: Assignment) -> Tuple[Dict[str, Dict[str, Any]
     Returns (per_student_signals, unavailable_reason, llm_attempt_count).
 
     unavailable_reason is set when the LLM layer is enabled, at least one submission was sent to
-    the model, and no student received a parseable result (e.g. Ollama down or bad output).
+    the model, and no student received a parseable result (e.g. endpoint down or bad output).
 
     llm_attempt_count is how many HTTP calls to the LLM were made (0 if disabled or no code sent).
     """
@@ -195,7 +187,7 @@ def get_llm_ai_signals(assignment: Assignment) -> Tuple[Dict[str, Dict[str, Any]
     max_chars_total = int(os.environ.get("GRADER_LLM_AI_SIGNAL_MAX_CHARS_TOTAL", "9000"))
     max_chars_per_file = int(os.environ.get("GRADER_LLM_AI_SIGNAL_MAX_CHARS_PER_FILE", "2500"))
     max_files = int(os.environ.get("GRADER_LLM_AI_SIGNAL_MAX_FILES", "5"))
-    max_students = int(os.environ.get("GRADER_LLM_AI_SIGNAL_MAX_STUDENTS", "8"))
+    max_students = int(os.environ.get("GRADER_LLM_AI_SIGNAL_MAX_STUDENTS", "0"))
 
     model = os.environ.get("GRADER_LLM_AI_SIGNAL_MODEL", "llama3")
     language = (assignment.language or "").lower() or "unknown"
@@ -205,7 +197,7 @@ def get_llm_ai_signals(assignment: Assignment) -> Tuple[Dict[str, Dict[str, Any]
     last_err: Optional[str] = None
 
     for sub in assignment.submissions:
-        if len(out) >= max_students:
+        if max_students > 0 and len(out) >= max_students:
             break
         paths = sub.file_paths if isinstance(sub.file_paths, list) else [sub.file_paths]
         file_entries: List[Dict[str, str]] = []
@@ -261,6 +253,6 @@ def get_llm_ai_signals(assignment: Assignment) -> Tuple[Dict[str, Dict[str, Any]
         }
 
     if llm_attempts > 0 and len(out) == 0:
-        return {}, last_err or "LLM returned no usable results for any submission.", llm_attempts
+        return {}, last_err or "No submission received usable structured output from the model.", llm_attempts
     return out, None, llm_attempts
 

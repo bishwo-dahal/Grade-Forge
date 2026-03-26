@@ -106,10 +106,13 @@ export interface GraderReportResultPayload {
       llm_ai_signal_enabled?: boolean;
       llm_ai_signal_populated?: boolean;
       llm_ai_signal_attempts?: number;
-      /** Present when LLM was expected but Ollama/unparseable output prevented any student signal. */
+      /** 0 = no cap; positive = max submissions that receive an LLM call per report. */
+      llm_ai_signal_max_students_per_run?: number;
+      llm_ai_signal_students_with_evidence?: number;
+      /** Present when LLM was expected but the model did not return usable per-student evidence. */
       llm_ai_signal_unavailable_reason?: string | null;
-      /** Faculty-facing sentence; always set on new grader runs. */
-      llm_ai_signal_report?: string;
+      /** Set only when faculty should see an LLM failure notice. */
+      llm_ai_signal_report?: string | null;
       llm_ai_signal_report_severity?: "info" | "warning";
     };
     disclaimer?: string;

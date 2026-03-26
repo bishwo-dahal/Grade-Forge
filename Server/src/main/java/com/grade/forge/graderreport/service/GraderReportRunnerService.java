@@ -69,7 +69,7 @@ public class GraderReportRunnerService {
     @Value("${grader.llm.ai-signal.max-files:5}")
     private int llmAiSignalMaxFiles;
 
-    @Value("${grader.llm.ai-signal.max-students:8}")
+    @Value("${grader.llm.ai-signal.max-students:0}")
     private int llmAiSignalMaxStudents;
 
     @Value("${grader.llm.ai-signal.max-chars-total:9000}")

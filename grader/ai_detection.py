@@ -23,41 +23,32 @@ def _llm_faculty_report(
     attempts: int,
     populated: int,
     unavailable: Optional[str],
-) -> Tuple[str, str]:
+) -> Optional[Tuple[str, str]]:
     """
-    Faculty-facing one-liner about Ollama / LLM for this report.
-    Returns (message, severity) with severity in info | warning.
+    Faculty-facing notice only when optional LLM evidence failed or was incomplete.
+    Returns (message, "warning") or None when there is nothing to surface (success, disabled, or skipped).
     """
     if not enabled:
-        return (
-            "Ollama (optional LLM) is turned off for this server — only built-in AI heuristics were used.",
-            "info",
-        )
+        return None
     if attempts < 0:
         if unavailable:
-            return (f"Ollama / LLM step failed: {unavailable}", "warning")
+            return (f"Our model could not generate LLM evidence. {unavailable}", "warning")
         return (
-            "The optional Ollama / LLM step failed unexpectedly. Similarity and built-in AI heuristics may still appear.",
+            "Our model could not generate LLM evidence for this report (an unexpected error occurred). "
+            "Similarity and built-in AI heuristics may still appear.",
             "warning",
         )
     if attempts == 0:
-        return (
-            "Ollama is enabled, but no student code was sent to the model (missing or unreadable files on the grader). "
-            "Similarity and heuristics still ran.",
-            "warning",
-        )
+        return None
     if unavailable:
-        return (f"Ollama did not return usable LLM output: {unavailable}", "warning")
+        return (f"Our model could not generate LLM evidence. {unavailable}", "warning")
     if populated < attempts:
         return (
-            f"Ollama ran for {attempts} submission(s); optional LLM evidence was stored for {populated}. "
-            "Use the AI tab and student details for “Optional LLM evidence” where shown.",
-            "info",
+            "Our model could not generate LLM evidence for every submission checked. "
+            "Where evidence exists, use the AI tab and student details.",
+            "warning",
         )
-    return (
-        f"Ollama ran for {populated} submission(s). Use the AI tab / student details for optional LLM evidence.",
-        "info",
-    )
+    return None
 
 
 IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -291,17 +282,21 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
         llm_signals, llm_unavailable_reason, llm_attempts = get_llm_ai_signals(assignment)
     except Exception:
         llm_signals = {}
-        llm_unavailable_reason = (
-            "LLM layer failed unexpectedly. Set GRADER_LLM_AI_SIGNAL_ENABLED=false to run without Ollama."
-        )
+        llm_unavailable_reason = "An unexpected error occurred while running the optional LLM step."
         llm_attempts = -1
 
-    llm_report_text, llm_report_severity = _llm_faculty_report(
+    llm_report = _llm_faculty_report(
         is_llm_signal_env_enabled(),
         llm_attempts,
         len(llm_signals),
         llm_unavailable_reason,
     )
+    llm_report_text: Optional[str] = None
+    llm_report_severity: Optional[str] = None
+    if llm_report:
+        llm_report_text, llm_report_severity = llm_report[0], llm_report[1]
+
+    llm_max_students_per_run = int(os.environ.get("GRADER_LLM_AI_SIGNAL_MAX_STUDENTS", "0"))
 
     llm_weight = _get_llm_weight()
     llm_min = _get_llm_min()
@@ -545,6 +540,8 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
             "llm_ai_signal_enabled": is_llm_signal_env_enabled(),
             "llm_ai_signal_populated": bool(llm_signals),
             "llm_ai_signal_attempts": llm_attempts,
+            "llm_ai_signal_max_students_per_run": llm_max_students_per_run,
+            "llm_ai_signal_students_with_evidence": len(llm_signals),
             "llm_ai_signal_unavailable_reason": (
                 llm_unavailable_reason
                 if is_llm_signal_env_enabled() and llm_unavailable_reason

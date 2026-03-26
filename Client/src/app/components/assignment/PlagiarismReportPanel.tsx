@@ -10,7 +10,7 @@ import type {
   GraderReportResultPayload,
   GraderReportResultItem,
 } from "../../../types/graderReport";
-import { getOllamaReportBanner } from "../../../utils/ollamaReportBanner";
+import { getLlmReportBanner } from "../../../utils/llmReportBanner";
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -259,7 +259,7 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
     };
   })();
   const aiDisclaimer = typeof payload?.ai_features?.disclaimer === "string" ? payload.ai_features.disclaimer : null;
-  const ollamaReportBanner = getOllamaReportBanner(payload);
+  const llmErrorBanner = getLlmReportBanner(payload);
   const llmLayerEnabled = (() => {
     const v = payload?.ai_features?.model_info?.llm_ai_signal_enabled as unknown;
     if (v === true) return true;
@@ -334,16 +334,12 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
             {report.triggerType === "DEADLINE" && " (automatic after deadline)"}
           </p>
 
-          {ollamaReportBanner && (
+          {llmErrorBanner && (
             <div
-              className={
-                ollamaReportBanner.severity === "warning"
-                  ? "mb-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-[13px] text-amber-900"
-                  : "mb-4 p-3 rounded-lg border border-slate-200 bg-slate-50 text-[13px] text-slate-800"
-              }
+              className="mb-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-[13px] text-amber-900"
               role="status"
             >
-              {ollamaReportBanner.text}
+              {llmErrorBanner.text}
             </div>
           )}
 
@@ -706,14 +702,40 @@ export function PlagiarismReportPanel({ assignmentId, isFaculty, studentId }: Pl
                             </div>
                           );
                         }
+                        const mi = payload?.ai_features?.model_info as
+                          | {
+                              llm_ai_signal_max_students_per_run?: number;
+                              llm_ai_signal_students_with_evidence?: number;
+                            }
+                          | undefined;
+                        const maxLlm = mi?.llm_ai_signal_max_students_per_run;
+                        const capPositive = typeof maxLlm === "number" && maxLlm > 0;
+                        const evCount =
+                          typeof mi?.llm_ai_signal_students_with_evidence === "number"
+                            ? mi.llm_ai_signal_students_with_evidence
+                            : null;
                         return (
                           <div className="rounded border border-gray-200 bg-gray-50 p-3 mb-3">
                             <p className="text-[12px] font-medium text-gray-800 mb-1">Optional LLM evidence</p>
                             <p className="text-[12px] text-gray-700">
-                              No LLM output was stored for this student on this report. Typical causes: Ollama was not
-                              reachable from the server, the model was missing or misnamed, or the model reply could not
-                              be parsed as JSON. Regenerate the report after Ollama is healthy, and read the Ollama
-                              status line at the top of this panel.
+                              This student has no optional LLM evidence on this report run.
+                              {capPositive ? (
+                                <>
+                                  {" "}
+                                  The model is only called for up to {maxLlm} submission(s) on this report
+                                  {evCount != null ? ` (${evCount} received evidence)` : ""}, so this student may be
+                                  outside that batch.
+                                </>
+                              ) : (
+                                <>
+                                  {" "}
+                                  There is no submission-count cap configured for this report
+                                  {evCount != null ? ` (${evCount} submission(s) received evidence overall)` : ""}.
+                                </>
+                              )}{" "}
+                              Otherwise this usually means no readable source files reached the grader for this
+                              submission, or the model did not return usable output for it. If an error notice appears at
+                              the top of this panel, it describes a broader failure for the whole report.
                             </p>
                           </div>
                         );

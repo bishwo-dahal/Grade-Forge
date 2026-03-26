@@ -17,7 +17,7 @@ import {
   requestGraderReport,
 } from "../../services/graderReportService";
 import type { GraderReportResultPayload } from "../../types/graderReport";
-import { getOllamaReportBanner, type OllamaReportBanner } from "../../utils/ollamaReportBanner";
+import { getLlmReportBanner, type LlmReportBanner } from "../../utils/llmReportBanner";
 import type { AssignmentDetailResponse } from "../../types/gradingAssistantAssignment";
 import type { GradingAssistantRubricResponse } from "../../types/gradingAssistantRubric";
 import { roundTo2 } from "../../utils/number";
@@ -170,7 +170,7 @@ export function AssignmentDetailPage({
     byStudent: Record<string, GraderReportStudentSummary>;
     loading: boolean;
     error: string | null;
-    ollamaBanner: OllamaReportBanner | null;
+    llmErrorBanner: LlmReportBanner | null;
   } | null>(null);
   const [plagRefreshKey, setPlagRefreshKey] = useState(0);
   const [plagRunStatus, setPlagRunStatus] = useState<
@@ -189,13 +189,13 @@ export function AssignmentDetailPage({
       return;
     }
     let cancelled = false;
-    setPlagSummary({ byStudent: {}, loading: true, error: null, ollamaBanner: null });
+    setPlagSummary({ byStudent: {}, loading: true, error: null, llmErrorBanner: null });
     (async () => {
       try {
         const report = await getGraderReportLatest(assignmentIdNumeric);
         if (!report || !report.result || report.status !== "COMPLETED") {
           if (!cancelled) {
-            setPlagSummary({ byStudent: {}, loading: false, error: null, ollamaBanner: null });
+            setPlagSummary({ byStudent: {}, loading: false, error: null, llmErrorBanner: null });
           }
           return;
         }
@@ -208,12 +208,12 @@ export function AssignmentDetailPage({
               byStudent: {},
               loading: false,
               error: "Failed to parse plagiarism report.",
-              ollamaBanner: null,
+              llmErrorBanner: null,
             });
           }
           return;
         }
-        const ollamaBanner = getOllamaReportBanner(payload);
+        const llmErrorBanner = getLlmReportBanner(payload);
         const map: Record<string, GraderReportStudentSummary> = {};
         for (const row of payload.results) {
           const rawLevel = row.ai_features?.risk_level;
@@ -233,11 +233,11 @@ export function AssignmentDetailPage({
           };
         }
         if (!cancelled) {
-          setPlagSummary({ byStudent: map, loading: false, error: null, ollamaBanner });
+          setPlagSummary({ byStudent: map, loading: false, error: null, llmErrorBanner });
         }
       } catch {
         if (!cancelled) {
-          setPlagSummary({ byStudent: {}, loading: false, error: null, ollamaBanner: null });
+          setPlagSummary({ byStudent: {}, loading: false, error: null, llmErrorBanner: null });
         }
       }
     })();
@@ -628,15 +628,9 @@ export function AssignmentDetailPage({
               </button>
             </div>
           </div>
-          {plagSummary?.ollamaBanner ? (
-            <div
-              className={
-                plagSummary.ollamaBanner.severity === "warning"
-                  ? "px-6 py-3 border-b border-amber-100 bg-amber-50 text-[12px] text-amber-900"
-                  : "px-6 py-3 border-b border-slate-100 bg-slate-50 text-[12px] text-slate-800"
-              }
-            >
-              {plagSummary.ollamaBanner.text}
+          {plagSummary?.llmErrorBanner ? (
+            <div className="px-6 py-3 border-b border-amber-100 bg-amber-50 text-[12px] text-amber-900">
+              {plagSummary.llmErrorBanner.text}
             </div>
           ) : null}
           {plagRunMessage && (
