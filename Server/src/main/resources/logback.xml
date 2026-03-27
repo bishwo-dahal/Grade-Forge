@@ -25,7 +25,7 @@
 
     <logger name="ACTIVITY_LOGGER" level="INFO" additivity="false">
         <appender-ref ref="ACTIVITY_FILE"/>
-        <appender-ref ref="CONSOLE"/>
+
     </logger>
 
     <root level="INFO">
