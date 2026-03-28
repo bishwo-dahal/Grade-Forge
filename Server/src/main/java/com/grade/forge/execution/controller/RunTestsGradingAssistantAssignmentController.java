@@ -1,5 +1,6 @@
 package com.grade.forge.execution.controller;
 
+import com.grade.forge.audit.ActivityLogService;
 import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.assignment.repository.AssignmentRepository;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,15 +34,19 @@ public class RunTestsGradingAssistantAssignmentController {
     private final AssignmentRepository assignmentRepository;
     private final GradingAssistantRepository gradingAssistantRepository;
     private final CourseAssistantRepository courseAssistantRepository;
+    private final ActivityLogService activityLogService;
 
     @PostMapping(value = "/{assignmentId}/run-tests", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<TestRunJobStatusResponse> runTestsWithFiles(
+            Authentication authentication,
             @AuthenticationPrincipal CustomUserDetails user,
             @org.springframework.web.bind.annotation.PathVariable Long assignmentId,
             @RequestPart("files") List<MultipartFile> files) {
         ensureGradingAssistantCanAccessAssignment(user, assignmentId);
         TestRunJobStatusResponse result = runTestsSyncService.runTests(assignmentId, files, null);
-        return ResponseEntity.ok(result);
+        ResponseEntity<TestRunJobStatusResponse> response = ResponseEntity.ok(result);
+        activityLogService.log(authentication, "Requested test run", "Assignment ID: " + assignmentId, "success");
+        return response;
     }
 
     /**

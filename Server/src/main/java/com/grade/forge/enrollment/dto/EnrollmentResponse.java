@@ -21,6 +21,7 @@ public class EnrollmentResponse {
     // NOTE: Faculty class-management student table renders email directly from enrollment payload.
     private String studentEmail;
     private Long courseId;
+    private String courseName;
     private LocalDateTime enrolledAt;
     private EnrolledStatus enrolledStatus;
     private String grade;

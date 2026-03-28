@@ -138,11 +138,13 @@ public class EnrollmentService {
     private EnrollmentResponse mapToResponse(Enrollment enrollment) {
         Student student = enrollment.getStudent();
         String studentName = student != null && student.getUser() != null ? student.getUser().getName() : null;
+        Course course = enrollment.getCourse();
         return EnrollmentResponse.builder()
                 .id(enrollment.getId())
                 .studentId(student != null ? student.getId() : null)
                 .studentName(studentName)
-                .courseId(enrollment.getCourse() != null ? enrollment.getCourse().getId() : null)
+                .courseId(course != null ? course.getId() : null)
+                .courseName(course != null ? course.getName() : null)
                 .enrolledAt(enrollment.getEnrolledAt())
                 .enrolledStatus(enrollment.getEnrolledStatus())
                 .grade(enrollment.getGrade())
