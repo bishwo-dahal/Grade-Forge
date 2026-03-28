@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   ChevronDown,
@@ -16,6 +16,8 @@ import {
 import type { FacultyCreatePayload, FacultyMember } from "../../types/universityAdmin";
 import { createFaculty, deleteFacultyById, listDepartmentOptions, listFacultyMembers } from "../../services/universityAdminService";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
+import { toast } from "sonner";
+import { DeleteReasonDialog } from "./ui/DeleteReasonDialog";
 
 const DEFAULT_FACULTY_FORM: FacultyCreatePayload = {
   name: "",
@@ -35,7 +37,7 @@ interface UniversityFacultyViewProps {
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
   onOpenCreateModal: () => void;
-  onDeleteFaculty: (facultyId: number) => void;
+  onDeleteFaculty: (faculty: FacultyMember) => void;
   deletingFacultyId: number | null;
 }
 
@@ -183,7 +185,7 @@ function UniversityFacultyView({
                     <td className="px-6 py-4 text-right">
                       <button
                         type="button"
-                        onClick={() => onDeleteFaculty(member.id)}
+                        onClick={() => onDeleteFaculty(member)}
                         aria-label={deletingFacultyId === member.id ? `Deleting ${member.name}` : `Delete ${member.name}`}
                         // FIX: Added visible hover background so icon-only delete action has clearer affordance.
                         className="rounded-lg p-1.5 text-[#E0474C] transition-colors hover:bg-[#FDEBEC] hover:text-[#CB2F34] disabled:opacity-60"
@@ -214,6 +216,8 @@ export function UniversityFacultyPage() {
   const [facultyFormError, setFacultyFormError] = useState<string | null>(null);
   const [isCreatingFaculty, setIsCreatingFaculty] = useState(false);
   const [deletingFacultyId, setDeletingFacultyId] = useState<number | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [facultyToDelete, setFacultyToDelete] = useState<FacultyMember | null>(null);
 
   const loadMembers = () => {
     setIsLoading(true);
@@ -260,24 +264,38 @@ export function UniversityFacultyPage() {
       // NOTE: Uses existing backend-connected university faculty create endpoint.
       await createFaculty(facultyForm);
       handleCloseCreateModal();
+      toast.success("Faculty member created successfully.");
       loadMembers();
     } catch (creationError) {
-      setFacultyFormError(getApiErrorMessage(creationError, "Could not create faculty member."));
+      const message = getApiErrorMessage(creationError, "Could not create faculty member.");
+      setFacultyFormError(message);
+      toast.error(message);
     } finally {
       setIsCreatingFaculty(false);
     }
   };
 
-  const handleDeleteFaculty = async (facultyId: number) => {
-    setDeletingFacultyId(facultyId);
+  const handleDeleteFacultyRequest = (faculty: FacultyMember) => {
+    setFacultyToDelete(faculty);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteFaculty = async () => {
+    if (!facultyToDelete) return;
+    setDeletingFacultyId(facultyToDelete.id);
     setError(null);
 
     try {
       // NOTE: Delete action is backend-connected and removes faculty + associated user from DB.
-      await deleteFacultyById(facultyId);
+      await deleteFacultyById(facultyToDelete.id);
+      toast.success("Faculty member deleted successfully.");
+      setIsDeleteDialogOpen(false);
+      setFacultyToDelete(null);
       loadMembers();
     } catch (deleteError) {
-      setError(getApiErrorMessage(deleteError, "Could not delete faculty member."));
+      const message = getApiErrorMessage(deleteError, "Could not delete faculty member.");
+      setError(message);
+      toast.error(message);
     } finally {
       setDeletingFacultyId(null);
     }
@@ -292,7 +310,7 @@ export function UniversityFacultyPage() {
         searchTerm={searchTerm}
         onSearchTermChange={setSearchTerm}
         onOpenCreateModal={handleOpenCreateModal}
-        onDeleteFaculty={handleDeleteFaculty}
+        onDeleteFaculty={handleDeleteFacultyRequest}
         deletingFacultyId={deletingFacultyId}
       />
 
@@ -458,6 +476,18 @@ export function UniversityFacultyPage() {
           </div>
         </div>
       )}
+      <DeleteReasonDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title="Delete faculty member"
+        description={
+          facultyToDelete
+            ? `Delete "${facultyToDelete.name}"? This action permanently removes the account.`
+            : "Delete this faculty member? This action permanently removes the account."
+        }
+        onConfirm={handleDeleteFaculty}
+        isSubmitting={deletingFacultyId != null}
+      />
     </>
   );
 }

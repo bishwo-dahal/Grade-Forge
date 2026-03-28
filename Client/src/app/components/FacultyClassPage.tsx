@@ -88,6 +88,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "./ui/tooltip";
+import { toast } from "sonner";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthTopBar } from "./layout/AuthTopBar";
@@ -487,7 +488,6 @@ function AssignmentsSection() {
   const [openAssignmentActionsId, setOpenAssignmentActionsId] = useState<string | null>(null);
   const [assignmentDeleteTarget, setAssignmentDeleteTarget] = useState<FacultyAssignment | null>(null);
   const [isDeletingAssignment, setIsDeletingAssignment] = useState(false);
-  const [assignmentActionError, setAssignmentActionError] = useState<string | null>(null);
 
   const loadAssignments = useCallback(async () => {
     // FIX: Centralize assignment reload so header/footer actions reuse the same backend-driven refresh path.
@@ -510,15 +510,16 @@ function AssignmentsSection() {
     if (!assignmentDeleteTarget) {
       return;
     }
+    const deletingAssignment = assignmentDeleteTarget;
+    setAssignmentDeleteTarget(null);
     setIsDeletingAssignment(true);
-    setAssignmentActionError(null);
     try {
-      await deleteFacultyAssignment(assignmentDeleteTarget.id);
-      setAssignmentDeleteTarget(null);
-      setSelectedAssignments((prev) => prev.filter((id) => id !== assignmentDeleteTarget.id));
+      await deleteFacultyAssignment(deletingAssignment.id);
+      setSelectedAssignments((prev) => prev.filter((id) => id !== deletingAssignment.id));
+      toast.success("Assignment deleted successfully.");
       await loadAssignments();
     } catch (error) {
-      setAssignmentActionError(getErrorMessage(error));
+      toast.error(getErrorMessage(error));
     } finally {
       setIsDeletingAssignment(false);
     }
@@ -560,11 +561,6 @@ function AssignmentsSection() {
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-visible">
-        {assignmentActionError ? (
-          <div className="mx-6 mt-4 rounded-lg border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-[12px] text-[#C23A42]">
-            {assignmentActionError}
-          </div>
-        ) : null}
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">
@@ -705,7 +701,6 @@ function AssignmentsSection() {
                             onClick={() => {
                               setOpenAssignmentActionsId(null);
                               setAssignmentDeleteTarget(assignment);
-                              setAssignmentActionError(null);
                             }}
                             className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[#C23A42] hover:bg-[#FFF5F5]"
                           >
@@ -3133,9 +3128,12 @@ function SettingsSection({ classId }: { classId: string }) {
     setError(null);
     try {
       await deleteFacultyCourse(classId);
+      toast.success("Course deleted successfully.");
       navigate("/faculty/my-classes");
     } catch (err) {
-      setError(getErrorMessage(err));
+      const message = getErrorMessage(err);
+      setError(message);
+      toast.error(message);
     } finally {
       setIsDeleting(false);
     }

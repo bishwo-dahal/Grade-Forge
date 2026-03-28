@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Code2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import {
   createSupportedLanguage,
@@ -8,6 +8,8 @@ import {
 } from "../../services/universityAdminService";
 import type { LanguageCreatePayload, SupportedLanguage } from "../../types/universityAdmin";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
+import { toast } from "sonner";
+import { DeleteReasonDialog } from "./ui/DeleteReasonDialog";
 
 const DEFAULT_LANGUAGE_FORM: LanguageCreatePayload = {
   name: "",
@@ -26,7 +28,8 @@ interface UniversityLanguagesViewProps {
   onSearchTermChange: (value: string) => void;
   onOpenCreateModal: () => void;
   onEditLanguage: (language: SupportedLanguage) => void;
-  onRemoveLanguage: (languageId: number) => void;
+  onRemoveLanguage: (language: SupportedLanguage) => void;
+  deletingLanguageId: number | null;
 }
 
 function UniversityLanguagesView({
@@ -38,6 +41,7 @@ function UniversityLanguagesView({
   onOpenCreateModal,
   onEditLanguage,
   onRemoveLanguage,
+  deletingLanguageId,
 }: UniversityLanguagesViewProps) {
   const filteredLanguages = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -180,9 +184,10 @@ function UniversityLanguagesView({
                         </button>
                         <button
                           type="button"
-                          onClick={() => onRemoveLanguage(language.id)}
-                          aria-label={`Remove ${language.name}`}
-                          className="rounded-lg p-1.5 text-[#E0474C] transition-colors hover:bg-[#FDEBEC] hover:text-[#CB2F34]"
+                          onClick={() => onRemoveLanguage(language)}
+                          aria-label={deletingLanguageId === language.id ? `Removing ${language.name}` : `Remove ${language.name}`}
+                          className="rounded-lg p-1.5 text-[#E0474C] transition-colors hover:bg-[#FDEBEC] hover:text-[#CB2F34] disabled:opacity-60"
+                          disabled={deletingLanguageId === language.id}
                         >
                           <Trash2 className="h-4 w-4" strokeWidth={2} />
                         </button>
@@ -208,6 +213,9 @@ export function UniversityLanguagesPage() {
   const [isSavingLanguage, setIsSavingLanguage] = useState(false);
   const [languageForm, setLanguageForm] = useState<LanguageCreatePayload>(DEFAULT_LANGUAGE_FORM);
   const [languageFormError, setLanguageFormError] = useState<string | null>(null);
+  const [deletingLanguageId, setDeletingLanguageId] = useState<number | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [languageToDelete, setLanguageToDelete] = useState<SupportedLanguage | null>(null);
 
   const loadLanguages = () => {
     setIsLoading(true);
@@ -271,24 +279,45 @@ export function UniversityLanguagesPage() {
     try {
       if (editingLanguageId != null) {
         await updateSupportedLanguage(editingLanguageId, payload);
+        toast.success("Language updated successfully.");
       } else {
         await createSupportedLanguage(payload);
+        toast.success("Language created successfully.");
       }
       handleCloseLanguageModal();
       loadLanguages();
     } catch (saveError) {
-      setLanguageFormError(
-        getApiErrorMessage(saveError, editingLanguageId != null ? "Could not update language." : "Could not create language.")
-      );
+      const message = getApiErrorMessage(saveError, editingLanguageId != null ? "Could not update language." : "Could not create language.");
+      setLanguageFormError(message);
+      toast.error(message);
     } finally {
       setIsSavingLanguage(false);
     }
   };
 
-  const handleRemoveLanguage = async (languageId: number) => {
-    // NOTE: Language row delete is backend-connected so university admin actions persist in the database.
-    await removeSupportedLanguage(languageId);
-    loadLanguages();
+  const handleRemoveLanguageRequest = (language: SupportedLanguage) => {
+    setLanguageToDelete(language);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleRemoveLanguage = async () => {
+    if (!languageToDelete) return;
+    setDeletingLanguageId(languageToDelete.id);
+    setError(null);
+    try {
+      // NOTE: Language row delete is backend-connected so university admin actions persist in the database.
+      await removeSupportedLanguage(languageToDelete.id);
+      toast.success("Language deleted successfully.");
+      setIsDeleteDialogOpen(false);
+      setLanguageToDelete(null);
+      loadLanguages();
+    } catch (deleteError) {
+      const message = getApiErrorMessage(deleteError, "Could not remove language.");
+      setError(message);
+      toast.error(message);
+    } finally {
+      setDeletingLanguageId(null);
+    }
   };
 
   return (
@@ -301,7 +330,8 @@ export function UniversityLanguagesPage() {
         onSearchTermChange={setSearchTerm}
         onOpenCreateModal={handleOpenCreateModal}
         onEditLanguage={handleOpenEditModal}
-        onRemoveLanguage={handleRemoveLanguage}
+        onRemoveLanguage={handleRemoveLanguageRequest}
+        deletingLanguageId={deletingLanguageId}
       />
 
       {showCreateModal && (
@@ -425,6 +455,18 @@ export function UniversityLanguagesPage() {
           </div>
         </div>
       )}
+      <DeleteReasonDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title="Delete language"
+        description={
+          languageToDelete
+            ? `Delete "${languageToDelete.name}"? This action cannot be undone.`
+            : "Delete this language? This action cannot be undone."
+        }
+        onConfirm={handleRemoveLanguage}
+        isSubmitting={deletingLanguageId != null}
+      />
     </>
   );
 }

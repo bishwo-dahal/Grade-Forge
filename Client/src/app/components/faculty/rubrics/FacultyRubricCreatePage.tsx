@@ -8,6 +8,7 @@ import { AuthTopBar } from "../../layout/AuthTopBar";
 import type { SettingsSection } from "../../layout/AuthTopBar";
 import { RubricForm } from "./RubricForm";
 import { getApiErrorMessage } from "../../../../utils/apiErrorMessage";
+import { toast } from "sonner";
 
 export function FacultyRubricCreatePage() {
   const navigate = useNavigate();
@@ -55,9 +56,12 @@ export function FacultyRubricCreatePage() {
     setErrorMessage(null);
     try {
       await createRubric(payload);
+      toast.success("Rubric created successfully.");
       navigate("/faculty/rubrics");
     } catch (error: unknown) {
-      setErrorMessage(getApiErrorMessage(error, "Unable to save rubric right now."));
+      const message = getApiErrorMessage(error, "Unable to save rubric right now.");
+      setErrorMessage(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
