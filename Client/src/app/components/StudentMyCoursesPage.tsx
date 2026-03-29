@@ -70,25 +70,21 @@ function StudentMyCoursesView({ courses, isLoading, layoutMode, onLayoutModeChan
               <article
                 key={`student-courses-skeleton-${index}`}
                 // NOTE: Skeleton cards keep My Courses layout visible while enrolled-course data is loading.
-                className="rounded-2xl border border-gray-200 bg-white p-5 animate-pulse"
+                className="overflow-hidden rounded-2xl border border-gray-200 bg-white animate-pulse"
               >
-                <div className="flex items-start gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-[#EEF2FA]" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-3 w-28 rounded bg-gray-200" />
-                    <div className="h-4 w-52 max-w-full rounded bg-gray-200" />
-                  </div>
+                <div className="h-36 bg-gray-100" />
+                <div className="space-y-2 p-5">
+                  <div className="h-3 w-28 rounded bg-gray-200" />
+                  <div className="h-4 w-52 max-w-full rounded bg-gray-200" />
                 </div>
-                <div className="mt-5 space-y-2">
+                <div className="space-y-2 px-5">
                   <div className="h-3 w-36 rounded bg-gray-200" />
                   <div className="h-3 w-24 rounded bg-gray-200" />
-                </div>
-                <div className="mt-5 space-y-2">
                   <div className="h-3 w-full rounded bg-gray-200" />
                   <div className="h-2 w-full rounded-full bg-gray-100" />
                   <div className="h-3 w-28 rounded bg-gray-200" />
                 </div>
-                <div className="mt-5 h-10 w-full rounded-xl bg-gray-100" />
+                <div className="mx-5 mb-5 mt-4 h-10 rounded-xl bg-gray-100" />
               </article>
             ))
           : null}
@@ -99,19 +95,7 @@ function StudentMyCoursesView({ courses, isLoading, layoutMode, onLayoutModeChan
 
             return (
               <article key={course.id} className="overflow-hidden rounded-2xl shadow-sm">
-                <CourseCoverCardShell
-                  coverImageUrl={course.coverImageUrl}
-                  className="min-h-[300px] border-0 shadow-none"
-                  imageOverlay={
-                    <div className="flex h-full min-h-[120px] items-start justify-start p-3">
-                      <div
-                        className={`flex h-11 w-11 items-center justify-center rounded-xl text-xl shadow-md ring-2 ring-white/70 ${course.iconBg} bg-white/95`}
-                      >
-                        {course.icon}
-                      </div>
-                    </div>
-                  }
-                >
+                <CourseCoverCardShell coverImageUrl={course.coverImageUrl} className="min-h-[300px] border-0 shadow-none">
                   <div className="flex flex-1 flex-col p-5 pt-4">
                     <p className="text-[11px] uppercase tracking-wide text-[#738099]">
                       {course.courseCode} · {course.credits} credits

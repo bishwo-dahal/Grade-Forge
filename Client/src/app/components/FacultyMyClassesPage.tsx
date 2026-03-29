@@ -79,27 +79,25 @@ function FacultyMyClassesView({
       {error && <p className="mt-4 text-[14px] text-[#C23A42]">{error}</p>}
 
       {/* FIX: Cap grid at three columns so faculty class cards never expand to four on larger screens. */}
-      <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <section className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         {isLoading
           ? Array.from({ length: 6 }).map((_, index) => (
               <article
                 key={`faculty-my-classes-skeleton-${index}`}
                 // NOTE: Skeleton class cards preserve faculty My Classes layout while backend data loads.
-                className="rounded-2xl border border-gray-200 bg-white p-4 animate-pulse"
+                className="overflow-hidden rounded-2xl border border-gray-200 bg-white animate-pulse"
               >
-                <div className="flex items-start gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-[#EEF2FA]" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 w-40 rounded bg-gray-200" />
-                    <div className="h-3 w-28 rounded bg-gray-200" />
-                    <div className="h-3 w-20 rounded bg-gray-200" />
-                  </div>
+                <div className="h-24 bg-gray-100" />
+                <div className="space-y-2 p-4">
+                  <div className="h-4 w-40 rounded bg-gray-200" />
+                  <div className="h-3 w-28 rounded bg-gray-200" />
+                  <div className="h-3 w-20 rounded bg-gray-200" />
                 </div>
-                <div className="mt-4 rounded-2xl bg-[#F6F7F9] px-3.5 py-3">
+                <div className="mx-4 rounded-2xl bg-[#F6F7F9] px-3.5 py-3">
                   <div className="h-3 w-36 rounded bg-gray-200" />
                   <div className="mt-2 h-3 w-28 rounded bg-gray-200" />
                 </div>
-                <div className="mt-4 grid grid-cols-3 gap-3">
+                <div className="mx-4 mt-4 grid grid-cols-3 gap-3">
                   <div className="space-y-2">
                     <div className="h-3 w-14 rounded bg-gray-200" />
                     <div className="h-4 w-8 rounded bg-gray-200" />
@@ -113,8 +111,8 @@ function FacultyMyClassesView({
                     <div className="h-4 w-10 rounded bg-gray-200" />
                   </div>
                 </div>
-                <div className="mt-4 h-12 rounded-2xl bg-[#FFF8EE]" />
-                <div className="mt-4 grid grid-cols-[1fr_auto] gap-2.5">
+                <div className="mx-4 mt-4 h-12 rounded-2xl bg-[#FFF8EE]" />
+                <div className="m-4 mt-4 grid grid-cols-[1fr_auto] gap-2.5">
                   <div className="h-10 rounded-2xl bg-[#EEF2FA]" />
                   <div className="h-10 w-28 rounded-2xl bg-[#FFE8CA]" />
                 </div>
@@ -131,18 +129,7 @@ function FacultyMyClassesView({
         {!isLoading &&
           filteredClasses.map((course) => (
             <article key={course.id}>
-              <CourseCoverCardShell
-                coverImageUrl={course.coverImageUrl}
-                imageOverlay={
-                  <div className="flex h-full min-h-[120px] items-start justify-start p-3">
-                    <div
-                      className={`flex h-11 w-11 items-center justify-center rounded-xl text-xl shadow-md ring-2 ring-white/70 ${course.iconBg} bg-white/95`}
-                    >
-                      {course.icon}
-                    </div>
-                  </div>
-                }
-              >
+              <CourseCoverCardShell coverImageUrl={course.coverImageUrl}>
                 <div className="flex flex-1 flex-col p-4">
                   <h2 className="text-[15px] font-semibold leading-snug text-[#1F2430]">{course.title}</h2>
                   <p className="mt-1.5 text-[13px] text-[#3E4E67]">

@@ -8,13 +8,6 @@ interface EnrolledCoursesProps {
   isLoading?: boolean;
 }
 
-const courseSkeletonStyles = [
-  { iconBg: "bg-[#EEF3FF]" },
-  { iconBg: "bg-[#FFF3E6]" },
-  { iconBg: "bg-[#EEF3FF]" },
-  { iconBg: "bg-[#FFF3E6]" },
-];
-
 export function EnrolledCourses({ courses, isLoading = false }: EnrolledCoursesProps) {
 
   return (
@@ -29,13 +22,13 @@ export function EnrolledCourses({ courses, isLoading = false }: EnrolledCoursesP
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
         {isLoading
-          ? courseSkeletonStyles.map((skeletonStyle, index) => (
+          ? Array.from({ length: 4 }).map((_, index) => (
               <div
                 key={`course-skeleton-${index}`}
                 // NOTE: Skeleton cards preserve course-card layout so blocks stay visible while backend data loads.
                 className="block bg-white rounded-2xl p-5 border border-gray-200 animate-pulse"
               >
-                <div className={`w-12 h-12 ${skeletonStyle.iconBg} rounded-xl mb-4`} />
+                <div className="h-24 w-full rounded-xl bg-gray-100 mb-4" />
                 <div className="h-4 w-3/4 rounded bg-gray-200 mb-2" />
                 <div className="h-3 w-1/2 rounded bg-gray-200 mb-4" />
                 <div className="mt-4">
@@ -61,19 +54,7 @@ export function EnrolledCourses({ courses, isLoading = false }: EnrolledCoursesP
               to={`/class/${course.id}`}
               className="block overflow-hidden rounded-2xl shadow-sm transition-all hover:shadow-md"
             >
-              <CourseCoverCardShell
-                coverImageUrl={course.coverImageUrl}
-                className="min-h-[280px] border-0 shadow-none"
-                imageOverlay={
-                  <div className="flex h-full min-h-[120px] items-start justify-start p-3">
-                    <div
-                      className={`flex h-11 w-11 items-center justify-center rounded-xl text-xl shadow-md ring-2 ring-white/70 ${course.iconBg} bg-white/95`}
-                    >
-                      {course.icon}
-                    </div>
-                  </div>
-                }
-              >
+              <CourseCoverCardShell coverImageUrl={course.coverImageUrl} className="min-h-[280px] border-0 shadow-none">
                 <div className="flex flex-1 flex-col p-5 pt-4">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-[#5D6A80]">{course.courseCode}</p>
                   <h3 className="mt-1 text-[14px] font-semibold leading-snug text-[#2B2A2A]">{course.title}</h3>

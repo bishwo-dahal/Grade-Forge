@@ -57,33 +57,24 @@ export function CoursePage() {
         {/* Course Header */}
         <div className="bg-white rounded-2xl p-8 border border-gray-200 mb-8">
           {isCourseLoading ? (
-            <div className="flex items-start gap-6 animate-pulse">
-              {/* NOTE: Header skeleton keeps course hero block visible during fetch. */}
-              <div className="w-20 h-20 rounded-2xl bg-[#EEF2FA] flex-shrink-0" />
-              <div className="flex-1">
-                <div className="h-3 w-20 rounded bg-gray-200 mb-3" />
-                <div className="h-8 w-72 max-w-full rounded bg-gray-200 mb-3" />
-                <div className="h-4 w-40 rounded bg-gray-200" />
-              </div>
+            <div className="animate-pulse">
+              <div className="h-3 w-20 rounded bg-gray-200 mb-3" />
+              <div className="h-8 w-72 max-w-full rounded bg-gray-200 mb-3" />
+              <div className="h-4 w-40 rounded bg-gray-200" />
             </div>
           ) : (
-            <div className="flex items-start gap-6">
-              <div className={`w-20 h-20 ${courseData.iconBg} rounded-2xl flex items-center justify-center text-4xl flex-shrink-0`}>
-                {courseData.icon}
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-[12px] text-gray-500 uppercase tracking-wide font-medium">
+                  {courseData.code}
+                </span>
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-[12px] text-gray-500 uppercase tracking-wide font-medium">
-                    {courseData.code}
-                  </span>
-                </div>
-                <h1 className="text-3xl font-bold text-[#2B2A2A] mb-3">
-                  {courseData.title}
-                </h1>
-                <div className="flex items-center gap-2 text-[14px] text-gray-600">
-                  <User className="w-4 h-4" strokeWidth={2} />
-                  <span>{courseData.instructor}</span>
-                </div>
+              <h1 className="text-3xl font-bold text-[#2B2A2A] mb-3">
+                {courseData.title}
+              </h1>
+              <div className="flex items-center gap-2 text-[14px] text-gray-600">
+                <User className="w-4 h-4" strokeWidth={2} />
+                <span>{courseData.instructor}</span>
               </div>
             </div>
           )}

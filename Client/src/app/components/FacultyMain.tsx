@@ -82,16 +82,11 @@ function TeachingCourses({
               <div
                 key={`faculty-course-skeleton-${index}`}
                 // NOTE: Skeleton cards mirror teaching-course visuals so class blocks stay visible while fetching.
-                className="block bg-white rounded-2xl p-6 border border-gray-200 animate-pulse"
+                className="block overflow-hidden rounded-2xl border border-gray-200 bg-white animate-pulse"
               >
-                <div className="flex items-start gap-4 mb-4">
-                  <div className={`w-12 h-12 ${index % 2 === 0 ? "bg-[#EEF3FF]" : "bg-[#FFF3E6]"} rounded-xl flex-shrink-0`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="h-3 w-16 rounded bg-gray-200 mb-2" />
-                    <div className="h-4 w-44 max-w-full rounded bg-gray-200" />
-                  </div>
-                </div>
-                <div className="space-y-3">
+                <div className="h-36 bg-gray-100" />
+                <div className="space-y-3 p-6 pt-4">
+                  <div className="h-4 w-44 max-w-full rounded bg-gray-200" />
                   <div className="flex items-center justify-between">
                     <div className="h-3 w-28 rounded bg-gray-200" />
                     <div className="h-3 w-8 rounded bg-gray-200" />
@@ -105,7 +100,7 @@ function TeachingCourses({
                     <div className="h-3 w-8 rounded bg-gray-200" />
                   </div>
                 </div>
-                <div className="mt-5 w-full h-10 bg-gray-100 rounded-lg" />
+                <div className="mx-6 mb-6 mt-4 h-10 rounded-lg bg-gray-100" />
               </div>
             ))
           : null}
@@ -119,12 +114,7 @@ function TeachingCourses({
               coverImageUrl={course.coverImageUrl}
               className="min-h-[280px] border-0 shadow-none"
               imageOverlay={
-                <div className="flex h-full min-h-[120px] items-start justify-between p-3">
-                  <div
-                    className={`flex h-11 w-11 items-center justify-center rounded-xl text-xl shadow-md ring-2 ring-white/70 ${course.iconBg} bg-white/95`}
-                  >
-                    {course.icon}
-                  </div>
+                <div className="flex h-full min-h-[120px] items-start justify-end p-3">
                   <span className="rounded-lg bg-black/35 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white ring-1 ring-white/30">
                     {course.code}
                   </span>
