@@ -3328,95 +3328,18 @@ function SettingsSection({ classId }: { classId: string }) {
               </button>
             </div>
 
-            <div className="px-6 py-5">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="gf-course-name" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-                    Class Name
-                  </label>
-                  <input
-                    id="gf-course-name"
-                    value={form.name}
-                    onChange={(event) => setForm({ ...form, name: event.target.value })}
-                    placeholder="e.g., Data Structures and Algorithms"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                    disabled={isSaving}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="gf-course-code" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-                    Course Code
-                  </label>
-                  <input
-                    id="gf-course-code"
-                    value={form.courseCode}
-                    onChange={(event) => setForm({ ...form, courseCode: event.target.value })}
-                    placeholder="e.g., CS-301"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                    disabled={isSaving}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="gf-course-section" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-                    Section
-                  </label>
-                  <input
-                    id="gf-course-section"
-                    value={form.section}
-                    onChange={(event) => setForm({ ...form, section: event.target.value })}
-                    placeholder="e.g., Section 001"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                    disabled={isSaving}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="gf-course-semester" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-                    Semester
-                  </label>
-                  <select
-                    id="gf-course-semester"
-                    value={form.semesterId}
-                    onChange={(event) => setForm({ ...form, semesterId: event.target.value })}
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                    disabled={isSaving || semesters.length === 0}
-                  >
-                    {semesters.length === 0 ? <option value="">Loading semesters...</option> : null}
-                    {semesters.map((semester) => (
-                      <option key={semester.id} value={String(semester.id)}>
-                        {semester.name} ({semester.startDate} - {semester.endDate})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label htmlFor="gf-course-description" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-                    Description
-                  </label>
-                  <textarea
-                    id="gf-course-description"
-                    value={form.description}
-                    onChange={(event) => setForm({ ...form, description: event.target.value })}
-                    rows={3}
-                    placeholder="Optional course description"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                    disabled={isSaving}
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
+                <div className="w-full shrink-0 lg:sticky lg:top-0 lg:w-[240px] xl:w-[260px]">
                   <label htmlFor="gf-course-image" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
                     Cover image
                   </label>
                   {(coverPreviewUrl || (course != null && getCourseCoverImageUrl(course))) && (
-                    <div className="relative mx-auto mb-3 w-full max-w-[200px] overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                    <div className="relative mx-auto mb-3 w-full max-w-[220px] overflow-hidden rounded-xl border border-gray-200 bg-gray-50 lg:mx-0 lg:max-w-none">
                       <img
                         src={(coverPreviewUrl ?? (course != null ? getCourseCoverImageUrl(course) : null)) ?? undefined}
                         alt="Cover preview"
-                        className="h-64 w-full object-cover"
+                        className="aspect-[4/5] w-full object-cover"
                       />
                       {coverImageFile ? (
                         <button
@@ -3442,48 +3365,129 @@ function SettingsSection({ classId }: { classId: string }) {
                   <p className="mt-1 text-[12px] text-[#6D7B91]">Optional. Upload a new image to replace the current cover.</p>
                 </div>
 
-                <div>
-                  <label htmlFor="gf-course-canvas-id" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-                    Canvas Course ID
-                  </label>
-                  <input
-                    id="gf-course-canvas-id"
-                    value={form.canvasCourseId}
-                    onChange={(event) => setForm({ ...form, canvasCourseId: event.target.value })}
-                    placeholder="Optional LMS id"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                    disabled={isSaving}
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
+                <div className="min-w-0 flex-1">
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <label className="inline-flex items-center gap-2 text-[14px] text-[#1F2430]">
+                    <div>
+                      <label htmlFor="gf-course-name" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                        Class Name
+                      </label>
                       <input
-                        type="checkbox"
-                        checked={form.active}
-                        onChange={(event) => setForm({ ...form, active: event.target.checked })}
-                        className="h-4 w-4 rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
+                        id="gf-course-name"
+                        value={form.name}
+                        onChange={(event) => setForm({ ...form, name: event.target.value })}
+                        placeholder="e.g., Data Structures and Algorithms"
+                        className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
                         disabled={isSaving}
                       />
-                      Active
-                    </label>
-                    <label className="inline-flex items-center gap-2 text-[14px] text-[#1F2430]">
+                    </div>
+
+                    <div>
+                      <label htmlFor="gf-course-code" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                        Course Code
+                      </label>
                       <input
-                        type="checkbox"
-                        checked={form.isPublished}
-                        onChange={(event) => setForm({ ...form, isPublished: event.target.checked })}
-                        className="h-4 w-4 rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
+                        id="gf-course-code"
+                        value={form.courseCode}
+                        onChange={(event) => setForm({ ...form, courseCode: event.target.value })}
+                        placeholder="e.g., CS-301"
+                        className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
                         disabled={isSaving}
                       />
-                      Published
-                    </label>
+                    </div>
+
+                    <div>
+                      <label htmlFor="gf-course-section" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                        Section
+                      </label>
+                      <input
+                        id="gf-course-section"
+                        value={form.section}
+                        onChange={(event) => setForm({ ...form, section: event.target.value })}
+                        placeholder="e.g., Section 001"
+                        className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                        disabled={isSaving}
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="gf-course-semester" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                        Semester
+                      </label>
+                      <select
+                        id="gf-course-semester"
+                        value={form.semesterId}
+                        onChange={(event) => setForm({ ...form, semesterId: event.target.value })}
+                        className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                        disabled={isSaving || semesters.length === 0}
+                      >
+                        {semesters.length === 0 ? <option value="">Loading semesters...</option> : null}
+                        {semesters.map((semester) => (
+                          <option key={semester.id} value={String(semester.id)}>
+                            {semester.name} ({semester.startDate} - {semester.endDate})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label htmlFor="gf-course-description" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                        Description
+                      </label>
+                      <textarea
+                        id="gf-course-description"
+                        value={form.description}
+                        onChange={(event) => setForm({ ...form, description: event.target.value })}
+                        rows={3}
+                        placeholder="Optional course description"
+                        className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                        disabled={isSaving}
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2 sm:max-w-md">
+                      <label htmlFor="gf-course-canvas-id" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
+                        Canvas Course ID
+                      </label>
+                      <input
+                        id="gf-course-canvas-id"
+                        value={form.canvasCourseId}
+                        onChange={(event) => setForm({ ...form, canvasCourseId: event.target.value })}
+                        placeholder="Optional LMS id"
+                        className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                        disabled={isSaving}
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <div className="flex flex-wrap gap-6">
+                        <label className="inline-flex items-center gap-2 text-[14px] text-[#1F2430]">
+                          <input
+                            type="checkbox"
+                            checked={form.active}
+                            onChange={(event) => setForm({ ...form, active: event.target.checked })}
+                            className="h-4 w-4 rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
+                            disabled={isSaving}
+                          />
+                          Active
+                        </label>
+                        <label className="inline-flex items-center gap-2 text-[14px] text-[#1F2430]">
+                          <input
+                            type="checkbox"
+                            checked={form.isPublished}
+                            onChange={(event) => setForm({ ...form, isPublished: event.target.checked })}
+                            className="h-4 w-4 rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
+                            disabled={isSaving}
+                          />
+                          Published
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+            <div className="flex shrink-0 items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
               <button
                 type="button"
                 onClick={() => {
