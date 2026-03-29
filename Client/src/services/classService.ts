@@ -550,13 +550,24 @@ const facultyAssignments: FacultyAssignment[] = [
   },
 ];
 
+export interface CourseImageApiResponse {
+  id: number;
+  fileName: string;
+  fileKey: string;
+  fileType: string;
+  fileSize: number;
+  downloadUrl: string;
+}
+
 export interface CourseApiResponse {
   id: number;
   name: string;
   courseCode: string;
   section: string | null;
   description: string | null;
-  imageUrl: string | null;
+  /** Legacy field; prefer `courseImage.downloadUrl` when present. */
+  imageUrl?: string | null;
+  courseImage?: CourseImageApiResponse | null;
   canvasCourseId: string | null;
   active: boolean;
   isPublished: boolean;
@@ -573,6 +584,14 @@ export interface CourseApiResponse {
     department: string;
     qualifications: string;
   } | null;
+}
+
+/** Cover image URL for display; backend stores files and exposes `downloadUrl`. */
+export function getCourseCoverImageUrl(course: CourseApiResponse): string | null {
+  const fromImage = course.courseImage?.downloadUrl?.trim();
+  if (fromImage) return fromImage;
+  const legacy = course.imageUrl?.trim();
+  return legacy || null;
 }
 
 interface FacultySemesterApiResponse {
@@ -984,12 +1003,18 @@ function toCreatePayload(form: ClassCreateFormData): FacultyCourseCreatePayload 
     courseCode: form.courseCode.trim(),
     section: form.section.trim(),
     description: form.description.trim(),
-    imageUrl: form.imageUrl.trim(),
     canvasCourseId: form.canvasCourseId.trim(),
     isPublished: form.isPublished,
     semesterId: parsedSemesterId,
     active: form.active,
   };
+}
+
+function buildCourseMultipartBody(form: ClassCreateFormData): FormData {
+  const payload = toCreatePayload(form);
+  const body = new FormData();
+  body.append("course", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+  return body;
 }
 
 export function listClassesOverview(): Promise<ClassOverviewItem[]> {
@@ -1050,18 +1075,28 @@ export async function listFacultySemesters(): Promise<FacultySemesterOption[]> {
   }));
 }
 
-export async function createFacultyCourse(form: ClassCreateFormData): Promise<void> {
-  const payload = toCreatePayload(form);
+export async function createFacultyCourse(form: ClassCreateFormData, coverImageFile?: File | null): Promise<void> {
   // IMPORTANT: Create also requires the authenticated user to have a Faculty row.
   // IMPORTANT: If user is not assigned as faculty by university admin, backend returns 400.
-  // IMPORTANT: Changing this payload shape requires backend coordination with CourseRequestDto.
-  await api.post("/api/v1/faculty/courses/create", payload);
+  // IMPORTANT: Multipart: `course` JSON part + optional `file` image part (see FacultyCourseController).
+  const body = buildCourseMultipartBody(form);
+  if (coverImageFile) {
+    body.append("file", coverImageFile);
+  }
+  await api.post("/api/v1/faculty/courses/create", body);
 }
 
-export async function updateFacultyCourse(courseId: string, form: ClassCreateFormData): Promise<CourseApiResponse> {
-  const payload = toCreatePayload(form);
+export async function updateFacultyCourse(
+  courseId: string,
+  form: ClassCreateFormData,
+  coverImageFile?: File | null,
+): Promise<CourseApiResponse> {
   const id = toCourseId(courseId);
-  const { data } = await api.put<CourseApiResponse>(`/api/v1/faculty/courses/${id}`, payload);
+  const body = buildCourseMultipartBody(form);
+  if (coverImageFile) {
+    body.append("file", coverImageFile);
+  }
+  const { data } = await api.put<CourseApiResponse>(`/api/v1/faculty/courses/${id}`, body);
   return data;
 }
 

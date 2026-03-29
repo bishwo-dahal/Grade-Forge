@@ -59,6 +59,7 @@ import {
   toggleFacultyCourseActive,
   updateFacultyCourse,
   deleteFacultyAssignment,
+  getCourseCoverImageUrl,
 } from "../../services/classService";
 
 import type { CourseApiResponse } from "../../services/classService";
@@ -2977,7 +2978,6 @@ function SettingsSection({ classId }: { classId: string }) {
     courseCode: "",
     section: "",
     description: "",
-    imageUrl: "",
     canvasCourseId: "",
     semesterId: "",
     isPublished: false,
@@ -2996,6 +2996,20 @@ function SettingsSection({ classId }: { classId: string }) {
   const [isTogglingActive, setIsTogglingActive] = useState(false);
 
   const [form, setForm] = useState<ClassCreateFormData>(EMPTY_CLASS_FORM);
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!coverImageFile) {
+      setCoverPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(coverImageFile);
+    setCoverPreviewUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [coverImageFile]);
 
   function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
     return (
@@ -3026,7 +3040,6 @@ function SettingsSection({ classId }: { classId: string }) {
           courseCode: courseDetail.courseCode ?? "",
           section: courseDetail.section ?? "",
           description: courseDetail.description ?? "",
-          imageUrl: courseDetail.imageUrl ?? "",
           canvasCourseId: courseDetail.canvasCourseId ?? "",
           semesterId: courseDetail.semester?.id ? String(courseDetail.semester.id) : "",
           isPublished: Boolean(courseDetail.isPublished),
@@ -3051,8 +3064,9 @@ function SettingsSection({ classId }: { classId: string }) {
     setIsSaving(true);
     setError(null);
     try {
-      const updated = await updateFacultyCourse(classId, form);
+      const updated = await updateFacultyCourse(classId, form, coverImageFile);
       setCourse(updated);
+      setCoverImageFile(null);
       setIsEditOpen(false);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -3176,7 +3190,10 @@ function SettingsSection({ classId }: { classId: string }) {
 
                 <button
                   type="button"
-                  onClick={() => setIsEditOpen(true)}
+                  onClick={() => {
+                    setCoverImageFile(null);
+                    setIsEditOpen(true);
+                  }}
                   disabled={isSaving || isDeleting}
                   className="flex items-center gap-2 rounded-xl bg-[#5A7ACD] px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-[#4a6abd] disabled:opacity-60"
                 >
@@ -3200,9 +3217,9 @@ function SettingsSection({ classId }: { classId: string }) {
                 <p className="text-[13px] font-semibold text-[#2B2A2A]">Overview</p>
 
                 <div className="mt-3 aspect-[16/9] w-full overflow-hidden rounded-lg border border-gray-200 bg-white">
-                  {course.imageUrl ? (
+                  {getCourseCoverImageUrl(course) ? (
                     <img
-                      src={course.imageUrl}
+                      src={getCourseCoverImageUrl(course) ?? undefined}
                       alt="Course cover"
                       className="h-full w-full object-cover"
                       loading="lazy"
@@ -3297,7 +3314,12 @@ function SettingsSection({ classId }: { classId: string }) {
               </div>
               <button
                 type="button"
-                onClick={() => !isSaving && setIsEditOpen(false)}
+                onClick={() => {
+                  if (!isSaving) {
+                    setCoverImageFile(null);
+                    setIsEditOpen(false);
+                  }
+                }}
                 disabled={isSaving}
                 className="rounded-xl border border-gray-200 bg-white p-2 hover:bg-gray-50 disabled:opacity-60"
                 aria-label="Close"
@@ -3385,18 +3407,39 @@ function SettingsSection({ classId }: { classId: string }) {
                   />
                 </div>
 
-                <div>
+                <div className="sm:col-span-2">
                   <label htmlFor="gf-course-image" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-                    Image URL
+                    Cover image
                   </label>
+                  {(coverPreviewUrl || (course != null && getCourseCoverImageUrl(course))) && (
+                    <div className="relative mx-auto mb-3 w-full max-w-[200px] overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                      <img
+                        src={(coverPreviewUrl ?? (course != null ? getCourseCoverImageUrl(course) : null)) ?? undefined}
+                        alt="Cover preview"
+                        className="h-64 w-full object-cover"
+                      />
+                      {coverImageFile ? (
+                        <button
+                          type="button"
+                          onClick={() => setCoverImageFile(null)}
+                          disabled={isSaving}
+                          className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white shadow-sm ring-1 ring-white/30 transition hover:bg-black/70 disabled:opacity-50"
+                          aria-label="Remove selected image"
+                        >
+                          <X className="h-4 w-4" strokeWidth={2.5} />
+                        </button>
+                      ) : null}
+                    </div>
+                  )}
                   <input
                     id="gf-course-image"
-                    value={form.imageUrl}
-                    onChange={(event) => setForm({ ...form, imageUrl: event.target.value })}
-                    placeholder="Optional cover image URL"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => setCoverImageFile(event.target.files?.[0] ?? null)}
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] file:mr-3 file:rounded-lg file:border-0 file:bg-[#5A7ACD]/10 file:px-3 file:py-1.5 file:text-[13px] file:font-semibold file:text-[#345079]"
                     disabled={isSaving}
                   />
+                  <p className="mt-1 text-[12px] text-[#6D7B91]">Optional. Upload a new image to replace the current cover.</p>
                 </div>
 
                 <div>
@@ -3443,7 +3486,12 @@ function SettingsSection({ classId }: { classId: string }) {
             <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
               <button
                 type="button"
-                onClick={() => !isSaving && setIsEditOpen(false)}
+                onClick={() => {
+                  if (!isSaving) {
+                    setCoverImageFile(null);
+                    setIsEditOpen(false);
+                  }
+                }}
                 disabled={isSaving}
                 className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
               >

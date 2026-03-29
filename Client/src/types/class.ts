@@ -71,7 +71,6 @@ export interface ClassCreateFormData {
   courseCode: string;
   section: string;
   description: string;
-  imageUrl: string;
   canvasCourseId: string;
   semesterId: string;
   isPublished: boolean;
@@ -84,7 +83,6 @@ export interface FacultyCourseCreatePayload {
   courseCode: string;
   section: string;
   description: string;
-  imageUrl: string;
   canvasCourseId: string;
   isPublished: boolean;
   semesterId: number;

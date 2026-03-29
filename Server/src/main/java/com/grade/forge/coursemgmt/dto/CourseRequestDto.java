@@ -13,7 +13,6 @@ public class CourseRequestDto {
     private String courseCode;
     private String section;
     private String description;
-    private String imageUrl;
     private String canvasCourseId;
     private Boolean isPublished;
     private Long semesterId;

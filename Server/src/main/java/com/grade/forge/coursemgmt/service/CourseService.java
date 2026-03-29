@@ -3,9 +3,12 @@ package com.grade.forge.coursemgmt.service;
 import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.assignment.repository.AssignmentRepository;
 import com.grade.forge.assignment.service.AssignmentService;
+import com.grade.forge.coursemgmt.dto.CourseImageResponse;
 import com.grade.forge.coursemgmt.dto.CourseRequestDto;
 import com.grade.forge.coursemgmt.dto.CourseResponseDto;
 import com.grade.forge.coursemgmt.entity.Course;
+import com.grade.forge.coursemgmt.entity.CourseImage;
+import com.grade.forge.coursemgmt.repository.CourseImageRepository;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.faculty.entity.Faculty;
@@ -19,10 +22,12 @@ import com.grade.forge.student.entity.Student;
 import com.grade.forge.enrollment.enums.EnrolledStatus;
 import com.grade.forge.enrollment.repository.EnrollmentRepository;
 import com.grade.forge.student.repository.StudentRepository;
+import com.grade.forge.storage.service.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -43,6 +48,8 @@ public class CourseService {
     private final UserRepository userRepository;
     private final StudentRepository studentRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final FileStorageService fileStorageService;
+    private final CourseImageRepository courseImageRepository;
 
     /**
 
@@ -50,6 +57,10 @@ public class CourseService {
      * Create a new course using faculty resolved from authenticated email
      */
     public CourseResponseDto createCourse(String email, CourseRequestDto courseRequestDto) {
+        return createCourse(email, courseRequestDto, null);
+    }
+
+    public CourseResponseDto createCourse(String email, CourseRequestDto courseRequestDto, MultipartFile file) {
         if (courseRequestDto.getSemesterId() == null) {
             throw new ResourceNotFoundException("Semester is required to create a course");
         }
@@ -57,7 +68,11 @@ public class CourseService {
         Faculty faculty = facultyRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Faculty not found for email: " + email));
         log.info(faculty.getDepartment()+ " "+ faculty.getEmail() + " " + faculty.getName());
-        return createCourseInternal(courseRequestDto, faculty);
+        CourseResponseDto courseResponse = createCourseInternal(courseRequestDto, faculty);
+        if (file != null && !file.isEmpty()) {
+            return uploadCourseImage(courseResponse.getId(), email, file);
+        }
+        return courseResponse;
     }
 
     private CourseResponseDto createCourseInternal(CourseRequestDto courseRequestDto, Faculty faculty) {
@@ -70,7 +85,6 @@ public class CourseService {
         course.setCourseCode(courseRequestDto.getCourseCode());
         course.setSection(courseRequestDto.getSection());
         course.setDescription(courseRequestDto.getDescription());
-        course.setImageUrl(courseRequestDto.getImageUrl());
         course.setCanvasCourseId(courseRequestDto.getCanvasCourseId());
         course.setIsPublished(courseRequestDto.getIsPublished());
 
@@ -116,9 +130,6 @@ public class CourseService {
         if (courseRequestDto.getDescription() != null) {
             course.setDescription(courseRequestDto.getDescription());
         }
-        if (courseRequestDto.getImageUrl() != null) {
-            course.setImageUrl(courseRequestDto.getImageUrl());
-        }
         if (courseRequestDto.getCanvasCourseId() != null) {
             course.setCanvasCourseId(courseRequestDto.getCanvasCourseId());
         }
@@ -142,6 +153,15 @@ public class CourseService {
 
         Course updatedCourse = courseRepository.save(course);
         return mapToResponseDto(updatedCourse);
+    }
+
+    public CourseResponseDto updateCourse(Long id, CourseRequestDto courseRequestDto, String email, MultipartFile file) {
+        CourseResponseDto updated = updateCourseForFaculty(id, courseRequestDto, email);
+        if (file != null && !file.isEmpty()) {
+            // Attach/replace image if a new one is provided.
+            return uploadCourseImage(id, email, file);
+        }
+        return updated;
     }
 
     /**
@@ -220,6 +240,47 @@ public class CourseService {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
         return mapToResponseDto(course);
+    }
+
+    public CourseResponseDto uploadCourseImage(Long courseId, String email, MultipartFile file) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
+
+        if (course.getFaculty() == null || course.getFaculty().getEmail() == null || !course.getFaculty().getEmail().equalsIgnoreCase(email)) {
+            throw new IllegalArgumentException("You are not authorized to update this course");
+        }
+
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Course image file is required");
+        }
+
+        CourseImage existingImage = courseImageRepository.findByCourse_Id(courseId).orElse(null);
+
+        CourseImage uploaded = fileStorageService.uploadCourseImage(course, file);
+
+        if (existingImage != null) {
+            fileStorageService.deleteObject(existingImage.getFileKey());
+            existingImage.setFileName(uploaded.getFileName());
+            existingImage.setFileKey(uploaded.getFileKey());
+            existingImage.setFileType(uploaded.getFileType());
+            existingImage.setFileSize(uploaded.getFileSize());
+            courseImageRepository.save(existingImage);
+            course.setCourseImage(existingImage);
+        } else {
+            CourseImage saved = courseImageRepository.save(uploaded);
+            course.setCourseImage(saved);
+        }
+
+        Course savedCourse = courseRepository.save(course);
+        return mapToResponseDto(savedCourse);
+    }
+
+    @Transactional(readOnly = true)
+    public CourseImageResponse getCourseImage(Long courseId) {
+        CourseImage image = courseImageRepository.findByCourse_Id(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course image not found for course id: " + courseId));
+
+        return mapToImageResponse(image);
     }
 
     /**
@@ -321,13 +382,22 @@ public class CourseService {
                  .qualifications(course.getFaculty().getQualifications())
                  .build();
 
+         CourseImage image = course.getCourseImage();
+         if (image == null) {
+             image = courseImageRepository.findByCourse_Id(course.getId()).orElse(null);
+         }
+         CourseImageResponse courseImageResponse = null;
+         if (image != null) {
+             courseImageResponse = mapToImageResponse(image);
+          }
+
          return CourseResponseDto.builder()
                  .id(course.getId())
                  .name(course.getName())
                  .courseCode(course.getCourseCode())
                  .section(course.getSection())
                  .description(course.getDescription())
-                 .imageUrl(course.getImageUrl())
+                 .courseImage(courseImageResponse)
                  .canvasCourseId(course.getCanvasCourseId())
                  .active(course.getActive())
                  .isPublished(course.getIsPublished())
@@ -335,5 +405,16 @@ public class CourseService {
                  .faculty(facultyDto)
                  .build();
      }
+
+    private CourseImageResponse mapToImageResponse(CourseImage image) {
+        return CourseImageResponse.builder()
+                .id(image.getId())
+                .fileName(image.getFileName())
+                .fileKey(image.getFileKey())
+                .fileType(image.getFileType())
+                .fileSize(image.getFileSize())
+                .downloadUrl(fileStorageService.generatePresignedDownloadUrl(image.getFileKey(), image.getFileName()))
+                .build();
+    }
 
 }
