@@ -110,7 +110,7 @@ public class CourseService {
      * @return the updated course response DTO
      */
     public CourseResponseDto updateCourseForFaculty(Long id, CourseRequestDto courseRequestDto, String email) {
-        Course course = courseRepository.findById(id)
+        Course course = courseRepository.findWithCourseImageById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
 
         if (course.getFaculty() == null || course.getFaculty().getEmail() == null || !course.getFaculty().getEmail().equalsIgnoreCase(email)) {
@@ -170,7 +170,7 @@ public class CourseService {
      * @param email authenticated faculty email
      */
     public void deleteCourseForFaculty(Long id, String email) {
-        Course course = courseRepository.findById(id)
+        Course course = courseRepository.findWithCourseImageById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
 
         if (course.getFaculty() == null || course.getFaculty().getEmail() == null || !course.getFaculty().getEmail().equalsIgnoreCase(email)) {
@@ -185,7 +185,7 @@ public class CourseService {
      * @param id the course id
      */
     public void deleteCourse(Long id) {
-        Course course = courseRepository.findById(id)
+        Course course = courseRepository.findWithCourseImageById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
         deleteAssignmentsForCourse(course.getId());
         courseRepository.delete(course);
@@ -202,7 +202,7 @@ public class CourseService {
      * @return the disabled course response DTO
      */
     public CourseResponseDto disableCourse(Long id) {
-        Course course = courseRepository.findById(id)
+        Course course = courseRepository.findWithCourseImageById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
 
         // Toggle active state (disable/enable).
@@ -218,7 +218,7 @@ public class CourseService {
      * @return the disabled course response DTO
      */
     public CourseResponseDto disableCourseForFaculty(Long id, String email) {
-        Course course = courseRepository.findById(id)
+        Course course = courseRepository.findWithCourseImageById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
 
         if (course.getFaculty() == null || course.getFaculty().getEmail() == null || !course.getFaculty().getEmail().equalsIgnoreCase(email)) {
@@ -237,13 +237,13 @@ public class CourseService {
      * @return the course response DTO
      */
     public CourseResponseDto getCourseById(Long id) {
-        Course course = courseRepository.findById(id)
+        Course course = courseRepository.findWithCourseImageById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
         return mapToResponseDto(course);
     }
 
     public CourseResponseDto uploadCourseImage(Long courseId, String email, MultipartFile file) {
-        Course course = courseRepository.findById(courseId)
+        Course course = courseRepository.findWithCourseImageById(courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
 
         if (course.getFaculty() == null || course.getFaculty().getEmail() == null || !course.getFaculty().getEmail().equalsIgnoreCase(email)) {
