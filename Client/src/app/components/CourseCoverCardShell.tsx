@@ -5,6 +5,11 @@ export interface CourseCoverCardShellProps {
   /** Course cover from API (`courseImage.downloadUrl`); falls back to `ulm.jpg` in `public/` when absent. */
   coverImageUrl?: string | null;
   className?: string;
+  /**
+   * Smaller card: short fixed-height image strip + denser body (e.g. faculty My Classes).
+   * Default: image and body each ~50% of `min-h-[220px]`.
+   */
+  compact?: boolean;
   /** Optional overlay on the image (badges, icons). */
   imageOverlay?: ReactNode;
   /** Bottom half of the card (text, stats, actions). */
@@ -12,14 +17,23 @@ export interface CourseCoverCardShellProps {
 }
 
 /**
- * Two-row layout: top ~50% shows cover image (API URL or default `ulm.jpg` in `public/`), bottom is solid content.
+ * Two-row layout: cover image on top (50/50 split, or a short strip when `compact`), body below.
  */
-export function CourseCoverCardShell({ coverImageUrl, className = "", imageOverlay, children }: CourseCoverCardShellProps) {
+export function CourseCoverCardShell({
+  coverImageUrl,
+  className = "",
+  compact = false,
+  imageOverlay,
+  children,
+}: CourseCoverCardShellProps) {
   const trimmed = coverImageUrl?.trim();
   const coverSrc = trimmed || DEFAULT_COURSE_COVER_IMAGE;
+  const shellLayout = compact
+    ? "min-h-[176px] grid-rows-[52px_minmax(0,1fr)]"
+    : "min-h-[220px] grid-rows-2";
   return (
     <div
-      className={`grid min-h-[220px] grid-rows-2 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm ${className}`}
+      className={`grid ${shellLayout} overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm ${className}`}
     >
       <div className="relative min-h-0 overflow-hidden bg-[#EEF2FA]">
         <>

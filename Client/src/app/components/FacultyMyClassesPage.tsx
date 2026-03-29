@@ -52,7 +52,7 @@ function FacultyMyClassesView({
   ];
 
   return (
-    <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-6 py-5">
+    <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-4 py-4 sm:px-6">
       <section className="mt-1 flex flex-wrap items-center justify-between gap-3">
         {/* REFACTOR: Use shared segmented filter component so this control style can be reused across pages. */}
         <SegmentedFilter items={filterPills} value={selectedFilter} onValueChange={onFilterChange} />
@@ -78,8 +78,7 @@ function FacultyMyClassesView({
 
       {error && <p className="mt-4 text-[14px] text-[#C23A42]">{error}</p>}
 
-      {/* FIX: Cap grid at three columns so faculty class cards never expand to four on larger screens. */}
-      <section className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+      <section className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {isLoading
           ? Array.from({ length: 6 }).map((_, index) => (
               <article
@@ -87,17 +86,17 @@ function FacultyMyClassesView({
                 // NOTE: Skeleton class cards preserve faculty My Classes layout while backend data loads.
                 className="overflow-hidden rounded-2xl border border-gray-200 bg-white animate-pulse"
               >
-                <div className="h-24 bg-gray-100" />
-                <div className="space-y-2 p-4">
+                <div className="h-[52px] bg-gray-100" />
+                <div className="space-y-1.5 p-2.5">
                   <div className="h-4 w-40 rounded bg-gray-200" />
                   <div className="h-3 w-28 rounded bg-gray-200" />
                   <div className="h-3 w-20 rounded bg-gray-200" />
                 </div>
-                <div className="mx-4 rounded-2xl bg-[#F6F7F9] px-3.5 py-3">
+                <div className="mx-2.5 rounded-lg bg-[#F6F7F9] px-2 py-2">
                   <div className="h-3 w-36 rounded bg-gray-200" />
                   <div className="mt-2 h-3 w-28 rounded bg-gray-200" />
                 </div>
-                <div className="mx-4 mt-4 grid grid-cols-3 gap-3">
+                <div className="mx-2.5 mt-2 grid grid-cols-3 gap-2">
                   <div className="space-y-2">
                     <div className="h-3 w-14 rounded bg-gray-200" />
                     <div className="h-4 w-8 rounded bg-gray-200" />
@@ -111,10 +110,10 @@ function FacultyMyClassesView({
                     <div className="h-4 w-10 rounded bg-gray-200" />
                   </div>
                 </div>
-                <div className="mx-4 mt-4 h-12 rounded-2xl bg-[#FFF8EE]" />
-                <div className="m-4 mt-4 grid grid-cols-[1fr_auto] gap-2.5">
-                  <div className="h-10 rounded-2xl bg-[#EEF2FA]" />
-                  <div className="h-10 w-28 rounded-2xl bg-[#FFE8CA]" />
+                <div className="mx-2.5 mt-2 h-8 rounded-lg bg-[#FFF8EE]" />
+                <div className="m-2.5 mt-2 grid grid-cols-[1fr_auto] gap-1.5">
+                  <div className="h-8 rounded-xl bg-[#EEF2FA]" />
+                  <div className="h-8 w-20 rounded-xl bg-[#FFE8CA]" />
                 </div>
               </article>
             ))
@@ -129,57 +128,57 @@ function FacultyMyClassesView({
         {!isLoading &&
           filteredClasses.map((course) => (
             <article key={course.id}>
-              <CourseCoverCardShell coverImageUrl={course.coverImageUrl}>
-                <div className="flex flex-1 flex-col p-4">
-                  <h2 className="text-[15px] font-semibold leading-snug text-[#1F2430]">{course.title}</h2>
-                  <p className="mt-1.5 text-[13px] text-[#3E4E67]">
-                    {course.code} &middot; Section {course.section}
+              <CourseCoverCardShell compact coverImageUrl={course.coverImageUrl}>
+                <div className="flex flex-1 flex-col gap-1 p-2">
+                  <h2 className="line-clamp-2 text-[12px] font-semibold leading-snug text-[#1F2430]">{course.title}</h2>
+                  <p className="text-[11px] leading-tight text-[#3E4E67]">
+                    {course.code} · Sec {course.section}
                   </p>
-                  <p className="mt-1 text-[13px] text-[#5D6A80]">{course.semester}</p>
+                  <p className="text-[10px] text-[#5D6A80]">{course.semester}</p>
 
-                  <div className="mt-3 rounded-xl bg-[#F6F7F9] px-3 py-2.5">
-                    <div className="flex items-center gap-2 text-[13px] text-[#3F4F67]">
-                      <Calendar className="h-4 w-4 shrink-0 text-[#5D6A80]" strokeWidth={2} />
-                      <span>{course.schedule}</span>
+                  <div className="rounded-md bg-[#F6F7F9] px-2 py-1.5">
+                    <div className="flex items-center gap-1 text-[11px] text-[#3F4F67]">
+                      <Calendar className="h-3 w-3 shrink-0 text-[#5D6A80]" strokeWidth={2} />
+                      <span className="truncate">{course.schedule}</span>
                     </div>
-                    <p className="mt-1.5 text-[12px] text-[#5D6A80]">{course.location}</p>
+                    <p className="mt-0.5 truncate text-[10px] text-[#5D6A80]">{course.location}</p>
                   </div>
 
-                  <div className="mt-3 grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-1">
                     <div>
-                      <p className="text-[12px] text-[#5D6A80]">Students</p>
-                      <p className="mt-0.5 text-[15px] font-semibold text-[#1F2430]">{course.students}</p>
+                      <p className="text-[9px] text-[#5D6A80]">Students</p>
+                      <p className="text-[12px] font-semibold leading-none text-[#1F2430]">{course.students}</p>
                     </div>
                     <div>
-                      <p className="text-[12px] text-[#5D6A80]">Assignments</p>
-                      <p className="mt-0.5 text-[15px] font-semibold text-[#1F2430]">{course.assignments}</p>
+                      <p className="text-[9px] text-[#5D6A80]">Assign.</p>
+                      <p className="text-[12px] font-semibold leading-none text-[#1F2430]">{course.assignments}</p>
                     </div>
                     <div>
-                      <p className="text-[12px] text-[#5D6A80]">Avg Score</p>
-                      <p className="mt-0.5 text-[15px] font-semibold text-[#1F2430]">{course.avgScore}%</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 rounded-xl border border-[#F0D8BC] bg-[#FFF8EE] px-3 py-2.5">
-                    <div className="flex items-center gap-2 text-[12px] text-[#8A5A25]">
-                      <AlertCircle className="h-4 w-4 shrink-0 text-[#F5A54A]" strokeWidth={2} />
-                      <span>{course.pendingReview} assignments pending review</span>
+                      <p className="text-[9px] text-[#5D6A80]">Avg</p>
+                      <p className="text-[12px] font-semibold leading-none text-[#1F2430]">{course.avgScore}%</p>
                     </div>
                   </div>
 
-                  <div className="mt-auto grid grid-cols-[1fr_auto] gap-2 pt-3">
+                  <div className="rounded-md border border-[#F0D8BC] bg-[#FFF8EE] px-2 py-1">
+                    <div className="flex items-center gap-1 text-[10px] leading-tight text-[#8A5A25]">
+                      <AlertCircle className="h-3 w-3 shrink-0 text-[#F5A54A]" strokeWidth={2} />
+                      <span className="line-clamp-1">{course.pendingReview} pending</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-auto grid grid-cols-[1fr_auto] gap-1 pt-1">
                     <Link
                       to={`/faculty/class/${course.id}`}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-[#5A7ACD] px-4 text-[13px] font-semibold text-white"
+                      className="inline-flex h-7 items-center justify-center gap-1 rounded-lg bg-[#5A7ACD] px-2 text-[11px] font-semibold text-white"
                     >
-                      Manage Class
-                      <ArrowRight className="h-4 w-4" strokeWidth={2} />
+                      Manage
+                      <ArrowRight className="h-3 w-3" strokeWidth={2} />
                     </Link>
                     <Link
                       to={`/faculty/class/${course.id}`}
-                      className="inline-flex h-10 items-center justify-center rounded-2xl bg-[#FEB05D] px-5 text-[13px] font-semibold text-white"
+                      className="inline-flex h-7 items-center justify-center rounded-lg bg-[#FEB05D] px-2.5 text-[11px] font-semibold text-white"
                     >
-                      Grade Now
+                      Grade
                     </Link>
                   </div>
                 </div>

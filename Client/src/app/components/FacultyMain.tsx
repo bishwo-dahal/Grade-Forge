@@ -48,7 +48,7 @@ function FacultyMainView({
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
       {/* NOTE: Top navigation was removed here to avoid duplicated faculty shell code. */}
-      <div className="p-8">
+      <div className="p-6">
         {/* CLEANUP: Removed faculty greeting summary block per dashboard copy update request. */}
         <TeachingCourses courses={courses} isLoading={isCoursesLoading} />
       </div>
@@ -66,8 +66,8 @@ function TeachingCourses({
   // NOTE: Keeps faculty-specific course management flow separate from student dashboard workflow.
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="text-lg font-semibold text-[#2B2A2A]">Teaching This Semester</h2>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-base font-semibold text-[#2B2A2A]">Teaching This Semester</h2>
         <div className="flex items-center gap-3">
           {/* CLEANUP: Removed Add Class button from faculty dashboard header per latest UX update. */}
           <Link to="/faculty/my-classes" className="text-[13px] text-[#5A7ACD] hover:text-[#4a6abd] font-medium">
@@ -76,7 +76,7 @@ function TeachingCourses({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
         {isLoading
           ? Array.from({ length: 3 }).map((_, index) => (
               <div
@@ -84,9 +84,9 @@ function TeachingCourses({
                 // NOTE: Skeleton cards mirror teaching-course visuals so class blocks stay visible while fetching.
                 className="block overflow-hidden rounded-2xl border border-gray-200 bg-white animate-pulse"
               >
-                <div className="h-36 bg-gray-100" />
-                <div className="space-y-3 p-6 pt-4">
-                  <div className="h-4 w-44 max-w-full rounded bg-gray-200" />
+                <div className="h-24 bg-gray-100" />
+                <div className="space-y-2 p-4 pt-3">
+                  <div className="h-3.5 w-44 max-w-full rounded bg-gray-200" />
                   <div className="flex items-center justify-between">
                     <div className="h-3 w-28 rounded bg-gray-200" />
                     <div className="h-3 w-8 rounded bg-gray-200" />
@@ -100,7 +100,7 @@ function TeachingCourses({
                     <div className="h-3 w-8 rounded bg-gray-200" />
                   </div>
                 </div>
-                <div className="mx-6 mb-6 mt-4 h-10 rounded-lg bg-gray-100" />
+                <div className="mx-4 mb-4 mt-3 h-8 rounded-lg bg-gray-100" />
               </div>
             ))
           : null}
@@ -112,32 +112,32 @@ function TeachingCourses({
           >
             <CourseCoverCardShell
               coverImageUrl={course.coverImageUrl}
-              className="min-h-[280px] border-0 shadow-none"
+              className="min-h-[220px] border-0 shadow-none"
               imageOverlay={
-                <div className="flex h-full min-h-[120px] items-start justify-end p-3">
-                  <span className="rounded-lg bg-black/35 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white ring-1 ring-white/30">
+                <div className="flex h-full min-h-[72px] items-start justify-end p-2">
+                  <span className="rounded-md bg-black/35 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white ring-1 ring-white/30">
                     {course.code}
                   </span>
                 </div>
               }
             >
-              <div className="flex flex-1 flex-col p-5 pt-4">
-                <h3 className="text-[14px] font-semibold leading-snug text-[#2B2A2A]">{course.title}</h3>
-                <div className="mt-4 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12px] text-gray-600">Students Enrolled</span>
-                    <span className="text-[13px] font-semibold text-[#2B2A2A]">{course.students}</span>
+              <div className="flex flex-1 flex-col gap-1 p-3 pt-2">
+                <h3 className="text-[13px] font-semibold leading-tight text-[#2B2A2A]">{course.title}</h3>
+                <div className="mt-1 space-y-1.5 text-[12px]">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-gray-600">Students</span>
+                    <span className="font-semibold text-[#2B2A2A]">{course.students}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12px] text-gray-600">Pending Submissions</span>
-                    <span className="text-[13px] font-semibold text-[#FEB05D]">{course.pendingSubmissions}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-gray-600">Pending</span>
+                    <span className="font-semibold text-[#FEB05D]">{course.pendingSubmissions}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12px] text-gray-600">Active Assignments</span>
-                    <span className="text-[13px] font-semibold text-[#2B2A2A]">{course.activeAssignments}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-gray-600">Active</span>
+                    <span className="font-semibold text-[#2B2A2A]">{course.activeAssignments}</span>
                   </div>
                 </div>
-                <div className="mt-5 w-full rounded-lg bg-gray-50 py-2.5 text-center text-[13px] font-medium text-[#2B2A2A] transition-colors group-hover:bg-gray-100">
+                <div className="mt-auto w-full rounded-lg bg-gray-50 py-2 text-center text-[12px] font-medium text-[#2B2A2A] transition-colors group-hover:bg-gray-100">
                   Manage Course
                 </div>
               </div>
