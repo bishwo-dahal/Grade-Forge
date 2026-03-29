@@ -1010,10 +1010,16 @@ function toCreatePayload(form: ClassCreateFormData): FacultyCourseCreatePayload 
   };
 }
 
+/**
+ * Builds `multipart/form-data` for faculty course create/update.
+ * Backend: `consumes = MULTIPART_FORM_DATA` only — `@RequestPart("course")` + optional `@RequestPart("file")`.
+ * Filename on the JSON part helps Spring bind `CourseRequestDto` reliably.
+ */
 function buildCourseMultipartBody(form: ClassCreateFormData): FormData {
   const payload = toCreatePayload(form);
   const body = new FormData();
-  body.append("course", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+  const courseBlob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+  body.append("course", courseBlob, "course.json");
   return body;
 }
 
@@ -1078,7 +1084,7 @@ export async function listFacultySemesters(): Promise<FacultySemesterOption[]> {
 export async function createFacultyCourse(form: ClassCreateFormData, coverImageFile?: File | null): Promise<void> {
   // IMPORTANT: Create also requires the authenticated user to have a Faculty row.
   // IMPORTANT: If user is not assigned as faculty by university admin, backend returns 400.
-  // IMPORTANT: Multipart: `course` JSON part + optional `file` image part (see FacultyCourseController).
+  // IMPORTANT: POST /create accepts multipart only — never send raw JSON for this route.
   const body = buildCourseMultipartBody(form);
   if (coverImageFile) {
     body.append("file", coverImageFile);
@@ -1092,6 +1098,7 @@ export async function updateFacultyCourse(
   coverImageFile?: File | null,
 ): Promise<CourseApiResponse> {
   const id = toCourseId(courseId);
+  // PUT accepts multipart only — always send `course` + optional `file` (same as create).
   const body = buildCourseMultipartBody(form);
   if (coverImageFile) {
     body.append("file", coverImageFile);

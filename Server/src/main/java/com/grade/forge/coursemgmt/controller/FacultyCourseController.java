@@ -27,17 +27,11 @@ public class FacultyCourseController {
     private final ActivityLogService activityLogService;
 
 
-    @PostMapping(value = "/create", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE})
+    @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CourseResponseDto> createCourse(Authentication authentication,
                                                           @AuthenticationPrincipal CustomUserDetails customUserDetails,
-                                                          @RequestPart(value = "course", required = false) CourseRequestDto courseRequestPart,
-                                                          @RequestBody(required = false) CourseRequestDto courseRequestBody,
+                                                          @RequestPart("course") CourseRequestDto courseRequestDto,
                                                           @RequestPart(value = "file", required = false) MultipartFile file) {
-        CourseRequestDto courseRequestDto = courseRequestPart != null ? courseRequestPart : courseRequestBody;
-        if (courseRequestDto == null) {
-            throw new IllegalArgumentException("Course data is required");
-        }
-
         CourseResponseDto createdCourse = courseService.createCourse(customUserDetails.getUsername(), courseRequestDto, file);
         activityLogService.log(authentication, "Created course", "Course: " + courseRequestDto.getName(), "success");
         return new ResponseEntity<>(createdCourse, HttpStatus.CREATED);
@@ -75,17 +69,12 @@ public class FacultyCourseController {
         return new ResponseEntity<>(courses, HttpStatus.OK);
     }
 
-    @PutMapping(value = "/{id}", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE})
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CourseResponseDto> updateCourse(Authentication authentication,
                                                           @AuthenticationPrincipal CustomUserDetails customUserDetails,
                                                           @PathVariable Long id,
-                                                          @RequestPart(value = "course", required = false) CourseRequestDto courseRequestPart,
-                                                          @RequestBody(required = false) CourseRequestDto courseRequestBody,
+                                                          @RequestPart("course") CourseRequestDto courseRequestDto,
                                                           @RequestPart(value = "file", required = false) MultipartFile file) {
-        CourseRequestDto courseRequestDto = courseRequestPart != null ? courseRequestPart : courseRequestBody;
-        if (courseRequestDto == null) {
-            throw new IllegalArgumentException("Course data is required");
-        }
         try {
             CourseResponseDto updatedCourse = courseService.updateCourse(id, courseRequestDto, customUserDetails.getUsername(), file);
             activityLogService.log(authentication, "Updated course", "Course: " + courseRequestDto.getName(), "success");

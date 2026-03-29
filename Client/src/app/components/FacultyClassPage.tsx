@@ -3305,9 +3305,9 @@ function SettingsSection({ classId }: { classId: string }) {
       </div>
 
       {isEditOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-2xl rounded-3xl bg-white shadow-xl">
-            <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-6 py-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 sm:p-6">
+          <div className="flex max-h-[min(90vh,880px)] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-xl">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 px-6 py-4">
               <div>
                 <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Edit Course</h3>
                 <p className="text-[13px] text-gray-600">Update course metadata shown to students</p>
