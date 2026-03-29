@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import type { CourseCard } from "../../types/class";
+import { CourseCoverCardShell } from "./CourseCoverCardShell";
 
 interface EnrolledCoursesProps {
   // NOTE: Data is passed via props so this component stays presentation-only.
@@ -52,47 +53,49 @@ export function EnrolledCourses({ courses, isLoading = false }: EnrolledCoursesP
           : null}
         {courses.map((course) => {
           const assignmentsLeft = course.total - course.completed;
-          const progress = (course.completed / course.total) * 100;
-          
+          const progress = course.total > 0 ? (course.completed / course.total) * 100 : 0;
+
           return (
             <Link
               key={course.id}
               to={`/class/${course.id}`}
-              className="block bg-white rounded-2xl p-5 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all"
+              className="block overflow-hidden rounded-2xl shadow-sm transition-all hover:shadow-md"
             >
-              {/* Course Icon */}
-              <div className={`w-12 h-12 ${course.iconBg} rounded-xl flex items-center justify-center mb-4 text-xl`}>
-                {course.icon}
-              </div>
+              <CourseCoverCardShell
+                coverImageUrl={course.coverImageUrl}
+                className="min-h-[280px] border-0 shadow-none"
+                imageOverlay={
+                  <div className="flex h-full min-h-[120px] items-start justify-start p-3">
+                    <div
+                      className={`flex h-11 w-11 items-center justify-center rounded-xl text-xl shadow-md ring-2 ring-white/70 ${course.iconBg} bg-white/95`}
+                    >
+                      {course.icon}
+                    </div>
+                  </div>
+                }
+              >
+                <div className="flex flex-1 flex-col p-5 pt-4">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-[#5D6A80]">{course.courseCode}</p>
+                  <h3 className="mt-1 text-[14px] font-semibold leading-snug text-[#2B2A2A]">{course.title}</h3>
+                  <p className="mt-2 text-[12px] text-gray-500">{course.instructor}</p>
 
-              {/* Course Info */}
-              <h3 className="text-[14px] font-semibold text-[#2B2A2A] mb-2 leading-snug">
-                {course.title}
-              </h3>
-              <p className="text-[12px] text-gray-500 mb-1">
-                {course.instructor}
-              </p>
-
-              {/* Assignments */}
-              <div className="mt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] text-gray-500 uppercase tracking-wide">
-                    Assignments
-                  </span>
-                  <span className="text-[12px] font-semibold text-[#2B2A2A]">
-                    {assignmentsLeft} left
-                  </span>
+                  <div className="mt-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-[11px] uppercase tracking-wide text-gray-500">Assignments</span>
+                      <span className="text-[12px] font-semibold text-[#2B2A2A]">{assignmentsLeft} left</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-gray-100">
+                      <div
+                        className={`${course.progressColor} h-2 rounded-full transition-all`}
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    <p className="mt-1.5 text-[11px] text-gray-400">
+                      {course.completed} / {course.total} completed
+                    </p>
+                  </div>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-2">
-                  <div 
-                    className={`${course.progressColor} h-2 rounded-full transition-all`}
-                    style={{ width: `${progress}%` }}
-                  ></div>
-                </div>
-                <p className="text-[11px] text-gray-400 mt-1.5">
-                  {course.completed} / {course.total} completed
-                </p>
-              </div>
+              </CourseCoverCardShell>
             </Link>
           );
         })}

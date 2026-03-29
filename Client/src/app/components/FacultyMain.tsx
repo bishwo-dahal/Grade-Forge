@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router";
 import type { FacultyCourseCard } from "../../types/class";
+import { CourseCoverCardShell } from "./CourseCoverCardShell";
 import type { UserProfile } from "../../types/user";
 import { listFacultyCourses } from "../../services/classService";
 import { getFacultyProfile } from "../../services/authService";
@@ -112,36 +113,45 @@ function TeachingCourses({
           <Link
             key={course.id}
             to={`/faculty/class/${course.id}`}
-            className="block bg-white rounded-2xl p-6 border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all"
+            className="group block overflow-hidden rounded-2xl shadow-sm transition-all hover:shadow-md"
           >
-            <div className="flex items-start gap-4 mb-4">
-              <div className={`w-12 h-12 ${course.iconBg} rounded-xl flex items-center justify-center text-xl flex-shrink-0`}>
-                {course.icon}
+            <CourseCoverCardShell
+              coverImageUrl={course.coverImageUrl}
+              className="min-h-[280px] border-0 shadow-none"
+              imageOverlay={
+                <div className="flex h-full min-h-[120px] items-start justify-between p-3">
+                  <div
+                    className={`flex h-11 w-11 items-center justify-center rounded-xl text-xl shadow-md ring-2 ring-white/70 ${course.iconBg} bg-white/95`}
+                  >
+                    {course.icon}
+                  </div>
+                  <span className="rounded-lg bg-black/35 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white ring-1 ring-white/30">
+                    {course.code}
+                  </span>
+                </div>
+              }
+            >
+              <div className="flex flex-1 flex-col p-5 pt-4">
+                <h3 className="text-[14px] font-semibold leading-snug text-[#2B2A2A]">{course.title}</h3>
+                <div className="mt-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-gray-600">Students Enrolled</span>
+                    <span className="text-[13px] font-semibold text-[#2B2A2A]">{course.students}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-gray-600">Pending Submissions</span>
+                    <span className="text-[13px] font-semibold text-[#FEB05D]">{course.pendingSubmissions}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-gray-600">Active Assignments</span>
+                    <span className="text-[13px] font-semibold text-[#2B2A2A]">{course.activeAssignments}</span>
+                  </div>
+                </div>
+                <div className="mt-5 w-full rounded-lg bg-gray-50 py-2.5 text-center text-[13px] font-medium text-[#2B2A2A] transition-colors group-hover:bg-gray-100">
+                  Manage Course
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[11px] text-gray-500 uppercase tracking-wide mb-1">{course.code}</div>
-                <h3 className="text-[14px] font-semibold text-[#2B2A2A] leading-snug">{course.title}</h3>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[12px] text-gray-600">Students Enrolled</span>
-                <span className="text-[13px] font-semibold text-[#2B2A2A]">{course.students}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[12px] text-gray-600">Pending Submissions</span>
-                <span className="text-[13px] font-semibold text-[#FEB05D]">{course.pendingSubmissions}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[12px] text-gray-600">Active Assignments</span>
-                <span className="text-[13px] font-semibold text-[#2B2A2A]">{course.activeAssignments}</span>
-              </div>
-            </div>
-
-            <div className="mt-5 w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors text-center">
-              Manage Course
-            </div>
+            </CourseCoverCardShell>
           </Link>
         ))}
       </div>

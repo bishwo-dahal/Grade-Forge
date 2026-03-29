@@ -3217,16 +3217,12 @@ function SettingsSection({ classId }: { classId: string }) {
                 <p className="text-[13px] font-semibold text-[#2B2A2A]">Overview</p>
 
                 <div className="mt-3 aspect-[16/9] w-full overflow-hidden rounded-lg border border-gray-200 bg-white">
-                  {getCourseCoverImageUrl(course) ? (
-                    <img
-                      src={getCourseCoverImageUrl(course) ?? undefined}
-                      alt="Course cover"
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="h-full w-full bg-gradient-to-br from-[#5A7ACD]/10 to-[#FEB05D]/10" />
-                  )}
+                  <img
+                    src={getCourseCoverImageUrl(course)}
+                    alt="Course cover"
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
                 </div>
 
                 <div className="mt-4 space-y-3">
@@ -3334,10 +3330,10 @@ function SettingsSection({ classId }: { classId: string }) {
                   <label htmlFor="gf-course-image" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
                     Cover image
                   </label>
-                  {(coverPreviewUrl || (course != null && getCourseCoverImageUrl(course))) && (
+                  {course != null && (
                     <div className="relative mx-auto mb-3 w-full max-w-[220px] overflow-hidden rounded-xl border border-gray-200 bg-gray-50 lg:mx-0 lg:max-w-none">
                       <img
-                        src={(coverPreviewUrl ?? (course != null ? getCourseCoverImageUrl(course) : null)) ?? undefined}
+                        src={coverPreviewUrl ?? getCourseCoverImageUrl(course)}
                         alt="Cover preview"
                         className="aspect-[4/5] w-full object-cover"
                       />

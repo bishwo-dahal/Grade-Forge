@@ -25,6 +25,7 @@ import type {
   TeachingAssistantProfile,
 } from "../types/class";
 import api from "../api/axios";
+import { DEFAULT_COURSE_COVER_IMAGE } from "../constants/defaultCourseCover";
 import { roundTo2 } from "../utils/number";
 import { getCourseGradeReport } from "./gradeReportService";
 
@@ -586,12 +587,13 @@ export interface CourseApiResponse {
   } | null;
 }
 
-/** Cover image URL for display; backend stores files and exposes `downloadUrl`. */
-export function getCourseCoverImageUrl(course: CourseApiResponse): string | null {
+/** Cover image URL for display; uses `public/ulm.jpg` when API has no cover. */
+export function getCourseCoverImageUrl(course: CourseApiResponse): string {
   const fromImage = course.courseImage?.downloadUrl?.trim();
   if (fromImage) return fromImage;
   const legacy = course.imageUrl?.trim();
-  return legacy || null;
+  if (legacy) return legacy;
+  return DEFAULT_COURSE_COVER_IMAGE;
 }
 
 interface FacultySemesterApiResponse {
@@ -964,6 +966,7 @@ function mapFacultyCourseToCard(course: CourseApiResponse, metrics: Awaited<Retu
     activeAssignments: metrics.activeAssignments,
     icon: iconData.icon,
     iconBg: iconData.iconBg,
+    coverImageUrl: getCourseCoverImageUrl(course),
   };
 }
 
@@ -989,6 +992,7 @@ function mapFacultyCourseToWorkspaceItem(
     location: "TBD",
     icon: iconData.icon,
     iconBg: iconData.iconBg,
+    coverImageUrl: getCourseCoverImageUrl(course),
   };
 }
 
@@ -1140,6 +1144,7 @@ export async function listEnrolledCourses(): Promise<CourseCard[]> {
         icon: iconData.icon,
         iconBg: iconData.iconBg,
         progressColor: iconData.iconBg.includes("FEB05D") ? "bg-[#FEB05D]" : "bg-[#5A7ACD]",
+        coverImageUrl: getCourseCoverImageUrl(course),
       };
     }),
   );
