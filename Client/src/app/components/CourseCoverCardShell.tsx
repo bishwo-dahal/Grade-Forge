@@ -29,7 +29,7 @@ export function CourseCoverCardShell({
   const trimmed = coverImageUrl?.trim();
   const coverSrc = trimmed || DEFAULT_COURSE_COVER_IMAGE;
   const shellLayout = compact
-    ? "min-h-[176px] grid-rows-[52px_minmax(0,1fr)]"
+    ? "min-h-[235px] grid-rows-[120px_minmax(0,1fr)]"
     : "min-h-[220px] grid-rows-2";
   return (
     <div

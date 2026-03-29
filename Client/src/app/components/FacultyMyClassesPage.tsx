@@ -86,7 +86,7 @@ function FacultyMyClassesView({
                 // NOTE: Skeleton class cards preserve faculty My Classes layout while backend data loads.
                 className="overflow-hidden rounded-2xl border border-gray-200 bg-white animate-pulse"
               >
-                <div className="h-[52px] bg-gray-100" />
+                <div className="h-[120px] bg-gray-100" />
                 <div className="space-y-1.5 p-2.5">
                   <div className="h-4 w-40 rounded bg-gray-200" />
                   <div className="h-3 w-28 rounded bg-gray-200" />
