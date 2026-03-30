@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { Settings, ChevronLeft, Book, FileText, Megaphone, BarChart3, FolderOpen, Users, CheckCircle2, Clock, AlertCircle, Download, Mail } from "lucide-react";
 import type {
   ClassAnnouncement,
@@ -24,11 +24,15 @@ import {
 } from "../../services/classService";
 import { getOverallGradeSummary, listCategoryStats, listGradeRows } from "../../services/resultService";
 import React from "react";
+import { clearAuthenticated, getAuthenticatedUser } from "../auth";
+import { AuthTopBar } from "./layout/AuthTopBar";
+import type { SettingsSection } from "./layout/AuthTopBar";
 
 type SectionType = 'overview' | 'assignments' | 'announcements' | 'grades' | 'resources' | 'people';
 
 export function ClassPage() {
   const { classId } = useParams();
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<SectionType>('overview');
   const [announcementCount, setAnnouncementCount] = useState(0);
 
@@ -57,6 +61,25 @@ export function ClassPage() {
     semester: "",
     instructor: "",
     instructorEmail: "",
+  };
+  const loggedInUser = getAuthenticatedUser();
+  const displayName = loggedInUser?.name ?? "Alex Johnson";
+  const displayEmail = loggedInUser?.email ?? "alex@university.edu";
+  const displayInitials =
+    displayName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "GF";
+
+  const goToSettingsSection = (section: SettingsSection) => {
+    navigate(`/settings?section=${section}`);
+  };
+
+  const handleLogout = () => {
+    clearAuthenticated();
+    navigate("/signin", { replace: true });
   };
 
 
@@ -123,6 +146,14 @@ export function ClassPage() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        <AuthTopBar
+          roleView="student"
+          profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
+          searchPlaceholder="Search calendar, assignments..."
+          onSettingsSectionSelect={goToSettingsSection}
+          onLogout={handleLogout}
+        />
+
         {/* Top Header */}
         <header className="bg-white border-b border-gray-200 px-8 py-6">
           <div className="flex items-start justify-between">
