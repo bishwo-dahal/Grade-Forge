@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 import java.time.LocalDateTime;
 
 @Getter
@@ -29,7 +31,7 @@ public class AssignmentResponse {
     private String description;
     private Integer totalPoints;
     private SubmissionType submissionType;
-    private String starterCodeUrl;
+    private List<AssignmentStarterFileResponse> starterCodeFiles;
     private LocalDateTime availableFrom;
     private LocalDateTime dueDate;
     private LocalDateTime lateDueDate;

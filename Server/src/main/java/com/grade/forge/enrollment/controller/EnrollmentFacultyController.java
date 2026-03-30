@@ -1,12 +1,14 @@
 package com.grade.forge.enrollment.controller;
 
 
+import com.grade.forge.audit.ActivityLogService;
 import com.grade.forge.enrollment.dto.EnrollmentRequest;
 import com.grade.forge.enrollment.dto.EnrollmentResponse;
 import com.grade.forge.enrollment.service.EnrollmentService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,12 +18,19 @@ import java.util.List;
 @RequestMapping("/api/v1/faculty/enrollments")
 public class EnrollmentFacultyController {
 
-    private EnrollmentService enrollmentService;
+    private final EnrollmentService enrollmentService;
+    private final ActivityLogService activityLogService;
 
     @PostMapping
-    public ResponseEntity<EnrollmentResponse> enrollStudent(@RequestBody EnrollmentRequest request) {
-        EnrollmentResponse response = enrollmentService.enrollStudentInCourse(request.getStudentId(), request.getCourseId());
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    public ResponseEntity<EnrollmentResponse> enrollStudent(Authentication authentication, @RequestBody EnrollmentRequest request) {
+        try {
+            EnrollmentResponse response = enrollmentService.enrollStudentInCourse(request.getStudentId(), request.getCourseId());
+            activityLogService.log(authentication, "Enrolled student", "Student: " + response.getStudentName() + " in Course: " + response.getCourseName(), "success");
+            return new ResponseEntity<>(response, HttpStatus.CREATED);
+        } catch (Exception ex) {
+            activityLogService.log(authentication, "Enrolled student", "Student: " + request.getStudentId() + " in Course ID: " + request.getCourseId(), "failed");
+            throw ex;
+        }
     }
 
     @GetMapping("/course/{courseId}")
@@ -31,17 +40,29 @@ public class EnrollmentFacultyController {
     }
 
     @PatchMapping("/{studentId}/enroll/{courseId}")
-    public ResponseEntity<EnrollmentResponse> approveCourse(@PathVariable Long studentId,
+    public ResponseEntity<EnrollmentResponse> approveCourse(Authentication authentication, @PathVariable Long studentId,
                                                             @PathVariable Long courseId) {
-        EnrollmentResponse response = enrollmentService.enrollCurrentStudentFromCourse(studentId, courseId);
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        try {
+            EnrollmentResponse response = enrollmentService.enrollCurrentStudentFromCourse(studentId, courseId);
+            activityLogService.log(authentication, "Approved enrollment", "Student: " + response.getStudentName() + " in Course: " + response.getCourseName(), "success");
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (Exception ex) {
+            activityLogService.log(authentication, "Approved enrollment", "Student ID: " + studentId + " in Course ID: " + courseId, "failed");
+            throw ex;
+        }
     }
 
     @PatchMapping("/{studentId}/drop/{courseId}")
-    public ResponseEntity<EnrollmentResponse> dropCourse(@PathVariable Long studentId,
+    public ResponseEntity<EnrollmentResponse> dropCourse(Authentication authentication, @PathVariable Long studentId,
                                                          @PathVariable Long courseId) {
-        EnrollmentResponse response = enrollmentService.dropStudentFromCourse(studentId, courseId);
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        try {
+            EnrollmentResponse response = enrollmentService.dropStudentFromCourse(studentId, courseId);
+            activityLogService.log(authentication, "Dropped student", "Student: " + response.getStudentName() + " from Course: " + response.getCourseName(), "success");
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (Exception ex) {
+            activityLogService.log(authentication, "Dropped student", "Student ID: " + studentId + " from Course ID: " + courseId, "failed");
+            throw ex;
+        }
     }
 
 }

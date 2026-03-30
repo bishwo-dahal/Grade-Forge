@@ -4,8 +4,8 @@ import com.grade.forge.assignment.enums.SubmissionType;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.group.entity.MainGroup;
 import com.grade.forge.programminglanguage.entity.ProgrammingLanguage;
-import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.rubric.entity.Rubric;
+import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.testsuite.entity.TestSuite;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -52,8 +52,8 @@ public class Assignment {
     @Column(name = "submission_type", nullable = false)
     private SubmissionType submissionType;
 
-    @Column(name = "starter_code_url")
-    private String starterCodeUrl;
+    @OneToMany(mappedBy = "assignment", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AssignmentStarterFile> starterFiles;
 
     @Column(name = "available_from")
     private LocalDateTime availableFrom;

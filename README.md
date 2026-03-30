@@ -9,7 +9,7 @@ Comprehensive AI-based code submission and grading system for Universities.
 
 ## Setup
 
-See **[SETUP.md](SETUP.md)**.
+See **[SETUP.md](SETUP.md)** (local dev, Ollama, **production deploy secrets**).
 
 ## Running the project
 

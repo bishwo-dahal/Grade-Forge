@@ -30,8 +30,11 @@ For Docker: ensure the runtime image has Python 3 and the grader code (e.g. copy
 |------|------|
 | **run.py** | Entry point. Sets input file, loads assignment, runs pipeline, prints JSON. |
 | **pipeline.py** | Runs all steps (similarity, etc.) and merges results per student. |
+| **ai_detection.py** | Deterministic AI authorship risk heuristics (explainable signals + reasons). |
+| **llm_rationale.py** | Optional LLM explanation layer for signal summaries (never sets scores). |
 | **data_parser.py** | Assignment / submission models; `from_json`, `from_file`. |
 | **plagiarism.py** | Similarity step (copydetect). Produces scores and comparison snippets. |
+| **evaluate_ai_detection.py** | Offline calibration script (precision/recall/FPR by language/course). |
 | **test/** | Sample assignments and submissions. See `test/README.md`. |
 
 ---
@@ -45,7 +48,7 @@ The pipeline returns a single JSON object. Use it to update grades in your DB an
 - **`assignment_id`** – Which assignment this run was for.
 - **`results`** – One object per student. Each has grades, similarity info, and a **`comparisons`** array. Each comparison is attached only to the student who is the **subject** (the one whose code was tested, i.e. the “right” side in the pair). So a similarity between student A and B appears in exactly one report—the one for the student who was the subject in that comparison—not in both. That avoids duplicate pairs; the viewer shows “You” (subject) vs “Other”.
 - **`highlight_markers`** – `{ "start": ">>", "end": "<<" }`. Code in comparisons uses these to mark copied regions so the frontend can highlight them.
-- **`ai_features`** – Top-level JSON object reserved for assignment-level AI features (e.g. `model_version`, `run_metadata`). Empty `{}` until used.
+- **`ai_features`** – Assignment-level AI metadata (`authorship_risk_summary`, `model_info`, `disclaimer`, `rationale_mode`).
 
 ### Per-student result
 
@@ -57,7 +60,7 @@ Every item in `results` looks like this:
 | `final_grade` | Computed grade from test weights. |
 | `similarity_score` | 0–1; how much of this submission matched others. |
 | `similarity_warning` | If there was a match, a short message (e.g. path to the other file); otherwise `null`. |
-| `ai_features` | JSON object for per-student AI-derived features (e.g. `is_ai_generated`, `explanation`, `confidence`). Empty `{}` until used; extend with more keys as needed. |
+| `ai_features` | Per-student AI risk object (`risk_score`, `risk_level`, `signals`, `top_reasons`, optional `llm_rationale`). |
 | `comparisons` | List of pairs for this student. Each has `left` (you), `right` (other), and `overlap_tokens`. |
 
 **Backend:** You can take each element of `results`, update the grade (and any flags) for that `student_id`, and persist that same object’s `comparisons` in one go (e.g. one row or document per student with a JSON column or related table for comparisons).
@@ -116,3 +119,26 @@ Below is a realistic payload for two students: one with no plagiarism, one with 
 ```
 
 To render a comparison: show `left.code` in one column and `right.code` in the other. Any substring between `>>` and `<<` is the matched region—style it with a background color so it matches your diff/similarity UI.
+
+## Optional LLM rationale mode
+
+Default mode is deterministic-only. To enable optional LLM explanations:
+
+```bash
+export GRADER_LLM_RATIONALE_ENABLED=true
+export GRADER_LLM_RATIONALE_MODEL=llama3
+export GRADER_LLM_RATIONALE_URL=http://localhost:11434/api/generate
+python run.py test/sample_submissions1.json
+```
+
+LLM mode only writes explanation text under `result.ai_features.llm_rationale` and does not alter `risk_score`.
+
+## Offline calibration
+
+Run calibration with labeled outcomes:
+
+```bash
+python evaluate_ai_detection.py test/ai_labels_sample.json
+```
+
+This prints selected threshold plus confusion/precision/recall/FPR overall and by language/course.

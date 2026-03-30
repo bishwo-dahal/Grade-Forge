@@ -346,16 +346,16 @@ export function GradingAssistantSubmissionDetailPage() {
                   <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                     <div className="px-5 py-3 border-b border-gray-200">
                       <h2 className="text-[14px] font-semibold text-[#2B2A2A]">
-                        Plagiarism check (latest report)
+                        Plagiarism & AI (latest report)
                       </h2>
                       <p className="text-[12px] text-gray-500">
                         Shows this student&apos;s row from the latest grader report for this assignment.
                       </p>
                     </div>
                     <div className="px-5 py-4 text-[13px] text-gray-700">
-                      {plagStatus === "loading" && <p>Loading plagiarism info…</p>}
+                      {plagStatus === "loading" && <p>Loading Plagiarism & AI report…</p>}
                       {plagStatus === "error" && (
-                        <p className="text-red-600">Unable to load plagiarism info.</p>
+                        <p className="text-red-600">Unable to load Plagiarism & AI report.</p>
                       )}
                       {plagStatus === "none" && (
                         <p className="text-gray-600">
@@ -382,8 +382,9 @@ export function GradingAssistantSubmissionDetailPage() {
                           )}
                           {plagResult.comparisons && plagResult.comparisons.length > 0 && (
                             <p className="text-[12px] text-gray-600">
-                              Detailed side-by-side comparisons are available on the assignment&apos;s
-                              plagiarism tab.
+                              {
+                                "Detailed side-by-side comparisons are available on the assignment's Plagiarism & AI tab."
+                              }
                             </p>
                           )}
                         </div>

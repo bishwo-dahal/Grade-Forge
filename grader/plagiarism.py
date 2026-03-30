@@ -82,6 +82,7 @@ def run_similarity_check(assignment: Assignment):
 
     detector.run()
     copied_list = detector.get_copied_code_list()
+    student_name_by_id = {s.student_id: (s.student_name or s.student_id) for s in assignment.submissions}
 
     # Best match per student (student_id -> (score, match_file, partner_student_id))
     best_match = {s.student_id: (0.0, None, None) for s in assignment.submissions}
@@ -111,6 +112,8 @@ def run_similarity_check(assignment: Assignment):
             # left = suspect (test = "did they copy?"), right = source (ref)
             left_student = test_student
             right_student = ref_student
+            left_student_name = student_name_by_id.get(left_student, left_student)
+            right_student_name = student_name_by_id.get(right_student, right_student)
 
             # Optional structural similarity (AST-based) for supported languages.
             struct_sim = 0.0
@@ -143,6 +146,7 @@ def run_similarity_check(assignment: Assignment):
             comparisons.append({
                 "left": {
                     "student_id": left_student,
+                    "student_name": left_student_name,
                     "file_path": test_path,
                     "code": highlighted_test,
                     "similarity": round(combined_test, 2),
@@ -152,6 +156,7 @@ def run_similarity_check(assignment: Assignment):
                 },
                 "right": {
                     "student_id": right_student,
+                    "student_name": right_student_name,
                     "file_path": ref_path,
                     "code": highlighted_ref,
                     "similarity": round(ref_sim, 2),
@@ -192,6 +197,7 @@ def run_similarity_check(assignment: Assignment):
     results = []
     for sub in assignment.submissions:
         score, match_file, partner_student = best_match.get(sub.student_id, (0.0, None, None))
+        partner_name = student_name_by_id.get(partner_student, partner_student) if partner_student else None
         grade = sub.calculate_score(
             assignment.weights, assignment.public_tests, assignment.private_tests
         )
@@ -200,15 +206,17 @@ def run_similarity_check(assignment: Assignment):
         else:
             filename = None
         if partner_student and filename:
-            similarity_warning = f"Match with student {partner_student} in {filename}"
+            # Include name for faculty readability; ID included implicitly via name fallback.
+            similarity_warning = f"Match with {partner_name} in {filename}"
         elif partner_student:
-            similarity_warning = f"Match with student {partner_student}"
+            similarity_warning = f"Match with {partner_name}"
         elif filename:
             similarity_warning = f"Match in {filename}"
         else:
             similarity_warning = None
         results.append({
             "student_id": sub.student_id,
+            "student_name": sub.student_name,
             "final_grade": grade,
             # Use the (possibly) combined similarity as the main score.
             "similarity_score": round(score, 2),

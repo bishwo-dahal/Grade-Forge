@@ -16,7 +16,6 @@ import {
   AlertCircle,
   UserPlus,
   Edit,
-  Copy,
   Trash2,
   MoreVertical,
   Filter,
@@ -105,7 +104,7 @@ const SECTION_PATH_SEGMENTS = [
 ] as const;
 
 type SectionType = (typeof SECTION_PATH_SEGMENTS)[number];
-type RosterFilter = "all" | "active" | "inactive" | "unassigned";
+type RosterFilter = "all" | "active" | "inactive";
 
 function isValidSection(segment: string | undefined): segment is SectionType {
   return segment != null && SECTION_PATH_SEGMENTS.includes(segment as SectionType);
@@ -481,7 +480,6 @@ function StatCard({
 function AssignmentsSection() {
   const { classId } = useParams();
   const resolvedClassId = classId || "1";
-  const [selectedAssignments, setSelectedAssignments] = useState<string[]>([]);
   // NOTE: Assignments now load from backend-driven class service mapping.
   const [assignments, setAssignments] = useState<FacultyAssignment[]>([]);
   const [isAssignmentsLoading, setIsAssignmentsLoading] = useState(true);
@@ -564,22 +562,28 @@ function AssignmentsSection() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="text-center px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Assignment
               </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="text-center px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Language
               </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[200px] text-center px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                Available From
+              </th>
+              <th className="w-[200px] text-center px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Due Date
               </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Submissions
+              <th className="w-[200px] text-center px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                Late Due Date
               </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[92px] text-center px-3 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+                Total Points
+              </th>
+              <th className="w-[112px] text-center px-3 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Status
               </th>
-              <th className="text-right px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
+              <th className="w-[84px] text-center px-3 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
                 Actions
               </th>
             </tr>
@@ -599,12 +603,18 @@ function AssignmentsSection() {
                     <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
                   </td>
                   <td className="px-6 py-4">
-                    <div className="h-4 w-16 rounded bg-gray-200 animate-pulse" />
+                    <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
                   </td>
                   <td className="px-6 py-4">
+                    <div className="h-4 w-28 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-3 py-4">
+                    <div className="h-4 w-10 rounded bg-gray-200 animate-pulse" />
+                  </td>
+                  <td className="px-3 py-4">
                     <div className="h-6 w-20 rounded-md bg-gray-100 animate-pulse" />
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-3 py-4">
                     <div className="flex items-center justify-end gap-2">
                       <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse" />
                       <div className="h-7 w-7 rounded-lg bg-gray-100 animate-pulse" />
@@ -619,68 +629,47 @@ function AssignmentsSection() {
                   key={assignment.id}
                   className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === assignments.length - 1 ? 'border-b-0' : ''}`}
                 >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedAssignments.includes(assignment.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedAssignments([...selectedAssignments, assignment.id]);
-                          } else {
-                            setSelectedAssignments(selectedAssignments.filter(id => id !== assignment.id));
-                          }
-                        }}
-                        className="rounded border-gray-300 text-[#5A7ACD] focus:ring-[#5A7ACD]"
-                      />
-                      <Link
-                        to={`/faculty/class/${resolvedClassId}/assignment/${assignment.id}`}
-                        className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
-                      >
-                        {assignment.name}
-                      </Link>
-                    </div>
+                  <td className="px-6 py-4 text-center">
+                    <Link
+                      to={`/faculty/class/${resolvedClassId}/assignment/${assignment.id}`}
+                      className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
+                    >
+                      {assignment.name}
+                    </Link>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-[12px] font-medium text-gray-700">
+                  <td className="px-6 py-4 text-center">
+                    <span className="inline-flex items-center text-[12px] font-medium text-gray-700">
                       {assignment.language}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-center">
+                    <span className="text-[13px] text-gray-600">{assignment.availableFrom}</span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
                     <span className="text-[13px] text-gray-600">{assignment.dueDate}</span>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className="text-[13px] text-gray-600">
-                      {assignment.submissions}/{assignment.totalStudents}
-                    </span>
+                  <td className="px-6 py-4 text-center">
+                    <span className="text-[13px] text-gray-600">{assignment.lateDueDate}</span>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium ${
+                  <td className="px-3 py-4 text-center">
+                    <span className="text-[13px] font-medium text-[#2B2A2A] whitespace-nowrap">{assignment.totalPoints}</span>
+                  </td>
+                  <td className="px-3 py-4 text-center">
+                    <span className={`inline-flex items-center whitespace-nowrap text-[12px] font-medium ${
                       assignment.status === 'published'
-                        ? 'bg-green-50 text-green-600'
+                        ? 'text-green-600'
                         : assignment.status === 'closed'
-                        ? 'bg-gray-100 text-gray-600'
-                        : 'bg-orange-50 text-orange-600'
+                        ? 'text-gray-600'
+                        : 'text-orange-600'
                     }`}>
                       {assignment.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-3 py-4 text-center">
                     <div
-                      className="relative flex items-center justify-end gap-2"
+                      className="relative flex items-center justify-center gap-2"
                       onClick={(event) => event.stopPropagation()}
                     >
-                      {/* Accessibility: icon-only action buttons need labels for screen readers. */}
-                      <Link
-                        aria-label="Open assignment detail"
-                        to={`/faculty/class/${resolvedClassId}/assignments/${assignment.id}/edit`}
-                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                      >
-                        <Edit className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                      </Link>
-                      <button aria-label="Duplicate assignment" className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                        <Copy className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                      </button>
                       <button
                         aria-label="More assignment actions"
                         className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
@@ -693,19 +682,29 @@ function AssignmentsSection() {
                       </button>
                       {openAssignmentActionsId === assignment.id ? (
                         <div
-                          className="absolute right-0 top-9 z-20 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                          className="absolute right-0 top-9 z-20 w-12 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
                           onClick={(event) => event.stopPropagation()}
                         >
+                          <Link
+                            to={`/faculty/class/${resolvedClassId}/assignments/${assignment.id}/edit`}
+                            onClick={() => setOpenAssignmentActionsId(null)}
+                            aria-label="Edit assignment"
+                            title="Edit assignment"
+                            className="flex w-full items-center justify-center px-1 py-2 text-[#2B2A2A] hover:bg-gray-50"
+                          >
+                            <Edit className="h-4 w-4" strokeWidth={2} />
+                          </Link>
                           <button
                             type="button"
                             onClick={() => {
                               setOpenAssignmentActionsId(null);
                               setAssignmentDeleteTarget(assignment);
                             }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[#C23A42] hover:bg-[#FFF5F5]"
+                            aria-label="Delete assignment"
+                            title="Delete assignment"
+                            className="flex w-full items-center justify-center border-t border-gray-200 px-1 py-2 text-[#C23A42] hover:bg-[#FFF5F5]"
                           >
                             <Trash2 className="h-4 w-4" strokeWidth={2} />
-                            Delete Assignment
                           </button>
                         </div>
                       ) : null}
@@ -715,7 +714,7 @@ function AssignmentsSection() {
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="px-6 py-6 text-center text-[13px] text-gray-600">
+                <td colSpan={8} className="px-6 py-6 text-center text-[13px] text-gray-600">
                   No assignments found for this class.
                 </td>
               </tr>
@@ -1895,12 +1894,10 @@ function StudentsSection({
   const filterItems = useMemo<SegmentedFilterItem<RosterFilter>[]>(() => {
     const activeCount = rosterRows.filter((row) => row.status === "active").length;
     const inactiveCount = rosterRows.filter((row) => row.status === "inactive").length;
-    const unassignedCount = rosterRows.filter((row) => row.status === "unassigned").length;
     return [
       { id: "all", label: "All", count: rosterRows.length },
       { id: "active", label: "Active", count: activeCount },
       { id: "inactive", label: "Inactive", count: inactiveCount },
-      { id: "unassigned", label: "Unassigned", count: unassignedCount },
     ];
   }, [rosterRows]);
 
@@ -2049,7 +2046,6 @@ function StudentsSection({
               <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Student</th>
               <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Email</th>
               <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Status</th>
-              <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Group</th>
               <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Progress</th>
               <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Avg Score</th>
               <th className="text-left px-4 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">Last Activity</th>
@@ -2075,9 +2071,6 @@ function StudentsSection({
                   </td>
                   <td className="px-4 py-4">
                     <div className="h-6 w-16 rounded-md bg-gray-100 animate-pulse" />
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="h-4 w-20 rounded bg-gray-200 animate-pulse" />
                   </td>
                   <td className="px-4 py-4">
                     <div className="space-y-2 animate-pulse">
@@ -2138,9 +2131,6 @@ function StudentsSection({
                     </span>
                   </td>
                   <td className="px-4 py-4">
-                    <span className="text-[13px] text-gray-700">{student.group}</span>
-                  </td>
-                  <td className="px-4 py-4">
                     <div className="w-28 h-2 bg-gray-100 rounded-full overflow-hidden mb-1">
                       <div className="h-full bg-[#5A7ACD]" style={{ width: `${Math.min(100, student.completionPercent)}%` }} />
                     </div>
@@ -2178,7 +2168,7 @@ function StudentsSection({
               ))
             ) : (
               <tr>
-                <td colSpan={9} className="px-6 py-6 text-center text-[13px] text-gray-600">
+                <td colSpan={8} className="px-6 py-6 text-center text-[13px] text-gray-600">
                   No students found for this filter.
                 </td>
               </tr>

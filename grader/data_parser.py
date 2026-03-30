@@ -10,6 +10,7 @@ class TestResults:
 @dataclass
 class Submission:
     student_id: str
+    student_name: str | None
     file_paths: List[str]  # Changed to list to support multi-file
     test_results: TestResults
     
@@ -34,6 +35,7 @@ class Assignment:
         subs = [
             Submission(
                 student_id=s['student_id'],
+                student_name=s.get('student_name'),
                 file_paths=[s['file_path']] if isinstance(s.get('file_path'), str) else (s.get('file_path') or s.get('file_paths') or []),
                 test_results=TestResults(**s['test_results'])
             ) for s in data['submissions']

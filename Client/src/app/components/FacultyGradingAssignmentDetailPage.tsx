@@ -44,6 +44,7 @@ function mapToAssignment(assignment: AssignmentDetail | null, description: Assig
     availableFrom: assignment.availableFrom ?? null,
     lateDueDate: assignment.lateDueDate ?? null,
     starterCodeUrl: assignment.starterCodeUrl ?? null,
+    starterCodeFiles: assignment.starterCodeFiles,
     rubricName: assignment.rubricName ?? null,
   };
 }
@@ -269,6 +270,7 @@ export function FacultyGradingAssignmentDetailPage() {
           error={errorMessage}
           onRefreshSubmissions={reloadSubmissions}
           submissionsSectionSubtitle="Open a submission to review code and submit a grade."
+          submissionsCountLabel={`${latestSubmissionsPerStudent.length} submitted`}
           speedGradingLink={{
             // NOTE: Assignment detail owns the speed grading entry so faculty can jump directly into the queue for this assignment.
             to: `/faculty/class/${resolvedClassId}/speed-grading/${resolvedAssignmentId}`,

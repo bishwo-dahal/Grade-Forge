@@ -28,7 +28,10 @@ export interface AssignmentDetail {
   languageAllowedExtensions?: string | null;
   hasStarterCode: boolean;
   submissionType?: string;
+  /** @deprecated Backend may still return a single URL; prefer starterCodeFiles. */
   starterCodeUrl?: string | null;
+  /** Presigned S3 links from the API for starter code files. */
+  starterCodeFiles?: Array<{ fileName: string; downloadUrl: string }>;
   /**
    * When assignment is group-assigned (`submissionType === "GROUP"`), this is the main group selected by the faculty.
    * Backend may also provide the subgroup assignment for the latest submission.
@@ -151,11 +154,18 @@ export interface AssignmentCreateFormData {
   submissionType: AssignmentSubmissionType;
   // NOTE: When submissionType is GROUP, backend requires assigning an assignment to a main group.
   mainGroupId: string;
-  // NOTE: Starter code file upload is handled elsewhere; assignment create stores URL reference only.
-  starterCodeUrl: string;
+  /** New files to upload (multipart part name `files`); any file type. On edit, combined with `keepFileIds` in the assignment JSON. */
+  starterFiles: File[];
   // NOTE: Rubric linkage is optional and references pre-created faculty rubrics.
   rubricId: string;
   totalPoints: number;
+}
+
+/** Starter files already on the assignment when editing (download links from API). */
+export interface AssignmentExistingStarterFile {
+  id: number;
+  fileName: string;
+  downloadUrl: string | null;
 }
 
 export interface FacultyAssignmentCreatePageData {
@@ -164,4 +174,6 @@ export interface FacultyAssignmentCreatePageData {
   rubricOptions: AssignmentCreateOption[];
   mainGroupOptions: AssignmentCreateOption[];
   initialForm: AssignmentCreateFormData;
+  /** Populated in edit mode so faculty can see current starter files before replacing. */
+  existingStarterFiles?: AssignmentExistingStarterFile[];
 }

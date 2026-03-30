@@ -10,7 +10,11 @@ import {
 } from "../../services/assignmentService";
 import { getRubric, getUnweightedRubricTotalPoints } from "../../services/rubricService";
 import { createTestSuite } from "../../services/testSuiteService";
-import type { AssignmentCreateFormData, FacultyAssignmentCreatePageData } from "../../types/assignment";
+import type {
+  AssignmentCreateFormData,
+  AssignmentExistingStarterFile,
+  FacultyAssignmentCreatePageData,
+} from "../../types/assignment";
 import type { TestSuitePayload } from "../../types/testSuite";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
@@ -22,6 +26,9 @@ interface FacultyCreateAssignmentViewProps {
   // NOTE: This component is presentation-only. Data and handlers are injected by the page/container.
   classId: string;
   pageData: FacultyAssignmentCreatePageData | null;
+  /** Edit mode: server-side starter files still kept; user can remove or download. */
+  retainedStarterFiles: AssignmentExistingStarterFile[];
+  onRemoveRetainedStarter: (id: number) => void;
   form: AssignmentCreateFormData | null;
   testSuiteDraft: TestSuiteDraftState | null;
   isLoading: boolean;
@@ -61,6 +68,8 @@ interface TestSuiteDraftState {
 function FacultyCreateAssignmentView({
   classId,
   pageData,
+  retainedStarterFiles,
+  onRemoveRetainedStarter,
   form,
   testSuiteDraft,
   isLoading,
@@ -326,17 +335,90 @@ function FacultyCreateAssignmentView({
                   </div>
 
                   <div className="lg:col-span-2">
-                    <label htmlFor="assignment-starter-code-url" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
-                      Starter Code URL
+                    <label htmlFor="assignment-starter-files" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
+                      Starter files
                     </label>
+                    <p className="mb-2 text-[12px] text-[#6D7B91]">
+                      Optional. Any file type is allowed (source, data, zip, images, etc.).{" "}
+                      {mode === "edit"
+                        ? "Remove files you no longer need, add new ones below, then save. Saving applies the full starter set."
+                        : "Upload one or more files, or leave empty."}
+                    </p>
+                    {mode === "edit" && retainedStarterFiles.length > 0 ? (
+                      <div className="mb-3">
+                        <p className="mb-1.5 text-[12px] font-medium text-[#30415F]">Current starter files</p>
+                        <ul className="space-y-1 rounded-xl border border-[#E5E9F2] bg-white px-3 py-2 text-[13px] text-[#30415F]">
+                          {retainedStarterFiles.map((f) => (
+                            <li key={f.id} className="flex items-center justify-between gap-2">
+                              <span className="min-w-0 truncate">{f.fileName}</span>
+                              <span className="flex shrink-0 items-center gap-2">
+                                {f.downloadUrl ? (
+                                  <a
+                                    href={f.downloadUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[#5A7ACD] hover:underline"
+                                  >
+                                    Download
+                                  </a>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  onClick={() => onRemoveRetainedStarter(f.id)}
+                                  className="text-[12px] text-[#C23A42] hover:underline"
+                                >
+                                  Remove
+                                </button>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {mode === "edit" ? (
+                      <p className="mb-2 text-[12px] text-[#6D7B91]">Add new starter files</p>
+                    ) : null}
                     <input
-                      id="assignment-starter-code-url"
-                      type="url"
-                      value={form.starterCodeUrl}
-                      onChange={(event) => onFieldChange("starterCodeUrl", event.target.value)}
-                      placeholder="https://..."
-                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                      id="assignment-starter-files"
+                      type="file"
+                      multiple
+                      accept="*/*"
+                      className="block w-full text-[13px] text-[#30415F] file:mr-3 file:rounded-lg file:border file:border-[#D8DFEC] file:bg-white file:px-3 file:py-1.5 file:text-[13px] file:font-medium file:text-[#30415F] hover:file:bg-[#F3F6FB]"
+                      onChange={(event) => {
+                        const list = event.target.files ? Array.from(event.target.files) : [];
+                        onFieldChange("starterFiles", [...form.starterFiles, ...list]);
+                        event.target.value = "";
+                      }}
                     />
+                    {form.starterFiles.length > 0 ? (
+                      <div className="mt-3">
+                        {mode === "edit" ? (
+                          <p className="mb-1.5 text-[12px] font-medium text-[#30415F]">New files to upload</p>
+                        ) : null}
+                        <ul className="space-y-1.5">
+                          {form.starterFiles.map((file, index) => (
+                            <li
+                              key={`${file.name}-${index}-${file.size}`}
+                              className="flex items-center justify-between gap-2 rounded-lg border border-[#E5E9F2] bg-white px-3 py-2 text-[13px]"
+                            >
+                              <span className="truncate text-[#1F2430]">{file.name}</span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onFieldChange(
+                                    "starterFiles",
+                                    form.starterFiles.filter((_, i) => i !== index),
+                                  )
+                                }
+                                className="shrink-0 text-[12px] text-[#C23A42] hover:underline"
+                              >
+                                Remove
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </section>
@@ -576,6 +658,10 @@ export function FacultyCreateAssignmentPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [testCasesAdded, setTestCasesAdded] = useState(false);
   const [totalPointsLockedByRubric, setTotalPointsLockedByRubric] = useState(false);
+  /** Snapshot of server starter files when edit page loaded (for dirty detection). */
+  const [initialStarterSnapshot, setInitialStarterSnapshot] = useState<AssignmentExistingStarterFile[]>([]);
+  /** Edit mode: starter files still included on save; user can remove before save. */
+  const [retainedStarterFiles, setRetainedStarterFiles] = useState<AssignmentExistingStarterFile[]>([]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -592,6 +678,26 @@ export function FacultyCreateAssignmentPage() {
       })
       .finally(() => setIsLoading(false));
   }, [resolvedClassId, mode, assignmentId]);
+
+  useEffect(() => {
+    if (!pageData) {
+      return;
+    }
+    if (mode === "edit") {
+      const existing = pageData.existingStarterFiles ?? [];
+      setInitialStarterSnapshot(existing);
+      setRetainedStarterFiles(existing);
+    } else {
+      setInitialStarterSnapshot([]);
+      setRetainedStarterFiles([]);
+    }
+  }, [pageData, mode, assignmentId]);
+
+  const handleRemoveRetainedStarter = (id: number) => {
+    setRetainedStarterFiles((previous) =>
+      previous.filter((f) => Number(f.id) !== Number(id)),
+    );
+  };
 
   const canSubmit = useMemo(() => {
     if (!form) {
@@ -708,10 +814,27 @@ export function FacultyCreateAssignmentPage() {
 
     setIsSaving(true);
     try {
-      const savedAssignmentId =
-        mode === "edit" && assignmentId
-          ? (await updateFacultyAssignmentDraft(assignmentId, resolvedClassId, form)).assignmentId
-          : (await createFacultyAssignmentDraft(resolvedClassId, form)).assignmentId;
+      let savedAssignmentId: string;
+      if (mode === "edit" && assignmentId) {
+        const result = await updateFacultyAssignmentDraft(assignmentId, resolvedClassId, form, {
+          initialExisting: initialStarterSnapshot,
+          retainedExisting: retainedStarterFiles,
+        });
+        savedAssignmentId = result.assignmentId;
+        const nextStarter =
+          result.assignment.starterCodeFiles?.map((f) => ({
+            id: Number(f.id),
+            fileName: f.fileName,
+            downloadUrl: f.downloadUrl ?? null,
+          })) ?? [];
+        setRetainedStarterFiles(nextStarter);
+        setInitialStarterSnapshot(nextStarter);
+        setPageData((previous) =>
+          previous ? { ...previous, existingStarterFiles: nextStarter } : previous,
+        );
+      } else {
+        savedAssignmentId = (await createFacultyAssignmentDraft(resolvedClassId, form)).assignmentId;
+      }
       const hasTestCases = testSuiteDraft.testCases.some((c) => c.output.trim().length > 0);
       setTestCasesAdded(false);
       if (mode === "create" && hasTestCases) {
@@ -802,6 +925,8 @@ export function FacultyCreateAssignmentPage() {
         <FacultyCreateAssignmentView
           classId={resolvedClassId}
           pageData={pageData}
+          retainedStarterFiles={retainedStarterFiles}
+          onRemoveRetainedStarter={handleRemoveRetainedStarter}
           form={form}
           testSuiteDraft={testSuiteDraft}
           isLoading={isLoading}
