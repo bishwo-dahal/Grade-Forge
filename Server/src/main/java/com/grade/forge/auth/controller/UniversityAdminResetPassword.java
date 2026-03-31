@@ -24,7 +24,7 @@ public class UniversityAdminResetPassword {
     public ResponseEntity<String> resetPassword(Authentication authentication, @RequestBody PasswordResetRequest resetRequest) {
         String userIdentifier = resetRequest != null ? resetRequest.getEmail() : "unknown";
         try {
-            AuthResponse response = authService.resetPassword(resetRequest);
+            authService.resetPassword(resetRequest);
             activityLogService.log(authentication, "Password reset", "User: " + userIdentifier, "success");
             return ResponseEntity.ok("Reset Successful");
         } catch (Exception ex) {
