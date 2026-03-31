@@ -248,7 +248,12 @@ export function UniversityManageUsersPage() {
                       <td className="px-6 py-4 text-[13px] text-[#44506B]">{faculty.officeHours || "—"}</td>
                       <td className="px-6 py-4 text-[13px] text-[#44506B]">{faculty.active ? "Yes" : "No"}</td>
                       <td className="px-6 py-4 text-right">
-                        <div className="relative inline-block">
+                        <div
+                          className="relative inline-block"
+                          onMouseLeave={() => {
+                            setOpenActionMenuKey(null);
+                          }}
+                        >
                           <button
                             type="button"
                             aria-label="Row actions"
@@ -330,7 +335,12 @@ export function UniversityManageUsersPage() {
                         {ga.faculty?.name ? `${ga.faculty.name} (${ga.faculty.email ?? "—"})` : "—"}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="relative inline-block">
+                        <div
+                          className="relative inline-block"
+                          onMouseLeave={() => {
+                            setOpenActionMenuKey(null);
+                          }}
+                        >
                           <button
                             type="button"
                             aria-label="Row actions"
@@ -407,7 +417,12 @@ export function UniversityManageUsersPage() {
                         <td className="px-6 py-4 text-[13px] font-medium text-[#2B2A2A]">{user.name}</td>
                         <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.email}</td>
                         <td className="px-6 py-4 text-right">
-                          <div className="relative inline-block">
+                          <div
+                            className="relative inline-block"
+                            onMouseLeave={() => {
+                              setOpenActionMenuKey(null);
+                            }}
+                          >
                             <button
                               type="button"
                               aria-label="Row actions"
@@ -444,116 +459,103 @@ export function UniversityManageUsersPage() {
 
       {changePasswordUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4">
-          <div className="w-full max-w-[460px] overflow-hidden rounded-2xl border border-gray-200 bg-white">
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-5">
-              <div>
-                <h3 className="text-[22px] leading-none font-semibold text-[#2B2A2A]">Change Password</h3>
-                <p className="mt-2 text-[13px] text-[#5D6A80]">{changePasswordUser.label}</p>
-              </div>
-              <button
-                type="button"
-                aria-label="Close dialog"
-                onClick={closeChangePasswordModal}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-              >
-                <X className="h-5 w-5" strokeWidth={2} />
-              </button>
-            </div>
-
+          <div className="w-full max-w-[420px] overflow-hidden rounded-2xl bg-white shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
             <form
-              className="space-y-5 px-6 py-6"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (updatingPassword) return;
                 void submitPasswordChange();
               }}
             >
-              {passwordError && (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
-                  {passwordError}
+              <div className="flex items-start justify-between px-6 pt-6">
+                <div>
+                  <h3 className="text-[18px] leading-none font-semibold text-[#1F2430]">Reset password</h3>
+                  <p className="mt-2 text-[13px] text-[#5D6A80]">{changePasswordUser.label}</p>
                 </div>
-              )}
-              {passwordSuccess && (
-                <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-[13px] text-green-700">
-                  {passwordSuccess}
-                </div>
-              )}
-
-              <div>
-                <label htmlFor="admin-reset-email" className="mb-2 block text-[14px] font-medium text-[#2B2A2A]">
-                  Email
-                </label>
-                <input
-                  id="admin-reset-email"
-                  type="email"
-                  value={changePasswordUser.email}
-                  readOnly
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-gray-700 focus:outline-none"
-                />
+                <button
+                  type="button"
+                  aria-label="Close dialog"
+                  onClick={closeChangePasswordModal}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+                >
+                  <X className="h-5 w-5" strokeWidth={2} />
+                </button>
               </div>
 
-              <div>
-                <label htmlFor="admin-reset-token" className="mb-2 block text-[14px] font-medium text-[#2B2A2A]">
-                  Reset Token
-                </label>
-                <input
-                  id="admin-reset-token"
-                  type="text"
-                  value={resetToken}
-                  onChange={(e) => setResetToken(e.target.value)}
-                  placeholder="Enter reset token"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                />
-              </div>
+              <div className="mt-4 space-y-4 px-6 pb-6">
+                {passwordError && <p className="text-[13px] text-red-700">{passwordError}</p>}
+                {passwordSuccess && <p className="text-[13px] text-emerald-700">{passwordSuccess}</p>}
 
-              <div>
-                <label htmlFor="admin-new-password" className="mb-2 block text-[14px] font-medium text-[#2B2A2A]">
-                  New Password
-                </label>
-                <div className="relative">
+                <div>
+                  <label htmlFor="admin-reset-email" className="mb-1.5 block text-[12px] font-medium text-[#1F2430]">
+                    Email
+                  </label>
                   <input
-                    id="admin-new-password"
-                    type={showNewPassword ? "text" : "password"}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-11 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    id="admin-reset-email"
+                    type="email"
+                    value={changePasswordUser.email}
+                    readOnly
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-gray-700 focus:outline-none"
                   />
+                </div>
+
+                <div>
+                  <label htmlFor="admin-reset-token" className="mb-1.5 block text-[12px] font-medium text-[#1F2430]">
+                    Reset token
+                  </label>
+                  <input
+                    id="admin-reset-token"
+                    type="text"
+                    value={resetToken}
+                    onChange={(e) => setResetToken(e.target.value)}
+                    placeholder="Enter token"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="admin-new-password" className="mb-1.5 block text-[12px] font-medium text-[#1F2430]">
+                    New password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="admin-new-password"
+                      type={showNewPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new password"
+                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 pr-11 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    />
+                    <button
+                      type="button"
+                      aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+                      onClick={() => setShowNewPassword((v) => !v)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[12px] font-semibold text-[#44506B] hover:bg-[#F1F3F7]"
+                    >
+                      {showNewPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-center justify-end gap-2">
                   <button
                     type="button"
-                    aria-label={showNewPassword ? "Hide new password" : "Show new password"}
-                    onClick={() => setShowNewPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    onClick={closeChangePasswordModal}
+                    className="rounded-xl px-4 py-2 text-[14px] font-medium text-[#44506B] hover:bg-[#F1F3F7] transition-colors"
+                    disabled={updatingPassword}
                   >
-                    {showNewPassword ? (
-                      <EyeOff className="h-5 w-5" strokeWidth={2} />
-                    ) : (
-                      <Eye className="h-5 w-5" strokeWidth={2} />
-                    )}
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={updatingPassword}
+                    className="rounded-xl bg-[#2B2A2A] px-4 py-2 text-[14px] font-semibold text-white hover:opacity-95 disabled:opacity-60 transition-opacity"
+                  >
+                    {updatingPassword ? "Updating..." : "Reset"}
                   </button>
                 </div>
               </div>
             </form>
-
-            <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-5">
-              <button
-                type="button"
-                onClick={closeChangePasswordModal}
-                className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 transition-colors"
-                disabled={updatingPassword}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={submitPasswordChange}
-                disabled={updatingPassword}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#5A7ACD] px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-[#4a6abd] disabled:opacity-60 transition-colors"
-              >
-                <Lock className="h-4 w-4" strokeWidth={2} />
-                <span>{updatingPassword ? "Updating..." : "Update Password"}</span>
-              </button>
-            </div>
           </div>
         </div>
       )}
