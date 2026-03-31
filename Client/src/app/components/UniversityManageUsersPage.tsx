@@ -257,12 +257,12 @@ export function UniversityManageUsersPage() {
                                 k === `FACULTY-${faculty.facultyId}` ? null : `FACULTY-${faculty.facultyId}`,
                               )
                             }
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#CFD2D9] bg-white text-[#2B2A2A] hover:bg-[#F1F3F7]"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#2B2A2A] hover:bg-[#F1F3F7]"
                           >
                             <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
                           </button>
                           {openActionMenuKey === `FACULTY-${faculty.facultyId}` && (
-                            <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
+                            <div className="absolute right-full top-0 mr-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
                               <button
                                 type="button"
                                 onClick={() => openChangePasswordModal(faculty.email, faculty.email)}
@@ -335,12 +335,12 @@ export function UniversityManageUsersPage() {
                             type="button"
                             aria-label="Row actions"
                             onClick={() => setOpenActionMenuKey((k) => (k === `GA-${ga.id}` ? null : `GA-${ga.id}`))}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#CFD2D9] bg-white text-[#2B2A2A] hover:bg-[#F1F3F7]"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#2B2A2A] hover:bg-[#F1F3F7]"
                           >
                             <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
                           </button>
                           {openActionMenuKey === `GA-${ga.id}` && (
-                            <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
+                            <div className="absolute right-full top-0 mr-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
                               <button
                                 type="button"
                                 onClick={() => openChangePasswordModal(ga.email, ga.email)}
@@ -414,12 +414,12 @@ export function UniversityManageUsersPage() {
                               onClick={() =>
                                 setOpenActionMenuKey((k) => (k === `STUDENT-${user.id}` ? null : `STUDENT-${user.id}`))
                               }
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#CFD2D9] bg-white text-[#2B2A2A] hover:bg-[#F1F3F7]"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#2B2A2A] hover:bg-[#F1F3F7]"
                             >
                               <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
                             </button>
                             {openActionMenuKey === `STUDENT-${user.id}` && (
-                              <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
+                              <div className="absolute right-full top-0 mr-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
                                 <button
                                   type="button"
                                   onClick={() => openChangePasswordModal(user.email, user.email)}
