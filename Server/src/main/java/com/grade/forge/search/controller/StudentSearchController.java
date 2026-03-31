@@ -18,7 +18,12 @@ public class StudentSearchController {
     private final StudentSearchService studentSearchService;
 
     @GetMapping
-    public List<StudentSearchResponseDto> search(@RequestParam("keyword") String keyword,@RequestParam("courseId") Long courseId) {
-        return studentSearchService.search(keyword,courseId);
+    public List<StudentSearchResponseDto> search(@RequestParam("keyword") String keyword, @RequestParam("courseId") Long courseId) {
+        return studentSearchService.search(keyword, courseId);
+    }
+
+    @GetMapping("/plain")
+    public List<StudentSearchResponseDto> searchPlain(@RequestParam("keyword") String keyword) {
+        return studentSearchService.search(keyword);
     }
 }

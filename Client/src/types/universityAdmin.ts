@@ -141,3 +141,14 @@ export interface ActivityLogQueryParams {
   /** Optional end timestamp (e.g. ISO string or datetime-local value). */
   end?: string;
 }
+
+export interface StudentSearchResponseDto {
+  id: number;
+  userId: number;
+  cwid: string;
+  major: string;
+  canvasUserId: string;
+  name: string;
+  email: string;
+  enrolledStatus: string;
+}

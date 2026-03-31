@@ -8,6 +8,7 @@ import type {
   LanguageCreatePayload,
   SemesterApiResponse,
   SemesterCreatePayload,
+  StudentSearchResponseDto,
   SupportedLanguage,
   UniversityCourseRow,
 } from "../types/universityAdmin";
@@ -188,6 +189,15 @@ export async function fetchActivityLogs(params: ActivityLogQueryParams): Promise
       ...(date?.trim() ? { date: date.trim() } : {}),
       ...(start?.trim() ? { start: start.trim() } : {}),
       ...(end?.trim() ? { end: end.trim() } : {}),
+    },
+  });
+  return data;
+}
+
+export async function searchStudents(keyword: string): Promise<StudentSearchResponseDto[]> {
+  const { data } = await api.get<StudentSearchResponseDto[]>("/api/search/students/plain", {
+    params: {
+      keyword: keyword.trim(),
     },
   });
   return data;
