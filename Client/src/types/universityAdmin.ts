@@ -166,3 +166,15 @@ export interface FacultySearchResponse {
   email: string;
   role: string;
 }
+
+export interface GradingAssistantResponse {
+  id: number;
+  userId: number;
+  facultyId: number;
+  name: string;
+  email: string;
+  role: string;
+  officeHours: string;
+  department: string;
+  faculty?: FacultySearchResponse | null;
+}

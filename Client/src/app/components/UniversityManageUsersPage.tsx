@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { FacultySearchResponse, StudentSearchResponseDto } from "../../types/universityAdmin";
+import type { FacultySearchResponse, GradingAssistantResponse, StudentSearchResponseDto } from "../../types/universityAdmin";
 import { searchStudents, searchFaculty, searchGradingAssistants } from "../../services/universityAdminService";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
@@ -8,7 +8,7 @@ export function UniversityManageUsersPage() {
   const [activeRole, setActiveRole] = useState<"STUDENT" | "FACULTY" | "GRADING_ASSISTANT">("STUDENT");
   const [studentResults, setStudentResults] = useState<StudentSearchResponseDto[]>([]);
   const [facultyResults, setFacultyResults] = useState<FacultySearchResponse[]>([]);
-  const [assistantResults, setAssistantResults] = useState<StudentSearchResponseDto[]>([]);
+  const [assistantResults, setAssistantResults] = useState<GradingAssistantResponse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
@@ -188,6 +188,59 @@ export function UniversityManageUsersPage() {
                 )}
               </tbody>
             </table>
+          ) : activeRole === "GRADING_ASSISTANT" ? (
+            <table className="w-full min-w-[1200px]">
+              <thead>
+                <tr className="border-b border-gray-200 bg-[#FBFCFE]">
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">ID</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">User ID</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Faculty ID</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Name</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Email</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Department</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Office Hours</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Faculty</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!hasSearched ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                      Search for grading assistants to view matching users.
+                    </td>
+                  </tr>
+                ) : isLoading ? (
+                  Array.from({ length: 5 }).map((_, index) => (
+                    <tr key={`manage-users-skeleton-ga-${index}`} className="border-b border-gray-100 last:border-b-0">
+                      <td className="px-6 py-4" colSpan={8}>
+                        <div className="h-4 w-full animate-pulse rounded bg-[#F1F3F7]" />
+                      </td>
+                    </tr>
+                  ))
+                ) : assistantResults.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                      No grading assistants found for the current keyword.
+                    </td>
+                  </tr>
+                ) : (
+                  assistantResults.map((ga) => (
+                    <tr key={ga.id} className="border-b border-gray-100 last:border-b-0">
+                      <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">{ga.id}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{ga.userId}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{ga.facultyId}</td>
+                      <td className="px-6 py-4 text-[13px] font-medium text-[#2B2A2A]">{ga.name}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{ga.email}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{ga.department || "—"}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{ga.officeHours || "—"}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">
+                        {ga.faculty?.name ? `${ga.faculty.name} (${ga.faculty.email ?? "—"})` : "—"}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           ) : (
             <table className="w-full min-w-[1100px]">
               <thead>
@@ -238,25 +291,7 @@ export function UniversityManageUsersPage() {
                       </tr>
                     ))
                   )
-                ) : assistantResults.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
-                      No grading assistants found for the current keyword.
-                    </td>
-                  </tr>
-                ) : (
-                  assistantResults.map((user) => (
-                    <tr key={user.id} className="border-b border-gray-100 last:border-b-0">
-                      <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">{user.id}</td>
-                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.userId}</td>
-                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.cwid || "—"}</td>
-                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.major || "—"}</td>
-                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.canvasUserId || "—"}</td>
-                      <td className="px-6 py-4 text-[13px] font-medium text-[#2B2A2A]">{user.name}</td>
-                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.email}</td>
-                    </tr>
-                  ))
-                )}
+                ) : null}
               </tbody>
             </table>
           )}
