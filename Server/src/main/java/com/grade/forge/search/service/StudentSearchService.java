@@ -44,7 +44,7 @@ public class StudentSearchService {
 
     private StudentSearchResponseDto mapToResponse(Student student, Long courseId) {
 
-        EnrolledStatus courseStatus = null;
+        EnrolledStatus courseStatus = courseId == null ? null : EnrolledStatus.NOT_ENROLLED;
 
         if (courseId != null && student.getEnrollments() != null) {
             courseStatus = student.getEnrollments().stream()

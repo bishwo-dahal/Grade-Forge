@@ -202,3 +202,21 @@ export async function searchStudents(keyword: string): Promise<StudentSearchResp
   });
   return data;
 }
+
+export async function searchFaculty(keyword: string): Promise<StudentSearchResponseDto[]> {
+  const { data } = await api.get<StudentSearchResponseDto[]>("/api/search/faculty/plain", {
+    params: {
+      keyword: keyword.trim(),
+    },
+  });
+  return data;
+}
+
+export async function searchGradingAssistants(keyword: string): Promise<StudentSearchResponseDto[]> {
+  const { data } = await api.get<StudentSearchResponseDto[]>("/api/search/grading-assistants/plain", {
+    params: {
+      keyword: keyword.trim(),
+    },
+  });
+  return data;
+}
