@@ -182,7 +182,7 @@ export function UniversityManageUsersPage() {
               type="text"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              placeholder="Name, email, CWID..."
+              placeholder="Name, email..."
               className="w-full rounded-xl border border-[#CFD2D9] bg-white px-3 py-2 text-[14px] text-[#2B2A2A] placeholder:text-[#8791A5] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
             />
           </div>
@@ -341,7 +341,7 @@ export function UniversityManageUsersPage() {
                           <button
                             type="button"
                             onClick={() => setFacultyDetail(ga.faculty ?? null)}
-                            className="text-left text-[#345079] hover:text-[#2B2A2A] hover:underline underline-offset-2"
+                            className="text-left text-[13px] text-[#44506B] hover:text-[#2B2A2A] hover:underline underline-offset-2"
                           >
                             {ga.faculty.name} ({ga.faculty.email ?? "—"})
                           </button>
