@@ -228,7 +228,7 @@ export async function resetUserPasswordByUniversityAdmin(payload: {
   resetToken: string;
   newPassword: string;
 }): Promise<void> {
-  await api.post("/api/v1/university-admins/reset-password/reset-password", {
+  await api.post("/api/v1/university-admin/reset-password/reset-password", {
     email: payload.email,
     resetToken: payload.resetToken,
     newPassword: payload.newPassword,

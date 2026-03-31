@@ -160,7 +160,14 @@ export function UniversityManageUsersPage() {
           </button>
         </div>
 
-        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <form
+          className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (isLoading) return;
+            void onSearch();
+          }}
+        >
           <div>
             <label htmlFor="manage-users-keyword" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
               Keyword
@@ -176,15 +183,14 @@ export function UniversityManageUsersPage() {
           </div>
           <div className="flex items-end">
             <button
-              type="button"
-              onClick={onSearch}
+              type="submit"
               disabled={isLoading}
               className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-[#2B2A2A] px-5 text-[14px] font-semibold text-white disabled:opacity-50"
             >
               {isLoading ? "Searching..." : "Search"}
             </button>
           </div>
-        </div>
+        </form>
         {error && <p className="mt-4 text-[14px] text-[#C23A42]">{error}</p>}
       </section>
 
@@ -454,7 +460,14 @@ export function UniversityManageUsersPage() {
               </button>
             </div>
 
-            <div className="space-y-5 px-6 py-6">
+            <form
+              className="space-y-5 px-6 py-6"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (updatingPassword) return;
+                void submitPasswordChange();
+              }}
+            >
               {passwordError && (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
                   {passwordError}
@@ -520,7 +533,7 @@ export function UniversityManageUsersPage() {
                   </button>
                 </div>
               </div>
-            </div>
+            </form>
 
             <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-5">
               <button
