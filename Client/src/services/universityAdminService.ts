@@ -223,8 +223,14 @@ export async function searchGradingAssistants(keyword: string): Promise<GradingA
   return data;
 }
 
-export async function adminChangeUserPassword(userId: number, newPassword: string): Promise<void> {
-  await api.post(`/api/v1/university_admin/users/${userId}/password`, {
-    newPassword,
+export async function resetUserPasswordByUniversityAdmin(payload: {
+  email: string;
+  resetToken: string;
+  newPassword: string;
+}): Promise<void> {
+  await api.post("/api/v1/university-admins/reset-password/reset-password", {
+    email: payload.email,
+    resetToken: payload.resetToken,
+    newPassword: payload.newPassword,
   });
 }

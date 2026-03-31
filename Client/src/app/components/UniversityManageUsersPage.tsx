@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Lock, MoreHorizontal, X, Eye, EyeOff } from "lucide-react";
 import type { FacultySearchResponse, GradingAssistantResponse, StudentSearchResponseDto } from "../../types/universityAdmin";
-import { adminChangeUserPassword, searchStudents, searchFaculty, searchGradingAssistants } from "../../services/universityAdminService";
+import { resetUserPasswordByUniversityAdmin, searchStudents, searchFaculty, searchGradingAssistants } from "../../services/universityAdminService";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 export function UniversityManageUsersPage() {
@@ -15,11 +15,10 @@ export function UniversityManageUsersPage() {
   const [hasSearched, setHasSearched] = useState(false);
 
   const [openActionMenuKey, setOpenActionMenuKey] = useState<string | null>(null);
-  const [changePasswordUser, setChangePasswordUser] = useState<{ userId: number; label: string } | null>(null);
+  const [changePasswordUser, setChangePasswordUser] = useState<{ email: string; label: string } | null>(null);
+  const [resetToken, setResetToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [repeatPassword, setRepeatPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showRepeatPassword, setShowRepeatPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [updatingPassword, setUpdatingPassword] = useState(false);
@@ -67,23 +66,21 @@ export function UniversityManageUsersPage() {
     }
   };
 
-  const openChangePasswordModal = (userId: number, label: string) => {
+  const openChangePasswordModal = (email: string, label: string) => {
     setOpenActionMenuKey(null);
-    setChangePasswordUser({ userId, label });
+    setChangePasswordUser({ email, label });
+    setResetToken("");
     setNewPassword("");
-    setRepeatPassword("");
     setShowNewPassword(false);
-    setShowRepeatPassword(false);
     setPasswordError(null);
     setPasswordSuccess(null);
   };
 
   const closeChangePasswordModal = () => {
     setChangePasswordUser(null);
+    setResetToken("");
     setNewPassword("");
-    setRepeatPassword("");
     setShowNewPassword(false);
-    setShowRepeatPassword(false);
     setPasswordError(null);
     setPasswordSuccess(null);
     setUpdatingPassword(false);
@@ -94,21 +91,21 @@ export function UniversityManageUsersPage() {
     setPasswordSuccess(null);
 
     if (!changePasswordUser) return;
-    if (!newPassword || !repeatPassword) {
-      setPasswordError("Please fill in both password fields.");
-      return;
-    }
-    if (newPassword !== repeatPassword) {
-      setPasswordError("New password and repeat password do not match.");
+    if (!resetToken || !newPassword) {
+      setPasswordError("Please fill in reset token and new password.");
       return;
     }
 
     setUpdatingPassword(true);
     try {
-      await adminChangeUserPassword(changePasswordUser.userId, newPassword);
+      await resetUserPasswordByUniversityAdmin({
+        email: changePasswordUser.email,
+        resetToken,
+        newPassword,
+      });
       setPasswordSuccess("Password updated successfully.");
+      setResetToken("");
       setNewPassword("");
-      setRepeatPassword("");
     } catch (e) {
       setPasswordError(getApiErrorMessage(e, "Failed to update password."));
     } finally {
@@ -197,7 +194,6 @@ export function UniversityManageUsersPage() {
             <table className="w-full min-w-[1300px]">
               <thead>
                 <tr className="border-b border-gray-200 bg-[#FBFCFE]">
-                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Action</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Faculty ID</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">User ID</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Name</th>
@@ -208,6 +204,7 @@ export function UniversityManageUsersPage() {
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Office</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Office Hours</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Active</th>
+                  <th className="px-6 py-4 text-right text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -234,30 +231,6 @@ export function UniversityManageUsersPage() {
                 ) : (
                   facultyResults.map((faculty) => (
                     <tr key={faculty.facultyId} className="border-b border-gray-100 last:border-b-0">
-                      <td className="px-6 py-4">
-                        <div className="relative">
-                          <button
-                            type="button"
-                            aria-label="Row actions"
-                            onClick={() => setOpenActionMenuKey((k) => (k === `FACULTY-${faculty.facultyId}` ? null : `FACULTY-${faculty.facultyId}`))}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#CFD2D9] bg-white text-[#2B2A2A] hover:bg-[#F1F3F7]"
-                          >
-                            <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
-                          </button>
-                          {openActionMenuKey === `FACULTY-${faculty.facultyId}` && (
-                            <div className="absolute left-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
-                              <button
-                                type="button"
-                                onClick={() => openChangePasswordModal(faculty.userId, faculty.email)}
-                                className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] text-[#2B2A2A] hover:bg-[#F5F2F2]"
-                              >
-                                <Lock className="h-4 w-4" strokeWidth={2} />
-                                Change password
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </td>
                       <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">{faculty.facultyId}</td>
                       <td className="px-6 py-4 text-[13px] text-[#44506B]">{faculty.userId}</td>
                       <td className="px-6 py-4 text-[13px] font-medium text-[#2B2A2A]">{faculty.name}</td>
@@ -268,6 +241,34 @@ export function UniversityManageUsersPage() {
                       <td className="px-6 py-4 text-[13px] text-[#44506B]">{faculty.officeLocation || "—"}</td>
                       <td className="px-6 py-4 text-[13px] text-[#44506B]">{faculty.officeHours || "—"}</td>
                       <td className="px-6 py-4 text-[13px] text-[#44506B]">{faculty.active ? "Yes" : "No"}</td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="relative inline-block">
+                          <button
+                            type="button"
+                            aria-label="Row actions"
+                            onClick={() =>
+                              setOpenActionMenuKey((k) =>
+                                k === `FACULTY-${faculty.facultyId}` ? null : `FACULTY-${faculty.facultyId}`,
+                              )
+                            }
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#CFD2D9] bg-white text-[#2B2A2A] hover:bg-[#F1F3F7]"
+                          >
+                            <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                          {openActionMenuKey === `FACULTY-${faculty.facultyId}` && (
+                            <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
+                              <button
+                                type="button"
+                                onClick={() => openChangePasswordModal(faculty.email, faculty.email)}
+                                className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] text-[#2B2A2A] hover:bg-[#F5F2F2]"
+                              >
+                                <Lock className="h-4 w-4" strokeWidth={2} />
+                                Change password
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -277,7 +278,6 @@ export function UniversityManageUsersPage() {
             <table className="w-full min-w-[1200px]">
               <thead>
                 <tr className="border-b border-gray-200 bg-[#FBFCFE]">
-                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Action</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">ID</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">User ID</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Faculty ID</th>
@@ -286,6 +286,7 @@ export function UniversityManageUsersPage() {
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Department</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Office Hours</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Faculty</th>
+                  <th className="px-6 py-4 text-right text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -312,30 +313,6 @@ export function UniversityManageUsersPage() {
                 ) : (
                   assistantResults.map((ga) => (
                     <tr key={ga.id} className="border-b border-gray-100 last:border-b-0">
-                      <td className="px-6 py-4">
-                        <div className="relative">
-                          <button
-                            type="button"
-                            aria-label="Row actions"
-                            onClick={() => setOpenActionMenuKey((k) => (k === `GA-${ga.id}` ? null : `GA-${ga.id}`))}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#CFD2D9] bg-white text-[#2B2A2A] hover:bg-[#F1F3F7]"
-                          >
-                            <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
-                          </button>
-                          {openActionMenuKey === `GA-${ga.id}` && (
-                            <div className="absolute left-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
-                              <button
-                                type="button"
-                                onClick={() => openChangePasswordModal(ga.userId, ga.email)}
-                                className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] text-[#2B2A2A] hover:bg-[#F5F2F2]"
-                              >
-                                <Lock className="h-4 w-4" strokeWidth={2} />
-                                Change password
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </td>
                       <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">{ga.id}</td>
                       <td className="px-6 py-4 text-[13px] text-[#44506B]">{ga.userId}</td>
                       <td className="px-6 py-4 text-[13px] text-[#44506B]">{ga.facultyId}</td>
@@ -346,6 +323,30 @@ export function UniversityManageUsersPage() {
                       <td className="px-6 py-4 text-[13px] text-[#44506B]">
                         {ga.faculty?.name ? `${ga.faculty.name} (${ga.faculty.email ?? "—"})` : "—"}
                       </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="relative inline-block">
+                          <button
+                            type="button"
+                            aria-label="Row actions"
+                            onClick={() => setOpenActionMenuKey((k) => (k === `GA-${ga.id}` ? null : `GA-${ga.id}`))}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#CFD2D9] bg-white text-[#2B2A2A] hover:bg-[#F1F3F7]"
+                          >
+                            <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                          {openActionMenuKey === `GA-${ga.id}` && (
+                            <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
+                              <button
+                                type="button"
+                                onClick={() => openChangePasswordModal(ga.email, ga.email)}
+                                className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] text-[#2B2A2A] hover:bg-[#F5F2F2]"
+                              >
+                                <Lock className="h-4 w-4" strokeWidth={2} />
+                                Change password
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -355,7 +356,6 @@ export function UniversityManageUsersPage() {
             <table className="w-full min-w-[1100px]">
               <thead>
                 <tr className="border-b border-gray-200 bg-[#FBFCFE]">
-                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Action</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">ID</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">User ID</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">CWID</th>
@@ -363,6 +363,7 @@ export function UniversityManageUsersPage() {
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Canvas User ID</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Name</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Email</th>
+                  <th className="px-6 py-4 text-right text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -392,21 +393,30 @@ export function UniversityManageUsersPage() {
                   ) : (
                     studentResults.map((user) => (
                       <tr key={user.id} className="border-b border-gray-100 last:border-b-0">
-                        <td className="px-6 py-4">
-                          <div className="relative">
+                        <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">{user.id}</td>
+                        <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.userId}</td>
+                        <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.cwid || "—"}</td>
+                        <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.major || "—"}</td>
+                        <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.canvasUserId || "—"}</td>
+                        <td className="px-6 py-4 text-[13px] font-medium text-[#2B2A2A]">{user.name}</td>
+                        <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.email}</td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="relative inline-block">
                             <button
                               type="button"
                               aria-label="Row actions"
-                              onClick={() => setOpenActionMenuKey((k) => (k === `STUDENT-${user.id}` ? null : `STUDENT-${user.id}`))}
+                              onClick={() =>
+                                setOpenActionMenuKey((k) => (k === `STUDENT-${user.id}` ? null : `STUDENT-${user.id}`))
+                              }
                               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#CFD2D9] bg-white text-[#2B2A2A] hover:bg-[#F1F3F7]"
                             >
                               <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
                             </button>
                             {openActionMenuKey === `STUDENT-${user.id}` && (
-                              <div className="absolute left-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
+                              <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
                                 <button
                                   type="button"
-                                  onClick={() => openChangePasswordModal(user.userId, user.email)}
+                                  onClick={() => openChangePasswordModal(user.email, user.email)}
                                   className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] text-[#2B2A2A] hover:bg-[#F5F2F2]"
                                 >
                                   <Lock className="h-4 w-4" strokeWidth={2} />
@@ -416,13 +426,6 @@ export function UniversityManageUsersPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">{user.id}</td>
-                        <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.userId}</td>
-                        <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.cwid || "—"}</td>
-                        <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.major || "—"}</td>
-                        <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.canvasUserId || "—"}</td>
-                        <td className="px-6 py-4 text-[13px] font-medium text-[#2B2A2A]">{user.name}</td>
-                        <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.email}</td>
                       </tr>
                     ))
                   )
@@ -464,6 +467,33 @@ export function UniversityManageUsersPage() {
               )}
 
               <div>
+                <label htmlFor="admin-reset-email" className="mb-2 block text-[14px] font-medium text-[#2B2A2A]">
+                  Email
+                </label>
+                <input
+                  id="admin-reset-email"
+                  type="email"
+                  value={changePasswordUser.email}
+                  readOnly
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-gray-700 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="admin-reset-token" className="mb-2 block text-[14px] font-medium text-[#2B2A2A]">
+                  Reset Token
+                </label>
+                <input
+                  id="admin-reset-token"
+                  type="text"
+                  value={resetToken}
+                  onChange={(e) => setResetToken(e.target.value)}
+                  placeholder="Enter reset token"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                />
+              </div>
+
+              <div>
                 <label htmlFor="admin-new-password" className="mb-2 block text-[14px] font-medium text-[#2B2A2A]">
                   New Password
                 </label>
@@ -482,31 +512,11 @@ export function UniversityManageUsersPage() {
                     onClick={() => setShowNewPassword((v) => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                   >
-                    {showNewPassword ? <EyeOff className="h-5 w-5" strokeWidth={2} /> : <Eye className="h-5 w-5" strokeWidth={2} />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="admin-repeat-password" className="mb-2 block text-[14px] font-medium text-[#2B2A2A]">
-                  Repeat New Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="admin-repeat-password"
-                    type={showRepeatPassword ? "text" : "password"}
-                    value={repeatPassword}
-                    onChange={(e) => setRepeatPassword(e.target.value)}
-                    placeholder="Repeat new password"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-11 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
-                  />
-                  <button
-                    type="button"
-                    aria-label={showRepeatPassword ? "Hide repeated password" : "Show repeated password"}
-                    onClick={() => setShowRepeatPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  >
-                    {showRepeatPassword ? <EyeOff className="h-5 w-5" strokeWidth={2} /> : <Eye className="h-5 w-5" strokeWidth={2} />}
+                    {showNewPassword ? (
+                      <EyeOff className="h-5 w-5" strokeWidth={2} />
+                    ) : (
+                      <Eye className="h-5 w-5" strokeWidth={2} />
+                    )}
                   </button>
                 </div>
               </div>

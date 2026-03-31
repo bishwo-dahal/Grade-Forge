@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/university-admins/reset-password")
+@RequestMapping("/api/v1/university-admin/reset-password")
 @RequiredArgsConstructor
 public class UniversityAdminResetPassword {
 
