@@ -1,12 +1,14 @@
 import { useState } from "react";
-import type { StudentSearchResponseDto } from "../../types/universityAdmin";
+import type { FacultySearchResponse, StudentSearchResponseDto } from "../../types/universityAdmin";
 import { searchStudents, searchFaculty, searchGradingAssistants } from "../../services/universityAdminService";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 export function UniversityManageUsersPage() {
   const [keyword, setKeyword] = useState("");
   const [activeRole, setActiveRole] = useState<"STUDENT" | "FACULTY" | "GRADING_ASSISTANT">("STUDENT");
-  const [results, setResults] = useState<StudentSearchResponseDto[]>([]);
+  const [studentResults, setStudentResults] = useState<StudentSearchResponseDto[]>([]);
+  const [facultyResults, setFacultyResults] = useState<FacultySearchResponse[]>([]);
+  const [assistantResults, setAssistantResults] = useState<StudentSearchResponseDto[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
@@ -22,17 +24,26 @@ export function UniversityManageUsersPage() {
     setError(null);
     setHasSearched(true);
     try {
-      let data: StudentSearchResponseDto[] = [];
       if (activeRole === "STUDENT") {
-        data = await searchStudents(normalizedKeyword);
+        const data = await searchStudents(normalizedKeyword);
+        setStudentResults(data);
+        setFacultyResults([]);
+        setAssistantResults([]);
       } else if (activeRole === "FACULTY") {
-        data = await searchFaculty(normalizedKeyword);
+        const data = await searchFaculty(normalizedKeyword);
+        setFacultyResults(data);
+        setStudentResults([]);
+        setAssistantResults([]);
       } else {
-        data = await searchGradingAssistants(normalizedKeyword);
+        const data = await searchGradingAssistants(normalizedKeyword);
+        setAssistantResults(data);
+        setStudentResults([]);
+        setFacultyResults([]);
       }
-      setResults(data);
     } catch (e) {
-      setResults([]);
+      setStudentResults([]);
+      setFacultyResults([]);
+      setAssistantResults([]);
       const fallbackMessage =
         activeRole === "STUDENT"
           ? "Could not search students."
@@ -122,62 +133,133 @@ export function UniversityManageUsersPage() {
 
       <section className="mt-6 overflow-hidden rounded-2xl border border-gray-200 bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px]">
-            <thead>
-              <tr className="border-b border-gray-200 bg-[#FBFCFE]">
-                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">ID</th>
-                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">User ID</th>
-                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">CWID</th>
-                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Major</th>
-                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Canvas User ID</th>
-                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Name</th>
-                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Email</th>
-              </tr>
-            </thead>
-            <tbody>
-              {!hasSearched ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
-                    {activeRole === "STUDENT"
-                      ? "Search for students to view matching users."
-                      : activeRole === "FACULTY"
-                        ? "Search for faculty to view matching users."
-                        : "Search for grading assistants to view matching users."}
-                  </td>
+          {activeRole === "FACULTY" ? (
+            <table className="w-full min-w-[1300px]">
+              <thead>
+                <tr className="border-b border-gray-200 bg-[#FBFCFE]">
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Faculty ID</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">User ID</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Name</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Email</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Department</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Qualifications</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Phone</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Office</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Office Hours</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Active</th>
                 </tr>
-              ) : isLoading ? (
-                Array.from({ length: 5 }).map((_, index) => (
-                  <tr key={`manage-users-skeleton-${index}`} className="border-b border-gray-100 last:border-b-0">
-                    <td className="px-6 py-4" colSpan={7}>
-                      <div className="h-4 w-full animate-pulse rounded bg-[#F1F3F7]" />
+              </thead>
+              <tbody>
+                {!hasSearched ? (
+                  <tr>
+                    <td colSpan={10} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                      Search for faculty to view matching users.
                     </td>
                   </tr>
-                ))
-              ) : results.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
-                    {activeRole === "STUDENT"
-                      ? "No students found for the current keyword."
-                      : activeRole === "FACULTY"
-                        ? "No faculty found for the current keyword."
-                        : "No grading assistants found for the current keyword."}
-                  </td>
-                </tr>
-              ) : (
-                results.map((user) => (
-                  <tr key={user.id} className="border-b border-gray-100 last:border-b-0">
-                    <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">{user.id}</td>
-                    <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.userId}</td>
-                    <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.cwid || "—"}</td>
-                    <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.major || "—"}</td>
-                    <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.canvasUserId || "—"}</td>
-                    <td className="px-6 py-4 text-[13px] font-medium text-[#2B2A2A]">{user.name}</td>
-                    <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.email}</td>
+                ) : isLoading ? (
+                  Array.from({ length: 5 }).map((_, index) => (
+                    <tr key={`manage-users-skeleton-faculty-${index}`} className="border-b border-gray-100 last:border-b-0">
+                      <td className="px-6 py-4" colSpan={10}>
+                        <div className="h-4 w-full animate-pulse rounded bg-[#F1F3F7]" />
+                      </td>
+                    </tr>
+                  ))
+                ) : facultyResults.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                      No faculty found for the current keyword.
+                    </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  facultyResults.map((faculty) => (
+                    <tr key={faculty.facultyId} className="border-b border-gray-100 last:border-b-0">
+                      <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">{faculty.facultyId}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{faculty.userId}</td>
+                      <td className="px-6 py-4 text-[13px] font-medium text-[#2B2A2A]">{faculty.name}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{faculty.email}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{faculty.department || "—"}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{faculty.qualifications || "—"}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{faculty.phoneNumber || "—"}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{faculty.officeLocation || "—"}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{faculty.officeHours || "—"}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{faculty.active ? "Yes" : "No"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          ) : (
+            <table className="w-full min-w-[1100px]">
+              <thead>
+                <tr className="border-b border-gray-200 bg-[#FBFCFE]">
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">ID</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">User ID</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">CWID</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Major</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Canvas User ID</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Name</th>
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Email</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!hasSearched ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                      {activeRole === "STUDENT"
+                        ? "Search for students to view matching users."
+                        : "Search for grading assistants to view matching users."}
+                    </td>
+                  </tr>
+                ) : isLoading ? (
+                  Array.from({ length: 5 }).map((_, index) => (
+                    <tr key={`manage-users-skeleton-${index}`} className="border-b border-gray-100 last:border-b-0">
+                      <td className="px-6 py-4" colSpan={7}>
+                        <div className="h-4 w-full animate-pulse rounded bg-[#F1F3F7]" />
+                      </td>
+                    </tr>
+                  ))
+                ) : activeRole === "STUDENT" ? (
+                  studentResults.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                        No students found for the current keyword.
+                      </td>
+                    </tr>
+                  ) : (
+                    studentResults.map((user) => (
+                      <tr key={user.id} className="border-b border-gray-100 last:border-b-0">
+                        <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">{user.id}</td>
+                        <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.userId}</td>
+                        <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.cwid || "—"}</td>
+                        <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.major || "—"}</td>
+                        <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.canvasUserId || "—"}</td>
+                        <td className="px-6 py-4 text-[13px] font-medium text-[#2B2A2A]">{user.name}</td>
+                        <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.email}</td>
+                      </tr>
+                    ))
+                  )
+                ) : assistantResults.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                      No grading assistants found for the current keyword.
+                    </td>
+                  </tr>
+                ) : (
+                  assistantResults.map((user) => (
+                    <tr key={user.id} className="border-b border-gray-100 last:border-b-0">
+                      <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">{user.id}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.userId}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.cwid || "—"}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.major || "—"}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.canvasUserId || "—"}</td>
+                      <td className="px-6 py-4 text-[13px] font-medium text-[#2B2A2A]">{user.name}</td>
+                      <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.email}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </section>
     </main>

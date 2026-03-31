@@ -1,6 +1,7 @@
 package com.grade.forge.gradingassistant.service;
 
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
+import com.grade.forge.faculty.dto.FacultyResponse;
 import com.grade.forge.faculty.entity.Faculty;
 import com.grade.forge.faculty.repository.FacultyRepository;
 import com.grade.forge.gradingassistant.dto.GradingAssistantRequest;
@@ -131,16 +132,42 @@ public class GradingAssistantService {
 
     private GradingAssistantResponse mapToResponse(GradingAssistant gradingAssistant) {
         Users user = gradingAssistant.getUser();
+        Faculty faculty = gradingAssistant.getFaculty();
+
         return GradingAssistantResponse.builder()
                 .id(gradingAssistant.getId())
                 .userId(user != null ? user.getId() : null)
-                .facultyId(gradingAssistant.getFaculty() != null ? gradingAssistant.getFaculty().getId() : null)
+                .facultyId(faculty != null ? faculty.getId() : null)
                 .name(user != null ? user.getName() : null)
                 .email(user != null ? user.getEmail() : null)
                 .role(user != null && user.getRole() != null ? user.getRole().toString() : null)
                 .officeHours(gradingAssistant.getOfficeHours())
                 .department(gradingAssistant.getDepartment())
+                .faculty(mapFacultyResponse(faculty))
                 .build();
+    }
+
+    private FacultyResponse mapFacultyResponse(Faculty faculty) {
+        if (faculty == null) {
+            return null;
+        }
+        FacultyResponse response = new FacultyResponse();
+        response.setFacultyId(faculty.getId());
+        response.setName(faculty.getName());
+        response.setDepartment(faculty.getDepartment());
+        response.setQualifications(faculty.getQualifications());
+        response.setPhoneNumber(faculty.getPhoneNumber());
+        response.setOfficeLocation(faculty.getOfficeLocation());
+        response.setActive(faculty.getActive());
+        response.setOfficeHours(faculty.getOfficeHours());
+        if (faculty.getUser() != null) {
+            response.setUserId(faculty.getUser().getId());
+            response.setEmail(faculty.getUser().getEmail());
+            response.setRole(faculty.getUser().getRole() != null ? faculty.getUser().getRole().toString() : null);
+        } else {
+            response.setEmail(faculty.getEmail());
+        }
+        return response;
     }
 
     private void validateCreateRequest(GradingAssistantRequest request) {

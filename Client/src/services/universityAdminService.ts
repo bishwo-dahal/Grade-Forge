@@ -6,6 +6,7 @@ import type {
   FacultyCreatePayload,
   FacultyMember,
   LanguageCreatePayload,
+  FacultySearchResponse,
   SemesterApiResponse,
   SemesterCreatePayload,
   StudentSearchResponseDto,
@@ -203,8 +204,8 @@ export async function searchStudents(keyword: string): Promise<StudentSearchResp
   return data;
 }
 
-export async function searchFaculty(keyword: string): Promise<StudentSearchResponseDto[]> {
-  const { data } = await api.get<StudentSearchResponseDto[]>("/api/search/faculty/plain", {
+export async function searchFaculty(keyword: string): Promise<FacultySearchResponse[]> {
+  const { data } = await api.get<FacultySearchResponse[]>("/api/search/faculties", {
     params: {
       keyword: keyword.trim(),
     },

@@ -1,5 +1,6 @@
 package com.grade.forge.gradingassistant.dto;
 
+import com.grade.forge.faculty.dto.FacultyResponse;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -20,4 +21,5 @@ public class GradingAssistantResponse {
     private String role;
     private String officeHours;
     private String department;
+    private FacultyResponse faculty;
 }

@@ -152,3 +152,17 @@ export interface StudentSearchResponseDto {
   email: string;
   enrolledStatus: string;
 }
+
+export interface FacultySearchResponse {
+  facultyId: number;
+  name: string;
+  department: string;
+  qualifications: string;
+  phoneNumber: string;
+  officeLocation: string;
+  active: boolean;
+  officeHours: string;
+  userId: number;
+  email: string;
+  role: string;
+}
