@@ -16,6 +16,7 @@ export function UniversityManageUsersPage() {
 
   const [openActionMenuKey, setOpenActionMenuKey] = useState<string | null>(null);
   const [changePasswordUser, setChangePasswordUser] = useState<{ email: string; label: string } | null>(null);
+  const [facultyDetail, setFacultyDetail] = useState<FacultySearchResponse | null>(null);
   const [resetToken, setResetToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -111,6 +112,10 @@ export function UniversityManageUsersPage() {
     } finally {
       setUpdatingPassword(false);
     }
+  };
+
+  const closeFacultyDetailModal = () => {
+    setFacultyDetail(null);
   };
 
   return (
@@ -267,7 +272,7 @@ export function UniversityManageUsersPage() {
                             <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
                           </button>
                           {openActionMenuKey === `FACULTY-${faculty.facultyId}` && (
-                            <div className="absolute right-full top-0 mr-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
+                            <div className="absolute right-0 top-0 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-20">
                               <button
                                 type="button"
                                 onClick={() => openChangePasswordModal(faculty.email, faculty.email)}
@@ -332,7 +337,17 @@ export function UniversityManageUsersPage() {
                       <td className="px-6 py-4 text-[13px] text-[#44506B]">{ga.department || "—"}</td>
                       <td className="px-6 py-4 text-[13px] text-[#44506B]">{ga.officeHours || "—"}</td>
                       <td className="px-6 py-4 text-[13px] text-[#44506B]">
-                        {ga.faculty?.name ? `${ga.faculty.name} (${ga.faculty.email ?? "—"})` : "—"}
+                        {ga.faculty?.name ? (
+                          <button
+                            type="button"
+                            onClick={() => setFacultyDetail(ga.faculty ?? null)}
+                            className="text-left text-[#345079] hover:text-[#2B2A2A] hover:underline underline-offset-2"
+                          >
+                            {ga.faculty.name} ({ga.faculty.email ?? "—"})
+                          </button>
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div
@@ -350,7 +365,7 @@ export function UniversityManageUsersPage() {
                             <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
                           </button>
                           {openActionMenuKey === `GA-${ga.id}` && (
-                            <div className="absolute right-full top-0 mr-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
+                            <div className="absolute right-0 top-0 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-20">
                               <button
                                 type="button"
                                 onClick={() => openChangePasswordModal(ga.email, ga.email)}
@@ -434,7 +449,7 @@ export function UniversityManageUsersPage() {
                               <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
                             </button>
                             {openActionMenuKey === `STUDENT-${user.id}` && (
-                              <div className="absolute right-full top-0 mr-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
+                              <div className="absolute right-0 top-0 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-20">
                                 <button
                                   type="button"
                                   onClick={() => openChangePasswordModal(user.email, user.email)}
@@ -556,6 +571,64 @@ export function UniversityManageUsersPage() {
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {facultyDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4">
+          <div className="w-full max-w-[520px] overflow-hidden rounded-2xl bg-white shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
+            <div className="flex items-start justify-between px-6 pt-6">
+              <div>
+                <h3 className="text-[18px] leading-none font-semibold text-[#1F2430]">Faculty details</h3>
+                <p className="mt-2 text-[13px] text-[#5D6A80]">{facultyDetail.name}</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close dialog"
+                onClick={closeFacultyDetailModal}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+              >
+                <X className="h-5 w-5" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-3 px-6 pb-6 md:grid-cols-2">
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                <p className="text-[12px] font-medium text-[#5D6A80]">Email</p>
+                <p className="mt-1 text-[14px] text-[#1F2430]">{facultyDetail.email || "—"}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                <p className="text-[12px] font-medium text-[#5D6A80]">Department</p>
+                <p className="mt-1 text-[14px] text-[#1F2430]">{facultyDetail.department || "—"}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                <p className="text-[12px] font-medium text-[#5D6A80]">Qualifications</p>
+                <p className="mt-1 text-[14px] text-[#1F2430]">{facultyDetail.qualifications || "—"}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                <p className="text-[12px] font-medium text-[#5D6A80]">Phone</p>
+                <p className="mt-1 text-[14px] text-[#1F2430]">{facultyDetail.phoneNumber || "—"}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                <p className="text-[12px] font-medium text-[#5D6A80]">Office location</p>
+                <p className="mt-1 text-[14px] text-[#1F2430]">{facultyDetail.officeLocation || "—"}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                <p className="text-[12px] font-medium text-[#5D6A80]">Office hours</p>
+                <p className="mt-1 text-[14px] text-[#1F2430]">{facultyDetail.officeHours || "—"}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                <p className="text-[12px] font-medium text-[#5D6A80]">Active</p>
+                <p className="mt-1 text-[14px] text-[#1F2430]">{facultyDetail.active ? "Yes" : "No"}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                <p className="text-[12px] font-medium text-[#5D6A80]">IDs</p>
+                <p className="mt-1 text-[14px] text-[#1F2430]">
+                  Faculty #{facultyDetail.facultyId} · User #{facultyDetail.userId}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}
