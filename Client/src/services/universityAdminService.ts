@@ -222,3 +222,9 @@ export async function searchGradingAssistants(keyword: string): Promise<GradingA
   });
   return data;
 }
+
+export async function adminChangeUserPassword(userId: number, newPassword: string): Promise<void> {
+  await api.post(`/api/v1/university_admin/users/${userId}/password`, {
+    newPassword,
+  });
+}

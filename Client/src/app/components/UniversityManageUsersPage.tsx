@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { Lock, MoreHorizontal, X, Eye, EyeOff } from "lucide-react";
 import type { FacultySearchResponse, GradingAssistantResponse, StudentSearchResponseDto } from "../../types/universityAdmin";
-import { searchStudents, searchFaculty, searchGradingAssistants } from "../../services/universityAdminService";
+import { adminChangeUserPassword, searchStudents, searchFaculty, searchGradingAssistants } from "../../services/universityAdminService";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 export function UniversityManageUsersPage() {
@@ -12,6 +13,16 @@ export function UniversityManageUsersPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+
+  const [openActionMenuKey, setOpenActionMenuKey] = useState<string | null>(null);
+  const [changePasswordUser, setChangePasswordUser] = useState<{ userId: number; label: string } | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [repeatPassword, setRepeatPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showRepeatPassword, setShowRepeatPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [updatingPassword, setUpdatingPassword] = useState(false);
 
   const onSearch = async () => {
     const normalizedKeyword = keyword.trim();
@@ -53,6 +64,55 @@ export function UniversityManageUsersPage() {
       setError(getApiErrorMessage(e, fallbackMessage));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const openChangePasswordModal = (userId: number, label: string) => {
+    setOpenActionMenuKey(null);
+    setChangePasswordUser({ userId, label });
+    setNewPassword("");
+    setRepeatPassword("");
+    setShowNewPassword(false);
+    setShowRepeatPassword(false);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+  };
+
+  const closeChangePasswordModal = () => {
+    setChangePasswordUser(null);
+    setNewPassword("");
+    setRepeatPassword("");
+    setShowNewPassword(false);
+    setShowRepeatPassword(false);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+    setUpdatingPassword(false);
+  };
+
+  const submitPasswordChange = async () => {
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (!changePasswordUser) return;
+    if (!newPassword || !repeatPassword) {
+      setPasswordError("Please fill in both password fields.");
+      return;
+    }
+    if (newPassword !== repeatPassword) {
+      setPasswordError("New password and repeat password do not match.");
+      return;
+    }
+
+    setUpdatingPassword(true);
+    try {
+      await adminChangeUserPassword(changePasswordUser.userId, newPassword);
+      setPasswordSuccess("Password updated successfully.");
+      setNewPassword("");
+      setRepeatPassword("");
+    } catch (e) {
+      setPasswordError(getApiErrorMessage(e, "Failed to update password."));
+    } finally {
+      setUpdatingPassword(false);
     }
   };
 
@@ -137,6 +197,7 @@ export function UniversityManageUsersPage() {
             <table className="w-full min-w-[1300px]">
               <thead>
                 <tr className="border-b border-gray-200 bg-[#FBFCFE]">
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Action</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Faculty ID</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">User ID</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Name</th>
@@ -152,27 +213,51 @@ export function UniversityManageUsersPage() {
               <tbody>
                 {!hasSearched ? (
                   <tr>
-                    <td colSpan={10} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                    <td colSpan={11} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
                       Search for faculty to view matching users.
                     </td>
                   </tr>
                 ) : isLoading ? (
                   Array.from({ length: 5 }).map((_, index) => (
                     <tr key={`manage-users-skeleton-faculty-${index}`} className="border-b border-gray-100 last:border-b-0">
-                      <td className="px-6 py-4" colSpan={10}>
+                      <td className="px-6 py-4" colSpan={11}>
                         <div className="h-4 w-full animate-pulse rounded bg-[#F1F3F7]" />
                       </td>
                     </tr>
                   ))
                 ) : facultyResults.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                    <td colSpan={11} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
                       No faculty found for the current keyword.
                     </td>
                   </tr>
                 ) : (
                   facultyResults.map((faculty) => (
                     <tr key={faculty.facultyId} className="border-b border-gray-100 last:border-b-0">
+                      <td className="px-6 py-4">
+                        <div className="relative">
+                          <button
+                            type="button"
+                            aria-label="Row actions"
+                            onClick={() => setOpenActionMenuKey((k) => (k === `FACULTY-${faculty.facultyId}` ? null : `FACULTY-${faculty.facultyId}`))}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#CFD2D9] bg-white text-[#2B2A2A] hover:bg-[#F1F3F7]"
+                          >
+                            <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                          {openActionMenuKey === `FACULTY-${faculty.facultyId}` && (
+                            <div className="absolute left-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
+                              <button
+                                type="button"
+                                onClick={() => openChangePasswordModal(faculty.userId, faculty.email)}
+                                className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] text-[#2B2A2A] hover:bg-[#F5F2F2]"
+                              >
+                                <Lock className="h-4 w-4" strokeWidth={2} />
+                                Change password
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">{faculty.facultyId}</td>
                       <td className="px-6 py-4 text-[13px] text-[#44506B]">{faculty.userId}</td>
                       <td className="px-6 py-4 text-[13px] font-medium text-[#2B2A2A]">{faculty.name}</td>
@@ -192,6 +277,7 @@ export function UniversityManageUsersPage() {
             <table className="w-full min-w-[1200px]">
               <thead>
                 <tr className="border-b border-gray-200 bg-[#FBFCFE]">
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Action</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">ID</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">User ID</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Faculty ID</th>
@@ -205,27 +291,51 @@ export function UniversityManageUsersPage() {
               <tbody>
                 {!hasSearched ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                    <td colSpan={9} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
                       Search for grading assistants to view matching users.
                     </td>
                   </tr>
                 ) : isLoading ? (
                   Array.from({ length: 5 }).map((_, index) => (
                     <tr key={`manage-users-skeleton-ga-${index}`} className="border-b border-gray-100 last:border-b-0">
-                      <td className="px-6 py-4" colSpan={8}>
+                      <td className="px-6 py-4" colSpan={9}>
                         <div className="h-4 w-full animate-pulse rounded bg-[#F1F3F7]" />
                       </td>
                     </tr>
                   ))
                 ) : assistantResults.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                    <td colSpan={9} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
                       No grading assistants found for the current keyword.
                     </td>
                   </tr>
                 ) : (
                   assistantResults.map((ga) => (
                     <tr key={ga.id} className="border-b border-gray-100 last:border-b-0">
+                      <td className="px-6 py-4">
+                        <div className="relative">
+                          <button
+                            type="button"
+                            aria-label="Row actions"
+                            onClick={() => setOpenActionMenuKey((k) => (k === `GA-${ga.id}` ? null : `GA-${ga.id}`))}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#CFD2D9] bg-white text-[#2B2A2A] hover:bg-[#F1F3F7]"
+                          >
+                            <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                          {openActionMenuKey === `GA-${ga.id}` && (
+                            <div className="absolute left-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
+                              <button
+                                type="button"
+                                onClick={() => openChangePasswordModal(ga.userId, ga.email)}
+                                className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] text-[#2B2A2A] hover:bg-[#F5F2F2]"
+                              >
+                                <Lock className="h-4 w-4" strokeWidth={2} />
+                                Change password
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">{ga.id}</td>
                       <td className="px-6 py-4 text-[13px] text-[#44506B]">{ga.userId}</td>
                       <td className="px-6 py-4 text-[13px] text-[#44506B]">{ga.facultyId}</td>
@@ -245,6 +355,7 @@ export function UniversityManageUsersPage() {
             <table className="w-full min-w-[1100px]">
               <thead>
                 <tr className="border-b border-gray-200 bg-[#FBFCFE]">
+                  <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Action</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">ID</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">User ID</th>
                   <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">CWID</th>
@@ -257,7 +368,7 @@ export function UniversityManageUsersPage() {
               <tbody>
                 {!hasSearched ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                    <td colSpan={8} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
                       {activeRole === "STUDENT"
                         ? "Search for students to view matching users."
                         : "Search for grading assistants to view matching users."}
@@ -266,7 +377,7 @@ export function UniversityManageUsersPage() {
                 ) : isLoading ? (
                   Array.from({ length: 5 }).map((_, index) => (
                     <tr key={`manage-users-skeleton-${index}`} className="border-b border-gray-100 last:border-b-0">
-                      <td className="px-6 py-4" colSpan={7}>
+                      <td className="px-6 py-4" colSpan={8}>
                         <div className="h-4 w-full animate-pulse rounded bg-[#F1F3F7]" />
                       </td>
                     </tr>
@@ -274,13 +385,37 @@ export function UniversityManageUsersPage() {
                 ) : activeRole === "STUDENT" ? (
                   studentResults.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
+                      <td colSpan={8} className="px-6 py-12 text-center text-[14px] text-[#5D6A80]">
                         No students found for the current keyword.
                       </td>
                     </tr>
                   ) : (
                     studentResults.map((user) => (
                       <tr key={user.id} className="border-b border-gray-100 last:border-b-0">
+                        <td className="px-6 py-4">
+                          <div className="relative">
+                            <button
+                              type="button"
+                              aria-label="Row actions"
+                              onClick={() => setOpenActionMenuKey((k) => (k === `STUDENT-${user.id}` ? null : `STUDENT-${user.id}`))}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#CFD2D9] bg-white text-[#2B2A2A] hover:bg-[#F1F3F7]"
+                            >
+                              <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
+                            </button>
+                            {openActionMenuKey === `STUDENT-${user.id}` && (
+                              <div className="absolute left-0 mt-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg z-10">
+                                <button
+                                  type="button"
+                                  onClick={() => openChangePasswordModal(user.userId, user.email)}
+                                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] text-[#2B2A2A] hover:bg-[#F5F2F2]"
+                                >
+                                  <Lock className="h-4 w-4" strokeWidth={2} />
+                                  Change password
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-6 py-4 text-[13px] text-[#2B2A2A]">{user.id}</td>
                         <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.userId}</td>
                         <td className="px-6 py-4 text-[13px] text-[#44506B]">{user.cwid || "—"}</td>
@@ -297,6 +432,108 @@ export function UniversityManageUsersPage() {
           )}
         </div>
       </section>
+
+      {changePasswordUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4">
+          <div className="w-full max-w-[460px] overflow-hidden rounded-2xl border border-gray-200 bg-white">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-5">
+              <div>
+                <h3 className="text-[22px] leading-none font-semibold text-[#2B2A2A]">Change Password</h3>
+                <p className="mt-2 text-[13px] text-[#5D6A80]">{changePasswordUser.label}</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close dialog"
+                onClick={closeChangePasswordModal}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+              >
+                <X className="h-5 w-5" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="space-y-5 px-6 py-6">
+              {passwordError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
+                  {passwordError}
+                </div>
+              )}
+              {passwordSuccess && (
+                <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-[13px] text-green-700">
+                  {passwordSuccess}
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="admin-new-password" className="mb-2 block text-[14px] font-medium text-[#2B2A2A]">
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="admin-new-password"
+                    type={showNewPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-11 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                  <button
+                    type="button"
+                    aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+                    onClick={() => setShowNewPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showNewPassword ? <EyeOff className="h-5 w-5" strokeWidth={2} /> : <Eye className="h-5 w-5" strokeWidth={2} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="admin-repeat-password" className="mb-2 block text-[14px] font-medium text-[#2B2A2A]">
+                  Repeat New Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="admin-repeat-password"
+                    type={showRepeatPassword ? "text" : "password"}
+                    value={repeatPassword}
+                    onChange={(e) => setRepeatPassword(e.target.value)}
+                    placeholder="Repeat new password"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-11 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                  />
+                  <button
+                    type="button"
+                    aria-label={showRepeatPassword ? "Hide repeated password" : "Show repeated password"}
+                    onClick={() => setShowRepeatPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showRepeatPassword ? <EyeOff className="h-5 w-5" strokeWidth={2} /> : <Eye className="h-5 w-5" strokeWidth={2} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-5">
+              <button
+                type="button"
+                onClick={closeChangePasswordModal}
+                className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 transition-colors"
+                disabled={updatingPassword}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitPasswordChange}
+                disabled={updatingPassword}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#5A7ACD] px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-[#4a6abd] disabled:opacity-60 transition-colors"
+              >
+                <Lock className="h-4 w-4" strokeWidth={2} />
+                <span>{updatingPassword ? "Updating..." : "Update Password"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
