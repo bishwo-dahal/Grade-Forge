@@ -39,20 +39,18 @@ function FacultyMyClassesView({
 
   const archivedSemesters = useMemo(() => {
     const counts = new Map<string, number>();
-    const semesterNameById = new Map<number, string>(semesters.map((semester) => [semester.id, semester.name]));
     for (const course of archivedClasses) {
       const semester = (course.semester || "").trim() || "TBD";
       counts.set(semester, (counts.get(semester) ?? 0) + 1);
     }
-    const hasRealSemester = Array.from(counts.keys()).some((name) => name !== "TBD");
-    if (!hasRealSemester && semesterNameById.size > 0 && archivedClasses.length > 0) {
-      return Array.from(semesterNameById.values())
-        .sort((a, b) => a.localeCompare(b))
-        .map((semester) => ({ semester, count: 0 }));
+    if (semesters.length > 0) {
+      return [...semesters]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((semester) => ({ semester, count: counts.get(semester.name) ?? 0 }));
     }
     return Array.from(counts.entries())
-      .map(([semester, count]) => ({ semester, count }))
-      .sort((a, b) => a.semester.localeCompare(b.semester));
+      .map(([semester, count]) => ({ semester: { id: -1, name: semester, startDate: "", endDate: "" }, count }))
+      .sort((a, b) => a.semester.name.localeCompare(b.semester.name));
   }, [archivedClasses, semesters]);
 
   const filteredClasses = useMemo(() => {
@@ -114,15 +112,20 @@ function FacultyMyClassesView({
           {!isLoading &&
             archivedSemesters.map((entry) => (
               <article
-                key={entry.semester}
+                key={`${entry.semester.id}-${entry.semester.name}`}
                 className="rounded-2xl border border-gray-200 bg-white p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[12px] font-semibold leading-snug text-[#1F2430]">{entry.semester}</p>
+                    <p className="text-[12px] font-semibold leading-snug text-[#1F2430]">{entry.semester.name}</p>
                     <p className="mt-1 text-[11px] text-[#5D6A80]">
                       {entry.count} archived class{entry.count === 1 ? "" : "es"}
                     </p>
+                    {(entry.semester.startDate || entry.semester.endDate) && (
+                      <p className="mt-1 text-[10px] text-[#7A869C]">
+                        {entry.semester.startDate || "N/A"} - {entry.semester.endDate || "N/A"}
+                      </p>
+                    )}
                   </div>
                   <div className="inline-flex items-center gap-1 rounded-xl bg-[#F6F7F9] px-2 py-1 text-[11px] font-medium text-[#3E4E67]">
                     <Calendar className="h-3 w-3 text-[#5D6A80]" strokeWidth={2} />
