@@ -59,6 +59,14 @@ public class FacultyCourseController {
         return new ResponseEntity<>(courses, HttpStatus.OK);
     }
 
+    @GetMapping("/semester/{semesterId}")
+    public ResponseEntity<List<CourseResponseDto>> getCoursesBySemester(Authentication authentication,
+                                                                        @AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                                        @PathVariable Long semesterId) {
+        List<CourseResponseDto> courses = courseService.getCoursesBySemesterForFaculty(customUserDetails.getUsername(), semesterId);
+        return new ResponseEntity<>(courses, HttpStatus.OK);
+    }
+
     /**
      * Get all active courses
      * @return list of active courses
@@ -120,5 +128,8 @@ public class FacultyCourseController {
             throw ex;
         }
     }
+    
+    
+    
 
 }

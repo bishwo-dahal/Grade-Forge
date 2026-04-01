@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, ArrowRight, Calendar, Clock3, Plus } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
-import { listFacultyMyClasses, listFacultySemesters } from "../../services/classService";
+import {
+  getCourseCoverImageUrl,
+  listFacultyCoursesBySemester,
+  listFacultyMyClasses,
+  listFacultySemesters,
+} from "../../services/classService";
 import type { FacultyMyClassItem, FacultySemesterOption } from "../../types/class";
 import { SegmentedFilter } from "./ui/SegmentedFilter";
 import { AuthShell } from "./layout/AuthShell";
@@ -17,41 +22,38 @@ interface FacultyMyClassesViewProps {
   // NOTE: This component is presentation-only. Data is injected by the page/container.
   classes: FacultyMyClassItem[];
   semesters: FacultySemesterOption[];
+  archivedSemesterCourses: FacultyMyClassItem[];
+  selectedArchivedSemesterId: number | null;
+  isArchivedCoursesLoading: boolean;
   isLoading: boolean;
   error: string | null;
   selectedFilter: FacultyClassFilter;
   onFilterChange: (filter: FacultyClassFilter) => void;
+  onArchivedSemesterSelect: (semesterId: number) => void;
   onCreateNewClass: () => void;
 }
 
 function FacultyMyClassesView({
   classes,
   semesters,
+  archivedSemesterCourses,
+  selectedArchivedSemesterId,
+  isArchivedCoursesLoading,
   isLoading,
   error,
   selectedFilter,
   onFilterChange,
+  onArchivedSemesterSelect,
   onCreateNewClass,
 }: FacultyMyClassesViewProps) {
   const activeClasses = classes.filter((course) => course.isActive);
   const archivedClasses = classes.filter((course) => !course.isActive);
   const pendingGrading = classes.reduce((sum, course) => sum + course.pendingGrading, 0);
 
-  const archivedSemesters = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const course of archivedClasses) {
-      const semester = (course.semester || "").trim() || "TBD";
-      counts.set(semester, (counts.get(semester) ?? 0) + 1);
-    }
-    if (semesters.length > 0) {
-      return [...semesters]
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((semester) => ({ semester, count: counts.get(semester.name) ?? 0 }));
-    }
-    return Array.from(counts.entries())
-      .map(([semester, count]) => ({ semester: { id: -1, name: semester, startDate: "", endDate: "" }, count }))
-      .sort((a, b) => a.semester.name.localeCompare(b.semester.name));
-  }, [archivedClasses, semesters]);
+  const archivedSemesters = useMemo(
+    () => [...semesters].sort((a, b) => a.name.localeCompare(b.name)),
+    [semesters],
+  );
 
   const filteredClasses = useMemo(() => {
     return selectedFilter === "archived" ? archivedClasses : activeClasses;
@@ -90,7 +92,7 @@ function FacultyMyClassesView({
       {error && <p className="mt-4 text-[14px] text-[#C23A42]">{error}</p>}
 
       {selectedFilter === "archived" ? (
-        <section className="mt-4 flex flex-col items-start gap-2.5">
+        <section className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[280px_minmax(0,1fr)]">
           {isLoading
             ? Array.from({ length: 6 }).map((_, index) => (
                 <article
@@ -103,34 +105,80 @@ function FacultyMyClassesView({
               ))
             : null}
 
-          {!isLoading && archivedSemesters.length === 0 && (
-            <article className="rounded-2xl border border-gray-200 bg-white p-4">
-              <p className="text-[14px] text-[#5D6A80]">No archived semesters found.</p>
-            </article>
+          {!isLoading && (
+            <div className="rounded-2xl p-2">
+              {archivedSemesters.length === 0 ? (
+                <p className="p-2 text-[13px] text-[#5D6A80]">No semesters found.</p>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {archivedSemesters.map((semester) => {
+                    const isSelected = selectedArchivedSemesterId === semester.id;
+                    return (
+                      <button
+                        key={semester.id}
+                        type="button"
+                        onClick={() => onArchivedSemesterSelect(semester.id)}
+                        className={`w-full rounded-xl border px-3 py-2 text-left transition-colors ${
+                          isSelected
+                            ? "bg-[#EEF2FA]"
+                            : "hover:bg-[#F6F7F9]"
+                        }`}
+                      >
+                        <p className="text-[12px] font-semibold text-[#1F2430]">{semester.name}</p>
+                        <p className="mt-1 text-[10px] text-[#7A869C]">
+                          {semester.startDate || "N/A"} - {semester.endDate || "N/A"}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
 
-          {!isLoading &&
-            archivedSemesters.map((entry) => (
-              <article
-                key={`${entry.semester.id}-${entry.semester.name}`}
-                className="rounded-2xl border border-gray-200 bg-white p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[12px] font-semibold leading-snug text-[#1F2430]">{entry.semester.name}</p>
-                    {(entry.semester.startDate || entry.semester.endDate) && (
-                      <p className="mt-1 text-[10px] text-[#7A869C]">
-                        {entry.semester.startDate || "N/A"} - {entry.semester.endDate || "N/A"}
-                      </p>
-                    )}
-                  </div>
-                  <div className="inline-flex items-center gap-1 rounded-xl bg-[#F6F7F9] px-2 py-1 text-[11px] font-medium text-[#3E4E67]">
-                    <Calendar className="h-3 w-3 text-[#5D6A80]" strokeWidth={2} />
-                    Semester
-                  </div>
+          {!isLoading && (
+            <div className="rounded-2xl p-3">
+              {isArchivedCoursesLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <div key={`archived-course-skeleton-${index}`} className="rounded-xl border border-gray-200 p-3">
+                      <div className="h-4 w-44 rounded bg-gray-200 animate-pulse" />
+                      <div className="mt-2 h-3 w-32 rounded bg-gray-200 animate-pulse" />
+                    </div>
+                  ))}
                 </div>
-              </article>
-            ))}
+              ) : archivedSemesterCourses.length === 0 ? (
+                <p className="text-[14px] text-[#5D6A80]">No courses found for this semester.</p>
+              ) : (
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                  {archivedSemesterCourses.map((course) => (
+                    <article key={course.id}>
+                      <CourseCoverCardShell compact coverImageUrl={course.coverImageUrl}>
+                        <div className="flex flex-1 flex-col gap-1 p-2">
+                          <h2 className="line-clamp-2 text-[12px] font-semibold leading-snug text-[#1F2430]">
+                            {course.title}
+                          </h2>
+                          <p className="text-[11px] leading-tight text-[#3E4E67]">
+                            {course.code} · Sec {course.section}
+                          </p>
+                          <p className="text-[10px] text-[#5D6A80]">{course.semester}</p>
+                          <div className="mt-auto grid grid-cols-1 gap-1 pt-1">
+                            <Link
+                              to={`/faculty/class/${course.id}`}
+                              className="inline-flex h-7 items-center justify-center gap-1 rounded-lg bg-[#5A7ACD] px-2 text-[11px] font-semibold text-white"
+                            >
+                              Manage
+                              <ArrowRight className="h-3 w-3" strokeWidth={2} />
+                            </Link>
+                          </div>
+                        </div>
+                      </CourseCoverCardShell>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </section>
       ) : (
         <section className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -263,6 +311,9 @@ export function FacultyMyClassesPage() {
 
   const [classes, setClasses] = useState<FacultyMyClassItem[]>([]);
   const [semesters, setSemesters] = useState<FacultySemesterOption[]>([]);
+  const [archivedSemesterCourses, setArchivedSemesterCourses] = useState<FacultyMyClassItem[]>([]);
+  const [selectedArchivedSemesterId, setSelectedArchivedSemesterId] = useState<number | null>(null);
+  const [isArchivedCoursesLoading, setIsArchivedCoursesLoading] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<FacultyClassFilter>("active");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -282,9 +333,45 @@ export function FacultyMyClassesPage() {
       return;
     }
     listFacultySemesters()
-      .then(setSemesters)
+      .then((loadedSemesters) => {
+        setSemesters(loadedSemesters);
+        if (loadedSemesters.length > 0) {
+          setSelectedArchivedSemesterId((current) => current ?? loadedSemesters[0].id);
+        }
+      })
       .catch((loadError) => setError(getApiErrorMessage(loadError, "Could not load semesters.")));
   }, [selectedFilter]);
+
+  useEffect(() => {
+    if (selectedFilter !== "archived" || selectedArchivedSemesterId === null) {
+      return;
+    }
+    setIsArchivedCoursesLoading(true);
+    listFacultyCoursesBySemester(selectedArchivedSemesterId)
+      .then((courses) => {
+        const mapped: FacultyMyClassItem[] = courses.map((course) => ({
+          id: String(course.id),
+          title: course.name,
+          code: course.courseCode,
+          section: course.section ?? "TBD",
+          semester: course.semester?.name ?? "TBD",
+          isActive: Boolean(course.active),
+          students: 0,
+          assignments: 0,
+          avgScore: 0,
+          pendingGrading: 0,
+          pendingReview: 0,
+          schedule: "TBD",
+          location: "TBD",
+          icon: "",
+          iconBg: "",
+          coverImageUrl: getCourseCoverImageUrl(course),
+        }));
+        setArchivedSemesterCourses(mapped);
+      })
+      .catch((loadError) => setError(getApiErrorMessage(loadError, "Could not load semester courses.")))
+      .finally(() => setIsArchivedCoursesLoading(false));
+  }, [selectedArchivedSemesterId, selectedFilter]);
 
   const goToSettingsSection = (section: SettingsSection) => {
     navigate(`/settings?section=${section}`);
@@ -316,10 +403,14 @@ export function FacultyMyClassesPage() {
         <FacultyMyClassesView
           classes={classes}
           semesters={semesters}
+          archivedSemesterCourses={archivedSemesterCourses}
+          selectedArchivedSemesterId={selectedArchivedSemesterId}
+          isArchivedCoursesLoading={isArchivedCoursesLoading}
           isLoading={isLoading}
           error={error}
           selectedFilter={selectedFilter}
           onFilterChange={setSelectedFilter}
+          onArchivedSemesterSelect={setSelectedArchivedSemesterId}
           onCreateNewClass={handleCreateNewClass}
         />
       }

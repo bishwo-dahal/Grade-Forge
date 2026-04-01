@@ -1095,6 +1095,11 @@ export async function listFacultySemesters(): Promise<FacultySemesterOption[]> {
   }));
 }
 
+export async function listFacultyCoursesBySemester(semesterId: number): Promise<CourseApiResponse[]> {
+  const { data } = await api.get<CourseApiResponse[]>(`/api/v1/faculty/courses/semester/${semesterId}`);
+  return data;
+}
+
 export async function createFacultyCourse(form: ClassCreateFormData, coverImageFile?: File | null): Promise<void> {
   // IMPORTANT: Create also requires the authenticated user to have a Faculty row.
   // IMPORTANT: If user is not assigned as faculty by university admin, backend returns 400.

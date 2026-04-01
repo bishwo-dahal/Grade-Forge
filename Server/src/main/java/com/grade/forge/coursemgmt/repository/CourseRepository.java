@@ -16,6 +16,9 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     @EntityGraph(attributePaths = "courseImage")
     List<Course> findByFaculty_Id(Long facultyId);
 
+    @EntityGraph(attributePaths = "courseImage")
+    List<Course> findByFaculty_IdAndSemester_Id(Long facultyId, Long semesterId);
+
     Optional<Course> findByCourseCodeIgnoreCase(String courseCode);
 
     List<Course> findByNameContainingIgnoreCaseOrCourseCodeContainingIgnoreCase(String nameKeyword, String codeKeyword);

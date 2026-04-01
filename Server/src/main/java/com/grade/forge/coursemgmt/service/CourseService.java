@@ -339,6 +339,19 @@ public class CourseService {
                 .collect(Collectors.toList());
     }
 
+    public List<CourseResponseDto> getCoursesBySemesterForFaculty(String email, Long semesterId) {
+        Faculty faculty = facultyRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found for email: " + email));
+
+        // Validate semester existence so callers get a clear error.
+        semesterRepository.findById(semesterId)
+                .orElseThrow(() -> new ResourceNotFoundException("Semester not found with id: " + semesterId));
+
+        return courseRepository.findByFaculty_IdAndSemester_Id(faculty.getId(), semesterId).stream()
+                .map(this::mapToResponseDto)
+                .collect(Collectors.toList());
+    }
+
     /**
      * Get all courses by faculty id (admin use)
      */
