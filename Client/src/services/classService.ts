@@ -572,6 +572,7 @@ export interface CourseApiResponse {
   canvasCourseId: string | null;
   active: boolean;
   isPublished: boolean;
+  semesterId?: number | null;
   semester?: {
     id: number;
     name: string;
@@ -973,14 +974,19 @@ function mapFacultyCourseToCard(course: CourseApiResponse, metrics: Awaited<Retu
 function mapFacultyCourseToWorkspaceItem(
   course: CourseApiResponse,
   metrics: Awaited<ReturnType<typeof getFacultyCourseMetrics>>,
+  semesterNameById: Map<number, string>,
 ): FacultyMyClassItem {
   const iconData = buildCourseIcon(course.courseCode || course.name);
+  const resolvedSemesterName =
+    course.semester?.name ??
+    (typeof course.semesterId === "number" ? semesterNameById.get(course.semesterId) : undefined) ??
+    "TBD";
   return {
     id: String(course.id),
     title: course.name,
     code: course.courseCode,
     section: course.section ?? "TBD",
-    semester: course.semester?.name ?? "TBD",
+    semester: resolvedSemesterName,
     isActive: Boolean(course.active),
     // NOTE: Faculty My Classes cards now show backend-derived metrics; non-modeled fields keep explicit placeholders.
     students: metrics.students,
@@ -1056,9 +1062,13 @@ export async function listFacultyCourses(): Promise<FacultyCourseCard[]> {
 
 export async function listFacultyMyClasses(): Promise<FacultyMyClassItem[]> {
   // NOTE: Faculty workspace cards now hydrate from live backend metrics instead of hardcoded placeholder zeros.
-  const { data } = await api.get<CourseApiResponse[]>("/api/v1/faculty/courses");
+  const [{ data: courses }, semesters] = await Promise.all([
+    api.get<CourseApiResponse[]>("/api/v1/faculty/courses"),
+    listFacultySemesters().catch(() => []),
+  ]);
+  const semesterNameById = new Map<number, string>(semesters.map((semester) => [semester.id, semester.name]));
   const classItems = await Promise.all(
-    data.map(async (course) => {
+    courses.map(async (course) => {
       const metrics = await getFacultyCourseMetrics(course.id).catch(() => ({
         students: 0,
         assignments: 0,
@@ -1068,7 +1078,7 @@ export async function listFacultyMyClasses(): Promise<FacultyMyClassItem[]> {
         pendingReview: 0,
         avgScore: 0,
       }));
-      return mapFacultyCourseToWorkspaceItem(course, metrics);
+      return mapFacultyCourseToWorkspaceItem(course, metrics, semesterNameById);
     }),
   );
   return classItems;

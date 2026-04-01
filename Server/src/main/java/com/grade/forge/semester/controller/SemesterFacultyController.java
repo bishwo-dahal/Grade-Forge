@@ -21,6 +21,7 @@ public class SemesterFacultyController {
 
     @GetMapping("/all")
     public ResponseEntity<List<SemesterResponseDto>> getAllSemesters() {
+        System.out.println("getAllSemesters");
         List<SemesterResponseDto> semesters = semesterService.getAllSemesters();
         return ResponseEntity.ok(semesters);
     }
