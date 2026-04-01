@@ -11,4 +11,5 @@ public interface GradingAssistantRepository extends JpaRepository<GradingAssista
     boolean existsByUserId(Long userId);
     List<GradingAssistant> findAllByFacultyId(Long facultyId);
     Optional<GradingAssistant> findByIdAndFacultyId(Long id, Long facultyId);
+    List<GradingAssistant> findByUser_NameContainingIgnoreCaseOrUser_EmailContainingIgnoreCaseOrDepartmentContainingIgnoreCase(String name, String email, String department);
 }

@@ -25,6 +25,7 @@ import type {
   TeachingAssistantProfile,
 } from "../types/class";
 import api from "../api/axios";
+import { DEFAULT_COURSE_COVER_IMAGE } from "../constants/defaultCourseCover";
 import { roundTo2 } from "../utils/number";
 import { getCourseGradeReport } from "./gradeReportService";
 
@@ -550,16 +551,28 @@ const facultyAssignments: FacultyAssignment[] = [
   },
 ];
 
+export interface CourseImageApiResponse {
+  id: number;
+  fileName: string;
+  fileKey: string;
+  fileType: string;
+  fileSize: number;
+  downloadUrl: string;
+}
+
 export interface CourseApiResponse {
   id: number;
   name: string;
   courseCode: string;
   section: string | null;
   description: string | null;
-  imageUrl: string | null;
+  /** Legacy field; prefer `courseImage.downloadUrl` when present. */
+  imageUrl?: string | null;
+  courseImage?: CourseImageApiResponse | null;
   canvasCourseId: string | null;
   active: boolean;
   isPublished: boolean;
+  semesterId?: number | null;
   semester?: {
     id: number;
     name: string;
@@ -573,6 +586,15 @@ export interface CourseApiResponse {
     department: string;
     qualifications: string;
   } | null;
+}
+
+/** Cover image URL for display; uses `public/ulm.jpg` when API has no cover. */
+export function getCourseCoverImageUrl(course: CourseApiResponse): string {
+  const fromImage = course.courseImage?.downloadUrl?.trim();
+  if (fromImage) return fromImage;
+  const legacy = course.imageUrl?.trim();
+  if (legacy) return legacy;
+  return DEFAULT_COURSE_COVER_IMAGE;
 }
 
 interface FacultySemesterApiResponse {
@@ -945,20 +967,26 @@ function mapFacultyCourseToCard(course: CourseApiResponse, metrics: Awaited<Retu
     activeAssignments: metrics.activeAssignments,
     icon: iconData.icon,
     iconBg: iconData.iconBg,
+    coverImageUrl: getCourseCoverImageUrl(course),
   };
 }
 
 function mapFacultyCourseToWorkspaceItem(
   course: CourseApiResponse,
   metrics: Awaited<ReturnType<typeof getFacultyCourseMetrics>>,
+  semesterNameById: Map<number, string>,
 ): FacultyMyClassItem {
   const iconData = buildCourseIcon(course.courseCode || course.name);
+  const resolvedSemesterName =
+    course.semester?.name ??
+    (typeof course.semesterId === "number" ? semesterNameById.get(course.semesterId) : undefined) ??
+    "TBD";
   return {
     id: String(course.id),
     title: course.name,
     code: course.courseCode,
     section: course.section ?? "TBD",
-    semester: course.semester?.name ?? "TBD",
+    semester: resolvedSemesterName,
     isActive: Boolean(course.active),
     // NOTE: Faculty My Classes cards now show backend-derived metrics; non-modeled fields keep explicit placeholders.
     students: metrics.students,
@@ -970,6 +998,7 @@ function mapFacultyCourseToWorkspaceItem(
     location: "TBD",
     icon: iconData.icon,
     iconBg: iconData.iconBg,
+    coverImageUrl: getCourseCoverImageUrl(course),
   };
 }
 
@@ -984,12 +1013,24 @@ function toCreatePayload(form: ClassCreateFormData): FacultyCourseCreatePayload 
     courseCode: form.courseCode.trim(),
     section: form.section.trim(),
     description: form.description.trim(),
-    imageUrl: form.imageUrl.trim(),
     canvasCourseId: form.canvasCourseId.trim(),
     isPublished: form.isPublished,
     semesterId: parsedSemesterId,
     active: form.active,
   };
+}
+
+/**
+ * Builds `multipart/form-data` for faculty course create/update.
+ * Backend: `consumes = MULTIPART_FORM_DATA` only — `@RequestPart("course")` + optional `@RequestPart("file")`.
+ * Filename on the JSON part helps Spring bind `CourseRequestDto` reliably.
+ */
+function buildCourseMultipartBody(form: ClassCreateFormData): FormData {
+  const payload = toCreatePayload(form);
+  const body = new FormData();
+  const courseBlob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+  body.append("course", courseBlob, "course.json");
+  return body;
 }
 
 export function listClassesOverview(): Promise<ClassOverviewItem[]> {
@@ -1021,9 +1062,13 @@ export async function listFacultyCourses(): Promise<FacultyCourseCard[]> {
 
 export async function listFacultyMyClasses(): Promise<FacultyMyClassItem[]> {
   // NOTE: Faculty workspace cards now hydrate from live backend metrics instead of hardcoded placeholder zeros.
-  const { data } = await api.get<CourseApiResponse[]>("/api/v1/faculty/courses");
+  const [{ data: courses }, semesters] = await Promise.all([
+    api.get<CourseApiResponse[]>("/api/v1/faculty/courses"),
+    listFacultySemesters().catch(() => []),
+  ]);
+  const semesterNameById = new Map<number, string>(semesters.map((semester) => [semester.id, semester.name]));
   const classItems = await Promise.all(
-    data.map(async (course) => {
+    courses.map(async (course) => {
       const metrics = await getFacultyCourseMetrics(course.id).catch(() => ({
         students: 0,
         assignments: 0,
@@ -1033,7 +1078,7 @@ export async function listFacultyMyClasses(): Promise<FacultyMyClassItem[]> {
         pendingReview: 0,
         avgScore: 0,
       }));
-      return mapFacultyCourseToWorkspaceItem(course, metrics);
+      return mapFacultyCourseToWorkspaceItem(course, metrics, semesterNameById);
     }),
   );
   return classItems;
@@ -1050,18 +1095,34 @@ export async function listFacultySemesters(): Promise<FacultySemesterOption[]> {
   }));
 }
 
-export async function createFacultyCourse(form: ClassCreateFormData): Promise<void> {
-  const payload = toCreatePayload(form);
-  // IMPORTANT: Create also requires the authenticated user to have a Faculty row.
-  // IMPORTANT: If user is not assigned as faculty by university admin, backend returns 400.
-  // IMPORTANT: Changing this payload shape requires backend coordination with CourseRequestDto.
-  await api.post("/api/v1/faculty/courses/create", payload);
+export async function listFacultyCoursesBySemester(semesterId: number): Promise<CourseApiResponse[]> {
+  const { data } = await api.get<CourseApiResponse[]>(`/api/v1/faculty/courses/semester/${semesterId}`);
+  return data;
 }
 
-export async function updateFacultyCourse(courseId: string, form: ClassCreateFormData): Promise<CourseApiResponse> {
-  const payload = toCreatePayload(form);
+export async function createFacultyCourse(form: ClassCreateFormData, coverImageFile?: File | null): Promise<void> {
+  // IMPORTANT: Create also requires the authenticated user to have a Faculty row.
+  // IMPORTANT: If user is not assigned as faculty by university admin, backend returns 400.
+  // IMPORTANT: POST /create accepts multipart only — never send raw JSON for this route.
+  const body = buildCourseMultipartBody(form);
+  if (coverImageFile) {
+    body.append("file", coverImageFile);
+  }
+  await api.post("/api/v1/faculty/courses/create", body);
+}
+
+export async function updateFacultyCourse(
+  courseId: string,
+  form: ClassCreateFormData,
+  coverImageFile?: File | null,
+): Promise<CourseApiResponse> {
   const id = toCourseId(courseId);
-  const { data } = await api.put<CourseApiResponse>(`/api/v1/faculty/courses/${id}`, payload);
+  // PUT accepts multipart only — always send `course` + optional `file` (same as create).
+  const body = buildCourseMultipartBody(form);
+  if (coverImageFile) {
+    body.append("file", coverImageFile);
+  }
+  const { data } = await api.put<CourseApiResponse>(`/api/v1/faculty/courses/${id}`, body);
   return data;
 }
 
@@ -1098,6 +1159,7 @@ export async function listEnrolledCourses(): Promise<CourseCard[]> {
         icon: iconData.icon,
         iconBg: iconData.iconBg,
         progressColor: iconData.iconBg.includes("FEB05D") ? "bg-[#FEB05D]" : "bg-[#5A7ACD]",
+        coverImageUrl: getCourseCoverImageUrl(course),
       };
     }),
   );

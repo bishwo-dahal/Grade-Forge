@@ -141,3 +141,40 @@ export interface ActivityLogQueryParams {
   /** Optional end timestamp (e.g. ISO string or datetime-local value). */
   end?: string;
 }
+
+export interface StudentSearchResponseDto {
+  id: number;
+  userId: number;
+  cwid: string;
+  major: string;
+  canvasUserId: string;
+  name: string;
+  email: string;
+  enrolledStatus: string;
+}
+
+export interface FacultySearchResponse {
+  facultyId: number;
+  name: string;
+  department: string;
+  qualifications: string;
+  phoneNumber: string;
+  officeLocation: string;
+  active: boolean;
+  officeHours: string;
+  userId: number;
+  email: string;
+  role: string;
+}
+
+export interface GradingAssistantResponse {
+  id: number;
+  userId: number;
+  facultyId: number;
+  name: string;
+  email: string;
+  role: string;
+  officeHours: string;
+  department: string;
+  faculty?: FacultySearchResponse | null;
+}

@@ -5,9 +5,12 @@ import type {
   FacultyApiResponse,
   FacultyCreatePayload,
   FacultyMember,
+  GradingAssistantResponse,
   LanguageCreatePayload,
+  FacultySearchResponse,
   SemesterApiResponse,
   SemesterCreatePayload,
+  StudentSearchResponseDto,
   SupportedLanguage,
   UniversityCourseRow,
 } from "../types/universityAdmin";
@@ -191,4 +194,43 @@ export async function fetchActivityLogs(params: ActivityLogQueryParams): Promise
     },
   });
   return data;
+}
+
+export async function searchStudents(keyword: string): Promise<StudentSearchResponseDto[]> {
+  const { data } = await api.get<StudentSearchResponseDto[]>("/api/search/students/plain", {
+    params: {
+      keyword: keyword.trim(),
+    },
+  });
+  return data;
+}
+
+export async function searchFaculty(keyword: string): Promise<FacultySearchResponse[]> {
+  const { data } = await api.get<FacultySearchResponse[]>("/api/search/faculties", {
+    params: {
+      keyword: keyword.trim(),
+    },
+  });
+  return data;
+}
+
+export async function searchGradingAssistants(keyword: string): Promise<GradingAssistantResponse[]> {
+  const { data } = await api.get<GradingAssistantResponse[]>("/api/search/grading-assistants", {
+    params: {
+      keyword: keyword.trim(),
+    },
+  });
+  return data;
+}
+
+export async function resetUserPasswordByUniversityAdmin(payload: {
+  email: string;
+  resetToken: string;
+  newPassword: string;
+}): Promise<void> {
+  await api.post("/api/v1/university-admin/reset-password/reset-password", {
+    email: payload.email,
+    resetToken: payload.resetToken,
+    newPassword: payload.newPassword,
+  });
 }

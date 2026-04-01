@@ -31,11 +31,22 @@ public class StudentSearchService {
                 .collect(Collectors.toList());
     }
 
+    public List<StudentSearchResponseDto> search(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return Collections.emptyList();
+        }
+        return studentRepository
+                .findByUser_NameContainingIgnoreCaseOrUser_EmailContainingIgnoreCaseOrCwidContainingIgnoreCase(keyword, keyword, keyword)
+                .stream()
+                .map(student -> mapToResponse(student, null))
+                .collect(Collectors.toList());
+    }
+
     private StudentSearchResponseDto mapToResponse(Student student, Long courseId) {
 
-        EnrolledStatus courseStatus = EnrolledStatus.NOT_ENROLLED;
+        EnrolledStatus courseStatus = courseId == null ? null : EnrolledStatus.NOT_ENROLLED;
 
-        if (student.getEnrollments() != null) {
+        if (courseId != null && student.getEnrollments() != null) {
             courseStatus = student.getEnrollments().stream()
                     .filter(enrollment ->
                             enrollment.getCourse() != null &&
@@ -53,7 +64,7 @@ public class StudentSearchService {
                 .canvasUserId(student.getCanvasUserId())
                 .name(student.getUser() != null ? student.getUser().getName() : null)
                 .email(student.getUser() != null ? student.getUser().getEmail() : null)
-                .enrolledStatus(courseStatus) // ✅ specific to course
+                .enrolledStatus(courseStatus)
                 .build();
     }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { createFacultyCourse, listFacultySemesters } from "../../services/classService";
@@ -15,7 +15,6 @@ const EMPTY_CLASS_FORM: ClassCreateFormData = {
   courseCode: "",
   section: "",
   description: "",
-  imageUrl: "",
   canvasCourseId: "",
   semesterId: "",
   isPublished: false,
@@ -25,21 +24,27 @@ const EMPTY_CLASS_FORM: ClassCreateFormData = {
 interface FacultyCreateClassViewProps {
   // NOTE: This component is presentation-only. Data is injected by the page/container.
   classForm: ClassCreateFormData;
+  coverImageFile: File | null;
+  coverPreviewUrl: string | null;
   semesters: FacultySemesterOption[];
   isLoadingSemesters: boolean;
   isCreatingClass: boolean;
   error: string | null;
   onFormChange: (nextForm: ClassCreateFormData) => void;
+  onCoverImageChange: (file: File | null) => void;
   onSubmit: () => void;
 }
 
 function FacultyCreateClassView({
   classForm,
+  coverImageFile,
+  coverPreviewUrl,
   semesters,
   isLoadingSemesters,
   isCreatingClass,
   error,
   onFormChange,
+  onCoverImageChange,
   onSubmit,
 }: FacultyCreateClassViewProps) {
   return (
@@ -138,17 +143,31 @@ function FacultyCreateClassView({
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
+          <div className="sm:col-span-2">
             <label htmlFor="faculty-create-class-image" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
-              Image URL
+              Cover image
             </label>
             <input
               id="faculty-create-class-image"
-              value={classForm.imageUrl}
-              onChange={(event) => onFormChange({ ...classForm, imageUrl: event.target.value })}
-              placeholder="Optional cover image URL"
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+              type="file"
+              accept="image/*"
+              onChange={(event) => onCoverImageChange(event.target.files?.[0] ?? null)}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-[14px] text-[#1F2430] file:mr-3 file:rounded-lg file:border-0 file:bg-[#5A7ACD]/10 file:px-3 file:py-1.5 file:text-[13px] file:font-semibold file:text-[#345079]"
             />
+            <p className="mt-1 text-[12px] text-[#6D7B91]">Optional. Uploaded to storage; shown as the course cover.</p>
+            {coverPreviewUrl ? (
+              <div className="relative mx-auto mt-3 w-full max-w-[200px] overflow-hidden rounded-xl border border-gray-200 bg-white">
+                <img src={coverPreviewUrl} alt="Cover preview" className="h-64 w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => onCoverImageChange(null)}
+                  className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white shadow-sm ring-1 ring-white/30 transition hover:bg-black/70"
+                  aria-label="Remove image"
+                >
+                  <X className="h-4 w-4" strokeWidth={2.5} />
+                </button>
+              </div>
+            ) : null}
           </div>
           <div>
             <label htmlFor="faculty-create-class-canvas-id" className="mb-1.5 block text-[13px] font-medium text-[#1F2430]">
@@ -223,10 +242,24 @@ export function FacultyCreateClassPage() {
       .join("") || "SM";
 
   const [classForm, setClassForm] = useState<ClassCreateFormData>(EMPTY_CLASS_FORM);
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
   const [semesters, setSemesters] = useState<FacultySemesterOption[]>([]);
   const [isLoadingSemesters, setIsLoadingSemesters] = useState(true);
   const [isCreatingClass, setIsCreatingClass] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!coverImageFile) {
+      setCoverPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(coverImageFile);
+    setCoverPreviewUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [coverImageFile]);
 
   useEffect(() => {
     // NOTE: Page-level data loading keeps the class form view presentation-only and backend-ready.
@@ -284,11 +317,14 @@ export function FacultyCreateClassPage() {
       mainContent={
         <FacultyCreateClassView
           classForm={classForm}
+          coverImageFile={coverImageFile}
+          coverPreviewUrl={coverPreviewUrl}
           semesters={semesters}
           isLoadingSemesters={isLoadingSemesters}
           isCreatingClass={isCreatingClass}
           error={error}
           onFormChange={setClassForm}
+          onCoverImageChange={setCoverImageFile}
           onSubmit={handleSubmit}
         />
       }

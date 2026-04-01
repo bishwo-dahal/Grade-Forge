@@ -29,7 +29,7 @@ export function GradeForgeMain() {
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
       {/* NOTE: Top navigation was removed from this component to eliminate duplicate shell markup. */}
-      <div className="px-8 py-8">
+      <div className="px-6 py-6">
         {/* CLEANUP: Removed welcome copy block per updated dashboard content requirements. */}
 
         <EnrolledCourses courses={courses} isLoading={isCoursesLoading} />

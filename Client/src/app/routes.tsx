@@ -17,6 +17,7 @@ import { UniversityFacultyPage } from "./components/UniversityFacultyPage";
 import { UniversityLanguagesPage } from "./components/UniversityLanguagesPage";
 import { UniversitySemestersPage } from "./components/UniversitySemestersPage";
 import { UniversityMonitorPage } from "./components/UniversityMonitorPage";
+import { UniversityManageUsersPage } from "./components/UniversityManageUsersPage";
 import { FacultyCreateClassPage } from "./components/FacultyCreateClassPage";
 import { FacultyCreateAssignmentPage } from "./components/FacultyCreateAssignmentPage";
 import { FacultyGradingAssignmentDetailPage } from "./components/FacultyGradingAssignmentDetailPage";
@@ -282,6 +283,10 @@ export const router = createBrowserRouter([
       {
         path: "languages",
         Component: UniversityLanguagesPage,
+      },
+      {
+        path: "manage-users",
+        Component: UniversityManageUsersPage,
       },
       {
         path: "monitor",

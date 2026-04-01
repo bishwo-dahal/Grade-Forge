@@ -34,9 +34,6 @@ public class Course {
 
     private String description;   // Optional course description
 
-    @Column(name = "image_url")
-    private String imageUrl;      // Optional image URL
-
     @Column(name = "canvas_course_id")
     private String canvasCourseId;// External LMS id
 
@@ -79,5 +76,8 @@ public class Course {
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<MainGroup> mainGroups = new ArrayList<>();
+
+    @OneToOne(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private CourseImage courseImage;
 
 }
