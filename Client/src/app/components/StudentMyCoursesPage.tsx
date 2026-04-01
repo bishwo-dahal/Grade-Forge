@@ -7,6 +7,7 @@ import type { CourseCard } from "../../types/class";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
+import { CourseCoverCardShell } from "./CourseCoverCardShell";
 
 type CourseLayoutMode = "grid" | "list";
 
@@ -63,31 +64,27 @@ function StudentMyCoursesView({ courses, isLoading, layoutMode, onLayoutModeChan
         </div>
       </section>
 
-      <section className={`mt-6 grid gap-5 ${isGrid ? "grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3" : "grid-cols-1"}`}>
+      <section className={`mt-5 grid gap-3 ${isGrid ? "grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3" : "grid-cols-1"}`}>
         {isLoading
           ? Array.from({ length: isGrid ? 6 : 3 }).map((_, index) => (
               <article
                 key={`student-courses-skeleton-${index}`}
                 // NOTE: Skeleton cards keep My Courses layout visible while enrolled-course data is loading.
-                className="rounded-2xl border border-gray-200 bg-white p-5 animate-pulse"
+                className="overflow-hidden rounded-2xl border border-gray-200 bg-white animate-pulse"
               >
-                <div className="flex items-start gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-[#EEF2FA]" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-3 w-28 rounded bg-gray-200" />
-                    <div className="h-4 w-52 max-w-full rounded bg-gray-200" />
-                  </div>
+                <div className="h-24 bg-gray-100" />
+                <div className="space-y-2 p-5">
+                  <div className="h-3 w-28 rounded bg-gray-200" />
+                  <div className="h-4 w-52 max-w-full rounded bg-gray-200" />
                 </div>
-                <div className="mt-5 space-y-2">
+                <div className="space-y-2 px-5">
                   <div className="h-3 w-36 rounded bg-gray-200" />
                   <div className="h-3 w-24 rounded bg-gray-200" />
-                </div>
-                <div className="mt-5 space-y-2">
                   <div className="h-3 w-full rounded bg-gray-200" />
                   <div className="h-2 w-full rounded-full bg-gray-100" />
                   <div className="h-3 w-28 rounded bg-gray-200" />
                 </div>
-                <div className="mt-5 h-10 w-full rounded-xl bg-gray-100" />
+                <div className="mx-5 mb-5 mt-4 h-10 rounded-xl bg-gray-100" />
               </article>
             ))
           : null}
@@ -97,45 +94,37 @@ function StudentMyCoursesView({ courses, isLoading, layoutMode, onLayoutModeChan
             const progress = course.total > 0 ? (course.completed / course.total) * 100 : 0;
 
             return (
-              <article key={course.id} className="rounded-2xl border border-gray-200 bg-white p-5">
-                <div className="flex items-start gap-4">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl text-xl ${course.iconBg}`}>
-                    {course.icon}
-                  </div>
-                  <div>
-                    <p className="text-[12px] uppercase tracking-wide text-[#738099]">
-                      {course.courseCode} - {course.credits} CREDITS
+              <article key={course.id} className="overflow-hidden rounded-2xl shadow-sm">
+                <CourseCoverCardShell coverImageUrl={course.coverImageUrl} className="min-h-[220px] border-0 shadow-none">
+                  <div className="flex flex-1 flex-col gap-1 p-3 pt-2">
+                    <p className="text-[10px] uppercase tracking-wide text-[#738099]">
+                      {course.courseCode} · {course.credits} cr
                     </p>
-                    {/* FIX: Reduced title scale to match dashboard card sizing. */}
-                    <h2 className="mt-1 text-[14px] font-semibold leading-snug text-[#2B2A2A]">{course.title}</h2>
-                  </div>
-                </div>
+                    <h2 className="text-[13px] font-semibold leading-tight text-[#2B2A2A]">{course.title}</h2>
+                    <p className="text-[11px] text-[#5D667A]">{course.instructor}</p>
+                    <p className="text-[11px] text-[#7A849A]">{course.semester}</p>
 
-                <div className="mt-5">
-                  <p className="text-[12px] text-[#5D667A]">{course.instructor}</p>
-                  <p className="text-[12px] text-[#7A849A]">{course.semester}</p>
-                </div>
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] uppercase tracking-wide text-[#738099]">Assignments</p>
+                        <p className="text-[11px] font-semibold text-[#111827]">{assignmentsLeft} left</p>
+                      </div>
+                      <div className="mt-1 h-1.5 w-full rounded-full bg-[#E5E7EB]">
+                        <div className="h-1.5 rounded-full bg-[#FEB05D]" style={{ width: `${progress}%` }} />
+                      </div>
+                      <p className="mt-1 text-[10px] text-[#97A0B4]">
+                        {course.completed} / {course.total} done
+                      </p>
+                    </div>
 
-                <div className="mt-5">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[11px] uppercase tracking-wide text-[#738099]">Assignments</p>
-                    <p className="text-[12px] font-semibold text-[#111827]">{assignmentsLeft} left</p>
+                    <Link
+                      to={`/class/${course.id}`}
+                      className="mt-auto flex h-8 items-center justify-center rounded-lg bg-[#F2F3F5] text-[12px] font-medium text-[#111827] hover:bg-[#E9EBEF]"
+                    >
+                      View Class
+                    </Link>
                   </div>
-                  <div className="mt-2 h-2 w-full rounded-full bg-[#E5E7EB]">
-                    {/* FIX: Progress fill is now consistently orange per My Courses design requirement. */}
-                    <div className="h-2 rounded-full bg-[#FEB05D]" style={{ width: `${progress}%` }} />
-                  </div>
-                  <p className="mt-1.5 text-[11px] text-[#97A0B4]">
-                    {course.completed} / {course.total} completed
-                  </p>
-                </div>
-
-                <Link
-                  to={`/class/${course.id}`}
-                  className="mt-5 flex h-10 items-center justify-center rounded-xl bg-[#F2F3F5] text-[14px] font-medium text-[#111827] hover:bg-[#E9EBEF]"
-                >
-                  View Class
-                </Link>
+                </CourseCoverCardShell>
               </article>
             );
           })}

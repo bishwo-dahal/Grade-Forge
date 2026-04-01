@@ -164,7 +164,7 @@ public class AuthService {
         Users user = userRepository.findByEmail(resetRequest.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + resetRequest.getEmail()));
 
-        if(!Objects.equals(resetRequest.getResetToken(), "Gradeforge123")) {
+        if(!Objects.equals(resetRequest.getResetToken(), "gradeforge123")) {
             throw new BadCredentialsException("Invalid reset token");
         }
 

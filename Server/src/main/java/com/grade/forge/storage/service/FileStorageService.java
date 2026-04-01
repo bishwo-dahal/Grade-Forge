@@ -3,6 +3,8 @@ package com.grade.forge.storage.service;
 import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.assignment.entity.AssignmentStarterFile;
 import com.grade.forge.assignment.repository.AssignmentRepository;
+import com.grade.forge.coursemgmt.entity.Course;
+import com.grade.forge.coursemgmt.entity.CourseImage;
 import com.grade.forge.exceptionhandler.IncorrectFileException;
 import com.grade.forge.programminglanguage.entity.ProgrammingLanguage;
 import com.grade.forge.submission.entity.Submission;
@@ -201,6 +203,46 @@ public class FileStorageService {
         });
     }
 
+    public CourseImage uploadCourseImage(Course course, MultipartFile multipartFile) {
+        String originalName = validateAndGetName(multipartFile);
+        enforceImageContentType(multipartFile.getContentType());
+
+        String key = String.format("upload/course/%d/image/%s-%s",
+                course.getId(), UUID.randomUUID(), originalName);
+
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .contentType(multipartFile.getContentType())
+                .build();
+
+        try {
+            getClient().putObject(putObjectRequest,
+                    RequestBody.fromInputStream(multipartFile.getInputStream(), multipartFile.getSize()));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload course image to S3", e);
+        }
+
+        return CourseImage.builder()
+                .course(course)
+                .fileName(originalName)
+                .fileKey(key)
+                .fileType(multipartFile.getContentType())
+                .fileSize(multipartFile.getSize())
+                .build();
+    }
+
+    public void deleteObject(String key) {
+        if (key == null || key.isBlank()) {
+            return;
+        }
+        DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .build();
+        getClient().deleteObject(deleteRequest);
+    }
+
     /**
      * Download file content from S3 (for test runner to execute submission).
      */
@@ -211,6 +253,12 @@ public class FileStorageService {
                 .build();
         try (ResponseInputStream<GetObjectResponse> response = getClient().getObject(getRequest)) {
             return response.readAllBytes();
+        }
+    }
+
+    private void enforceImageContentType(String contentType) {
+        if (contentType == null || !contentType.toLowerCase().startsWith("image/")) {
+            throw new IncorrectFileException("Only image uploads are allowed for course images");
         }
     }
 }

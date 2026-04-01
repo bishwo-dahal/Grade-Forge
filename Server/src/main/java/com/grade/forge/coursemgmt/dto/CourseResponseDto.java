@@ -14,7 +14,7 @@ public class CourseResponseDto {
     private String courseCode;
     private String section;
     private String description;
-    private String imageUrl;
+    private CourseImageResponse courseImage;
     private String canvasCourseId;
     private Boolean active;
     private Boolean isPublished;

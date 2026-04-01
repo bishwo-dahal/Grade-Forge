@@ -11,6 +11,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -23,14 +26,13 @@ public class FacultyCourseController {
     private final CourseService courseService;
     private final ActivityLogService activityLogService;
 
-    /**
-     * Create a new course
-     * @param courseRequestDto the course request DTO
-     * @return the created course
-     */
-    @PostMapping("/create")
-    public ResponseEntity<CourseResponseDto> createCourse(Authentication authentication, @AuthenticationPrincipal CustomUserDetails customUserDetails, @RequestBody CourseRequestDto courseRequestDto) {
-        CourseResponseDto createdCourse = courseService.createCourse(customUserDetails.getUsername(), courseRequestDto);
+
+    @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CourseResponseDto> createCourse(Authentication authentication,
+                                                          @AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                          @RequestPart("course") CourseRequestDto courseRequestDto,
+                                                          @RequestPart(value = "file", required = false) MultipartFile file) {
+        CourseResponseDto createdCourse = courseService.createCourse(customUserDetails.getUsername(), courseRequestDto, file);
         activityLogService.log(authentication, "Created course", "Course: " + courseRequestDto.getName(), "success");
         return new ResponseEntity<>(createdCourse, HttpStatus.CREATED);
     }
@@ -57,6 +59,13 @@ public class FacultyCourseController {
         return new ResponseEntity<>(courses, HttpStatus.OK);
     }
 
+    @GetMapping("/semester/{semesterId}")
+    public ResponseEntity<List<CourseResponseDto>> getCoursesBySemester(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                                        @PathVariable Long semesterId) {
+        List<CourseResponseDto> courses = courseService.getCoursesBySemesterForFaculty(customUserDetails.getUsername(), semesterId);
+        return new ResponseEntity<>(courses, HttpStatus.OK);
+    }
+
     /**
      * Get all active courses
      * @return list of active courses
@@ -67,19 +76,14 @@ public class FacultyCourseController {
         return new ResponseEntity<>(courses, HttpStatus.OK);
     }
 
-    /**
-     * Update an existing course
-     * @param id the course ID
-     * @param courseRequestDto the updated course request DTO
-     * @return the updated course
-     */
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CourseResponseDto> updateCourse(Authentication authentication,
-                                                           @AuthenticationPrincipal CustomUserDetails customUserDetails,
-                                                           @PathVariable Long id,
-                                                           @RequestBody CourseRequestDto courseRequestDto) {
+                                                          @AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                          @PathVariable Long id,
+                                                          @RequestPart("course") CourseRequestDto courseRequestDto,
+                                                          @RequestPart(value = "file", required = false) MultipartFile file) {
         try {
-            CourseResponseDto updatedCourse = courseService.updateCourseForFaculty(id, courseRequestDto, customUserDetails.getUsername());
+            CourseResponseDto updatedCourse = courseService.updateCourse(id, courseRequestDto, customUserDetails.getUsername(), file);
             activityLogService.log(authentication, "Updated course", "Course: " + courseRequestDto.getName(), "success");
             return new ResponseEntity<>(updatedCourse, HttpStatus.OK);
         } catch (Exception ex) {
@@ -123,5 +127,8 @@ public class FacultyCourseController {
             throw ex;
         }
     }
+    
+    
+    
 
 }

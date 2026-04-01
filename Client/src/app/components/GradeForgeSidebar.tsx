@@ -10,6 +10,7 @@ import {
   Code2,
   ListChecks,
   Monitor,
+  UserSearch,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { Link, useLocation } from "react-router";
@@ -61,6 +62,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
     { icon: BookOpen, label: "Courses", to: "/university-admin/courses" },
     // NOTE: Languages management has its own university section route for easier backend ownership boundaries.
     { icon: Code2, label: "Languages", to: "/university-admin/languages" },
+    { icon: UserSearch, label: "Manage Users", to: "/university-admin/manage-users" },
     { icon: Monitor, label: "Monitor", to: "/university-admin/monitor" },
   ];
 

@@ -33,6 +33,8 @@ export interface CourseCard {
   icon: string;
   iconBg: string;
   progressColor: string;
+  /** Cover image URL from `courseImage.downloadUrl` when the backend provides it. */
+  coverImageUrl?: string | null;
 }
 
 export interface FacultyCourseCard {
@@ -44,6 +46,7 @@ export interface FacultyCourseCard {
   activeAssignments: number;
   icon: string;
   iconBg: string;
+  coverImageUrl?: string | null;
 }
 
 // NOTE: UI-driven model for Faculty My Classes workspace cards; keep fields aligned to what the page renders.
@@ -63,6 +66,7 @@ export interface FacultyMyClassItem {
   location: string;
   icon: string;
   iconBg: string;
+  coverImageUrl?: string | null;
 }
 
 // NOTE: UI-driven create-class form shape mirrors current backend CourseRequestDto fields used by the faculty workflow.
@@ -71,7 +75,6 @@ export interface ClassCreateFormData {
   courseCode: string;
   section: string;
   description: string;
-  imageUrl: string;
   canvasCourseId: string;
   semesterId: string;
   isPublished: boolean;
@@ -84,7 +87,6 @@ export interface FacultyCourseCreatePayload {
   courseCode: string;
   section: string;
   description: string;
-  imageUrl: string;
   canvasCourseId: string;
   isPublished: boolean;
   semesterId: number;

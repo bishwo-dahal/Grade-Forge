@@ -7,6 +7,7 @@ import com.grade.forge.courseassistant.repository.CourseAssistantRepository;
 import com.grade.forge.coursemgmt.dto.CourseResponseDto;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
+import com.grade.forge.coursemgmt.service.CourseService;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.faculty.entity.Faculty;
 import com.grade.forge.faculty.repository.FacultyRepository;
@@ -29,6 +30,7 @@ public class CourseAssistantService {
     private final CourseRepository courseRepository;
     private final FacultyRepository facultyRepository;
     private final GradingAssistantRepository gradingAssistantRepository;
+    private final CourseService courseService;
 
     public CourseAssistantResponse assignAssistant(CourseAssistantRequest request, Long facultyUserId) {
         Faculty faculty = resolveFaculty(facultyUserId);
@@ -152,34 +154,7 @@ public class CourseAssistantService {
     }
 
     private CourseResponseDto mapCourseToResponse(Course course) {
-        CourseResponseDto.SemesterBasicDto semesterDto = CourseResponseDto.SemesterBasicDto.builder()
-                .id(course.getSemester().getId())
-                .name(course.getSemester().getName())
-                .startDate(course.getSemester().getStartDate().toString())
-                .endDate(course.getSemester().getEndDate().toString())
-                .build();
-
-        CourseResponseDto.FacultyBasicDto facultyDto = CourseResponseDto.FacultyBasicDto.builder()
-                .id(course.getFaculty().getId())
-                .name(course.getFaculty().getName())
-                .email(course.getFaculty().getEmail())
-                .department(course.getFaculty().getDepartment())
-                .qualifications(course.getFaculty().getQualifications())
-                .build();
-
-        return CourseResponseDto.builder()
-                .id(course.getId())
-                .name(course.getName())
-                .courseCode(course.getCourseCode())
-                .section(course.getSection())
-                .description(course.getDescription())
-                .imageUrl(course.getImageUrl())
-                .canvasCourseId(course.getCanvasCourseId())
-                .active(course.getActive())
-                .isPublished(course.getIsPublished())
-                .semester(semesterDto)
-                .faculty(facultyDto)
-                .build();
+        return courseService.getCourseById(course.getId());
     }
 }
 
