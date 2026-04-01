@@ -50,10 +50,17 @@ function FacultyMyClassesView({
   const archivedClasses = classes.filter((course) => !course.isActive);
   const pendingGrading = classes.reduce((sum, course) => sum + course.pendingGrading, 0);
 
-  const archivedSemesters = useMemo(
-    () => [...semesters].sort((a, b) => a.name.localeCompare(b.name)),
-    [semesters],
-  );
+  const archivedSemesters = useMemo(() => {
+    const toTime = (value: string): number => {
+      const time = new Date(value).getTime();
+      return Number.isFinite(time) ? time : 0;
+    };
+    return [...semesters].sort((a, b) => {
+      const leftTime = toTime(a.endDate || a.startDate);
+      const rightTime = toTime(b.endDate || b.startDate);
+      return rightTime - leftTime;
+    });
+  }, [semesters]);
 
   const filteredClasses = useMemo(() => {
     return selectedFilter === "archived" ? archivedClasses : activeClasses;
