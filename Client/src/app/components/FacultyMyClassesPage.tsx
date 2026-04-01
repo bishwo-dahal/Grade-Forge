@@ -57,9 +57,9 @@ function FacultyMyClassesView({
     return selectedFilter === "archived" ? archivedClasses : activeClasses;
   }, [activeClasses, archivedClasses, selectedFilter]);
 
-  const filterPills: Array<{ id: FacultyClassFilter; label: string; count: number }> = [
+  const filterPills: Array<{ id: FacultyClassFilter; label: string; count?: number }> = [
     { id: "active", label: "Active", count: activeClasses.length },
-    { id: "archived", label: "Archived", count: archivedClasses.length },
+    { id: "archived", label: "Archived" },
   ];
 
   return (
@@ -90,7 +90,7 @@ function FacultyMyClassesView({
       {error && <p className="mt-4 text-[14px] text-[#C23A42]">{error}</p>}
 
       {selectedFilter === "archived" ? (
-        <section className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <section className="mt-4 flex flex-col gap-2.5">
           {isLoading
             ? Array.from({ length: 6 }).map((_, index) => (
                 <article
@@ -118,9 +118,6 @@ function FacultyMyClassesView({
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[12px] font-semibold leading-snug text-[#1F2430]">{entry.semester.name}</p>
-                    <p className="mt-1 text-[11px] text-[#5D6A80]">
-                      {entry.count} archived class{entry.count === 1 ? "" : "es"}
-                    </p>
                     {(entry.semester.startDate || entry.semester.endDate) && (
                       <p className="mt-1 text-[10px] text-[#7A869C]">
                         {entry.semester.startDate || "N/A"} - {entry.semester.endDate || "N/A"}
