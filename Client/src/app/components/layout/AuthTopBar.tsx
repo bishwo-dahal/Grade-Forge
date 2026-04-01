@@ -1,4 +1,5 @@
 import { Bell, Lock, LogOut, Plus, Search, Settings, SunMedium } from "lucide-react";
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,6 +8,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
+import { buildLogoutConfirmationMessage, queueAuthNotification } from "../../authNotifications";
 
 export type SettingsSection = "profile" | "security" | "notifications" | "appearance";
 
@@ -37,6 +49,7 @@ export function AuthTopBar({
   onPrimaryAction,
   isSettingsActive = false,
 }: AuthTopBarProps) {
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const avatarGradient =
     roleView === "faculty" || roleView === "gradingAssistant" || roleView === "university" ? "from-[#5A7ACD] to-[#4a6abd]" : "from-[#FEB05D] to-[#ff9a3d]";
   const accountItemGradient =
@@ -48,10 +61,17 @@ export function AuthTopBar({
   // FIX: University mode needs a taller search/topbar block so its divider aligns with the sidebar section break.
   const topBarVerticalPaddingClass = roleView === "university" ? "py-5" : "py-3";
 
+  const handleConfirmLogout = () => {
+    queueAuthNotification(buildLogoutConfirmationMessage(roleView));
+    setIsLogoutDialogOpen(false);
+    onLogout();
+  };
+
   // NOTE: Shared top-nav background is white so student/faculty/settings surfaces stay visually consistent.
   return (
-    <div className={`bg-white border-b border-[#CFD2D9] px-6 ${topBarVerticalPaddingClass}`}>
-      <div className="flex items-center justify-between gap-4">
+    <>
+      <div className={`bg-white border-b border-[#CFD2D9] px-6 ${topBarVerticalPaddingClass}`}>
+        <div className="flex items-center justify-between gap-4">
         {showSearch ? (
           <div className="flex-1 max-w-[480px]">
             <div className="relative">
@@ -139,7 +159,13 @@ export function AuthTopBar({
                 </div>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={onLogout}>
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={(event) => {
+                  event.preventDefault();
+                  setIsLogoutDialogOpen(true);
+                }}
+              >
                 <LogOut className="w-4 h-4 text-red-600" strokeWidth={2} />
                 <span className="text-[13px] font-medium">Logout</span>
               </DropdownMenuItem>
@@ -156,7 +182,27 @@ export function AuthTopBar({
             </div>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+      <AlertDialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm logout</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to log out from this account?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 focus-visible:ring-red-600"
+              onClick={handleConfirmLogout}
+            >
+              Log out
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

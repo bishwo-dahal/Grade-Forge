@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { GradeForgeSidebar } from "../GradeForgeSidebar";
+import { consumeAndShowAuthNotification } from "../../authNotifications";
 
 export interface AuthShellProps {
   roleView: "student" | "faculty" | "gradingAssistant" | "university";
@@ -9,6 +10,10 @@ export interface AuthShellProps {
 }
 
 export function AuthShell({ roleView, topBar, mainContent, rightPanel }: AuthShellProps) {
+  useEffect(() => {
+    consumeAndShowAuthNotification();
+  }, []);
+
   return (
     <div className="flex h-screen w-full bg-[#F5F2F2]">
       {/* NOTE: Sidebar stays shared so navigation styling stays consistent across authenticated pages. */}

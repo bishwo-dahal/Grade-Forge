@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router";
+import { useEffect, useMemo, useState } from "react";
+import { Navigate, useNavigate } from "react-router";
 import { AuthSplitLayout } from "./auth/AuthSplitLayout";
 import {
   clearAuthenticated,
@@ -12,6 +12,21 @@ import {
   setAuthenticated,
 } from "../auth";
 import { completeStudentRegistration } from "../../services/authService";
+import {
+  buildLogoutConfirmationMessage,
+  consumeAndShowAuthNotification,
+  queueAuthNotification,
+} from "../authNotifications";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
 
 const MAJOR_OPTIONS = ["Computer Science", "Software Engineering", "Data Science"] as const;
 
@@ -22,6 +37,7 @@ export default function CompleteStudentRegistrationPage() {
   const [canvasUserId, setCanvasUserId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
 
   const role = getAuthenticatedRole();
   const user = getAuthenticatedUser();
@@ -39,6 +55,10 @@ export default function CompleteStudentRegistrationPage() {
   }
 
   const studentName = useMemo(() => user?.name?.trim() || "Student", [user?.name]);
+
+  useEffect(() => {
+    consumeAndShowAuthNotification();
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -77,6 +97,7 @@ export default function CompleteStudentRegistrationPage() {
   };
 
   const handleLogout = () => {
+    queueAuthNotification(buildLogoutConfirmationMessage(role));
     clearAuthenticated();
     navigate("/signin", { replace: true });
   };
@@ -149,10 +170,33 @@ export default function CompleteStudentRegistrationPage() {
       </form>
 
       <div className="mt-6 flex items-center justify-between text-[13px] text-gray-600">
-        <Link to="/signin" onClick={handleLogout} className="text-[#FEB05D] underline hover:text-[#f5a04d]">
+        <button
+          type="button"
+          onClick={() => setIsLogoutDialogOpen(true)}
+          className="text-[#FEB05D] underline hover:text-[#f5a04d]"
+        >
           Sign out
-        </Link>
+        </button>
       </div>
+      <AlertDialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm logout</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to log out before completing registration?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 focus-visible:ring-red-600"
+              onClick={handleLogout}
+            >
+              Log out
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AuthSplitLayout>
   );
 }

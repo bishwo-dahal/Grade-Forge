@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation, Navigate } from "react-router";
 import { Eye, EyeOff } from "lucide-react";
 import { AuthSplitLayout } from "./auth/AuthSplitLayout";
@@ -10,6 +10,14 @@ import {
   setAuthenticated,
 } from "../auth";
 import { login } from "../../services/authService";
+import {
+  buildFirstTimeSignInMessage,
+  buildLoginConfirmationMessage,
+  consumeAndShowAuthNotification,
+  isFirstTimeSignIn,
+  markFirstTimeSignInSeen,
+  queueAuthNotification,
+} from "../authNotifications";
 
 export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -22,6 +30,10 @@ export default function SignInPage() {
   const location = useLocation();
   // NOTE: Preserve deep-link target when allowed, otherwise fall back to role default after login.
   const from = (location.state as { from?: string } | null)?.from;
+
+  useEffect(() => {
+    consumeAndShowAuthNotification();
+  }, []);
 
   if (isAuthenticated()) {
     const role = getAuthenticatedRole();
@@ -44,6 +56,12 @@ export default function SignInPage() {
         role: response.role,
         profileCompleted: response.profileCompleted,
       });
+      if (isFirstTimeSignIn(response.email, response.role)) {
+        markFirstTimeSignInSeen(response.email, response.role);
+        queueAuthNotification(buildFirstTimeSignInMessage(response.role));
+      } else {
+        queueAuthNotification(buildLoginConfirmationMessage(response.role));
+      }
       if (response.role?.toUpperCase() === "STUDENT" && !response.profileCompleted) {
         // IMPORTANT: Incomplete student profiles are always redirected to completion before any dashboard route.
         navigate("/complete-registration", { replace: true });

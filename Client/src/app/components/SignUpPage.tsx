@@ -10,6 +10,11 @@ import {
   setAuthenticated,
 } from "../auth";
 import { signup } from "../../services/authService";
+import {
+  buildFirstTimeSignInMessage,
+  markFirstTimeSignInSeen,
+  queueAuthNotification,
+} from "../authNotifications";
 
 export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -56,6 +61,8 @@ export default function SignUpPage() {
         role: response.role,
         profileCompleted: response.profileCompleted,
       });
+      markFirstTimeSignInSeen(response.email, response.role);
+      queueAuthNotification(buildFirstTimeSignInMessage(response.role));
       // IMPORTANT: If profile is incomplete, force next step immediately so student can finish required fields.
       window.location.href =
         response.role.toUpperCase() === "STUDENT" && !response.profileCompleted
