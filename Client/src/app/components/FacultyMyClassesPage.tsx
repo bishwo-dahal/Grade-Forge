@@ -90,7 +90,7 @@ function FacultyMyClassesView({
       {error && <p className="mt-4 text-[14px] text-[#C23A42]">{error}</p>}
 
       {selectedFilter === "archived" ? (
-        <section className="mt-4 flex flex-col gap-2.5">
+        <section className="mt-4 flex flex-col items-start gap-2.5">
           {isLoading
             ? Array.from({ length: 6 }).map((_, index) => (
                 <article
