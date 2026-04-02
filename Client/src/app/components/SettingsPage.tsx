@@ -378,7 +378,7 @@ export function SettingsPage() {
                                   type="button"
                                   onClick={handleFacultyUpdate}
                                   disabled={updatingFaculty}
-                                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5A7ACD] hover:bg-[#4a6abd] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
+                                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
                                 >
                                   {updatingFaculty ? "Saving…" : "Save changes"}
                                 </button>
@@ -387,7 +387,7 @@ export function SettingsPage() {
                               <button
                                 type="button"
                                 onClick={() => setIsEditingFaculty(true)}
-                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5A7ACD] hover:bg-[#4a6abd] rounded-xl text-[14px] font-semibold text-white transition-colors"
+                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] rounded-xl text-[14px] font-semibold text-white transition-colors"
                               >
                                 <Pencil className="w-4 h-4" strokeWidth={2} />
                                 Edit
@@ -646,7 +646,7 @@ export function SettingsPage() {
                 type="button"
                 onClick={handlePasswordUpdate}
                 disabled={updatingPassword}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5A7ACD] hover:bg-[#4a6abd] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
               >
                 <Lock className="w-4 h-4" strokeWidth={2} />
                 <span>{updatingPassword ? "Updating..." : "Update Password"}</span>

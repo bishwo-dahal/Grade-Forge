@@ -46,7 +46,7 @@ function FacultyMainView({
 }: FacultyMainViewProps) {
   // CLEANUP: Greeting copy was removed, so profile display-name derivation is no longer needed here.
   return (
-    <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
+    <main className="flex-1 overflow-y-auto bg-[#F5F4F6]">
       {/* NOTE: Top navigation was removed here to avoid duplicated faculty shell code. */}
       <div className="p-6">
         {/* CLEANUP: Removed faculty greeting summary block per dashboard copy update request. */}
@@ -67,10 +67,10 @@ function TeachingCourses({
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-[#2B2A2A]">Teaching This Semester</h2>
+        <h2 className="text-base font-semibold text-[#1F2430]">Teaching This Semester</h2>
         <div className="flex items-center gap-3">
           {/* CLEANUP: Removed Add Class button from faculty dashboard header per latest UX update. */}
-          <Link to="/faculty/my-classes" className="text-[13px] text-[#5A7ACD] hover:text-[#4a6abd] font-medium">
+          <Link to="/faculty/my-classes" className="text-[13px] text-[#7A1226] hover:text-[#65101F] font-medium">
             View All Courses &rarr;
           </Link>
         </div>
@@ -122,22 +122,22 @@ function TeachingCourses({
               }
             >
               <div className="flex flex-1 flex-col gap-1 p-3 pt-2">
-                <h3 className="text-[13px] font-semibold leading-tight text-[#2B2A2A]">{course.title}</h3>
+                <h3 className="text-[13px] font-semibold leading-tight text-[#1F2430]">{course.title}</h3>
                 <div className="mt-1 space-y-1.5 text-[12px]">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-gray-600">Students</span>
-                    <span className="font-semibold text-[#2B2A2A]">{course.students}</span>
+                    <span className="font-semibold text-[#1F2430]">{course.students}</span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-gray-600">Pending</span>
-                    <span className="font-semibold text-[#FEB05D]">{course.pendingSubmissions}</span>
+                    <span className="font-semibold text-[#9F3549]">{course.pendingSubmissions}</span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-gray-600">Active</span>
-                    <span className="font-semibold text-[#2B2A2A]">{course.activeAssignments}</span>
+                    <span className="font-semibold text-[#1F2430]">{course.activeAssignments}</span>
                   </div>
                 </div>
-                <div className="mt-auto w-full rounded-lg bg-gray-50 py-2 text-center text-[12px] font-medium text-[#2B2A2A] transition-colors group-hover:bg-gray-100">
+                <div className="mt-auto w-full rounded-md bg-[#F5F4F6] py-2 text-center text-[12px] font-medium text-[#1F2430] transition-colors group-hover:bg-[#ECE9ED]">
                   Manage Course
                 </div>
               </div>

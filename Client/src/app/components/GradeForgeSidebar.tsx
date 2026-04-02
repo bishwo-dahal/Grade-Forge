@@ -29,6 +29,7 @@ interface SidebarNavItem {
 export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
   const location = useLocation();
   const isDashboardRoute = location.pathname === "/dashboard" || location.pathname.startsWith("/dashboard/");
+  const isUniversityView = viewMode === "university";
   // NOTE: Sidebar stays full-width on dashboard, but collapses to icon rail on other authenticated pages.
   const isAutoCollapsed = !isDashboardRoute;
 
@@ -115,10 +116,12 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
     : "";
 
   return (
-    <aside className={`${sidebarShellClass} bg-white border-r border-[#CFD2D9] flex-shrink-0 flex flex-col transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}>
+    <aside
+      className={`${sidebarShellClass} ${isUniversityView ? "bg-white border-r border-[#C9C4C9]" : "bg-[#7A1226] border-r border-[#65101F]"} flex-shrink-0 flex flex-col transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
+    >
       {/* NOTE: Role switcher was removed intentionally; access is controlled by auth role + route guards. */}
       {viewMode === "university" ? (
-        <div className="px-4 py-4 border-b border-[#CFD2D9]">
+        <div className="px-4 py-4 border-b border-[#C9C4C9]">
           {/* FIX: Use the same divider color token as the top bar so horizontal lines align visually. */}
           {/* FIX: Keep university title on a single line with a smaller, natural size per updated design feedback. */}
           {/* FIX: Set university heading to 22px to match the requested sidebar title size. */}
@@ -127,17 +130,24 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
         </div>
       ) : (
         /* REFACTOR: Keep existing logo header for student/faculty while university mode uses title-style sidebar header. */
-        <div className={`py-6 ${isAutoCollapsed ? "px-0 flex justify-center" : "px-6"}`}>
+        <div
+          className={`h-[76px] border-b border-[#C9C4C9] bg-white ${isAutoCollapsed ? "px-0 flex items-center justify-center" : "px-6 flex items-center"}`}
+        >
           <Link
             to="/dashboard"
-            className={`flex items-center hover:opacity-90 transition-[opacity,transform] duration-300 ease-out ${isAutoCollapsed ? "justify-center w-12 h-12 rounded-[18px] bg-[#2B2A2A]" : "gap-3"}`}
+            className={`flex items-center hover:opacity-90 transition-[opacity,transform] duration-300 ease-out ${isAutoCollapsed ? "justify-center w-12 h-12 rounded-[14px]" : "gap-3"}`}
             aria-label="Go to dashboard"
           >
-            {/* FIX: Keep one consistent logo mark in both expanded and collapsed states so the icon does not shift or clip. */}
-            <div className={`h-8 w-8 flex-shrink-0 rounded-xl flex items-center justify-center ${isAutoCollapsed ? "bg-transparent" : "bg-[#2B2A2A]"}`}>
-              <div className={`h-[18px] w-[18px] rounded-[6px] border-[1.8px] ${isAutoCollapsed ? "border-white" : "border-white"}`} />
-            </div>
-            <span className={`text-[15px] font-semibold text-[#2B2A2A] whitespace-nowrap ${collapsibleTextClass}`}>Grade Forge</span>
+            <img
+              src="/favicon.svg"
+              alt="Grade Forge"
+              className="h-8 w-8 flex-shrink-0 rounded-[10px]"
+            />
+            {!isAutoCollapsed && (
+              <span className={`text-[15px] font-semibold text-[#1F2430] whitespace-nowrap ${collapsibleTextClass}`}>
+                Grade Forge
+              </span>
+            )}
           </Link>
         </div>
       )}
@@ -149,7 +159,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
         <div className="mb-6">
           {viewMode !== "university" && (
             <div className={`px-3 mb-2 ${collapsibleHeadingClass}`}>
-              <span className="text-[11px] font-semibold tracking-wider text-[#8D97AC] uppercase">
+              <span className={`text-[11px] font-semibold tracking-wider uppercase ${isUniversityView ? "text-[#8D97AC]" : "text-[#D8B7BE]"}`}>
                 {viewMode === "student" ? "Learning" : viewMode === "gradingAssistant" ? "Grading" : "Teaching"}
               </span>
             </div>
@@ -161,8 +171,12 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
                   to={item.to}
                   className={`w-full flex items-center rounded-lg transition-all ${navLinkLayoutClass} ${
                     isItemActive(item)
-                      ? "bg-[#5A7ACD] text-white shadow-[0_8px_18px_rgba(90,122,205,0.32)]"
-                      : "text-[#44506B] hover:text-[#2B2A2A] hover:bg-[#EEF2FB]"
+                      ? (isUniversityView
+                          ? "bg-[#7A1226] text-white shadow-[0_8px_18px_rgba(122,18,38,0.32)]"
+                          : "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]")
+                      : (isUniversityView
+                          ? "text-[#44506B] hover:text-[#1F2430] hover:bg-[#F1EEF1]"
+                          : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]")
                   }`}
                 >
                   <item.icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />
@@ -177,7 +191,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
         {resourceItems.length > 0 && (
           <div>
             <div className={`px-3 mb-2 ${collapsibleHeadingClass}`}>
-              <span className="text-[11px] font-semibold tracking-wider text-[#8D97AC] uppercase">
+              <span className={`text-[11px] font-semibold tracking-wider uppercase ${isUniversityView ? "text-[#8D97AC]" : "text-[#D8B7BE]"}`}>
                 Resources
               </span>
             </div>
@@ -188,8 +202,12 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
                     to={item.to}
                     className={`w-full flex items-center rounded-lg transition-all ${navLinkLayoutClass} ${
                       isItemActive(item)
-                        ? "bg-[#5A7ACD] text-white shadow-[0_8px_18px_rgba(90,122,205,0.32)]"
-                        : "text-[#44506B] hover:text-[#2B2A2A] hover:bg-[#EEF2FB]"
+                        ? (isUniversityView
+                            ? "bg-[#7A1226] text-white shadow-[0_8px_18px_rgba(122,18,38,0.32)]"
+                            : "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]")
+                        : (isUniversityView
+                            ? "text-[#44506B] hover:text-[#1F2430] hover:bg-[#F1EEF1]"
+                            : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]")
                     }`}
                   >
                     <item.icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />

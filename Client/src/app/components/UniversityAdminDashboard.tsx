@@ -266,7 +266,7 @@ export function UniversityAdminDashboard() {
             <button
               type="button"
               onClick={() => setShowFacultyModal(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#5A7ACD] px-5 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4a6abd] w-full sm:w-auto"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#7A1226] px-5 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#65101F] w-full sm:w-auto"
             >
               <Plus className="h-4 w-4" strokeWidth={2} />
               <span>Add Faculty</span>
@@ -363,7 +363,7 @@ export function UniversityAdminDashboard() {
             <button
               type="button"
               onClick={() => setShowSemesterModal(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#5A7ACD] px-5 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4a6abd] w-full sm:w-auto"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#7A1226] px-5 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#65101F] w-full sm:w-auto"
             >
               <Plus className="h-4 w-4" strokeWidth={2} />
               <span>Create Semester</span>
@@ -628,7 +628,7 @@ export function UniversityAdminDashboard() {
                 <button
                   type="button"
                   onClick={handleCreateFaculty}
-                  className="rounded-2xl bg-[#5A7ACD] py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4a6abd] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-2xl bg-[#7A1226] py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#65101F] disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={isCreatingFaculty}
                 >
                   {isCreatingFaculty ? "Adding..." : "Add Faculty"}
@@ -715,7 +715,7 @@ export function UniversityAdminDashboard() {
                 <button
                   type="button"
                   onClick={handleCreateSemester}
-                  className="rounded-2xl bg-[#5A7ACD] py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4a6abd] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-2xl bg-[#7A1226] py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#65101F] disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={isCreatingSemester}
                 >
                   {isCreatingSemester ? "Creating..." : "Create Semester"}

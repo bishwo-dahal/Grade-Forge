@@ -67,7 +67,7 @@ export function GradingAssistantCourseCard({ course }: GradingAssistantCourseCar
       <div className="mt-4 grid grid-cols-[1fr_auto] gap-2.5">
         <Link
           to={`/grading-assistant/class/${course.id}`}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-[#5A7ACD] px-5 text-[13px] leading-none font-semibold text-white hover:bg-[#4a6abd] transition-colors"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-[#7A1226] px-5 text-[13px] leading-none font-semibold text-white hover:bg-[#65101F] transition-colors"
         >
           Open Course
         </Link>

@@ -180,15 +180,22 @@ export function FacultyClassPage() {
   };
 
   return (
-    <div className="flex h-screen bg-[#F5F2F2]">
+    <div className="flex h-screen bg-[#F5F4F6]">
       {/* Left Sidebar Navigation */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex-shrink-0">
+      <aside className="w-64 bg-[#7A1226] border-r border-[#65101F] flex-shrink-0">
         <div className="h-full flex flex-col">
+          {/* Logo Header */}
+          <div className="h-[76px] border-b border-[#65101F] bg-white px-6 flex items-center">
+            <Link to="/dashboard" className="flex items-center gap-3 hover:opacity-90 transition-opacity" aria-label="Go to dashboard">
+              <img src="/favicon.svg" alt="Grade Forge" className="h-8 w-8 flex-shrink-0 rounded-[10px]" />
+              <span className="text-[15px] font-semibold text-[#1F2430] whitespace-nowrap">Grade Forge</span>
+            </Link>
+          </div>
           {/* Back to Dashboard Link */}
-          <div className="px-4 py-4 border-b border-gray-200">
+          <div className="px-4 py-3 border-b border-[#65101F]">
             <Link
               to="/dashboard"
-              className="flex items-center gap-2 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors"
+              className="flex items-center gap-2 text-[13px] text-[#F5E5E8] hover:text-white transition-colors"
             >
               <ChevronLeft className="w-4 h-4" strokeWidth={2} />
               <span>Back to Dashboard</span>
@@ -336,7 +343,7 @@ function NavItem({
         to={to}
         className={`
           w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors
-          ${active ? "bg-[#5A7ACD] text-white" : "text-gray-700 hover:bg-gray-100"}
+          ${active ? "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]" : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]"}
         `}
       >
         <div className="flex items-center gap-3">
@@ -347,7 +354,7 @@ function NavItem({
           <span
             className={`
               px-2 py-0.5 text-[11px] font-semibold rounded-full
-              ${active ? "bg-white text-[#5A7ACD]" : "bg-[#FEB05D] text-white"}
+              ${active ? "bg-[#7A1226] text-white" : "bg-[#9F3549] text-white"}
             `}
           >
             {badge}
@@ -3092,11 +3099,14 @@ function SettingsSection({ classId }: { classId: string }) {
     try {
       const updated = await updateFacultyCourse(classId, form, coverImageFile);
       setCourse(updated);
+      toast.success("Course updated successfully.");
+    } catch (err) {
+      const message = getErrorMessage(err);
+      setError(message);
+      toast.error(message || "Failed to update course. Please try again.");
+    } finally {
       setCoverImageFile(null);
       setIsEditOpen(false);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
       setIsSaving(false);
     }
   }

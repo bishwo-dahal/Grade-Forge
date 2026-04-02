@@ -27,6 +27,7 @@ import React from "react";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
+import { GradeForgeSidebar } from "./GradeForgeSidebar";
 
 type SectionType = 'overview' | 'assignments' | 'announcements' | 'grades' | 'resources' | 'people';
 
@@ -84,65 +85,8 @@ export function ClassPage() {
 
 
   return (
-    <div className="flex h-screen bg-[#F5F2F2]">
-      {/* Left Sidebar Navigation */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex-shrink-0">
-        <div className="h-full flex flex-col">
-          {/* Back to Dashboard Link */}
-          <div className="px-4 py-4 border-b border-gray-200">
-            <Link 
-              to="/dashboard"
-              className="flex items-center gap-2 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" strokeWidth={2} />
-              <span>Back to Dashboard</span>
-            </Link>
-          </div>
-
-          {/* Navigation Menu */}
-          <nav className="flex-1 px-3 py-4">
-            <ul className="space-y-1">
-              <NavItem
-                icon={<Book className="w-4 h-4" strokeWidth={2} />}
-                label="Overview"
-                active={activeSection === 'overview'}
-                onClick={() => setActiveSection('overview')}
-              />
-              <NavItem
-                icon={<FileText className="w-4 h-4" strokeWidth={2} />}
-                label="Assignments"
-                active={activeSection === 'assignments'}
-                onClick={() => setActiveSection('assignments')}
-              />
-              <NavItem
-                icon={<Megaphone className="w-4 h-4" strokeWidth={2} />}
-                label="Announcements"
-                active={activeSection === 'announcements'}
-                onClick={() => setActiveSection('announcements')}
-                badge={announcementCount > 0 ? announcementCount : undefined}
-              />
-              <NavItem
-                icon={<BarChart3 className="w-4 h-4" strokeWidth={2} />}
-                label="Grades"
-                active={activeSection === 'grades'}
-                onClick={() => setActiveSection('grades')}
-              />
-              <NavItem
-                icon={<FolderOpen className="w-4 h-4" strokeWidth={2} />}
-                label="Resources"
-                active={activeSection === 'resources'}
-                onClick={() => setActiveSection('resources')}
-              />
-              <NavItem
-                icon={<Users className="w-4 h-4" strokeWidth={2} />}
-                label="People"
-                active={activeSection === 'people'}
-                onClick={() => setActiveSection('people')}
-              />
-            </ul>
-          </nav>
-        </div>
-      </aside>
+    <div className="flex h-screen bg-[#F5F4F6]">
+      <GradeForgeSidebar viewMode="student" />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -181,6 +125,58 @@ export function ClassPage() {
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto px-8 py-6">
+            <div className="mb-4">
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center gap-2 text-[13px] text-[#5D667A] hover:text-[#1F2430] transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" strokeWidth={2} />
+                <span>Back to Dashboard</span>
+              </Link>
+            </div>
+
+            <section className="mb-6 rounded-xl border border-[#C9C4C9] bg-white p-2">
+              <div className="flex flex-wrap gap-2">
+                <SectionTab
+                  icon={<Book className="w-4 h-4" strokeWidth={2} />}
+                  label="Overview"
+                  active={activeSection === "overview"}
+                  onClick={() => setActiveSection("overview")}
+                />
+                <SectionTab
+                  icon={<FileText className="w-4 h-4" strokeWidth={2} />}
+                  label="Assignments"
+                  active={activeSection === "assignments"}
+                  onClick={() => setActiveSection("assignments")}
+                />
+                <SectionTab
+                  icon={<Megaphone className="w-4 h-4" strokeWidth={2} />}
+                  label="Announcements"
+                  active={activeSection === "announcements"}
+                  onClick={() => setActiveSection("announcements")}
+                  badge={announcementCount > 0 ? announcementCount : undefined}
+                />
+                <SectionTab
+                  icon={<BarChart3 className="w-4 h-4" strokeWidth={2} />}
+                  label="Grades"
+                  active={activeSection === "grades"}
+                  onClick={() => setActiveSection("grades")}
+                />
+                <SectionTab
+                  icon={<FolderOpen className="w-4 h-4" strokeWidth={2} />}
+                  label="Resources"
+                  active={activeSection === "resources"}
+                  onClick={() => setActiveSection("resources")}
+                />
+                <SectionTab
+                  icon={<Users className="w-4 h-4" strokeWidth={2} />}
+                  label="People"
+                  active={activeSection === "people"}
+                  onClick={() => setActiveSection("people")}
+                />
+              </div>
+            </section>
+
             {activeSection === 'overview' && <OverviewSection />}
             {activeSection === 'assignments' && <AssignmentsSection />}
             {activeSection === 'announcements' && <AnnouncementsSection />}
@@ -195,7 +191,7 @@ export function ClassPage() {
 }
 
 // Navigation Item Component
-function NavItem({ 
+function SectionTab({
   icon, 
   label, 
   active, 
@@ -209,31 +205,23 @@ function NavItem({
   badge?: number;
 }) {
   return (
-    <li>
-      <button
-        onClick={onClick}
-        className={`
-          w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors
-          ${active 
-            ? 'bg-[#5A7ACD] text-white' 
-            : 'text-gray-700 hover:bg-gray-100'
-          }
-        `}
-      >
-        <div className="flex items-center gap-3">
-          {icon}
-          <span>{label}</span>
-        </div>
-        {badge !== undefined && badge > 0 && (
-          <span className={`
-            px-2 py-0.5 text-[11px] font-semibold rounded-full
-            ${active ? 'bg-white text-[#5A7ACD]' : 'bg-[#FEB05D] text-white'}
-          `}>
-            {badge}
-          </span>
-        )}
-      </button>
-    </li>
+    <button
+      onClick={onClick}
+      className={`
+        inline-flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors
+        ${active ? "bg-[#7A1226] text-white" : "text-[#44506B] hover:bg-[#F1EEF1]"}
+      `}
+    >
+      <div className="flex items-center gap-2">
+        {icon}
+        <span>{label}</span>
+      </div>
+      {badge !== undefined && badge > 0 && (
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${active ? "bg-white text-[#7A1226]" : "bg-[#9F3549] text-white"}`}>
+          {badge}
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -770,7 +758,7 @@ function ResourcesSection() {
                     <span className="text-[13px] text-gray-600">{resource.uploadedDate}</span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#5A7ACD] hover:bg-[#4a6abd] text-white rounded-lg text-[12px] font-medium transition-colors">
+                    <button className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#7A1226] hover:bg-[#65101F] text-white rounded-lg text-[12px] font-medium transition-colors">
                       <Download className="w-3.5 h-3.5" strokeWidth={2} />
                       <span>Download</span>
                     </button>

@@ -259,7 +259,7 @@ export function GradingAssistantClassPage() {
                                 <td className="px-6 py-4 text-right">
                                   <Link
                                     to={`/grading-assistant/class/${classId}/assignment/${a.id}`}
-                                    className="inline-flex h-8 items-center justify-center rounded-lg bg-[#5A7ACD] px-3 text-[12px] font-semibold text-white hover:bg-[#4a6abd] transition-colors"
+                                    className="inline-flex h-8 items-center justify-center rounded-lg bg-[#7A1226] px-3 text-[12px] font-semibold text-white hover:bg-[#65101F] transition-colors"
                                   >
                                     View details
                                   </Link>

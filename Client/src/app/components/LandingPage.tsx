@@ -9,20 +9,20 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F2F2] flex flex-col">
+    <div className="min-h-screen bg-[#F5F4F6] flex flex-col">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
         <span className="text-xl font-bold text-[#2B2A2A]">Grade Forge</span>
         <div className="flex gap-3">
           <Link
             to="/signin"
-            className="px-4 py-2 text-[14px] font-medium text-[#2B2A2A] hover:text-[#FEB05D] transition-colors"
+            className="px-4 py-2 text-[14px] font-medium text-[#2B2A2A] hover:text-[#7A1226] transition-colors"
           >
             Sign in
           </Link>
           <Link
             to="/signup"
-            className="px-4 py-2 bg-[#FEB05D] hover:bg-[#f5a04d] text-white rounded-lg text-[14px] font-semibold transition-colors"
+            className="px-4 py-2 bg-[#7A1226] hover:bg-[#65101F] text-white rounded-lg text-[14px] font-semibold transition-colors"
           >
             Sign up
           </Link>
@@ -41,7 +41,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               to="/signin"
-              className="px-8 py-3 bg-[#FEB05D] hover:bg-[#f5a04d] text-white rounded-lg text-[16px] font-semibold transition-colors"
+              className="px-8 py-3 bg-[#7A1226] hover:bg-[#65101F] text-white rounded-lg text-[16px] font-semibold transition-colors"
             >
               Sign in
             </Link>

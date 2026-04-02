@@ -90,7 +90,7 @@ export default function SignInPage() {
       </h1>
       <p className="text-[14px] text-gray-600 mb-8">
         Don't have an account?{" "}
-        <Link to="/signup" className="text-[#FEB05D] hover:text-[#f5a04d] underline">
+        <Link to="/signup" className="text-[#7A1226] hover:text-[#65101F] underline">
           Sign up
         </Link>
       </p>
@@ -114,7 +114,7 @@ export default function SignInPage() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Enter your email"
             required
-            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FEB05D] focus:border-transparent"
+            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#9F3549] focus:border-transparent"
           />
         </div>
 
@@ -131,7 +131,7 @@ export default function SignInPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
               required
-              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FEB05D] focus:border-transparent pr-12"
+              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#9F3549] focus:border-transparent pr-12"
             />
             {/* Accessibility: icon-only toggle needs an explicit label. */}
             <button
@@ -157,13 +157,13 @@ export default function SignInPage() {
               id="remember"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 bg-white text-[#FEB05D] focus:ring-2 focus:ring-[#FEB05D] focus:ring-offset-0 cursor-pointer"
+              className="w-4 h-4 rounded border-gray-300 bg-white text-[#7A1226] focus:ring-2 focus:ring-[#9F3549] focus:ring-offset-0 cursor-pointer"
             />
             <label htmlFor="remember" className="text-[13px] text-gray-600 cursor-pointer">
               Remember me
             </label>
           </div>
-          <a href="#" className="text-[13px] text-[#FEB05D] hover:text-[#f5a04d]">
+          <a href="#" className="text-[13px] text-[#7A1226] hover:text-[#65101F]">
             Forgot password?
           </a>
         </div>
@@ -172,7 +172,7 @@ export default function SignInPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3 bg-[#FEB05D] hover:bg-[#f5a04d] disabled:opacity-60 text-white rounded-lg text-[14px] font-semibold transition-colors mt-6"
+          className="w-full py-3 bg-[#7A1226] hover:bg-[#65101F] disabled:opacity-60 text-white rounded-lg text-[14px] font-semibold transition-colors mt-6"
         >
           {loading ? "Signing in..." : "Sign in"}
         </button>

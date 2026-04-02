@@ -15,7 +15,7 @@ export function AuthShell({ roleView, topBar, mainContent, rightPanel }: AuthShe
   }, []);
 
   return (
-    <div className="flex h-screen w-full bg-[#F5F2F2]">
+    <div className="flex h-screen w-full bg-[#F5F4F6] text-[#1F2430]">
       {/* NOTE: Sidebar stays shared so navigation styling stays consistent across authenticated pages. */}
       <GradeForgeSidebar viewMode={roleView} />
 
