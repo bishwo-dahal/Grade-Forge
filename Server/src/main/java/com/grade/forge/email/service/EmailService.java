@@ -89,14 +89,6 @@ public class EmailService {
 
         %s
 
-        <div class="email-body">
-          <div class="divider"></div>
-          <p class="help-text">
-            Questions about your grade?
-            <a href="#">Contact your instructor</a> directly.
-          </p>
-        </div>
-
         <div class="email-footer">
           <div class="footer-brand">
             <div class="footer-logo-wrap">

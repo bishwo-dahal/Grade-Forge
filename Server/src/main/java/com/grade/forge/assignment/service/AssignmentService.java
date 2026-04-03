@@ -414,30 +414,191 @@ public class AssignmentService {
                 .toArray(String[]::new);
 
         // Prepare email content
-        String subject = "New Assignment: " + assignment.getName() + " Course: "+ assignment.getCourse().getName();
+        String subject = "New Assignment: " + assignment.getName() + " Course: " + assignment.getCourse().getName();
+
+        String courseName     = assignment.getCourse().getName();
+        String assignmentName = assignment.getName();
+        String description    = assignment.getDescription() != null
+                ? assignment.getDescription() : "No description provided";
+        String totalPoints    = String.valueOf(assignment.getTotalPoints());
+        String availableFrom  = assignment.getAvailableFrom() != null
+                ? assignment.getAvailableFrom().toString() : "Not specified";
+        String dueDate        = assignment.getDueDate() != null
+                ? assignment.getDueDate().toString() : "Not specified";
+
         String content = String.format("""
-                <p>Hello Class,</p>
-                <p>A new assignment has been posted for your course <strong>%s</strong>.</p>
-                <h3>Assignment Details</h3>
-                <ul>
-                    <li><strong>Title:</strong> %s</li>
-                    <li><strong>Description:</strong> %s</li>
-                    <li><strong>Total Points:</strong> %s</li>
-                    <li><strong>Available From:</strong> %s</li>
-                    <li><strong>Due Date:</strong> %s</li>
-                </ul>
-                <p>Please log in to the Grade Forge portal to review the full assignment details and submit your work before the deadline.</p>
-               
-                """,
-                assignment.getCourse().getName(),
-                assignment.getName(),
-                assignment.getDescription() != null ? assignment.getDescription() : "No description provided",
-                assignment.getTotalPoints(),
-                assignment.getAvailableFrom() != null ? assignment.getAvailableFrom().toString() : "Not specified",
-                assignment.getDueDate() != null ? assignment.getDueDate().toString() : "Not specified"
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      .email-header {
+        background: linear-gradient(135deg, #6b0f1a 0%%, #8b1a2a 40%%, #a0243a 100%%);
+        padding: 44px 48px 38px;
+        position: relative;
+        overflow: hidden;
+      }
+      .email-header::before {
+        content: '';
+        position: absolute; inset: 0;
+        background: radial-gradient(ellipse 70%% 80%% at 90%% 10%%, rgba(255,255,255,0.08) 0%%, transparent 60%%);
+      }
+      .header-top { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; position: relative; }
+      .logo-mark {
+        width: 48px; height: 48px;
+        background: rgba(255,255,255,0.15);
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        border: 1px solid rgba(255,255,255,0.2);
+        flex-shrink: 0;
+      }
+      .logo-mark svg { width: 26px; height: 26px; fill: #fff; }
+      .brand-name {
+        color: rgba(255,255,255,0.9);
+        font-size: 13px; font-weight: 600;
+        letter-spacing: 0.12em; text-transform: uppercase;
+      }
+      .course-badge {
+        display: inline-block;
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: rgba(255,255,255,0.75);
+        font-size: 11px; font-weight: 500;
+        letter-spacing: 0.1em; text-transform: uppercase;
+        padding: 5px 12px; border-radius: 20px;
+        margin-bottom: 12px; position: relative;
+      }
+      .email-header h1 {
+        font-family: Georgia, serif;
+        font-size: 30px; font-weight: 700;
+        color: #ffffff; line-height: 1.25; position: relative;
+      }
+      .email-header h1 span { color: rgba(255,220,180,0.9); }
+      .email-body { padding: 44px 48px 36px; background: #fff; font-family: Arial, sans-serif; }
+      .greeting { font-size: 16px; color: #333; font-weight: 400; margin-bottom: 8px; }
+      .intro { font-size: 15px; color: #666; line-height: 1.65; margin-bottom: 36px; }
+      .details-card {
+        background: #fafafa; border: 1px solid #ebebeb;
+        border-radius: 16px; overflow: hidden; margin-bottom: 32px;
+      }
+      .details-card-header {
+        background: linear-gradient(90deg, #8b1a2a, #a0243a);
+        padding: 14px 24px; display: flex; align-items: center; gap: 10px;
+      }
+      .details-card-header svg { width: 16px; height: 16px; fill: rgba(255,255,255,0.8); flex-shrink: 0; }
+      .details-card-header span {
+        font-size: 11.5px; font-weight: 600;
+        letter-spacing: 0.12em; text-transform: uppercase;
+        color: rgba(255,255,255,0.9);
+      }
+      .detail-row {
+        padding: 16px 24px;
+        border-bottom: 1px solid #ebebeb;
+      }
+      .detail-row:last-child { border-bottom: none; }
+      .detail-label {
+        font-size: 11px; font-weight: 600;
+        letter-spacing: 0.08em; text-transform: uppercase;
+        color: #999; margin-bottom: 4px;
+      }
+      .detail-value { font-size: 14.5px; color: #222; font-weight: 500; }
+      .deadline-banner {
+        background: linear-gradient(135deg, #fff8ee, #fff3e0);
+        border: 1px solid #f5d89a;
+        border-radius: 12px;
+        padding: 18px 22px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 32px;
+      }
+      .deadline-dot {
+        width: 10px; height: 10px;
+        border-radius: 50%%;
+        background: #f5a623;
+        flex-shrink: 0;
+      }
+      .deadline-text { font-size: 13.5px; color: #7a5000; line-height: 1.5; }
+      .deadline-text strong { font-weight: 700; }
+      .cta-section { text-align: center; margin-bottom: 32px; }
+      .cta-btn {
+        display: inline-block;
+        background: linear-gradient(135deg, #6b0f1a 0%%, #a0243a 100%%);
+        color: #fff; text-decoration: none;
+        font-size: 14px; font-weight: 600; letter-spacing: 0.04em;
+        padding: 15px 36px; border-radius: 50px;
+        box-shadow: 0 6px 24px rgba(107,15,26,0.30);
+      }
+      .cta-sub { margin-top: 10px; font-size: 12.5px; color: #aaa; }
+    </style>
+
+    <div class="email-header">
+      <div class="header-top">
+        <div class="logo-mark">
+          <svg viewBox="0 0 24 24"><path d="M12 2L2 7v10c0 5.55 3.84 10.74 10 12 6.16-1.26 10-6.45 10-12V7L12 2zm0 2.18l8 4.59V17c0 4.35-2.99 8.43-8 9.93C6.99 25.43 4 21.35 4 17V8.77l8-4.59z"/></svg>
+        </div>
+        <div class="brand-name">Grade Forge · ULM</div>
+      </div>
+      <div class="course-badge">%s</div>
+      <h1>New Assignment <span>Posted</span></h1>
+    </div>
+
+    <div class="email-body">
+      <p class="greeting">Hello Class,</p>
+      <p class="intro">A new assignment has been posted for your course <strong>%s</strong>. Review the details below and submit your work before the deadline.</p>
+
+      <div class="details-card">
+        <div class="details-card-header">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
+          <span>Assignment Details</span>
+        </div>
+
+        <div class="detail-row">
+          <div class="detail-label">Title</div>
+          <div class="detail-value">%s</div>
+        </div>
+
+        <div class="detail-row">
+          <div class="detail-label">Description</div>
+          <div class="detail-value">%s</div>
+        </div>
+
+        <div class="detail-row">
+          <div class="detail-label">Total Points</div>
+          <div class="detail-value">%s pts</div>
+        </div>
+
+        <div class="detail-row">
+          <div class="detail-label">Available From</div>
+          <div class="detail-value">%s</div>
+        </div>
+
+        <div class="detail-row">
+          <div class="detail-label">Due Date</div>
+          <div class="detail-value">%s</div>
+        </div>
+      </div>
+
+      <div class="deadline-banner">
+        <div class="deadline-dot"></div>
+        <div class="deadline-text">
+          <strong>Submission Deadline:</strong> %s &mdash; log in to the portal and submit before time runs out.
+        </div>
+      </div>
+
+      <div class="cta-section">
+        <a href="#" class="cta-btn">Open Assignment →</a>
+        <p class="cta-sub">Log in to Grade Forge to view full details &amp; submit</p>
+      </div>
+    </div>
+    """,
+                courseName,       // course-badge
+                courseName,       // intro strong
+                assignmentName,   // Title row
+                description,      // Description row
+                totalPoints,      // Total Points row
+                availableFrom,    // Available From row
+                dueDate,          // Due Date row
+                dueDate           // deadline banner
         );
 
-        // Send emails to all enrolled students
         emailService.sendEmailsWithHtml(recipientEmails, subject, content);
     }
 }

@@ -347,6 +347,7 @@ public class SubmissionService {
         String status = submission.getStatus() != null
                 ? submission.getStatus().name() : "UPDATED";
 
+// Status color logic
         String statusColor = "#1a8b54";
         String statusBg = "#edfdf3";
         if (status.equals("FAILED") || status.equals("REJECTED")) {
@@ -356,8 +357,27 @@ public class SubmissionService {
         }
 
         String content = String.format("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        background: #f2f2f5;
+        font-family: 'DM Sans', Arial, sans-serif;
+        padding: 40px 20px;
+      }
+      .email-wrapper { max-width: 620px; width: 100%%; margin: 0 auto; }
+      .email-card {
+        background: #ffffff;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.06);
+      }
+      /* HEADER */
       .email-header {
         background: linear-gradient(135deg, #6b0f1a 0%%, #8b1a2a 40%%, #a0243a 100%%);
         padding: 44px 48px 38px;
@@ -395,14 +415,16 @@ public class SubmissionService {
         margin-bottom: 12px; position: relative;
       }
       .email-header h1 {
-        font-family: Georgia, serif;
+        font-family: 'Playfair Display', Georgia, serif;
         font-size: 30px; font-weight: 700;
         color: #ffffff; line-height: 1.25; position: relative;
       }
       .email-header h1 span { color: rgba(255,220,180,0.9); }
-      .email-body { padding: 44px 48px 36px; background: #fff; font-family: Arial, sans-serif; }
+      /* BODY */
+      .email-body { padding: 44px 48px; background: #fff; }
       .greeting { font-size: 16px; color: #333; font-weight: 400; margin-bottom: 8px; }
       .intro { font-size: 15px; color: #666; line-height: 1.65; margin-bottom: 36px; }
+      /* DETAILS CARD */
       .details-card {
         background: #fafafa; border: 1px solid #ebebeb;
         border-radius: 16px; overflow: hidden; margin-bottom: 32px;
@@ -418,14 +440,21 @@ public class SubmissionService {
         color: rgba(255,255,255,0.9);
       }
       .detail-row {
-        padding: 16px 24px;
-        border-bottom: 1px solid #ebebeb;
+        display: flex; align-items: flex-start;
+        padding: 16px 24px; border-bottom: 1px solid #ebebeb;
+        gap: 16px;
       }
       .detail-row:last-child { border-bottom: none; }
+      .detail-icon {
+        width: 32px; height: 32px; border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0; margin-top: 1px;
+      }
+      .detail-icon svg { width: 15px; height: 15px; }
       .detail-label {
         font-size: 11px; font-weight: 600;
         letter-spacing: 0.08em; text-transform: uppercase;
-        color: #999; margin-bottom: 4px;
+        color: #999; margin-bottom: 3px;
       }
       .detail-value { font-size: 14.5px; color: #222; font-weight: 500; }
       .status-pill {
@@ -434,6 +463,7 @@ public class SubmissionService {
         font-size: 12px; font-weight: 600;
         letter-spacing: 0.06em; text-transform: uppercase;
       }
+      /* FEEDBACK BOX */
       .feedback-box {
         background: #f7f9ff; border: 1px solid #dde6f7;
         border-left: 4px solid #1a52a0;
@@ -445,6 +475,7 @@ public class SubmissionService {
         color: #1a52a0; margin-bottom: 8px;
       }
       .feedback-text { font-size: 14px; color: #444; line-height: 1.7; }
+      /* CTA */
       .cta-section { text-align: center; margin-bottom: 32px; }
       .cta-btn {
         display: inline-block;
@@ -455,64 +486,116 @@ public class SubmissionService {
         box-shadow: 0 6px 24px rgba(107,15,26,0.30);
       }
       .cta-sub { margin-top: 10px; font-size: 12.5px; color: #aaa; }
+      .divider {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #e8e8e8 30%%, #e8e8e8 70%%, transparent);
+        margin: 0 0 28px;
+      }
+      .help-text { font-size: 14px; color: #777; line-height: 1.65; text-align: center; }
+      .help-text a { color: #8b1a2a; font-weight: 500; text-decoration: none; }
+      /* FOOTER */
+      .email-footer {
+        background: #f7f7f7; border-top: 1px solid #ebebeb;
+        padding: 28px 48px;
+        display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      }
+      .footer-brand { display: flex; align-items: center; gap: 10px; }
+      .footer-seal {
+        width: 44px; height: 44px; border-radius: 50%%;
+        background: linear-gradient(135deg, #8b1a2a, #a0243a);
+        display: flex; align-items: center; justify-content: center;
+      }
+      .footer-seal svg { width: 22px; height: 22px; fill: #fff; }
+      .footer-brand-name { font-size: 13px; font-weight: 700; color: #222; }
+      .footer-brand-sub { font-size: 11px; color: #999; margin-top: 1px; }
+      .footer-meta { text-align: right; font-size: 11px; color: #bbb; line-height: 1.6; }
     </style>
+    </head>
+    <body>
+    <div class="email-wrapper">
+      <div class="email-card">
 
-    <div class="email-header">
-      <div class="header-top">
-        <div class="logo-mark">
-          <svg viewBox="0 0 24 24"><path d="M12 2L2 7v10c0 5.55 3.84 10.74 10 12 6.16-1.26 10-6.45 10-12V7L12 2zm0 2.18l8 4.59V17c0 4.35-2.99 8.43-8 9.93C6.99 25.43 4 21.35 4 17V8.77l8-4.59z"/></svg>
-        </div>
-        <div class="brand-name">Grade Forge · ULM</div>
-      </div>
-      <div class="course-badge">%s</div>
-      <h1>Grade <span>Updated</span></h1>
-    </div>
-
-    <div class="email-body">
-      <p class="greeting">Hello %s,</p>
-      <p class="intro">Your submission has been graded for <strong>%s</strong>. Review the details below and log in to the portal for your full submission report.</p>
-
-      <div class="details-card">
-        <div class="details-card-header">
-          <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
-          <span>Grading Details</span>
-        </div>
-
-        <div class="detail-row">
-          <div class="detail-label">Assignment</div>
-          <div class="detail-value">%s</div>
-        </div>
-
-        <div class="detail-row">
-          <div class="detail-label">Marks</div>
-          <div class="detail-value">%s</div>
-        </div>
-
-        <div class="detail-row">
-          <div class="detail-label">Status</div>
-          <div class="detail-value">
-            <span class="status-pill" style="background:%s; color:%s;">%s</span>
+        <div class="email-header">
+          <div class="header-top">
+            <div class="logo-mark">
+              <svg viewBox="0 0 24 24"><path d="M12 2L2 7v10c0 5.55 3.84 10.74 10 12 6.16-1.26 10-6.45 10-12V7L12 2zm0 2.18l8 4.59V17c0 4.35-2.99 8.43-8 9.93C6.99 25.43 4 21.35 4 17V8.77l8-4.59z"/></svg>
+            </div>
+            <div class="brand-name">Grade Forge · ULM</div>
           </div>
+          <div class="course-badge">%s</div>
+          <h1>Grade <span>Updated</span></h1>
         </div>
-      </div>
 
-      <div class="feedback-box">
-        <div class="feedback-label">&#128172; Instructor Feedback</div>
-        <div class="feedback-text">%s</div>
-      </div>
+        <div class="email-body">
+          <p class="greeting">Hello %s,</p>
+          <p class="intro">Your submission has been graded for <strong>%s</strong>. Review the details below and log in to the portal for your full submission report.</p>
 
-      <div class="cta-section">
-        <a href="#" class="cta-btn">View Full Submission →</a>
-        <p class="cta-sub">Log in to Grade Forge to see all details</p>
+          <div class="details-card">
+            <div class="details-card-header">
+              <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
+              <span>Grading Details</span>
+            </div>
+
+            <div class="detail-row">
+              <div class="detail-icon" style="background:#fdf0f1;">
+                <svg viewBox="0 0 24 24" style="fill:#8b1a2a;"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+              </div>
+              <div>
+                <div class="detail-label">Assignment</div>
+                <div class="detail-value">%s</div>
+              </div>
+            </div>
+
+            <div class="detail-row">
+              <div class="detail-icon" style="background:#fdf8ed;">
+                <svg viewBox="0 0 24 24" style="fill:#b58d24;"><path d="M11.5 2C6.81 2 3 5.81 3 10.5S6.81 19 11.5 19h.5v3c4.86-2.34 8-7 8-11.5C20 5.81 16.19 2 11.5 2zm1 14.5h-2v-2h2v2zm0-4h-2c0-3.25 3-3 3-5 0-1.1-.9-2-2-2s-2 .9-2 2h-2c0-2.21 1.79-4 4-4s4 1.79 4 4c0 2.5-3 2.75-3 5z"/></svg>
+              </div>
+              <div>
+                <div class="detail-label">Marks</div>
+                <div class="detail-value">%s</div>
+              </div>
+            </div>
+
+            <div class="detail-row">
+              <div class="detail-icon" style="background:%s;">
+                <svg viewBox="0 0 24 24" style="fill:%s;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+              </div>
+              <div>
+                <div class="detail-label">Status</div>
+                <div class="detail-value">
+                  <span class="status-pill" style="background:%s; color:%s;">%s</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="feedback-box">
+            <div class="feedback-label">&#128172; Instructor Feedback</div>
+            <div class="feedback-text">%s</div>
+          </div>
+
+          <div class="cta-section">
+            <a href="#" class="cta-btn">View Full Submission →</a>
+            <p class="cta-sub">Log in to Grade Forge to see all details</p>
+          </div>
+
+          <div class="divider"></div>
+          <p class="help-text">Questions about your grade? <a href="#">Contact your instructor</a> directly.</p>
+        </div>
+
       </div>
     </div>
+    </body>
+    </html>
     """,
                 courseName,
                 studentName,
                 assignmentName,
                 assignmentName,
                 marks,
-                statusBg, statusColor, status,
+                statusBg, statusColor,      // icon bg + icon fill
+                statusBg, statusColor,      // pill bg + pill text
+                status,
                 feedback
         );
 
