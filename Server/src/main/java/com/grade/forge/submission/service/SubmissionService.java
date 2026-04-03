@@ -335,25 +335,185 @@ public class SubmissionService {
         }
 
         String subject = "Grade Updated: " + submission.getAssignment().getName();
+
+        String studentName = submission.getStudent().getUser().getName() != null
+                ? submission.getStudent().getUser().getName() : "Student";
+        String assignmentName = submission.getAssignment().getName();
+        String courseName = submission.getAssignment().getCourse().getName();
+        String marks = submission.getMarks() != null
+                ? submission.getMarks().toString() : "Not available";
+        String feedback = submission.getFeedback() != null && !submission.getFeedback().isBlank()
+                ? submission.getFeedback() : "No feedback provided";
+        String status = submission.getStatus() != null
+                ? submission.getStatus().name() : "UPDATED";
+
+        String statusColor = "#1a8b54";
+        String statusBg = "#edfdf3";
+        if (status.equals("FAILED") || status.equals("REJECTED")) {
+            statusColor = "#8b1a2a"; statusBg = "#fdf0f1";
+        } else if (status.equals("PENDING") || status.equals("UNDER_REVIEW")) {
+            statusColor = "#b58d24"; statusBg = "#fdf8ed";
+        }
+
         String content = String.format("""
-                <p>Hello %s,</p>
-                <p>Your grade has been updated for <strong>%s</strong> in course <strong>%s</strong>.</p>
-                <h3>Grading Details</h3>
-                <ul>
-                    <li><strong>Assignment:</strong> %s</li>
-                    <li><strong>Marks:</strong> %s</li>
-                    <li><strong>Feedback:</strong> %s</li>
-                    <li><strong>Status:</strong> %s</li>
-                </ul>
-                <p>Please log in to the Grade Forge portal to view full submission details.</p>
-                """,
-                submission.getStudent().getUser().getName() != null ? submission.getStudent().getUser().getName() : "Student",
-                submission.getAssignment().getName(),
-                submission.getAssignment().getCourse().getName(),
-                submission.getAssignment().getName(),
-                submission.getMarks() != null ? submission.getMarks() : "Not available",
-                submission.getFeedback() != null && !submission.getFeedback().isBlank() ? submission.getFeedback() : "No feedback provided",
-                submission.getStatus() != null ? submission.getStatus().name() : "UPDATED"
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      .email-header {
+        background: linear-gradient(135deg, #6b0f1a 0%%, #8b1a2a 40%%, #a0243a 100%%);
+        padding: 44px 48px 38px;
+        position: relative;
+        overflow: hidden;
+      }
+      .email-header::before {
+        content: '';
+        position: absolute; inset: 0;
+        background: radial-gradient(ellipse 70%% 80%% at 90%% 10%%, rgba(255,255,255,0.08) 0%%, transparent 60%%);
+      }
+      .header-top { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; position: relative; }
+      .logo-mark {
+        width: 48px; height: 48px;
+        background: rgba(255,255,255,0.15);
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        border: 1px solid rgba(255,255,255,0.2);
+        flex-shrink: 0;
+      }
+      .logo-mark svg { width: 26px; height: 26px; fill: #fff; }
+      .brand-name {
+        color: rgba(255,255,255,0.9);
+        font-size: 13px; font-weight: 600;
+        letter-spacing: 0.12em; text-transform: uppercase;
+      }
+      .course-badge {
+        display: inline-block;
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: rgba(255,255,255,0.75);
+        font-size: 11px; font-weight: 500;
+        letter-spacing: 0.1em; text-transform: uppercase;
+        padding: 5px 12px; border-radius: 20px;
+        margin-bottom: 12px; position: relative;
+      }
+      .email-header h1 {
+        font-family: Georgia, serif;
+        font-size: 30px; font-weight: 700;
+        color: #ffffff; line-height: 1.25; position: relative;
+      }
+      .email-header h1 span { color: rgba(255,220,180,0.9); }
+      .email-body { padding: 44px 48px 36px; background: #fff; font-family: Arial, sans-serif; }
+      .greeting { font-size: 16px; color: #333; font-weight: 400; margin-bottom: 8px; }
+      .intro { font-size: 15px; color: #666; line-height: 1.65; margin-bottom: 36px; }
+      .details-card {
+        background: #fafafa; border: 1px solid #ebebeb;
+        border-radius: 16px; overflow: hidden; margin-bottom: 32px;
+      }
+      .details-card-header {
+        background: linear-gradient(90deg, #8b1a2a, #a0243a);
+        padding: 14px 24px; display: flex; align-items: center; gap: 10px;
+      }
+      .details-card-header svg { width: 16px; height: 16px; fill: rgba(255,255,255,0.8); flex-shrink: 0; }
+      .details-card-header span {
+        font-size: 11.5px; font-weight: 600;
+        letter-spacing: 0.12em; text-transform: uppercase;
+        color: rgba(255,255,255,0.9);
+      }
+      .detail-row {
+        padding: 16px 24px;
+        border-bottom: 1px solid #ebebeb;
+      }
+      .detail-row:last-child { border-bottom: none; }
+      .detail-label {
+        font-size: 11px; font-weight: 600;
+        letter-spacing: 0.08em; text-transform: uppercase;
+        color: #999; margin-bottom: 4px;
+      }
+      .detail-value { font-size: 14.5px; color: #222; font-weight: 500; }
+      .status-pill {
+        display: inline-block;
+        padding: 4px 14px; border-radius: 20px;
+        font-size: 12px; font-weight: 600;
+        letter-spacing: 0.06em; text-transform: uppercase;
+      }
+      .feedback-box {
+        background: #f7f9ff; border: 1px solid #dde6f7;
+        border-left: 4px solid #1a52a0;
+        border-radius: 10px; padding: 18px 20px; margin-bottom: 32px;
+      }
+      .feedback-label {
+        font-size: 11px; font-weight: 600;
+        letter-spacing: 0.1em; text-transform: uppercase;
+        color: #1a52a0; margin-bottom: 8px;
+      }
+      .feedback-text { font-size: 14px; color: #444; line-height: 1.7; }
+      .cta-section { text-align: center; margin-bottom: 32px; }
+      .cta-btn {
+        display: inline-block;
+        background: linear-gradient(135deg, #6b0f1a 0%%, #a0243a 100%%);
+        color: #fff; text-decoration: none;
+        font-size: 14px; font-weight: 600; letter-spacing: 0.04em;
+        padding: 15px 36px; border-radius: 50px;
+        box-shadow: 0 6px 24px rgba(107,15,26,0.30);
+      }
+      .cta-sub { margin-top: 10px; font-size: 12.5px; color: #aaa; }
+    </style>
+
+    <div class="email-header">
+      <div class="header-top">
+        <div class="logo-mark">
+          <svg viewBox="0 0 24 24"><path d="M12 2L2 7v10c0 5.55 3.84 10.74 10 12 6.16-1.26 10-6.45 10-12V7L12 2zm0 2.18l8 4.59V17c0 4.35-2.99 8.43-8 9.93C6.99 25.43 4 21.35 4 17V8.77l8-4.59z"/></svg>
+        </div>
+        <div class="brand-name">Grade Forge · ULM</div>
+      </div>
+      <div class="course-badge">%s</div>
+      <h1>Grade <span>Updated</span></h1>
+    </div>
+
+    <div class="email-body">
+      <p class="greeting">Hello %s,</p>
+      <p class="intro">Your submission has been graded for <strong>%s</strong>. Review the details below and log in to the portal for your full submission report.</p>
+
+      <div class="details-card">
+        <div class="details-card-header">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
+          <span>Grading Details</span>
+        </div>
+
+        <div class="detail-row">
+          <div class="detail-label">Assignment</div>
+          <div class="detail-value">%s</div>
+        </div>
+
+        <div class="detail-row">
+          <div class="detail-label">Marks</div>
+          <div class="detail-value">%s</div>
+        </div>
+
+        <div class="detail-row">
+          <div class="detail-label">Status</div>
+          <div class="detail-value">
+            <span class="status-pill" style="background:%s; color:%s;">%s</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="feedback-box">
+        <div class="feedback-label">&#128172; Instructor Feedback</div>
+        <div class="feedback-text">%s</div>
+      </div>
+
+      <div class="cta-section">
+        <a href="#" class="cta-btn">View Full Submission →</a>
+        <p class="cta-sub">Log in to Grade Forge to see all details</p>
+      </div>
+    </div>
+    """,
+                courseName,
+                studentName,
+                assignmentName,
+                assignmentName,
+                marks,
+                statusBg, statusColor, status,
+                feedback
         );
 
         emailService.sendEmailsWithHtml(new String[]{email}, subject, content);
