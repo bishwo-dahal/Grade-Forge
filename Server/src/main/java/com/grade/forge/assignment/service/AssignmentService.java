@@ -98,8 +98,14 @@ public class AssignmentService {
             saved.setStarterFiles(starterFileEntities);
         }
 
-        // Send emails to all enrolled students
-        sendAssignmentNotificationEmails(saved);
+
+        // Send emails to all enrolled students (non-blocking)
+        try {
+            sendAssignmentNotificationEmails(saved);
+        } catch (Exception e) {
+            System.err.println("Failed to send assignment notification emails: " + e.getMessage());
+        }
+
 
         return mapToResponse(saved);
     }

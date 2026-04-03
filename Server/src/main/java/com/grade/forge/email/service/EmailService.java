@@ -56,7 +56,6 @@ public class EmailService {
             helper.setText(html, true);
             helper.addInline("logo", new ClassPathResource("logo/ulm_logo.png"));
             mailSender.send(mimeMessage);
-
         } catch (MessagingException e) {
             throw new RuntimeException(e);
         }
