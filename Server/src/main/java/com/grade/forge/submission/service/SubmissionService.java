@@ -2,6 +2,7 @@ package com.grade.forge.submission.service;
 
 import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.assignment.repository.AssignmentRepository;
+import com.grade.forge.email.service.EmailService;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.group.dto.GroupStudentResponse;
 import com.grade.forge.group.entity.MainGroup;
@@ -54,6 +55,7 @@ public class SubmissionService {
     private final GradingAssistantRepository gradingAssistantRepository;
     private final CourseAssistantRepository courseAssistantRepository;
     private final SubGroupRepository subGroupRepository;
+    private final EmailService emailService;
 
     public SubmissionResponse submitAssignment(String userEmail, Long assignmentId, List<MultipartFile> files) {
         validateRequest(assignmentId, files);
@@ -256,6 +258,11 @@ public class SubmissionService {
         target.setStatus(SubmissionStatus.GRADED);
 
         Submission saved = submissionRepository.save(target);
+        try {
+            sendGradeUpdatedEmail(saved);
+        } catch (Exception e) {
+            log.warn("Failed to send grade update email for submission {}: {}", saved.getId(), e.getMessage());
+        }
         return mapToResponse(saved);
     }
 
@@ -310,7 +317,50 @@ public class SubmissionService {
         target.setStatus(SubmissionStatus.GRADED);
 
         Submission saved = submissionRepository.save(target);
+        try {
+            sendGradeUpdatedEmail(saved);
+        } catch (Exception e) {
+            log.warn("Failed to send grade update email for submission {}: {}", saved.getId(), e.getMessage());
+        }
         return mapToResponse(saved);
+    }
+
+    private void sendGradeUpdatedEmail(Submission submission) {
+        String email = submission.getStudent() != null
+                && submission.getStudent().getUser() != null
+                ? submission.getStudent().getUser().getEmail()
+                : null;
+        if (email == null || email.isBlank()) {
+            return;
+        }
+
+        String subject = "Grade Updated: " + submission.getAssignment().getName();
+        String content = String.format("""
+                <p>Hello %s,</p>
+                <p>Your grade has been updated for <strong>%s</strong> in course <strong>%s</strong>.</p>
+                <hr>
+                <h3>Grading Details</h3>
+                <ul>
+                    <li><strong>Assignment:</strong> %s</li>
+                    <li><strong>Marks:</strong> %s</li>
+                    <li><strong>Feedback:</strong> %s</li>
+                    <li><strong>Status:</strong> %s</li>
+                </ul>
+                <hr>
+                <p>Please log in to the Grade Forge portal to view full submission details.</p>
+                <br>
+                <p>Best regards,<br><strong>Grade Forge Team</strong></p>
+                """,
+                submission.getStudent().getUser().getName() != null ? submission.getStudent().getUser().getName() : "Student",
+                submission.getAssignment().getName(),
+                submission.getAssignment().getCourse().getName(),
+                submission.getAssignment().getName(),
+                submission.getMarks() != null ? submission.getMarks() : "Not available",
+                submission.getFeedback() != null && !submission.getFeedback().isBlank() ? submission.getFeedback() : "No feedback provided",
+                submission.getStatus() != null ? submission.getStatus().name() : "UPDATED"
+        );
+
+        emailService.sendEmailsWithHtml(new String[]{email}, subject, content);
     }
 
     private void validateRequest(Long assignmentId, List<MultipartFile> files) {
