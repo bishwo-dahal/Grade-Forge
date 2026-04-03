@@ -1,0 +1,58 @@
+package com.grade.forge.email.service;
+
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+import lombok.AllArgsConstructor;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.stereotype.Service;
+
+
+@Service
+@AllArgsConstructor
+public class EmailService {
+
+    private JavaMailSender mailSender;
+
+    public void sendEmailWithHtml(String to, String subject, String content) {
+
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+
+        try {
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+
+            helper.setTo(to);
+            helper.setSubject(subject);
+
+            String html = """
+            <html>
+                <body>
+                    %s
+
+                    <br><br>
+                    <hr>
+
+                    <div style="text-align:center;">
+                        <img src='cid:logo' width='120'/>
+                    </div>
+                </body>
+            </html>
+            """.formatted(content);
+
+            helper.setText(html, true);
+            helper.addInline("logo", new ClassPathResource("logo/ulm_logo.png"));
+            mailSender.send(mimeMessage);
+
+        } catch (MessagingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void senEmailsWithHtml(String[] to, String subject, String content) {
+
+    }
+
+
+
+}

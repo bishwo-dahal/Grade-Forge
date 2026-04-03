@@ -10,6 +10,7 @@ import com.grade.forge.assignment.repository.AssignmentRepository;
 import com.grade.forge.assignment.repository.AssignmentStarterFileRepository;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
+import com.grade.forge.email.service.EmailService;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.group.entity.MainGroup;
 import com.grade.forge.group.repository.MainGroupRepository;
@@ -50,6 +51,7 @@ public class AssignmentService {
     private final SubmissionFileRepository submissionFileRepository;
     private final AssignmentStarterFileRepository assignmentStarterFileRepository;
     private final FileStorageService fileStorageService;
+    private final EmailService emailService;
 
     public AssignmentResponse createAssignment(AssignmentRequest request, List<MultipartFile> files, String userEmail) {
         validateCreate(request);
@@ -91,6 +93,8 @@ public class AssignmentService {
             assignmentStarterFileRepository.saveAll(starterFileEntities);
             saved.setStarterFiles(starterFileEntities);
         }
+
+
 
         return mapToResponse(saved);
     }
