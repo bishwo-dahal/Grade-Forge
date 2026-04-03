@@ -410,7 +410,7 @@ public class AssignmentService {
         // Prepare email content
         String subject = "New Assignment: " + assignment.getName() + " Course: "+ assignment.getCourse().getName();
         String content = String.format("""
-                <p>Hello,</p>
+                <p>Hello Class,</p>
                 <p>A new assignment has been posted for your course <strong>%s</strong>.</p>
                 <h3>Assignment Details</h3>
                 <ul>

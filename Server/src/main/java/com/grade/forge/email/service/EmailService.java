@@ -35,22 +35,19 @@ public class EmailService {
                             <p>If you have any questions, feel free to reach out to your instructor.</p>
                     
                             <br>
-                    
-                            <div style="text-align:center;">
-                                <table style="margin: 0 auto;">
-                                    <tr>
-                                        <td style="text-align:right; padding-right:10px;">
-                                            <p style="margin:0;">
-                                                Best regards,<br>
-                                                <strong>Grade Forge</strong>
-                                            </p>
-                                        </td>
-                                        <td>
-                                            <img src='cid:logo' width='70'/>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
+                            <table>
+                                       <tr>
+                                           <td style="text-align:left; padding-right:10px;">
+                                               <p style="margin:0;">
+                                                   Best regards,<br>
+                                                   <strong>Grade Forge</strong>
+                                               </p>
+                                           </td>
+                                           <td>
+                                               <img src='cid:logo' width='70'/>
+                                           </td>
+                                       </tr>
+                                   </table>
                     
                         </body>
                     </html>
