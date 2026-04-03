@@ -408,11 +408,10 @@ public class AssignmentService {
                 .toArray(String[]::new);
 
         // Prepare email content
-        String subject = "New Assignment: " + assignment.getName() + "Course: "+ assignment.getCourse().getName();
+        String subject = "New Assignment: " + assignment.getName() + " Course: "+ assignment.getCourse().getName();
         String content = String.format("""
                 <p>Hello,</p>
                 <p>A new assignment has been posted for your course <strong>%s</strong>.</p>
-                <hr>
                 <h3>Assignment Details</h3>
                 <ul>
                     <li><strong>Title:</strong> %s</li>
@@ -421,11 +420,8 @@ public class AssignmentService {
                     <li><strong>Available From:</strong> %s</li>
                     <li><strong>Due Date:</strong> %s</li>
                 </ul>
-                <hr>
                 <p>Please log in to the Grade Forge portal to review the full assignment details and submit your work before the deadline.</p>
-                <p>If you have any questions, feel free to reach out to your instructor.</p>
-                <br>
-                <p>Best regards,<br><strong>Grade Forge Team</strong></p>
+               
                 """,
                 assignment.getCourse().getName(),
                 assignment.getName(),

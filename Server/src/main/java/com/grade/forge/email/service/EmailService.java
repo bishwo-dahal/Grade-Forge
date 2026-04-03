@@ -28,19 +28,33 @@ public class EmailService {
             helper.setSubject(subject);
 
             String html = """
-            <html>
-                <body>
-                    %s
-
-                    <br><br>
-                    <hr>
-
-                    <div style="text-align:center;">
-                        <img src='cid:logo' width='120'/>
-                    </div>
-                </body>
-            </html>
-            """.formatted(content);
+                    <html>
+                        <body>
+                            %s
+                    
+                            <p>If you have any questions, feel free to reach out to your instructor.</p>
+                    
+                            <br>
+                    
+                            <div style="text-align:center;">
+                                <table style="margin: 0 auto;">
+                                    <tr>
+                                        <td style="text-align:right; padding-right:10px;">
+                                            <p style="margin:0;">
+                                                Best regards,<br>
+                                                <strong>Grade Forge</strong>
+                                            </p>
+                                        </td>
+                                        <td>
+                                            <img src='cid:logo' width='70'/>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                    
+                        </body>
+                    </html>
+                    """.formatted(content);
 
             helper.setText(html, true);
             helper.addInline("logo", new ClassPathResource("logo/ulm_logo.png"));
