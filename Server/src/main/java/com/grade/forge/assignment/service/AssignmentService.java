@@ -391,4 +391,44 @@ public class AssignmentService {
                 .downloadUrl(fileStorageService.generatePresignedDownloadUrl(file.getFileKey(), file.getFileName()))
                 .build();
     }
+
+    private void sendAssignmentNotificationEmails(Assignment assignment) {
+        // Get all enrolled students for the course
+        List<Enrollment> enrolledStudents = enrollmentRepository.findByCourse_Id(assignment.getCourse().getId()).stream()
+                .filter(enrollment -> EnrolledStatus.ENROLLED.equals(enrollment.getEnrolledStatus()))
+                .toList();
+
+        if (enrolledStudents.isEmpty()) {
+            return;
+        }
+
+        // Extract email addresses from enrolled students
+        String[] recipientEmails = enrolledStudents.stream()
+                .map(enrollment -> enrollment.getStudent().getUser().getEmail())
+                .toArray(String[]::new);
+
+        // Prepare email content
+        String subject = "New Assignment: " + assignment.getName();
+        String content = String.format("""
+                <p>Hello,</p>
+                <p>A new assignment has been created for your course <strong>%s</strong>:</p>
+                <p><strong>Assignment Name:</strong> %s</p>
+                <p><strong>Description:</strong> %s</p>
+                <p><strong>Total Points:</strong> %s</p>
+                <p><strong>Available From:</strong> %s</p>
+                <p><strong>Due Date:</strong> %s</p>
+                <p>Please log in to the Grade Forge portal to view the full details and submit your work.</p>
+                <p>Best regards,<br>Grade Forge Team</p>
+                """,
+                assignment.getCourse().getName(),
+                assignment.getName(),
+                assignment.getDescription() != null ? assignment.getDescription() : "No description provided",
+                assignment.getTotalPoints(),
+                assignment.getAvailableFrom() != null ? assignment.getAvailableFrom().toString() : "Not specified",
+                assignment.getDueDate() != null ? assignment.getDueDate().toString() : "Not specified"
+        );
+
+        // Send emails to all enrolled students
+        emailService.sendEmailsWithHtml(recipientEmails, subject, content);
+    }
 }
