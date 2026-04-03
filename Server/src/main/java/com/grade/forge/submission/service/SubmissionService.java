@@ -338,7 +338,6 @@ public class SubmissionService {
         String content = String.format("""
                 <p>Hello %s,</p>
                 <p>Your grade has been updated for <strong>%s</strong> in course <strong>%s</strong>.</p>
-                <hr>
                 <h3>Grading Details</h3>
                 <ul>
                     <li><strong>Assignment:</strong> %s</li>
@@ -346,10 +345,7 @@ public class SubmissionService {
                     <li><strong>Feedback:</strong> %s</li>
                     <li><strong>Status:</strong> %s</li>
                 </ul>
-                <hr>
                 <p>Please log in to the Grade Forge portal to view full submission details.</p>
-                <br>
-                <p>Best regards,<br><strong>Grade Forge Team</strong></p>
                 """,
                 submission.getStudent().getUser().getName() != null ? submission.getStudent().getUser().getName() : "Student",
                 submission.getAssignment().getName(),
