@@ -11,6 +11,9 @@ import com.grade.forge.assignment.repository.AssignmentStarterFileRepository;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
 import com.grade.forge.email.service.EmailService;
+import com.grade.forge.enrollment.entity.Enrollment;
+import com.grade.forge.enrollment.enums.EnrolledStatus;
+import com.grade.forge.enrollment.repository.EnrollmentRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.group.entity.MainGroup;
 import com.grade.forge.group.repository.MainGroupRepository;
@@ -50,6 +53,7 @@ public class AssignmentService {
     private final SubmissionRepository submissionRepository;
     private final SubmissionFileRepository submissionFileRepository;
     private final AssignmentStarterFileRepository assignmentStarterFileRepository;
+    private final EnrollmentRepository enrollmentRepository;
     private final FileStorageService fileStorageService;
     private final EmailService emailService;
 
@@ -94,7 +98,8 @@ public class AssignmentService {
             saved.setStarterFiles(starterFileEntities);
         }
 
-
+        // Send emails to all enrolled students
+        sendAssignmentNotificationEmails(saved);
 
         return mapToResponse(saved);
     }

@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 
@@ -15,6 +16,7 @@ public class EmailService {
 
     private JavaMailSender mailSender;
 
+    @Async
     public void sendEmailWithHtml(String to, String subject, String content) {
 
         MimeMessage mimeMessage = mailSender.createMimeMessage();
@@ -49,8 +51,11 @@ public class EmailService {
         }
     }
 
-    public void senEmailsWithHtml(String[] to, String subject, String content) {
-
+    @Async
+    public void sendEmailsWithHtml(String[] recipients, String subject, String content) {
+        for (String to : recipients) {
+            sendEmailWithHtml(to, subject, content);
+        }
     }
 
 
