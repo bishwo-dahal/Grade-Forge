@@ -28,91 +28,90 @@ public class EmailService {
             helper.setSubject(subject);
 
             String html = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <style>
-      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      body {
-        background: #f2f2f5;
-        font-family: 'DM Sans', Arial, sans-serif;
-        padding: 40px 20px;
-      }
-      .email-wrapper { max-width: 620px; width: 100%%; margin: 0 auto; }
-      .email-card {
-        background: #ffffff;
-        border-radius: 20px;
-        overflow: hidden;
-        box-shadow: 0 8px 40px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.06);
-      }
-      .email-body { padding: 0 48px 36px; background: #fff; }
-      /* DIVIDER */
-      .divider {
-        height: 1px;
-        background: linear-gradient(90deg, transparent, #e8e8e8 30%%, #e8e8e8 70%%, transparent);
-        margin: 0 0 28px;
-      }
-      /* HELP TEXT */
-      .help-text { font-size: 14px; color: #777; line-height: 1.65; text-align: center; margin-bottom: 28px; }
-      .help-text a { color: #8b1a2a; font-weight: 500; text-decoration: none; }
-      /* FOOTER */
-      .email-footer {
-        background: #f7f7f7;
-        border-top: 1px solid #ebebeb;
-        padding: 28px 48px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-      }
-      .footer-brand { display: flex; align-items: center; gap: 14px; }
-      .footer-logo-wrap {
-        width: 52px; height: 52px;
-        border-radius: 50%%;
-        background: linear-gradient(135deg, #6b0f1a, #a0243a);
-        display: flex; align-items: center; justify-content: center;
-        padding: 5px;
-        flex-shrink: 0;
-      }
-      .footer-logo-wrap img { width: 100%%; height: 100%%; border-radius: 50%%; object-fit: contain; }
-      .footer-brand-name { font-size: 13px; font-weight: 700; color: #222; }
-      .footer-brand-sub { font-size: 11px; color: #999; margin-top: 2px; }
-      .footer-meta { text-align: right; font-size: 11px; color: #bbb; line-height: 1.6; }
-    </style>
-    </head>
-    <body>
-    <div class="email-wrapper">
-      <div class="email-card">
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body style="margin:0;padding:0;background:#f2f2f5;font-family:Arial,sans-serif;">
+
+  <div style="max-width:920px;margin:0 auto;">
+
+    <div style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.10);">
+
+      <!-- CONTENT -->
+      <div>
 
         %s
 
-        <div class="email-footer">
-          <div class="footer-brand">
-            <div class="footer-logo-wrap">
-              <img src="cid:logo" alt="ULM Logo" />
-            </div>
-            <div>
-              <div class="footer-brand-name">Grade Forge</div>
-              <div class="footer-brand-sub">University of Louisiana Monroe</div>
-            </div>
-          </div>
-          <div class="footer-meta">
-            This is an automated notification.<br>
-            &copy; 2026 ULM &middot; Grade Forge Platform
-          </div>
-        </div>
+      </div>
+
+      <!-- DIVIDER -->
+      <div style="height:1px;background:#e8e8e8;margin:0 20px 10px;"></div>
+
+      <!-- HELP TEXT -->
+      <div style="text-align:center;font-size:13px;color:#777;line-height:1.6;padding:0 40px 20px;">
+        Need help? <a href="#" style="color:#8b1a2a;text-decoration:none;font-weight:bold;">Contact Support</a>
+      </div>
+
+      <!-- FOOTER -->
+      <div style="background:#f7f7f7;border-top:1px solid #ebebeb;padding:20px 40px;">
+
+        <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+
+            <!-- LEFT -->
+            <td align="left" valign="middle">
+              <table>
+                <tr>
+                  <td>
+                    <div style="
+                      width:50px;
+                      height:50px;
+                      border-radius:50%%;
+                      text-align:center;
+                      line-height:50px;
+                    ">
+                      <img src="cid:logo" width="40" height="40" style="border-radius:50%%;" />
+                    </div>
+                  </td>
+                  <td style="padding-left:12px;">
+                    <div style="font-size:13px;font-weight:bold;color:#222;">
+                      Grade Forge
+                    </div>
+                    <div style="font-size:11px;color:#999;">
+                      University of Louisiana Monroe
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+
+            <!-- RIGHT -->
+            <td align="right" valign="middle">
+              <div style="font-size:11px;color:#bbb;line-height:1.5;">
+                Automated Notification<br>
+                &copy; 2026 ULM · Grade Forge
+              </div>
+            </td>
+
+          </tr>
+        </table>
 
       </div>
+
     </div>
-    </body>
-    </html>
-    """.formatted(content);
+  </div>
+
+</body>
+</html>
+""".formatted(content);
 
             helper.setText(html, true);
             helper.addInline("logo", new ClassPathResource("logo/ulm_logo.png"));
+            helper.addInline("logoHeader", new ClassPathResource("logo/ulm_logo.png"));
             mailSender.send(mimeMessage);
         } catch (MessagingException e) {
             throw new RuntimeException(e);

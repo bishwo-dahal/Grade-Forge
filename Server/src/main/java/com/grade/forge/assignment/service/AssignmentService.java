@@ -421,12 +421,47 @@ public class AssignmentService {
         String description    = assignment.getDescription() != null
                 ? assignment.getDescription() : "No description provided";
         String totalPoints    = String.valueOf(assignment.getTotalPoints());
-        String availableFrom  = assignment.getAvailableFrom() != null
-                ? assignment.getAvailableFrom().toString() : "Not specified";
-        String dueDate        = assignment.getDueDate() != null
-                ? assignment.getDueDate().toString() : "Not specified";
+
+
+      final java.time.format.DateTimeFormatter humanDateTime =
+              java.time.format.DateTimeFormatter.ofPattern("MMMM d yyyy h:mm a");
+      String availableFrom = assignment.getAvailableFrom() != null
+              ? assignment.getAvailableFrom().format(humanDateTime) : "Not specified";
+      String dueDate = assignment.getDueDate() != null
+              ? assignment.getDueDate().format(humanDateTime) : "Not specified";
+
+        String countdown;
+        if (assignment.getDueDate() == null) {
+            countdown = "No deadline";
+        } else {
+            long daysRemaining = java.time.temporal.ChronoUnit.DAYS.between(
+                    java.time.LocalDate.now(),
+                    assignment.getDueDate().toLocalDate()
+            );
+
+            if (daysRemaining > 1) {
+                countdown = daysRemaining + " days";
+            } else if (daysRemaining == 1) {
+                countdown = "1 day";
+            } else if (daysRemaining == 0) {
+                countdown = "today";
+            } else {
+                countdown = Math.abs(daysRemaining) + " days ago";
+            }
+        }
+
+
+
+
 
         String content = String.format("""
+        <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+   
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       .email-header {
@@ -509,31 +544,27 @@ public class AssignmentService {
         gap: 14px;
         margin-bottom: 32px;
       }
-      .deadline-dot {
-        width: 10px; height: 10px;
-        border-radius: 50%%;
-        background: #f5a623;
-        flex-shrink: 0;
-      }
+     
       .deadline-text { font-size: 13.5px; color: #7a5000; line-height: 1.5; }
       .deadline-text strong { font-weight: 700; }
       .cta-section { text-align: center; margin-bottom: 32px; }
       .cta-btn {
         display: inline-block;
         background: linear-gradient(135deg, #6b0f1a 0%%, #a0243a 100%%);
-        color: #fff; text-decoration: none;
+        color: #FFFFFF; text-decoration: none;
         font-size: 14px; font-weight: 600; letter-spacing: 0.04em;
         padding: 15px 36px; border-radius: 50px;
         box-shadow: 0 6px 24px rgba(107,15,26,0.30);
       }
       .cta-sub { margin-top: 10px; font-size: 12.5px; color: #aaa; }
     </style>
-
+    </head>
+<body>
     <div class="email-header">
       <div class="header-top">
         <div class="logo-mark">
-          <svg viewBox="0 0 24 24"><path d="M12 2L2 7v10c0 5.55 3.84 10.74 10 12 6.16-1.26 10-6.45 10-12V7L12 2zm0 2.18l8 4.59V17c0 4.35-2.99 8.43-8 9.93C6.99 25.43 4 21.35 4 17V8.77l8-4.59z"/></svg>
-        </div>
+        <img src="cid:logoHeader" width="32" height="32" alt="Grade Forge" style="display:block;border:0;outline:none;">
+           </div>
         <div class="brand-name">Grade Forge · ULM</div>
       </div>
       <div class="course-badge">%s</div>
@@ -577,17 +608,31 @@ public class AssignmentService {
       </div>
 
       <div class="deadline-banner">
-        <div class="deadline-dot"></div>
+       
         <div class="deadline-text">
-          <strong>Submission Deadline:</strong> %s &mdash; log in to the portal and submit before time runs out.
+          <strong>Submission Deadline:</strong> Within %s  log in to the portal and submit before time runs out.
         </div>
       </div>
 
       <div class="cta-section">
-        <a href="#" class="cta-btn">Open Assignment →</a>
+        <a href="http://52.14.92.121:8080"    style="display:inline-block;
+                                                      background:linear-gradient(135deg,#6b0f1a,#a0243a);
+                                                      color:#ffffff !important;
+                                                      text-decoration:none !important;
+                                                      font-size:14px;
+                                                      font-weight:600;
+                                                      letter-spacing:0.04em;
+                                                      padding:15px 36px;
+                                                      border-radius:50px;
+                                                      box-shadow:0 6px 24px rgba(107,15,26,0.30);
+                                                      mso-style-priority:100;">
+                                                      
+                                                      Open Assignment →</a>
         <p class="cta-sub">Log in to Grade Forge to view full details &amp; submit</p>
       </div>
     </div>
+     </body>
+    </html>
     """,
                 courseName,       // course-badge
                 courseName,       // intro strong
@@ -596,7 +641,7 @@ public class AssignmentService {
                 totalPoints,      // Total Points row
                 availableFrom,    // Available From row
                 dueDate,          // Due Date row
-                dueDate           // deadline banner
+                countdown          // deadline banner
         );
 
         emailService.sendEmailsWithHtml(recipientEmails, subject, content);
