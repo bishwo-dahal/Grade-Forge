@@ -142,7 +142,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
 
   return (
     <aside
-      className={`${sidebarShellClass} ${isUniversityView ? "bg-white border-r border-[#C9C4C9]" : "bg-[#7A1226] border-r border-[#65101F]"} flex-shrink-0 flex flex-col transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
+      className={`${sidebarShellClass} ${isUniversityView ? "bg-white border-r border-[#C9C4C9]" : "bg-[#7A1226] border-r border-[#D1BCBF]"} flex-shrink-0 flex flex-col transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
     >
       {/* NOTE: Role switcher was removed intentionally; access is controlled by auth role + route guards. */}
       {viewMode === "university" ? (
@@ -166,7 +166,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
             <img
               src="/favicon.svg"
               alt="Grade Forge"
-              className="h-8 w-8 flex-shrink-0 rounded-[10px]"
+              className="h-8 w-8 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
             />
             {!isCollapsedMode && (
               <span className={`text-[15px] font-semibold text-[#1F2430] whitespace-nowrap ${collapsibleTextClass}`}>
