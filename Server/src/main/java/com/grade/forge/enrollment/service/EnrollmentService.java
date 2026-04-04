@@ -1,7 +1,9 @@
 package com.grade.forge.enrollment.service;
 
+import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
+import com.grade.forge.email.service.EmailService;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.enrollment.dto.EnrollmentResponse;
 import com.grade.forge.enrollment.entity.Enrollment;
@@ -28,6 +30,7 @@ public class EnrollmentService {
     private final StudentRepository studentRepository;
     private final CourseRepository courseRepository;
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
     public EnrollmentResponse waitListCurrentStudentInCourse(String userEmail, Long courseId) {
         Student student = getStudentByUserEmail(userEmail);
@@ -172,6 +175,277 @@ public class EnrollmentService {
         enrollment.setEnrolledAt(LocalDateTime.now());
 
         Enrollment saved = enrollmentRepository.save(enrollment);
+
+        // Send emails to all enrolled students (non-blocking)
+        try {
+            sendEnrolledNotificationEmails(saved);
+        } catch (Exception e) {
+            System.err.println("Failed to send Enrolled notification emails: " + e.getMessage());
+        }
+
         return mapToResponse(saved);
     }
+
+
+    private void sendEnrolledNotificationEmails(Enrollment enrollment) {
+
+        Course course = enrollment.getCourse();
+        Users user = enrollment.getStudent().getUser();
+
+        String email = user.getEmail();
+        String name = user.getName();
+        String courseName = course.getName();
+
+        String content = String.format("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+        <style>
+          *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+          .email-header {
+            background: linear-gradient(135deg, #6b0f1a 0%%, #8b1a2a 40%%, #a0243a 100%%);
+            padding: 44px 48px 38px;
+            position: relative;
+            overflow: hidden;
+          }
+
+          .email-header::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse 70%% 80%% at 90%% 10%%, rgba(255,255,255,0.08) 0%%, transparent 60%%);
+          }
+
+          .header-top {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 28px;
+            position: relative;
+          }
+
+          .logo-mark {
+            width: 48px;
+            height: 48px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255,255,255,0.2);
+            flex-shrink: 0;
+          }
+
+          .brand-name {
+            color: rgba(255,255,255,0.9);
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+          }
+
+          .course-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.75);
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 5px 12px;
+            border-radius: 20px;
+            margin-bottom: 12px;
+            position: relative;
+          }
+
+          .email-header h1 {
+            font-family: Georgia, serif;
+            font-size: 30px;
+            font-weight: 700;
+            color: #ffffff;
+            line-height: 1.25;
+            position: relative;
+          }
+
+          .email-header h1 span {
+            color: rgba(255,220,180,0.9);
+          }
+
+          .email-body {
+            padding: 44px 48px 36px;
+            background: #fff;
+            font-family: Arial, sans-serif;
+          }
+
+          .greeting {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 10px;
+          }
+
+          .intro {
+            font-size: 15px;
+            color: #666;
+            line-height: 1.65;
+            margin-bottom: 32px;
+          }
+
+          .details-card {
+            background: #fafafa;
+            border: 1px solid #ebebeb;
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 32px;
+          }
+
+          .details-card-header {
+            background: linear-gradient(90deg, #8b1a2a, #a0243a);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
+
+          .details-card-header svg {
+            width: 16px;
+            height: 16px;
+            fill: rgba(255,255,255,0.8);
+          }
+
+          .details-card-header span {
+            font-size: 11.5px;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.9);
+          }
+
+          .detail-row {
+            padding: 16px 24px;
+            border-bottom: 1px solid #ebebeb;
+          }
+
+          .detail-row:last-child {
+            border-bottom: none;
+          }
+
+          .detail-label {
+            font-size: 11px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 4px;
+          }
+
+          .detail-value {
+            font-size: 14.5px;
+            color: #222;
+            font-weight: 500;
+          }
+
+          .cta-section {
+            text-align: center;
+            margin-top: 32px;
+          }
+
+          .cta-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #6b0f1a 0%%, #a0243a 100%%);
+            color: #fff !important;
+            text-decoration: none !important;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 15px 36px;
+            border-radius: 50px;
+            box-shadow: 0 6px 24px rgba(107,15,26,0.30);
+          }
+
+          .cta-sub {
+            margin-top: 10px;
+            font-size: 12.5px;
+            color: #aaa;
+          }
+
+        </style>
+        </head>
+
+        <body>
+
+        <div class="email-header">
+
+          <div class="header-top">
+            <div class="logo-mark">
+              <img src="cid:logoHeader" width="48" height="44" alt="Grade Forge">
+            </div>
+            <div class="brand-name"> &nbsp; Grade Forge · ULM</div>
+          </div>
+
+          <div class="course-badge">%s</div>
+
+          <h1>New Course <span>Enrollment</span></h1>
+
+        </div>
+
+        <div class="email-body">
+
+          <p class="greeting">Hello %s,</p>
+
+          <p class="intro">
+            You have been enrolled in <strong>%s</strong>.
+            You can now access your course materials and start learning.
+          </p>
+
+          <div class="details-card">
+
+            <div class="details-card-header">
+              <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
+              <span>Enrollment Details</span>
+            </div>
+
+            <div class="detail-row">
+              <div class="detail-label">Course</div>
+              <div class="detail-value">%s</div>
+            </div>
+
+            <div class="detail-row">
+              <div class="detail-label">Student</div>
+              <div class="detail-value">%s</div>
+            </div>
+
+          </div>
+
+          <div class="cta-section">
+            <a class="cta-btn" href="http://52.14.92.121:8080">Open Dashboard →</a>
+            <div class="cta-sub">Log in to Grade Forge to start learning</div>
+          </div>
+
+        </div>
+
+        </body>
+        </html>
+        """,
+                courseName, // badge
+                name,       // greeting
+                courseName, // intro
+                courseName, // course detail
+                name         // student detail
+        );
+
+        emailService.sendEmailsWithHtml(
+                new String[]{email},
+                "New Course Enrollment - " + courseName,
+                content
+        );
+    }
+
+
+
+
 }
