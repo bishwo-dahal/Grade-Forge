@@ -92,9 +92,9 @@ import { toast } from "sonner";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthTopBar } from "./layout/AuthTopBar";
+import type { SettingsSection as TopBarSettingsSection } from "./layout/AuthTopBar";
 import { SidebarPinnedCollapseFooter } from "./layout/SidebarPinnedCollapseFooter";
 import { useSidebarPinnedCollapsed } from "./layout/useSidebarPinnedCollapsed";
-import type { SettingsSection as TopBarSettingsSection } from "./layout/AuthTopBar";
 
 const SECTION_PATH_SEGMENTS = [
   "dashboard",
@@ -200,14 +200,14 @@ export function FacultyClassPage() {
           >
             <Link
               to="/dashboard"
-              className={`flex items-center hover:opacity-90 transition-opacity ${
+              className={`flex items-center transition-opacity hover:opacity-90 ${
                 pinnedCollapsed ? "h-12 w-12 justify-center rounded-[14px]" : "gap-3"
               }`}
               aria-label="Go to dashboard"
             >
               <img
                 src="/favicon.svg"
-                alt=""
+                alt={pinnedCollapsed ? "" : "Grade Forge"}
                 className="h-8 w-8 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
               />
               {!pinnedCollapsed && (
@@ -391,7 +391,7 @@ function NavItem({
         to={to}
         title={rail ? label : undefined}
         className={`
-          relative w-full flex items-center rounded-lg text-[13px] font-medium transition-colors
+          relative flex w-full items-center rounded-lg text-[13px] font-medium transition-colors
           ${rail ? "justify-center px-0 py-2.5" : "justify-between gap-3 px-3 py-2.5"}
           ${active ? "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]" : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]"}
         `}
@@ -411,10 +411,7 @@ function NavItem({
           </span>
         )}
         {rail && badge !== undefined && badge > 0 && (
-          <span
-            className="absolute right-1 top-1 h-2 min-w-2 rounded-full bg-[#9F3549]"
-            aria-hidden
-          />
+          <span className="absolute right-1 top-1 h-2 min-w-2 rounded-full bg-[#9F3549]" aria-hidden />
         )}
       </Link>
     </li>

@@ -710,14 +710,14 @@ export function FacultyMainGroupDetailPage() {
             >
               <Link
                 to="/dashboard"
-                className={`flex items-center hover:opacity-90 transition-opacity ${
+                className={`flex items-center transition-opacity hover:opacity-90 ${
                   pinnedCollapsed ? "h-12 w-12 justify-center rounded-[14px]" : "gap-3"
                 }`}
                 aria-label="Go to dashboard"
               >
                 <img
                   src="/favicon.svg"
-                  alt=""
+                  alt={pinnedCollapsed ? "" : "Grade Forge"}
                   className="h-8 w-8 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
                 />
                 {!pinnedCollapsed && (
