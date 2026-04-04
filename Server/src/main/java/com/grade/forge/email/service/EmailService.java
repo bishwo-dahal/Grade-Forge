@@ -37,7 +37,7 @@ public class EmailService {
 
 <body style="margin:0;padding:0;background:#f2f2f5;font-family:Arial,sans-serif;">
 
-  <div style="max-width:920px;margin:0 auto;">
+  <div style="max-width:820px;margin:0 auto;">
 
     <div style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.10);">
 
@@ -111,7 +111,7 @@ public class EmailService {
 
             helper.setText(html, true);
             helper.addInline("logo", new ClassPathResource("logo/ulm_logo.png"));
-            helper.addInline("logoHeader", new ClassPathResource("logo/ulm_logo.png"));
+            helper.addInline("logoHeader", new ClassPathResource("logo/logo.png"));
             mailSender.send(mimeMessage);
         } catch (MessagingException e) {
             throw new RuntimeException(e);

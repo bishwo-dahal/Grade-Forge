@@ -563,9 +563,9 @@ public class AssignmentService {
     <div class="email-header">
       <div class="header-top">
         <div class="logo-mark">
-        <img src="cid:logoHeader" width="32" height="32" alt="Grade Forge" style="display:block;border:0;outline:none;">
+        <img src="cid:logoHeader" width="48" height="44" alt="Grade Forge" style="display:block;border:0;outline:none;">
            </div>
-        <div class="brand-name">Grade Forge · ULM</div>
+        <div class="brand-name"> &nbsp; Grade Forge · ULM</div>
       </div>
       <div class="course-badge">%s</div>
       <h1>New Assignment <span>Posted</span></h1>
@@ -610,7 +610,7 @@ public class AssignmentService {
       <div class="deadline-banner">
        
         <div class="deadline-text">
-          <strong>Submission Deadline:</strong> Within %s  log in to the portal and submit before time runs out.
+          <strong>Submission Deadline:</strong> Within %s &ndash; log in to the portal and submit before time runs out.
         </div>
       </div>
 
