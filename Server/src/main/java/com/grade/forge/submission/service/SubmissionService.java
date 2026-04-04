@@ -520,7 +520,7 @@ public class SubmissionService {
                     <div class="logo-mark">
                       <img src="cid:logoHeader" width="48" height="44" alt="Grade Forge">
                     </div>
-                    <div class="brand-name">Grade Forge · ULM</div>
+                    <div class="brand-name"> &nbsp; Grade Forge · ULM</div>
                   </div>
                 
                   <div class="course-badge">%s</div>
@@ -564,7 +564,17 @@ public class SubmissionService {
                   </div>
                 
                   <div class="cta-section">
-                    <a href="http://52.14.92.121:8080" class="cta-btn">View Full Submission →</a>
+                    <a href="http://52.14.92.121:8080"  style="display:inline-block;
+                                                      background:linear-gradient(135deg,#6b0f1a,#a0243a);
+                                                      color:#ffffff !important;
+                                                      text-decoration:none !important;
+                                                      font-size:14px;
+                                                      font-weight:600;
+                                                      letter-spacing:0.04em;
+                                                      padding:15px 36px;
+                                                      border-radius:50px;
+                                                      box-shadow:0 6px 24px rgba(107,15,26,0.30);
+                                                      mso-style-priority:100;">View Full Submission →</a>
                     <p class="cta-sub">Log in to Grade Forge to see full details</p>
                   </div>
                 
