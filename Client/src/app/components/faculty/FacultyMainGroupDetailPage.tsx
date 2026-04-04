@@ -34,6 +34,8 @@ import { getFacultyClassHeaderById, listFacultyRosterRows } from "../../../servi
 import type { ClassHeader, FacultyRosterStudentRow } from "../../../types/class";
 import type { MainGroupResponse, SubGroupResponse } from "../../../types/courseGroup";
 import { getApiErrorMessage } from "../../../utils/apiErrorMessage";
+import { SidebarPinnedCollapseFooter } from "../layout/SidebarPinnedCollapseFooter";
+import { useSidebarPinnedCollapsed } from "../layout/useSidebarPinnedCollapsed";
 
 const STUDENT_DRAG_TYPE = "FACULTY_COURSE_GROUP_STUDENT";
 
@@ -155,23 +157,27 @@ function NavItem({
   label,
   active,
   to,
+  rail = false,
 }: {
   icon: React.ReactNode;
   label: string;
   active: boolean;
   to: string;
+  rail?: boolean;
 }) {
   return (
     <li>
       <Link
         to={to}
+        title={rail ? label : undefined}
         className={`
-          w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors
+          flex w-full items-center rounded-lg text-[13px] font-medium transition-colors
+          ${rail ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5"}
           ${active ? "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]" : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]"}
         `}
       >
         {icon}
-        <span>{label}</span>
+        {rail ? <span className="sr-only">{label}</span> : <span>{label}</span>}
       </Link>
     </li>
   );
@@ -686,72 +692,116 @@ export function FacultyMainGroupDetailPage() {
       ? `${classHeader.code}: ${classHeader.name}`
       : classHeader?.name || classHeader?.code || "Class";
 
+  const { pinnedCollapsed } = useSidebarPinnedCollapsed();
+
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="flex h-screen bg-[#F5F4F6]">
-        <aside className="w-64 flex-shrink-0 border-r border-[#65101F] bg-[#7A1226]">
-          <div className="flex h-full flex-col">
-            <div className="h-[76px] border-b border-[#65101F] bg-white px-6 flex items-center">
-              <Link to="/dashboard" className="flex items-center gap-3 hover:opacity-90 transition-opacity" aria-label="Go to dashboard">
-                <img src="/favicon.svg" alt="Grade Forge" className="h-8 w-8 flex-shrink-0 rounded-[10px]" />
-                <span className="text-[15px] font-semibold text-[#1F2430] whitespace-nowrap">Grade Forge</span>
-              </Link>
-            </div>
-            <div className="border-b border-[#65101F] px-4 py-3">
+        <aside
+          className={`flex flex-shrink-0 flex-col border-r border-[#65101F] bg-[#7A1226] transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            pinnedCollapsed ? "w-[78px]" : "w-64"
+          }`}
+        >
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div
+              className={`flex h-[76px] items-center border-b border-[#65101F] bg-white ${
+                pinnedCollapsed ? "justify-center px-0" : "px-6"
+              }`}
+            >
               <Link
                 to="/dashboard"
-                className="flex items-center gap-2 text-[13px] text-[#F5E5E8] transition-colors hover:text-white"
+                className={`flex items-center hover:opacity-90 transition-opacity ${
+                  pinnedCollapsed ? "h-12 w-12 justify-center rounded-[14px]" : "gap-3"
+                }`}
+                aria-label="Go to dashboard"
               >
-                <ChevronLeft className="h-4 w-4" strokeWidth={2} />
-                <span>Back to Dashboard</span>
+                <img
+                  src="/favicon.svg"
+                  alt=""
+                  className="h-8 w-8 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
+                />
+                {!pinnedCollapsed && (
+                  <span className="whitespace-nowrap text-[15px] font-semibold text-[#1F2430]">Grade Forge</span>
+                )}
               </Link>
             </div>
-            <nav className="flex-1 overflow-y-auto px-3 py-4">
+            <div
+              className={`flex border-b border-[#65101F] py-3 ${pinnedCollapsed ? "justify-center px-0" : "px-4"}`}
+            >
+              <Link
+                to="/dashboard"
+                title="Back to Dashboard"
+                className={`flex items-center text-[13px] text-[#F5E5E8] transition-colors hover:text-white ${
+                  pinnedCollapsed ? "justify-center" : "gap-2"
+                }`}
+                aria-label="Back to Dashboard"
+              >
+                <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} />
+                {!pinnedCollapsed && <span>Back to Dashboard</span>}
+              </Link>
+            </div>
+            <nav
+              className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-4 ${
+                pinnedCollapsed ? "px-1" : "px-3"
+              }`}
+            >
               <ul className="space-y-1">
                 <NavItem
                   icon={<LayoutDashboard className="h-4 w-4" strokeWidth={2} />}
                   label="Dashboard"
                   active={false}
                   to={`/faculty/class/${resolvedClassId}/dashboard`}
+                  rail={pinnedCollapsed}
                 />
                 <NavItem
                   icon={<FileText className="h-4 w-4" strokeWidth={2} />}
                   label="Assignments"
                   active={false}
                   to={`/faculty/class/${resolvedClassId}/assignments`}
+                  rail={pinnedCollapsed}
                 />
                 <NavItem
                   icon={<BarChart3 className="h-4 w-4" strokeWidth={2} />}
                   label="Grades"
                   active={false}
                   to={`/faculty/class/${resolvedClassId}/grades`}
+                  rail={pinnedCollapsed}
                 />
                 <NavItem
                   icon={<Users className="h-4 w-4" strokeWidth={2} />}
                   label="Students"
                   active={false}
                   to={`/faculty/class/${resolvedClassId}/students`}
+                  rail={pinnedCollapsed}
                 />
                 <NavItem
                   icon={<UserPlus className="h-4 w-4" strokeWidth={2} />}
                   label="Grading Assistants"
                   active={false}
                   to={`/faculty/class/${resolvedClassId}/assistants`}
+                  rail={pinnedCollapsed}
                 />
                 <NavItem
                   icon={<UsersRound className="h-4 w-4" strokeWidth={2} />}
                   label="Groups"
                   active
                   to={`/faculty/class/${resolvedClassId}/groups`}
+                  rail={pinnedCollapsed}
                 />
                 <NavItem
                   icon={<Settings className="h-4 w-4" strokeWidth={2} />}
                   label="Settings"
                   active={false}
                   to={`/faculty/class/${resolvedClassId}/settings`}
+                  rail={pinnedCollapsed}
                 />
               </ul>
             </nav>
+            <SidebarPinnedCollapseFooter
+              variant="maroon"
+              rail={pinnedCollapsed}
+              expandedInset="flush"
+            />
           </div>
         </aside>
 

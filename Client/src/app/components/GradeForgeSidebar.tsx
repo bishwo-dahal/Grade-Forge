@@ -10,12 +10,11 @@ import {
   Code2,
   ListChecks,
   Monitor,
-  PanelLeft,
-  PanelLeftClose,
   UserSearch,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { Link, useLocation } from "react-router";
+import { SidebarPinnedCollapseFooter } from "./layout/SidebarPinnedCollapseFooter";
 import { useSidebarPinnedCollapsed } from "./layout/useSidebarPinnedCollapsed";
 
 interface GradeForgeSidebarProps {
@@ -31,7 +30,7 @@ interface SidebarNavItem {
 
 export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
   const location = useLocation();
-  const { pinnedCollapsed, togglePinnedCollapsed } = useSidebarPinnedCollapsed();
+  const { pinnedCollapsed } = useSidebarPinnedCollapsed();
   const isDashboardRoute = location.pathname === "/dashboard" || location.pathname.startsWith("/dashboard/");
   const isUniversityView = viewMode === "university";
   // NOTE: Sidebar stays full-width on dashboard unless the user pins “keep collapsed”; other routes use the icon rail.
@@ -129,17 +128,6 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
       : // FIX: Match nav label motion with the sidebar shell so icon/text spacing stays stable while the rail opens.
         "max-w-0 overflow-hidden opacity-0 translate-x-1.5 transition-[max-width,opacity,transform] duration-300 ease-out group-hover/sidebar:max-w-[160px] group-hover/sidebar:translate-x-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:max-w-[160px] group-focus-within/sidebar:translate-x-0 group-focus-within/sidebar:opacity-100";
 
-  const pinToggleButtonClass = [
-    "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#9F3549] focus-visible:ring-offset-0",
-    pinnedCollapsed
-      ? isUniversityView
-        ? "bg-[#FDF8F9] text-[#7A1226]"
-        : "bg-white/15 text-white"
-      : isUniversityView
-        ? "bg-white text-[#5D667A] hover:bg-[#F1EEF1]"
-        : "bg-transparent text-[#F5E5E8] hover:bg-white/10",
-  ].join(" ");
-
   return (
     <aside
       className={`${sidebarShellClass} ${isUniversityView ? "bg-white border-r border-[#C9C4C9]" : "bg-[#7A1226] border-r border-[#D1BCBF]"} flex-shrink-0 flex flex-col transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
@@ -179,7 +167,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
 
       {/* Navigation */}
       {/* FIX: Add top spacing in university mode so the first nav item does not stick to the header divider. */}
-      <nav className={`flex-1 px-4 ${viewMode === "university" ? "pt-4" : ""} ${isCollapsedMode ? "overflow-x-hidden" : ""}`}>
+      <nav className={`min-h-0 flex-1 overflow-y-auto px-4 ${viewMode === "university" ? "pt-4" : ""} ${isCollapsedMode ? "overflow-x-hidden" : ""}`}>
         {/* Learning Section */}
         <div className="mb-6">
           {viewMode !== "university" && (
@@ -189,30 +177,6 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
               </span>
             </div>
           )}
-          <div className={`mb-2 ${isCollapsedMode ? "flex justify-center" : "px-3"}`}>
-            <button
-              type="button"
-              onClick={togglePinnedCollapsed}
-              aria-pressed={pinnedCollapsed}
-              aria-label={
-                pinnedCollapsed
-                  ? "Turn off locked collapsed sidebar"
-                  : "Keep sidebar collapsed; hover will not expand it"
-              }
-              title={
-                pinnedCollapsed
-                  ? "Sidebar stays narrow without expanding on hover. Click to unlock hover expand and dashboard width."
-                  : "Lock the sidebar narrow on all pages. Hover will not expand it while this is on."
-              }
-              className={pinToggleButtonClass}
-            >
-              {pinnedCollapsed ? (
-                <PanelLeftClose className="h-[18px] w-[18px]" strokeWidth={2} />
-              ) : (
-                <PanelLeft className="h-[18px] w-[18px]" strokeWidth={2} />
-              )}
-            </button>
-          </div>
           <ul className="space-y-1">
             {learningItems.map((item) => (
               <li key={item.label}>
@@ -269,6 +233,11 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
         )}
       </nav>
 
+      <SidebarPinnedCollapseFooter
+        variant={isUniversityView ? "university" : "maroon"}
+        rail={isCollapsedMode}
+        expandedInset="forge"
+      />
     </aside>
   );
 }
