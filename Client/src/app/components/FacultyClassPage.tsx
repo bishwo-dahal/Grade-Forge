@@ -88,10 +88,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "./ui/tooltip";
+import { toast } from "sonner";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection as TopBarSettingsSection } from "./layout/AuthTopBar";
+import { SidebarPinnedCollapseFooter } from "./layout/SidebarPinnedCollapseFooter";
+import { useSidebarPinnedCollapsed } from "./layout/useSidebarPinnedCollapsed";
 
 const SECTION_PATH_SEGMENTS = [
   "dashboard",
@@ -178,69 +181,120 @@ export function FacultyClassPage() {
     navigate("/signin", { replace: true });
   };
 
+  const { pinnedCollapsed } = useSidebarPinnedCollapsed();
+
   return (
-    <div className="flex h-screen bg-[#F5F2F2]">
+    <div className="flex h-screen bg-[#F5F4F6]">
       {/* Left Sidebar Navigation */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex-shrink-0">
-        <div className="h-full flex flex-col">
-          {/* Back to Dashboard Link */}
-          <div className="px-4 py-4 border-b border-gray-200">
+      <aside
+        className={`flex flex-shrink-0 flex-col border-r border-[#65101F] bg-[#7A1226] transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          pinnedCollapsed ? "w-[78px]" : "w-64"
+        }`}
+      >
+        <div className="flex min-h-0 flex-1 flex-col">
+          {/* Logo Header */}
+          <div
+            className={`flex h-[76px] items-center border-b border-[#65101F] bg-white ${
+              pinnedCollapsed ? "justify-center px-0" : "px-6"
+            }`}
+          >
             <Link
               to="/dashboard"
-              className="flex items-center gap-2 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors"
+              className={`flex items-center transition-opacity hover:opacity-90 ${
+                pinnedCollapsed ? "h-12 w-12 justify-center rounded-[14px]" : "gap-3"
+              }`}
+              aria-label="Go to dashboard"
             >
-              <ChevronLeft className="w-4 h-4" strokeWidth={2} />
-              <span>Back to Dashboard</span>
+              <img
+                src="/favicon.svg"
+                alt={pinnedCollapsed ? "" : "Grade Forge"}
+                className="h-8 w-8 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
+              />
+              {!pinnedCollapsed && (
+                <span className="whitespace-nowrap text-[15px] font-semibold text-[#1F2430]">Grade Forge</span>
+              )}
+            </Link>
+          </div>
+          {/* Back to Dashboard Link */}
+          <div
+            className={`flex border-b border-[#65101F] py-3 ${pinnedCollapsed ? "justify-center px-0" : "px-4"}`}
+          >
+            <Link
+              to="/dashboard"
+              title="Back to Dashboard"
+              className={`flex items-center text-[13px] text-[#F5E5E8] transition-colors hover:text-white ${
+                pinnedCollapsed ? "justify-center" : "gap-2"
+              }`}
+              aria-label="Back to Dashboard"
+            >
+              <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} />
+              {!pinnedCollapsed && <span>Back to Dashboard</span>}
             </Link>
           </div>
 
           {/* Navigation Menu - each item has its own route */}
-          <nav className="flex-1 px-3 py-4 overflow-y-auto">
+          <nav
+            className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-4 ${
+              pinnedCollapsed ? "px-1" : "px-3"
+            }`}
+          >
             <ul className="space-y-1">
               <NavItem
                 icon={<LayoutDashboard className="w-4 h-4" strokeWidth={2} />}
                 label="Dashboard"
                 active={activeSection === "dashboard"}
                 to={`/faculty/class/${resolvedClassId}/dashboard`}
+                rail={pinnedCollapsed}
               />
               <NavItem
                 icon={<FileText className="w-4 h-4" strokeWidth={2} />}
                 label="Assignments"
                 active={activeSection === "assignments"}
                 to={`/faculty/class/${resolvedClassId}/assignments`}
+                rail={pinnedCollapsed}
               />
               <NavItem
                 icon={<BarChart3 className="w-4 h-4" strokeWidth={2} />}
                 label="Grades"
                 active={activeSection === "grades"}
                 to={`/faculty/class/${resolvedClassId}/grades`}
+                rail={pinnedCollapsed}
               />
               <NavItem
                 icon={<Users className="w-4 h-4" strokeWidth={2} />}
                 label="Students"
                 active={activeSection === "students"}
                 to={`/faculty/class/${resolvedClassId}/students`}
+                rail={pinnedCollapsed}
               />
               <NavItem
                 icon={<UserPlus className="w-4 h-4" strokeWidth={2} />}
                 label="Grading Assistants"
                 active={activeSection === "assistants"}
                 to={`/faculty/class/${resolvedClassId}/assistants`}
+                rail={pinnedCollapsed}
               />
               <NavItem
                 icon={<UsersRound className="w-4 h-4" strokeWidth={2} />}
                 label="Groups"
                 active={activeSection === "groups"}
                 to={`/faculty/class/${resolvedClassId}/groups`}
+                rail={pinnedCollapsed}
               />
               <NavItem
                 icon={<Settings className="w-4 h-4" strokeWidth={2} />}
                 label="Settings"
                 active={activeSection === "settings"}
                 to={`/faculty/class/${resolvedClassId}/settings`}
+                rail={pinnedCollapsed}
               />
             </ul>
           </nav>
+          <SidebarPinnedCollapseFooter
+            variant="maroon"
+            rail={pinnedCollapsed}
+            expandedInset="flush"
+          />
         </div>
       </aside>
 
@@ -322,35 +376,42 @@ function NavItem({
   active,
   to,
   badge,
+  rail = false,
 }: {
   icon: React.ReactNode;
   label: string;
   active: boolean;
   to: string;
   badge?: number;
+  rail?: boolean;
 }) {
   return (
     <li>
       <Link
         to={to}
+        title={rail ? label : undefined}
         className={`
-          w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors
-          ${active ? "bg-[#5A7ACD] text-white" : "text-gray-700 hover:bg-gray-100"}
+          relative flex w-full items-center rounded-lg text-[13px] font-medium transition-colors
+          ${rail ? "justify-center px-0 py-2.5" : "justify-between gap-3 px-3 py-2.5"}
+          ${active ? "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]" : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]"}
         `}
       >
-        <div className="flex items-center gap-3">
+        <div className={`flex items-center ${rail ? "justify-center" : "gap-3"}`}>
           {icon}
-          <span>{label}</span>
+          {rail ? <span className="sr-only">{label}</span> : <span>{label}</span>}
         </div>
-        {badge !== undefined && badge > 0 && (
+        {!rail && badge !== undefined && badge > 0 && (
           <span
             className={`
               px-2 py-0.5 text-[11px] font-semibold rounded-full
-              ${active ? "bg-white text-[#5A7ACD]" : "bg-[#FEB05D] text-white"}
+              ${active ? "bg-[#7A1226] text-white" : "bg-[#9F3549] text-white"}
             `}
           >
             {badge}
           </span>
+        )}
+        {rail && badge !== undefined && badge > 0 && (
+          <span className="absolute right-1 top-1 h-2 min-w-2 rounded-full bg-[#9F3549]" aria-hidden />
         )}
       </Link>
     </li>
@@ -486,7 +547,6 @@ function AssignmentsSection() {
   const [openAssignmentActionsId, setOpenAssignmentActionsId] = useState<string | null>(null);
   const [assignmentDeleteTarget, setAssignmentDeleteTarget] = useState<FacultyAssignment | null>(null);
   const [isDeletingAssignment, setIsDeletingAssignment] = useState(false);
-  const [assignmentActionError, setAssignmentActionError] = useState<string | null>(null);
 
   const loadAssignments = useCallback(async () => {
     // FIX: Centralize assignment reload so header/footer actions reuse the same backend-driven refresh path.
@@ -509,14 +569,16 @@ function AssignmentsSection() {
     if (!assignmentDeleteTarget) {
       return;
     }
+    const deletingAssignment = assignmentDeleteTarget;
+    setAssignmentDeleteTarget(null);
     setIsDeletingAssignment(true);
-    setAssignmentActionError(null);
     try {
-      await deleteFacultyAssignment(assignmentDeleteTarget.id);
-      setAssignmentDeleteTarget(null);
+      await deleteFacultyAssignment(deletingAssignment.id);
+      setSelectedAssignments((prev) => prev.filter((id) => id !== deletingAssignment.id));
+      toast.success("Assignment deleted successfully.");
       await loadAssignments();
     } catch (error) {
-      setAssignmentActionError(getErrorMessage(error));
+      toast.error(getErrorMessage(error));
     } finally {
       setIsDeletingAssignment(false);
     }
@@ -558,11 +620,6 @@ function AssignmentsSection() {
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-visible">
-        {assignmentActionError ? (
-          <div className="mx-6 mt-4 rounded-lg border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-[12px] text-[#C23A42]">
-            {assignmentActionError}
-          </div>
-        ) : null}
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">
@@ -703,7 +760,6 @@ function AssignmentsSection() {
                             onClick={() => {
                               setOpenAssignmentActionsId(null);
                               setAssignmentDeleteTarget(assignment);
-                              setAssignmentActionError(null);
                             }}
                             aria-label="Delete assignment"
                             title="Delete assignment"
@@ -3096,11 +3152,14 @@ function SettingsSection({ classId }: { classId: string }) {
     try {
       const updated = await updateFacultyCourse(classId, form, coverImageFile);
       setCourse(updated);
+      toast.success("Course updated successfully.");
+    } catch (err) {
+      const message = getErrorMessage(err);
+      setError(message);
+      toast.error(message || "Failed to update course. Please try again.");
+    } finally {
       setCoverImageFile(null);
       setIsEditOpen(false);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
       setIsSaving(false);
     }
   }
@@ -3136,9 +3195,12 @@ function SettingsSection({ classId }: { classId: string }) {
     setError(null);
     try {
       await deleteFacultyCourse(classId);
+      toast.success("Course deleted successfully.");
       navigate("/faculty/my-classes");
     } catch (err) {
-      setError(getErrorMessage(err));
+      const message = getErrorMessage(err);
+      setError(message);
+      toast.error(message);
     } finally {
       setIsDeleting(false);
     }

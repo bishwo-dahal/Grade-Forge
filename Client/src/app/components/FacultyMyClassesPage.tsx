@@ -88,7 +88,7 @@ function FacultyMyClassesView({
           <button
             type="button"
             onClick={onCreateNewClass}
-            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-[#5A7ACD] px-5 text-[14px] leading-none font-semibold text-white"
+            className="inline-flex h-10 items-center gap-2 rounded-2xl bg-[#7A1226] px-5 text-[14px] leading-none font-semibold text-white hover:bg-[#65101F]"
           >
             <Plus className="h-4.5 w-4.5" strokeWidth={2} />
             Create New Class
@@ -172,7 +172,7 @@ function FacultyMyClassesView({
                           <div className="mt-auto grid grid-cols-1 gap-1 pt-1">
                             <Link
                               to={`/faculty/class/${course.id}`}
-                              className="inline-flex h-7 items-center justify-center gap-1 rounded-lg bg-[#5A7ACD] px-2 text-[11px] font-semibold text-white"
+                              className="inline-flex h-7 items-center justify-center gap-1 rounded-lg bg-[#7A1226] px-2 text-[11px] font-semibold text-white hover:bg-[#65101F]"
                             >
                               Manage
                               <ArrowRight className="h-3 w-3" strokeWidth={2} />
@@ -281,14 +281,14 @@ function FacultyMyClassesView({
                     <div className="mt-auto grid grid-cols-[1fr_auto] gap-1 pt-1">
                       <Link
                         to={`/faculty/class/${course.id}`}
-                        className="inline-flex h-7 items-center justify-center gap-1 rounded-lg bg-[#5A7ACD] px-2 text-[11px] font-semibold text-white"
+                        className="inline-flex h-7 items-center justify-center gap-1 rounded-lg bg-[#7A1226] px-2 text-[11px] font-semibold text-white hover:bg-[#65101F]"
                       >
                         Manage
                         <ArrowRight className="h-3 w-3" strokeWidth={2} />
                       </Link>
                       <Link
                         to={`/faculty/class/${course.id}`}
-                        className="inline-flex h-7 items-center justify-center rounded-lg bg-[#FEB05D] px-2.5 text-[11px] font-semibold text-white"
+                        className="inline-flex h-7 items-center justify-center rounded-lg bg-[#2E7D32] px-2.5 text-[11px] font-semibold text-white hover:bg-[#256329]"
                       >
                         Grade
                       </Link>

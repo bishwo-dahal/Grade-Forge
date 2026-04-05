@@ -96,12 +96,12 @@ function FacultyRightPanelView({
 
   // Days with assignment deadlines
   return (
-    <aside className="w-80 bg-white border-l border-gray-200 flex-shrink-0 overflow-y-auto">
+    <aside className="w-80 bg-white border-l border-[#C9C4C9] flex-shrink-0 overflow-y-auto">
       <div className="p-6">
         {/* Calendar */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[13px] font-semibold text-[#2B2A2A]">
+            <h3 className="text-[13px] font-semibold text-[#1F2430]">
               Assignment Deadlines
             </h3>
             <div className="flex items-center gap-1">
@@ -115,7 +115,7 @@ function FacultyRightPanelView({
             </div>
           </div>
 
-          <div className="bg-gray-50 rounded-2xl p-4">
+          <div className="bg-[#F7F6F8] rounded-md p-4 border border-[#E4E0E5]">
             <div className="text-[12px] font-medium text-gray-900 mb-3 text-center">
               {monthName}
             </div>
@@ -137,13 +137,13 @@ function FacultyRightPanelView({
                   className={`
                     aspect-square flex items-center justify-center text-[11px] rounded-lg
                     ${!day ? '' : 'hover:bg-gray-100 cursor-pointer'}
-                    ${day === 22 ? 'bg-[#2B2A2A] text-white font-semibold' : 'text-gray-700'}
+                    ${day === 22 ? 'bg-[#1F2430] text-white font-semibold' : 'text-gray-700'}
                     ${day && deadlineDays.includes(day) && day !== 22 ? 'relative' : ''}
                   `}
                 >
                   {day}
                   {day && deadlineDays.includes(day) && day !== 22 && (
-                    <div className="absolute bottom-1 w-1 h-1 bg-[#FEB05D] rounded-full"></div>
+                    <div className="absolute bottom-1 w-1 h-1 bg-[#9F3549] rounded-full"></div>
                   )}
                 </div>
               ))}
@@ -153,7 +153,7 @@ function FacultyRightPanelView({
 
         {/* Pending Submissions */}
         <div className="mb-8">
-          <h3 className="text-[13px] font-semibold text-[#2B2A2A] mb-4">
+          <h3 className="text-[13px] font-semibold text-[#1F2430] mb-4">
             Pending Submissions
           </h3>
 
@@ -183,11 +183,11 @@ function FacultyRightPanelView({
                     to={`/assignment/${submission.assignmentId}/grade/${submission.id}`}
                     className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
                   >
-                    <div className={`w-8 h-8 ${isEven ? "bg-[#5A7ACD]/10" : "bg-[#FEB05D]/10"} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                      <FileText className={`w-4 h-4 ${isEven ? "text-[#5A7ACD]" : "text-[#FEB05D]"}`} strokeWidth={2} />
+                    <div className={`w-8 h-8 ${isEven ? "bg-[#7A1226]/10" : "bg-[#5A606B]/10"} rounded-md flex items-center justify-center flex-shrink-0`}>
+                      <FileText className={`w-4 h-4 ${isEven ? "text-[#7A1226]" : "text-[#5A606B]"}`} strokeWidth={2} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-medium text-[#2B2A2A] mb-0.5">
+                      <p className="text-[12px] font-medium text-[#1F2430] mb-0.5">
                         {submission.studentName}
                       </p>
                       <p className="text-[11px] text-gray-500">
@@ -206,7 +206,7 @@ function FacultyRightPanelView({
 
         {/* Upcoming Deadlines */}
         <div className="mb-8">
-          <h3 className="text-[13px] font-semibold text-[#2B2A2A] mb-4">
+          <h3 className="text-[13px] font-semibold text-[#1F2430] mb-4">
             Upcoming Deadlines
           </h3>
 
@@ -226,11 +226,11 @@ function FacultyRightPanelView({
             {!isLoading &&
               upcomingDeadlines.map((deadline) => (
                 <div key={`${deadline.title}-${deadline.dueDate}`} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
-                  <div className={`w-8 h-8 ${deadline.color.split(" ")[0]}/10 rounded-lg flex items-center justify-center flex-shrink-0`}>
-                    <Clock className="w-4 h-4 text-[#FEB05D]" strokeWidth={2} />
+                  <div className={`w-8 h-8 ${deadline.color.split(" ")[0]}/10 rounded-md flex items-center justify-center flex-shrink-0`}>
+                    <Clock className="w-4 h-4 text-[#7A1226]" strokeWidth={2} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[12px] font-medium text-[#2B2A2A] mb-0.5">
+                    <p className="text-[12px] font-medium text-[#1F2430] mb-0.5">
                       {deadline.title}
                     </p>
                     <p className="text-[11px] text-gray-500">
@@ -244,7 +244,7 @@ function FacultyRightPanelView({
 
         {/* Student Activity Alerts */}
         <div className="mb-8">
-          <h3 className="text-[13px] font-semibold text-[#2B2A2A] mb-4">
+          <h3 className="text-[13px] font-semibold text-[#1F2430] mb-4">
             Student Activity
           </h3>
 
@@ -270,11 +270,11 @@ function FacultyRightPanelView({
                   key={alert.id}
                   className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer"
                 >
-                  <div className="w-8 h-8 bg-[#5A7ACD]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 bg-[#7A1226]/10 rounded-md flex items-center justify-center flex-shrink-0">
                     <alert.icon className={`w-4 h-4 ${alert.color}`} strokeWidth={2} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[12px] font-medium text-[#2B2A2A] mb-0.5">
+                    <p className="text-[12px] font-medium text-[#1F2430] mb-0.5">
                       {alert.title}
                     </p>
                     <p className="text-[11px] text-gray-500 truncate">

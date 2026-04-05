@@ -8,6 +8,7 @@ import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
+import { toast } from "sonner";
 
 const EMPTY_CLASS_FORM: ClassCreateFormData = {
   name: "",
@@ -280,10 +281,13 @@ export function FacultyCreateClassPage() {
     setError(null);
     try {
       // IMPORTANT: Create call persists the new class in DB through /api/v1/faculty/courses/create.
-      await createFacultyCourse(classForm, coverImageFile);
+      await createFacultyCourse(classForm);
+      toast.success("Class created successfully.");
       navigate("/faculty/my-classes", { replace: true });
     } catch (createError) {
-      setError(getApiErrorMessage(createError, "Unable to create class. Please verify the fields and try again."));
+      const message = getApiErrorMessage(createError, "Unable to create class. Please verify the fields and try again.");
+      setError(message);
+      toast.error(message);
     } finally {
       setIsCreatingClass(false);
     }

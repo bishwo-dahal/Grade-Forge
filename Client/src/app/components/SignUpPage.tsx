@@ -10,6 +10,11 @@ import {
   setAuthenticated,
 } from "../auth";
 import { signup } from "../../services/authService";
+import {
+  buildFirstTimeSignInMessage,
+  markFirstTimeSignInSeen,
+  queueAuthNotification,
+} from "../authNotifications";
 
 export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -56,6 +61,8 @@ export default function SignUpPage() {
         role: response.role,
         profileCompleted: response.profileCompleted,
       });
+      markFirstTimeSignInSeen(response.email, response.role);
+      queueAuthNotification(buildFirstTimeSignInMessage(response.role));
       // IMPORTANT: If profile is incomplete, force next step immediately so student can finish required fields.
       window.location.href =
         response.role.toUpperCase() === "STUDENT" && !response.profileCompleted
@@ -86,7 +93,7 @@ export default function SignUpPage() {
       <h1 className="mb-2 text-3xl font-bold text-[#2B2A2A]">Create an account</h1>
       <p className="mb-8 text-[14px] text-gray-600">
         Already have an account?{" "}
-        <Link to="/signin" className="text-[#FEB05D] underline hover:text-[#f5a04d]">
+        <Link to="/signin" className="text-[#7A1226] underline hover:text-[#65101F]">
           Log in
         </Link>
       </p>
@@ -103,7 +110,7 @@ export default function SignUpPage() {
             value={firstName}
             onChange={(event) => setFirstName(event.target.value)}
             placeholder="First name"
-            className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#FEB05D]"
+            className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#9F3549]"
           />
           <label htmlFor="last-name" className="sr-only">
             Last name
@@ -114,7 +121,7 @@ export default function SignUpPage() {
             value={lastName}
             onChange={(event) => setLastName(event.target.value)}
             placeholder="Last name"
-            className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#FEB05D]"
+            className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#9F3549]"
           />
         </div>
 
@@ -127,7 +134,7 @@ export default function SignUpPage() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="Email"
-          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#FEB05D]"
+          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#9F3549]"
         />
 
         <div className="relative">
@@ -140,7 +147,7 @@ export default function SignUpPage() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Enter your password"
-            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 pr-12 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#FEB05D]"
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 pr-12 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#9F3549]"
           />
           <button
             type="button"
@@ -155,7 +162,7 @@ export default function SignUpPage() {
         <button
           type="submit"
           disabled={loading}
-          className="mt-6 w-full rounded-lg bg-[#FEB05D] py-3 text-[14px] font-semibold text-white transition-colors hover:bg-[#f5a04d] disabled:opacity-60"
+          className="mt-6 w-full rounded-lg bg-[#7A1226] py-3 text-[14px] font-semibold text-white transition-colors hover:bg-[#65101F] disabled:opacity-60"
         >
           {loading ? "Creating account..." : "Create account"}
         </button>

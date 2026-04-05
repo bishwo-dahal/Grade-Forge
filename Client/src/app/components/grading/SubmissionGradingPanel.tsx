@@ -331,7 +331,7 @@ export function SubmissionGradingPanel({
           <button
             type="submit"
             disabled={savingOverall}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#5A7ACD] px-4 py-2 text-[14px] font-medium text-white hover:bg-[#4a6abd] disabled:opacity-60 transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#7A1226] px-4 py-2 text-[14px] font-medium text-white hover:bg-[#65101F] disabled:opacity-60 transition-colors"
           >
             <Save className="w-4 h-4" strokeWidth={2} />
             {savingOverall ? "Saving…" : "Save grade"}
@@ -467,7 +467,7 @@ export function SubmissionGradingPanel({
             <button
               type="submit"
               disabled={savingRubric}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#5A7ACD] px-4 py-2 text-[14px] font-medium text-white hover:bg-[#4a6abd] disabled:opacity-60 transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg bg-[#7A1226] px-4 py-2 text-[14px] font-medium text-white hover:bg-[#65101F] disabled:opacity-60 transition-colors"
             >
               <Save className="w-4 h-4" strokeWidth={2} />
               {savingRubric ? "Saving…" : "Save rubric grades"}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { CalendarDays, CheckCircle2, Plus, Search, Trash2, X } from "lucide-react";
 import type { AcademicSemester, SemesterCreatePayload } from "../../types/universityAdmin";
 import {
@@ -7,6 +7,8 @@ import {
   listAcademicSemesters,
 } from "../../services/universityAdminService";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
+import { toast } from "sonner";
+import { DeleteReasonDialog } from "./ui/DeleteReasonDialog";
 
 const DEFAULT_SEMESTER_FORM: SemesterCreatePayload = {
   name: "",
@@ -22,7 +24,7 @@ interface UniversitySemestersViewProps {
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
   onOpenCreateModal: () => void;
-  onDeleteSemester: (semesterId: number) => void;
+  onDeleteSemester: (semester: AcademicSemester) => void;
   deletingSemesterId: number | null;
 }
 
@@ -146,7 +148,7 @@ function UniversitySemestersView({
               <div className="mt-4 flex justify-end">
                 <button
                   type="button"
-                  onClick={() => onDeleteSemester(semester.id)}
+                  onClick={() => onDeleteSemester(semester)}
                   aria-label={deletingSemesterId === semester.id ? `Deleting ${semester.name}` : `Delete ${semester.name}`}
                   // FIX: Added visible hover background so icon-only delete action has clearer affordance.
                   className="rounded-lg p-1.5 text-[#E0474C] transition-colors hover:bg-[#FDEBEC] hover:text-[#CB2F34] disabled:opacity-60"
@@ -173,6 +175,8 @@ export function UniversitySemestersPage() {
   const [semesterFormError, setSemesterFormError] = useState<string | null>(null);
   const [isCreatingSemester, setIsCreatingSemester] = useState(false);
   const [deletingSemesterId, setDeletingSemesterId] = useState<number | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [semesterToDelete, setSemesterToDelete] = useState<AcademicSemester | null>(null);
 
   const loadSemesters = () => {
     setIsLoading(true);
@@ -217,24 +221,38 @@ export function UniversitySemestersPage() {
       // NOTE: Uses existing backend-connected university semester create endpoint.
       await createAcademicSemester(semesterForm);
       handleCloseCreateModal();
+      toast.success("Semester created successfully.");
       loadSemesters();
     } catch (creationError) {
-      setSemesterFormError(getApiErrorMessage(creationError, "Could not create semester."));
+      const message = getApiErrorMessage(creationError, "Could not create semester.");
+      setSemesterFormError(message);
+      toast.error(message);
     } finally {
       setIsCreatingSemester(false);
     }
   };
 
-  const handleDeleteSemester = async (semesterId: number) => {
-    setDeletingSemesterId(semesterId);
+  const handleDeleteSemesterRequest = (semester: AcademicSemester) => {
+    setSemesterToDelete(semester);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteSemester = async () => {
+    if (!semesterToDelete) return;
+    setDeletingSemesterId(semesterToDelete.id);
     setError(null);
 
     try {
       // NOTE: Delete action is backend-connected and removes semester record from DB.
-      await deleteAcademicSemesterById(semesterId);
+      await deleteAcademicSemesterById(semesterToDelete.id);
+      toast.success("Semester deleted successfully.");
+      setIsDeleteDialogOpen(false);
+      setSemesterToDelete(null);
       loadSemesters();
     } catch (deleteError) {
-      setError(getApiErrorMessage(deleteError, "Could not delete semester."));
+      const message = getApiErrorMessage(deleteError, "Could not delete semester.");
+      setError(message);
+      toast.error(message);
     } finally {
       setDeletingSemesterId(null);
     }
@@ -249,7 +267,7 @@ export function UniversitySemestersPage() {
         searchTerm={searchTerm}
         onSearchTermChange={setSearchTerm}
         onOpenCreateModal={handleOpenCreateModal}
-        onDeleteSemester={handleDeleteSemester}
+        onDeleteSemester={handleDeleteSemesterRequest}
         deletingSemesterId={deletingSemesterId}
       />
 
@@ -334,6 +352,18 @@ export function UniversitySemestersPage() {
           </div>
         </div>
       )}
+      <DeleteReasonDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title="Delete semester"
+        description={
+          semesterToDelete
+            ? `Delete "${semesterToDelete.name}"? This action cannot be undone.`
+            : "Delete this semester? This action cannot be undone."
+        }
+        onConfirm={handleDeleteSemester}
+        isSubmitting={deletingSemesterId != null}
+      />
     </>
   );
 }

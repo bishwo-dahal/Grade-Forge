@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff, Pencil } from "lucide-react";
 import type { UserProfile } from "../../types/user";
@@ -10,6 +10,15 @@ import { getCurrentGradingAssistantProfile } from "../../services/gradingAssista
 import { clearAuthenticated, getAuthenticatedRole, getAuthenticatedUser, getToken, setAuthenticated } from "../auth";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
+import { toast } from "sonner";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
+
+function getPasswordUpdateErrorMessage(error: unknown): string {
+  return getApiErrorMessage(
+    error,
+    "Failed to update password. Please check your current password and try again."
+  );
+}
 
 export function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -31,8 +40,6 @@ export function SettingsPage() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showRepeatPassword, setShowRepeatPassword] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [updatingPassword, setUpdatingPassword] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -149,34 +156,29 @@ export function SettingsPage() {
     setCurrentPassword("");
     setNewPassword("");
     setRepeatPassword("");
-    setPasswordError(null);
-    setPasswordSuccess(null);
     setShowCurrentPassword(false);
     setShowNewPassword(false);
     setShowRepeatPassword(false);
   };
 
   const handlePasswordUpdate = async () => {
-    setPasswordError(null);
-    setPasswordSuccess(null);
-
     if (!currentPassword || !newPassword || !repeatPassword) {
-      setPasswordError("Please fill in all password fields.");
+      toast.error("Please fill in all password fields.");
       return;
     }
 
     if (newPassword !== repeatPassword) {
-      setPasswordError("New password and repeat password do not match.");
+      toast.error("New password and repeat password do not match.");
       return;
     }
 
     if (currentPassword === newPassword) {
-      setPasswordError("New password must be different from current password.");
+      toast.error("New password must be different from current password.");
       return;
     }
 
     if (!loggedInUser?.email) {
-      setPasswordError("Unable to identify logged in user. Please sign in again.");
+      toast.error("Unable to identify logged in user. Please sign in again.");
       return;
     }
 
@@ -194,16 +196,10 @@ export function SettingsPage() {
         role: response.role,
         profileCompleted: response.profileCompleted,
       });
-
-      setPasswordSuccess(response.message || "Password updated successfully.");
-      setCurrentPassword("");
-      setNewPassword("");
-      setRepeatPassword("");
+      toast.success(response.message || "Password updated successfully.");
+      closeChangePasswordModal();
     } catch (err: unknown) {
-      const msg = err && typeof err === "object" && "response" in err
-        ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-        : "Failed to update password. Please try again.";
-      setPasswordError(msg ?? "Failed to update password.");
+      toast.error(getPasswordUpdateErrorMessage(err));
     } finally {
       setUpdatingPassword(false);
     }
@@ -382,7 +378,7 @@ export function SettingsPage() {
                                   type="button"
                                   onClick={handleFacultyUpdate}
                                   disabled={updatingFaculty}
-                                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5A7ACD] hover:bg-[#4a6abd] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
+                                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
                                 >
                                   {updatingFaculty ? "Saving…" : "Save changes"}
                                 </button>
@@ -391,7 +387,7 @@ export function SettingsPage() {
                               <button
                                 type="button"
                                 onClick={() => setIsEditingFaculty(true)}
-                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5A7ACD] hover:bg-[#4a6abd] rounded-xl text-[14px] font-semibold text-white transition-colors"
+                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] rounded-xl text-[14px] font-semibold text-white transition-colors"
                               >
                                 <Pencil className="w-4 h-4" strokeWidth={2} />
                                 Edit
@@ -565,16 +561,6 @@ export function SettingsPage() {
             </div>
 
             <div className="px-6 py-6 space-y-5">
-              {passwordError && (
-                <div className="py-2 px-3 bg-red-50 border border-red-200 rounded-lg text-[13px] text-red-700">
-                  {passwordError}
-                </div>
-              )}
-              {passwordSuccess && (
-                <div className="py-2 px-3 bg-green-50 border border-green-200 rounded-lg text-[13px] text-green-700">
-                  {passwordSuccess}
-                </div>
-              )}
               <div>
                 <label htmlFor="current-password" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
                   Current Password
@@ -660,7 +646,7 @@ export function SettingsPage() {
                 type="button"
                 onClick={handlePasswordUpdate}
                 disabled={updatingPassword}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5A7ACD] hover:bg-[#4a6abd] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
               >
                 <Lock className="w-4 h-4" strokeWidth={2} />
                 <span>{updatingPassword ? "Updating..." : "Update Password"}</span>

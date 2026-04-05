@@ -20,6 +20,7 @@ import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
+import { toast } from "sonner";
 
 interface FacultyCreateAssignmentViewProps {
   // NOTE: This component is presentation-only. Data and handlers are injected by the page/container.
@@ -32,7 +33,6 @@ interface FacultyCreateAssignmentViewProps {
   testSuiteDraft: TestSuiteDraftState | null;
   isLoading: boolean;
   isSaving: boolean;
-  errorMessage: string | null;
   showSuccessModal: boolean;
   testCasesAdded?: boolean;
   onFieldChange: <K extends keyof AssignmentCreateFormData>(field: K, value: AssignmentCreateFormData[K]) => void;
@@ -74,7 +74,6 @@ function FacultyCreateAssignmentView({
   testSuiteDraft,
   isLoading,
   isSaving,
-  errorMessage,
   showSuccessModal,
   onFieldChange,
   onRubricChange,
@@ -111,12 +110,6 @@ function FacultyCreateAssignmentView({
         <h1 className="text-[34px] font-semibold leading-tight text-[#1F2430]">
           {mode === "edit" ? "Edit Assignment" : "Create New Assignment"}
         </h1>
-
-        {errorMessage ? (
-          <p className="mt-5 rounded-xl border border-[#F3CDD1] bg-[#FDEBEC] px-3 py-2 text-[13px] text-[#C23A42]">
-            {errorMessage}
-          </p>
-        ) : null}
 
         <section className="mt-10 rounded-3xl border border-gray-200 bg-white p-6">
           <h2 className="text-[24px] font-semibold text-[#1F2430]">Assignment Setup</h2>
@@ -662,7 +655,6 @@ export function FacultyCreateAssignmentPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [testCasesAdded, setTestCasesAdded] = useState(false);
   const [totalPointsLockedByRubric, setTotalPointsLockedByRubric] = useState(false);
@@ -673,7 +665,6 @@ export function FacultyCreateAssignmentPage() {
 
   useEffect(() => {
     setIsLoading(true);
-    setErrorMessage(null);
     // NOTE: Page-level data loading keeps this form view presentation-only and backend-ready.
     (mode === "edit" && assignmentId
       ? getFacultyAssignmentEditPageData(resolvedClassId, assignmentId)
@@ -683,7 +674,7 @@ export function FacultyCreateAssignmentPage() {
         setForm(data.initialForm);
       })
       .catch((error) => {
-        setErrorMessage(extractErrorMessage(error));
+        toast.error(extractErrorMessage(error));
       })
       .finally(() => setIsLoading(false));
   }, [resolvedClassId, mode, assignmentId]);
@@ -776,48 +767,52 @@ export function FacultyCreateAssignmentPage() {
 
   const handleSubmit = async () => {
     if (!form || !canSubmit) {
-      setErrorMessage("Fill all required fields before creating the assignment.");
+      toast.error("Fill all required fields before creating the assignment.");
       return;
     }
     if (form.availableFromDate.trim() && !form.availableFromTime.trim()) {
       // FIX: Backend expects complete LocalDateTime values, so date-only optional fields are blocked in UI.
-      setErrorMessage("Choose a time for Available From.");
+      toast.error("Choose a time for Available From.");
       return;
     }
     if (form.lateDueDate.trim() && !form.lateDueTime.trim()) {
       // FIX: Backend expects complete LocalDateTime values, so date-only optional fields are blocked in UI.
-      setErrorMessage("Choose a time for Late Due Date.");
+      toast.error("Choose a time for Late Due Date.");
       return;
     }
     const dueAt = new Date(`${form.dueDate}T${form.dueTime}:00`);
     if (Number.isNaN(dueAt.getTime())) {
-      setErrorMessage("Due date and time are invalid.");
+      toast.error("Due date and time are invalid.");
       return;
     }
     if (form.availableFromDate.trim()) {
       const availableAt = new Date(`${form.availableFromDate}T${form.availableFromTime}:00`);
       if (Number.isNaN(availableAt.getTime())) {
-        setErrorMessage("Available From date and time are invalid.");
+        toast.error("Available From date and time are invalid.");
         return;
       }
       if (availableAt.getTime() > dueAt.getTime()) {
-        setErrorMessage("Available From must be before Due Date.");
+        toast.error("Available From must be before Due Date.");
         return;
       }
     }
     if (form.lateDueDate.trim()) {
       const lateDueAt = new Date(`${form.lateDueDate}T${form.lateDueTime}:00`);
       if (Number.isNaN(lateDueAt.getTime())) {
-        setErrorMessage("Late Due Date and time are invalid.");
+        toast.error("Late Due Date and time are invalid.");
         return;
       }
       if (lateDueAt.getTime() < dueAt.getTime()) {
-        setErrorMessage("Late Due Date must be after Due Date.");
+        toast.error("Late Due Date must be after Due Date.");
         return;
       }
     }
+    if (form.starterCodeUrl.trim() && !/^https?:\/\//i.test(form.starterCodeUrl.trim())) {
+      toast.error("Starter Code URL must start with http:// or https://");
+      return;
+    }
+
     setIsSaving(true);
-    setErrorMessage(null);
     try {
       let savedAssignmentId: string;
       if (mode === "edit" && assignmentId) {
@@ -863,7 +858,7 @@ export function FacultyCreateAssignmentPage() {
       }
       setShowSuccessModal(true);
     } catch (error) {
-      setErrorMessage(extractErrorMessage(error));
+      toast.error(extractErrorMessage(error));
     } finally {
       setIsSaving(false);
     }
@@ -936,7 +931,6 @@ export function FacultyCreateAssignmentPage() {
           testSuiteDraft={testSuiteDraft}
           isLoading={isLoading}
           isSaving={isSaving}
-          errorMessage={errorMessage}
           showSuccessModal={showSuccessModal}
           testCasesAdded={testCasesAdded}
           onFieldChange={onFieldChange}

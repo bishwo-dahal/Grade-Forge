@@ -7,8 +7,10 @@ import { AuthShell } from "../../layout/AuthShell";
 import { AuthTopBar } from "../../layout/AuthTopBar";
 import type { SettingsSection } from "../../layout/AuthTopBar";
 import { Copy, Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { roundTo2 } from "../../../../utils/number";
 import { getApiErrorMessage } from "../../../../utils/apiErrorMessage";
+import { DeleteReasonDialog } from "../../ui/DeleteReasonDialog";
 
 interface FacultyRubricsViewProps {
   rubrics: RubricSummary[];
@@ -33,7 +35,7 @@ function FacultyRubricsView({
   onNewRubric: () => void;
   onToggleExpand: (id: number) => void;
   onEditRubric: (id: number) => void;
-  onDeleteRubric: (id: number) => void;
+  onDeleteRubric: (rubric: RubricSummary) => void;
   onDuplicateRubric: (rubric: RubricSummary) => void;
 }) {
   return (
@@ -129,7 +131,7 @@ function FacultyRubricsView({
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          onDeleteRubric(rubric.id);
+                          onDeleteRubric(rubric);
                         }}
                         className="inline-flex h-8 items-center gap-1 rounded-2xl border border-red-200 bg-red-50 px-3 text-[12px] font-medium text-red-600 hover:bg-red-100"
                       >
@@ -211,6 +213,9 @@ export function FacultyRubricsPage() {
   const [rubrics, setRubrics] = useState<RubricSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [rubricToDelete, setRubricToDelete] = useState<RubricSummary | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const totalRubrics = useMemo(() => rubrics.length, [rubrics]);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -264,14 +269,26 @@ export function FacultyRubricsPage() {
     navigate(`/faculty/rubrics/${id}`);
   };
 
-  const handleDeleteRubric = async (id: number) => {
-    const confirm = window.confirm("Delete this rubric? This action cannot be undone.");
-    if (!confirm) return;
+  const handleDeleteRubricRequest = (rubric: RubricSummary) => {
+    setRubricToDelete(rubric);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteRubric = async () => {
+    if (!rubricToDelete) return;
+    setIsDeleting(true);
     try {
-      await deleteRubric(id);
-      setRubrics((prev) => prev.filter((r) => r.id !== id));
+      await deleteRubric(rubricToDelete.id);
+      setRubrics((prev) => prev.filter((r) => r.id !== rubricToDelete.id));
+      toast.success("Rubric deleted successfully.");
+      setIsDeleteDialogOpen(false);
+      setRubricToDelete(null);
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, "Failed to delete rubric."));
+      const message = getApiErrorMessage(err, "Failed to delete rubric.");
+      setError(message);
+      toast.error(message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -280,32 +297,46 @@ export function FacultyRubricsPage() {
   };
 
   return (
-    <AuthShell
-      roleView="faculty"
-      topBar={
-        <AuthTopBar
-          roleView="faculty"
-          profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search calendar, assignments..."
-          onSettingsSectionSelect={goToSettingsSection}
-          onLogout={handleLogout}
-        />
-      }
-      mainContent={
-        <FacultyRubricsView
-          rubrics={rubrics}
-          loading={loading}
-          error={error}
-          totalRubrics={totalRubrics}
-          expandedId={expandedId}
-          onNewRubric={handleNewRubric}
-          onToggleExpand={handleToggleExpand}
-          onEditRubric={handleEditRubric}
-          onDeleteRubric={handleDeleteRubric}
-          onDuplicateRubric={handleDuplicateRubric}
-        />
-      }
-    />
+    <>
+      <AuthShell
+        roleView="faculty"
+        topBar={
+          <AuthTopBar
+            roleView="faculty"
+            profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
+            searchPlaceholder="Search calendar, assignments..."
+            onSettingsSectionSelect={goToSettingsSection}
+            onLogout={handleLogout}
+          />
+        }
+        mainContent={
+          <FacultyRubricsView
+            rubrics={rubrics}
+            loading={loading}
+            error={error}
+            totalRubrics={totalRubrics}
+            expandedId={expandedId}
+            onNewRubric={handleNewRubric}
+            onToggleExpand={handleToggleExpand}
+            onEditRubric={handleEditRubric}
+            onDeleteRubric={handleDeleteRubricRequest}
+            onDuplicateRubric={handleDuplicateRubric}
+          />
+        }
+      />
+      <DeleteReasonDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title="Delete rubric"
+        description={
+          rubricToDelete
+            ? `Delete "${rubricToDelete.name}"? This action cannot be undone.`
+            : "Delete this rubric? This action cannot be undone."
+        }
+        onConfirm={handleDeleteRubric}
+        isSubmitting={isDeleting}
+      />
+    </>
   );
 }
 

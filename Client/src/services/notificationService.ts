@@ -42,7 +42,7 @@ const facultyAlerts: AlertItem[] = [
     time: "1h ago",
     type: "late",
     icon: AlertCircle,
-    color: "text-[#FEB05D]",
+    color: "text-[#7A1226]",
   },
   {
     id: 2,
@@ -51,7 +51,7 @@ const facultyAlerts: AlertItem[] = [
     time: "3h ago",
     type: "question",
     icon: Bell,
-    color: "text-[#5A7ACD]",
+    color: "text-[#5A606B]",
   },
   {
     id: 3,
@@ -60,7 +60,7 @@ const facultyAlerts: AlertItem[] = [
     time: "5h ago",
     type: "warning",
     icon: AlertCircle,
-    color: "text-[#FEB05D]",
+    color: "text-[#7A1226]",
   },
 ];
 
@@ -80,21 +80,21 @@ const upcomingDeadlines: DeadlineItem[] = [
     className: "CS 201",
     dueDate: "Feb 6",
     type: "quiz",
-    color: "bg-orange-100 text-orange-600",
+    color: "bg-[#F1E9EB] text-[#7A1226]",
   },
   {
     title: "Web Dev Project",
     className: "CS 340",
     dueDate: "Feb 8",
     type: "assignment",
-    color: "bg-[#E0DBFF] text-purple-600",
+    color: "bg-[#EEF0F3] text-[#5A606B]",
   },
   {
     title: "Database Design",
     className: "CS 370",
     dueDate: "Feb 10",
     type: "project",
-    color: "bg-orange-100 text-orange-600",
+    color: "bg-[#F1E9EB] text-[#7A1226]",
   },
 ];
 

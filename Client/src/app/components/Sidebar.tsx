@@ -35,23 +35,21 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="w-56 bg-white border-r border-gray-100 flex-shrink-0 py-8 px-4">
+    <aside className="w-56 bg-[#7A1226] border-r border-[#65101F] flex-shrink-0 flex flex-col">
       {/* Logo Area */}
-      <div className="mb-12 px-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#E0DBFF] rounded-lg flex items-center justify-center">
-            <span className="text-[#5B4FCF] text-sm">AG</span>
-          </div>
-          <span className="text-sm text-gray-800">AutoGrade</span>
+      <div className="h-[76px] border-b border-[#65101F] bg-white px-6 flex items-center">
+        <div className="flex items-center gap-3">
+          <img src="/favicon.svg" alt="Grade Forge" className="h-8 w-8 flex-shrink-0 rounded-[10px]" />
+          <span className="text-[15px] font-semibold text-[#1F2430] whitespace-nowrap">Grade Forge</span>
         </div>
       </div>
 
       {/* Navigation Groups */}
-      <nav className="space-y-8">
+      <nav className="flex-1 px-4 pt-4 space-y-8">
         {navigationGroups.map((group) => (
           <div key={group.title}>
             <div className="px-3 mb-3">
-              <span className="text-[10px] tracking-wider text-gray-400">
+              <span className="text-[10px] tracking-wider text-[#D8B7BE]">
                 {group.title}
               </span>
             </div>
@@ -61,8 +59,8 @@ export function Sidebar() {
                   <button
                     className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                       item.active
-                        ? "bg-[#E0DBFF] bg-opacity-40 text-gray-800"
-                        : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                        ? "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]"
+                        : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]"
                     }`}
                   >
                     <item.icon className="w-4 h-4" strokeWidth={1.5} />

@@ -90,7 +90,7 @@ export function GradingHeader({
 
               <button
                 onClick={onFinalizeGrade}
-                className="px-4 py-2 bg-[#5A7ACD] hover:bg-[#4a6abd] text-white rounded-lg text-[13px] font-medium transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-[#7A1226] hover:bg-[#65101F] text-white rounded-lg text-[13px] font-medium transition-colors flex items-center gap-2"
               >
                 <CheckCircle className="w-4 h-4" strokeWidth={2} />
                 <span>Finalize Grade</span>

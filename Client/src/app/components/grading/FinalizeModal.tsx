@@ -93,7 +93,7 @@ export function FinalizeModal({ submission, onConfirm, onCancel }: FinalizeModal
           </button>
           <button
             onClick={onConfirm}
-            className="px-5 py-2 text-[13px] font-medium bg-[#5A7ACD] hover:bg-[#4a6abd] text-white rounded-lg transition-colors"
+            className="px-5 py-2 text-[13px] font-medium bg-[#7A1226] hover:bg-[#65101F] text-white rounded-lg transition-colors"
           >
             Finalize Grade
           </button>

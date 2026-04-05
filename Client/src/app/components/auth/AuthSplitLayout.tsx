@@ -12,7 +12,7 @@ export function AuthSplitLayout({ activeDotIndex = 1, children }: AuthSplitLayou
   return (
     <div className="h-screen flex bg-white">
       {/* Left Side - Image & Text (shared for sign-in/sign-up) */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-[#FEB05D] to-[#f5a04d] overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-[#7A1226] to-[#65101F] overflow-hidden">
         {/* Background Image */}
         <div className="absolute inset-0 opacity-30">
           <ImageWithFallback
