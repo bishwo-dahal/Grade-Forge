@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 /**
@@ -97,6 +98,15 @@ public class GraderReportRunnerService {
 
     @Value("${grader.faculty-triage.unclear-delta}")
     private double facultyTriageUnclearDelta;
+
+    @Value("${ml.authorship-model.path:}")
+    private String authorshipModelPath;
+
+    @Value("${grader.authorship-ml.enabled:true}")
+    private boolean authorshipMlEnabled;
+
+    @Value("${grader.authorship-ml.weight:0.12}")
+    private double authorshipMlWeight;
 
     private final GraderReportRepository graderReportRepository;
     private final AssignmentRepository assignmentRepository;
@@ -330,6 +340,19 @@ public class GraderReportRunnerService {
         env.put("GRADER_FACULTY_TRIAGE_HUMAN_DELTA", Double.toString(facultyTriageHumanDelta));
         env.put("GRADER_FACULTY_TRIAGE_AI_DELTA", Double.toString(facultyTriageAiDelta));
         env.put("GRADER_FACULTY_TRIAGE_UNCLEAR_DELTA", Double.toString(facultyTriageUnclearDelta));
+        env.put("GRADER_AUTHORSHIP_ML_ENABLED", Boolean.toString(authorshipMlEnabled));
+        env.put("GRADER_AUTHORSHIP_ML_WEIGHT", Double.toString(authorshipMlWeight));
+        if (authorshipMlEnabled && authorshipModelPath != null && !authorshipModelPath.isBlank()) {
+            Path modelFile = Paths.get(authorshipModelPath.trim()).toAbsolutePath().normalize();
+            if (Files.isRegularFile(modelFile)) {
+                env.put("GRADER_AUTHORSHIP_MODEL_PATH", modelFile.toString());
+            } else {
+                env.put("GRADER_AUTHORSHIP_MODEL_PATH", "");
+                log.debug("Authorship ML model file not found at {}; inference skipped", modelFile);
+            }
+        } else {
+            env.put("GRADER_AUTHORSHIP_MODEL_PATH", "");
+        }
         pb.redirectErrorStream(false);
         Process process = pb.start();
 

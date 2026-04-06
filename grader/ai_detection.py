@@ -14,6 +14,12 @@ import hashlib
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
+from authorship_ml_inference import (
+    bundle_debug,
+    reset_session_stats,
+    session_stats,
+    trained_authorship_contribution,
+)
 from data_parser import Assignment, Submission
 from llm_ai_signal import get_llm_ai_signals, is_llm_signal_env_enabled
 
@@ -334,7 +340,10 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
     llm_weight = _get_llm_weight()
     llm_min = _get_llm_min()
 
+    reset_session_stats()
+
     for m in metrics:
+        similarity = float(similarity_by_student.get(m.student_id, 0.0) or 0.0)
         signals: List[Dict[str, object]] = []
         score = 0.0
 
@@ -461,7 +470,6 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
             )
 
         # Cross-signal: high similarity boosts risk slightly, but should not dominate.
-        similarity = float(similarity_by_student.get(m.student_id, 0.0) or 0.0)
         if similarity >= 0.7:
             sim_weight = 0.14
             score += sim_weight
@@ -543,6 +551,13 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
                     }
                 )
 
+        # Optional university-trained RandomForest (same feature layout as training export).
+        pre_ml_score = score
+        risk_for_features = max(0.0, min(1.0, pre_ml_score))
+        delta_ml, ml_sig = trained_authorship_contribution(risk_for_features, similarity, m, llm)
+        if ml_sig is not None:
+            score += delta_ml
+
         # Clamp and classify.
         score = max(0.0, min(1.0, score))
         level = _level_from_score(score)
@@ -583,6 +598,7 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
         }
 
     total = len(metrics)
+    ml_diag = bundle_debug()
     return {
         "by_student": by_student,
         "summary": {
@@ -593,8 +609,9 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
         },
         "model_info": {
             "name": "heuristic-ai-risk-v1",
-            "type": "deterministic-signals",
-            "uses_training_data": False,
+            "type": "deterministic-signals+optional-rf",
+            "uses_training_data": bool(ml_diag.get("loaded")),
+            "authorship_ml": {**ml_diag, "session": session_stats()},
             "llm_ai_signal_enabled": is_llm_signal_env_enabled(),
             "llm_ai_signal_populated": bool(llm_signals),
             "llm_ai_signal_attempts": llm_attempts,
@@ -610,7 +627,8 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
         },
         "disclaimer": (
             "AI authorship score is probabilistic triage support. "
-            "It includes a small similarity-context signal in this version. "
+            "It may include a small similarity-context signal, optional LLM evidence, "
+            "and—when configured—a university-trained model learned from instructor triage labels. "
             "Do not use as sole evidence; require faculty review and student follow-up."
         ),
     }

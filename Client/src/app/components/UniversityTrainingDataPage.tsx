@@ -141,7 +141,7 @@ export function UniversityTrainingDataPage() {
               void (async () => {
                 try {
                   const { runId } = await startAuthorshipTraining();
-                  pollRef.current = window.setInterval(() => {
+                  const tick = () => {
                     if (pollInFlight.current) return;
                     pollInFlight.current = true;
                     void getAuthorshipTrainingStatus(runId)
@@ -173,7 +173,9 @@ export function UniversityTrainingDataPage() {
                       .finally(() => {
                         pollInFlight.current = false;
                       });
-                  }, 400);
+                  };
+                  tick();
+                  pollRef.current = window.setInterval(tick, 400);
                 } catch (e) {
                   setTrainingRunning(false);
                   setTrainingPhase(null);

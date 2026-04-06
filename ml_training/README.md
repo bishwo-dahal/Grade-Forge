@@ -25,7 +25,7 @@ Requirements:
 
 UI: **University admin → ML training data → Train model**.
 
-The grader **does not load this joblib yet**; training produces an artifact you can wire into inference later.
+The **Plagiarism & AI grader** loads that joblib when **`ml.authorship-model.path`** points to an existing file (same path as training output): it builds the same numeric feature row and applies **`weight × (P(AI-assisted) − P(human-written))`** to the risk score (default weight **`grader.authorship-ml.weight` / `GRADER_AUTHORSHIP_ML_WEIGHT` = 0.12**). Set **`GRADER_AUTHORSHIP_ML_ENABLED=false`** to disable inference without moving the file.
 
 ## University admin (read-only list)
 
