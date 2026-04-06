@@ -2,6 +2,20 @@
 
 Grade-Forge is a web app for university coding courses: classes, assignments, submissions, automated tests, grading, rubrics, and optional similarity and AI-related reports for instructors.
 
+## Screenshots
+
+**App landing** (public home before you sign in):
+
+![Grade-Forge landing page](/manual/images/landing.png)
+
+**Documentation** in the app opens this manual at `/docs/`:
+
+![Documentation home](/manual/images/docs-home.png)
+
+**This overview** inside the manual (`/docs/manual/overview`):
+
+![User manual overview page](/manual/images/manual-overview.png)
+
 ## Who this manual is for
 
 - **Students:** enroll, submit work, run tests, see feedback.

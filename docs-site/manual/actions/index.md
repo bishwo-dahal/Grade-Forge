@@ -1,8 +1,10 @@
 # All actions by role
 
-Every entry lists **steps**, **Path**, and an **example URL** when it helps. Example host and ids are fake. See [URLs in this manual](../conventions).
+Every entry lists **steps**, **Path**, and an **example URL** when it helps. Example host and ids are samples. See [URLs in this manual](../conventions).
 
 **More detail** links go to topic pages under [Features](../features/sign-in-and-account).
+
+![All actions index in the documentation site](/manual/images/manual-actions.png)
 
 ---
 

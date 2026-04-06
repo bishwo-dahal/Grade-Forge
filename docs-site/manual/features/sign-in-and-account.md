@@ -1,5 +1,9 @@
 # Sign-in and account
 
+From the public **landing** page you can open **Sign up** or **Sign in**:
+
+![App landing with sign-in and sign-up entry points](/manual/images/landing.png)
+
 ## How do I create an account?
 
 1. Open **Sign up** from the public landing page.
@@ -8,7 +12,7 @@
 **Path:** `/signup`  
 **Example URL:** `https://gradeforge.tech/signup`
 
-![Sign-up page on the public site](/docs/manual/images/signup.png)
+![Sign-up page on the public site](/manual/images/signup.png)
 
 ## How do I sign in?
 
@@ -18,7 +22,7 @@
 **Path:** `/signin`  
 **Example URL:** `https://gradeforge.tech/signin`
 
-![Sign-in page on the public site](/docs/manual/images/signin.png)
+![Sign-in page on the public site](/manual/images/signin.png)
 
 ## How do I finish student registration the first time?
 

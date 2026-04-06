@@ -25,6 +25,10 @@ features:
     linkText: FAQ
 ---
 
+The in-app **Documentation** link opens `/docs/`. The manual home looks like this:
+
+![Documentation home](/manual/images/docs-home.png)
+
 ## Choose your role
 
 | I am a… | Start page |

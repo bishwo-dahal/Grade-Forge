@@ -1,5 +1,7 @@
 # FAQ
 
+![FAQ page in the documentation site](/manual/images/manual-faq.png)
+
 ## How do I run tests before I submit?
 
 1. Open the assignment **Tests** tab.
