@@ -1,5 +1,7 @@
 package com.grade.forge.auth.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.grade.forge.auth.dto.LoginRequest;
 import com.grade.forge.auth.dto.PasswordResetRequest;
 import com.grade.forge.auth.dto.PasswordUpdateRequest;
@@ -7,14 +9,18 @@ import com.grade.forge.auth.dto.SignupRequest;
 import com.grade.forge.auth.dto.response.AuthResponse;
 import com.grade.forge.auth.service.AuthService;
 import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.user.entity.Users;
 import com.grade.forge.user.enums.Role;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @RestController
@@ -24,6 +30,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final ActivityLogService activityLogService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(Authentication authentication, @RequestBody LoginRequest loginRequest) {
@@ -39,7 +46,16 @@ public class AuthController {
         }
     }
 
-    @PostMapping("/signup")
+    @GetMapping("/me")
+    public ResponseEntity<AuthResponse> getCurrentUser(Authentication authentication,
+                                                       @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+        AuthResponse response = authService.getCurrentUserAuthResponse(customUserDetails.getUsername());
+        return ResponseEntity.ok(response);
+    }
+
+
+
+    @PostMapping(value = "/signup", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<AuthResponse> signup(Authentication authentication, @RequestBody SignupRequest signupRequest) {
         System.out.println(signupRequest.getEmail());
         log.info("signup email :{}", signupRequest.getEmail());
@@ -51,6 +67,34 @@ public class AuthController {
             logActivity(authentication, null, signupRequest.getEmail(), "User signup", "User: " + signupRequest.getEmail(), "failed");
             throw ex;
         }
+    }
+
+    @PostMapping(value = "/signup", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE, "multipart/form-data;charset=UTF-8"})
+    public ResponseEntity<AuthResponse> signupWithProfilePicture(Authentication authentication,
+                                                                 @RequestPart(value = "signupRequest", required = false) String signupRequestJson,
+                                                                 @ModelAttribute SignupRequest formSignupRequest,
+                                                                 @RequestPart(value = "file", required = false) MultipartFile file) {
+        SignupRequest signupRequest = resolveSignupRequest(signupRequestJson, formSignupRequest);
+        log.info("signup email :{}", signupRequest.getEmail());
+        try {
+            AuthResponse response = authService.signup(signupRequest, file);
+            logActivity(authentication, response.getRole(), response.getEmail(), "User signup", "User: " + signupRequest.getEmail(), "success");
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (Exception ex) {
+            logActivity(authentication, null, signupRequest.getEmail(), "User signup", "User: " + signupRequest.getEmail(), "failed");
+            throw ex;
+        }
+    }
+
+    private SignupRequest resolveSignupRequest(String signupRequestJson, SignupRequest formSignupRequest) {
+        if (signupRequestJson != null && !signupRequestJson.isBlank()) {
+            try {
+                return objectMapper.readValue(signupRequestJson, SignupRequest.class);
+            } catch (JsonProcessingException ex) {
+                throw new IllegalArgumentException("Invalid signupRequest JSON payload");
+            }
+        }
+        return formSignupRequest;
     }
 
     @PostMapping("/update-password")

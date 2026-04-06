@@ -7,10 +7,13 @@ import com.grade.forge.auth.dto.SignupRequest;
 import com.grade.forge.auth.dto.response.AuthResponse;
 import com.grade.forge.configuration.security.JWTHelper;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
+import com.grade.forge.storage.service.FileStorageService;
 import com.grade.forge.student.entity.Student;
 import com.grade.forge.student.repository.StudentRepository;
+import com.grade.forge.user.entity.UserProfilePicture;
 import com.grade.forge.user.entity.Users;
 import com.grade.forge.user.enums.Role;
+import com.grade.forge.user.repository.UserProfilePictureRepository;
 import com.grade.forge.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +23,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.Objects;
@@ -36,6 +40,8 @@ public class AuthService {
     private final JWTHelper jwtHelper;
     private final UserDetailsService userDetailsService;
     private final StudentRepository studentRepository;
+    private final UserProfilePictureRepository userProfilePictureRepository;
+    private final FileStorageService fileStorageService;
 
     public AuthResponse login(LoginRequest loginRequest) {
         Users user = userRepository.findByEmail(loginRequest.getEmail())
@@ -49,6 +55,7 @@ public class AuthService {
         String token = jwtHelper.generateToken(userDetails);
         // NOTE: Always compute this from DB state so student gating is consistent across logins and devices.
         boolean profileCompleted = resolveProfileCompletion(user);
+        String profilePictureUrl = resolveProfilePictureUrl(user);
 
         return AuthResponse.builder()
                 .token(token)
@@ -57,12 +64,18 @@ public class AuthService {
                 .name(user.getName())
                 .role(user.getRole())
                 .profileCompleted(profileCompleted)
+                .profilePictureUrl(profilePictureUrl)
                 .message("Login successful")
                 .build();
     }
 
     @Transactional
     public AuthResponse signup(SignupRequest signupRequest) {
+        return signup(signupRequest, null);
+    }
+
+    @Transactional
+    public AuthResponse signup(SignupRequest signupRequest, MultipartFile profilePictureFile) {
         if (userRepository.findByEmail(signupRequest.getEmail()).isPresent()) {
             throw new IllegalArgumentException("Email already registered");
         }
@@ -120,9 +133,14 @@ public class AuthService {
             }
         }
 
+        if (profilePictureFile != null && !profilePictureFile.isEmpty()) {
+            uploadOrReplaceProfilePicture(savedUser, profilePictureFile);
+        }
+
         UserDetails userDetails = userDetailsService.loadUserByUsername(savedUser.getEmail());
         String token = jwtHelper.generateToken(userDetails);
         boolean profileCompleted = resolveProfileCompletion(savedUser);
+        String profilePictureUrl = resolveProfilePictureUrl(savedUser);
         log.debug("Generated signup token for userId={}", savedUser.getId());
         return AuthResponse.builder()
                 .token(token)
@@ -131,6 +149,7 @@ public class AuthService {
                 .name(savedUser.getName())
                 .role(savedUser.getRole())
                 .profileCompleted(profileCompleted)
+                .profilePictureUrl(profilePictureUrl)
                 .message("User registered successfully")
                 .build();
     }
@@ -156,6 +175,7 @@ public class AuthService {
                 .name(updatedUser.getName())
                 .role(updatedUser.getRole())
                 .profileCompleted(resolveProfileCompletion(updatedUser))
+                .profilePictureUrl(resolveProfilePictureUrl(updatedUser))
                 .message("Password updated successfully")
                 .build();
     }
@@ -181,8 +201,51 @@ public class AuthService {
                 .name(updatedUser.getName())
                 .role(updatedUser.getRole())
                 .profileCompleted(resolveProfileCompletion(updatedUser))
+                .profilePictureUrl(resolveProfilePictureUrl(updatedUser))
                 .message("Password reset successfully")
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public AuthResponse getCurrentUserAuthResponse(String email) {
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+
+        return AuthResponse.builder()
+                .token(null)
+                .userId(String.valueOf(user.getId()))
+                .email(user.getEmail())
+                .name(user.getName())
+                .role(user.getRole())
+                .profileCompleted(resolveProfileCompletion(user))
+                .profilePictureUrl(resolveProfilePictureUrl(user))
+                .message("User fetched successfully")
+                .build();
+    }
+
+    private void uploadOrReplaceProfilePicture(Users user, MultipartFile profilePictureFile) {
+        UserProfilePicture existingPicture = userProfilePictureRepository.findByUser_Id(user.getId()).orElse(null);
+        UserProfilePicture uploadedPicture = fileStorageService.uploadUserProfilePicture(user, profilePictureFile);
+
+        if (existingPicture != null) {
+            fileStorageService.deleteObject(existingPicture.getFileKey());
+            existingPicture.setFileName(uploadedPicture.getFileName());
+            existingPicture.setFileKey(uploadedPicture.getFileKey());
+            existingPicture.setFileType(uploadedPicture.getFileType());
+            existingPicture.setFileSize(uploadedPicture.getFileSize());
+            userProfilePictureRepository.save(existingPicture);
+            user.setProfilePicture(existingPicture);
+            return;
+        }
+
+        UserProfilePicture savedPicture = userProfilePictureRepository.save(uploadedPicture);
+        user.setProfilePicture(savedPicture);
+    }
+
+    private String resolveProfilePictureUrl(Users user) {
+        return userProfilePictureRepository.findByUser_Id(user.getId())
+                .map(pic -> fileStorageService.generatePresignedDownloadUrl(pic.getFileKey(), pic.getFileName()))
+                .orElse(null);
     }
 
     private boolean resolveProfileCompletion(Users user) {

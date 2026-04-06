@@ -1,11 +1,12 @@
 import { useMemo } from "react";
-import { Outlet, useNavigate } from "react-router";
+import { Outlet, useLocation, useNavigate } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 
 export function UniversityAdminWorkspace() {
   const navigate = useNavigate();
+  const location = useLocation();
   const loggedInUser = getAuthenticatedUser();
   const displayName = loggedInUser?.name ?? "University Admin";
   const displayEmail = loggedInUser?.email ?? "admin@university.edu";
@@ -27,6 +28,12 @@ export function UniversityAdminWorkspace() {
     navigate("/signin", { replace: true });
   };
 
+  const goToSettingsSection = (section: "profile" | "security" | "notifications" | "appearance") => {
+    navigate(`/university-admin/settings?section=${section}`);
+  };
+
+  const isSettingsRoute = location.pathname.startsWith("/university-admin/settings");
+
   return (
     <AuthShell
       roleView="university"
@@ -34,9 +41,9 @@ export function UniversityAdminWorkspace() {
         <AuthTopBar
           roleView="university"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          // NOTE: Keep shared topbar copy aligned with all current university sections.
           searchPlaceholder="Search faculty, semesters, courses, languages, activity..."
-          // NOTE: University workspace keeps settings navigation inactive until dedicated university settings routing is introduced.
+          isSettingsActive={isSettingsRoute}
+          onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />
       }

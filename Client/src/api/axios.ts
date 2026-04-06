@@ -2,8 +2,11 @@ import axios from "axios";
 import { clearAuthenticated, getToken } from "../app/auth";
 import { applyFriendlyAxiosErrorMessage } from "../utils/apiErrorMessage";
 
+/** Shared with non-axios callers (e.g. multipart signup) so URLs stay consistent. */
+export const apiBaseURL = import.meta.env.PROD ? "" : "http://localhost:8080";
+
 const api = axios.create({
-  baseURL: import.meta.env.PROD ? "" : "http://localhost:8080",
+  baseURL: apiBaseURL,
 });
 
 api.interceptors.request.use((config) => {
@@ -14,7 +17,9 @@ api.interceptors.request.use((config) => {
 
   // FIX: Do not force JSON content type globally; FormData uploads must keep browser-managed multipart headers.
   if (config.data instanceof FormData && config.headers) {
-    delete config.headers["Content-Type"];
+    const h = config.headers as Record<string, unknown>;
+    delete h["Content-Type"];
+    delete h["content-type"];
   }
 
   const path = config.url ?? "";

@@ -50,11 +50,16 @@ export default function SignInPage() {
     setLoading(true);
     try {
       const response = await login({ email, password });
+      if (!response.token) {
+        setError("Invalid response from server.");
+        return;
+      }
       setAuthenticated(response.token, {
         name: response.name,
         email: response.email,
         role: response.role,
         profileCompleted: response.profileCompleted,
+        profilePictureUrl: response.profilePictureUrl ?? undefined,
       });
       if (isFirstTimeSignIn(response.email, response.role)) {
         markFirstTimeSignInSeen(response.email, response.role);

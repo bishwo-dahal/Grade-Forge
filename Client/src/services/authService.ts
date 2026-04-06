@@ -1,4 +1,6 @@
-import api from "../api/axios";
+import api, { apiBaseURL } from "../api/axios";
+import { getToken, setAuthenticated } from "../app/auth";
+import { getApiErrorMessage } from "../utils/apiErrorMessage";
 import type { UserProfile } from "../types/user";
 import type {
   StudentRegistrationCompletionRequest,
@@ -6,14 +8,16 @@ import type {
 } from "../types/student";
 
 export interface AuthResponse {
-  token: string;
-  userId: string;
+  /** Omitted on some responses (e.g. GET `/api/v1/auth/me`); keep the existing session token when missing. */
+  token?: string;
+  userId?: string;
   email: string;
   name: string;
   role: string;
   // NOTE: Student auth responses include this gate flag so incomplete profiles can be redirected before dashboard access.
   profileCompleted: boolean;
-  message: string;
+  profilePictureUrl?: string | null;
+  message?: string;
 }
 
 export interface LoginRequest {
@@ -43,9 +47,72 @@ export async function login(credentials: LoginRequest): Promise<AuthResponse> {
   return data;
 }
 
-export async function signup(payload: SignupRequest): Promise<AuthResponse> {
-  const { data } = await api.post<AuthResponse>("/api/v1/auth/signup", payload);
-  return data;
+const SIGNUP_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+const ALLOWED_PROFILE_IMAGE_TYPES = new Set(["image/jpeg", "image/png"]);
+
+function isAllowedProfileImage(file: File): boolean {
+  if (ALLOWED_PROFILE_IMAGE_TYPES.has(file.type)) {
+    return true;
+  }
+  return /\.(jpe?g|png)$/i.test(file.name);
+}
+
+/**
+ * Multipart signup uses `fetch` (not axios) so the browser sets `multipart/form-data` with a
+ * boundary only. Axios/XHR can produce `...;charset=UTF-8`, which Spring often rejects for
+ * `@PostMapping(consumes = MULTIPART_FORM_DATA)`.
+ */
+export async function signup(
+  payload: SignupRequest,
+  profilePicture?: File | null,
+): Promise<AuthResponse> {
+  if (profilePicture && profilePicture.size > SIGNUP_IMAGE_MAX_BYTES) {
+    throw new Error("Profile picture must be 5 MB or smaller.");
+  }
+  if (profilePicture && profilePicture.size > 0 && !isAllowedProfileImage(profilePicture)) {
+    throw new Error("Profile picture must be a JPG or PNG file.");
+  }
+
+  const formData = new FormData();
+  formData.append("signupRequest", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+  if (profilePicture && profilePicture.size > 0) {
+    formData.append("file", profilePicture);
+  }
+
+  const url = `${apiBaseURL}/api/v1/auth/signup`;
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      body: formData,
+      headers,
+    });
+  } catch {
+    throw new Error("Network error. Check your connection and try again.");
+  }
+
+  const text = await res.text();
+  let data: unknown = {};
+  if (text) {
+    try {
+      data = JSON.parse(text) as unknown;
+    } catch {
+      data = { message: text };
+    }
+  }
+
+  if (!res.ok) {
+    throw new Error(getApiErrorMessage({ response: { data } }, "Sign up failed."));
+  }
+
+  return data as AuthResponse;
 }
 
 export async function completeStudentRegistration(
@@ -62,6 +129,29 @@ export async function completeStudentRegistration(
 export async function updatePassword(payload: PasswordUpdateRequest): Promise<AuthResponse> {
   const { data } = await api.post<AuthResponse>("/api/v1/auth/update-password", payload);
   return data;
+}
+
+/**
+ * GET `/api/v1/auth/me` — hydrates session from server (name, email, role, profile flags, presigned photo URL).
+ * Use after settings page load/refresh and after profile edits so the top bar stays in sync with the backend.
+ */
+export async function refreshAuthSessionFromMe(): Promise<void> {
+  const token = getToken();
+  if (!token) {
+    return;
+  }
+
+  const { data } = await api.get<AuthResponse>("/api/v1/auth/me");
+  const nextToken =
+    typeof data.token === "string" && data.token.trim().length > 0 ? data.token.trim() : token;
+
+  setAuthenticated(nextToken, {
+    name: data.name,
+    email: data.email,
+    role: data.role,
+    profileCompleted: data.profileCompleted,
+    profilePictureUrl: data.profilePictureUrl ?? undefined,
+  });
 }
 
 export function getStudentProfile(): Promise<UserProfile> {

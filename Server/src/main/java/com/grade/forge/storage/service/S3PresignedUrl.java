@@ -17,11 +17,15 @@ public class S3PresignedUrl {
     private final S3Presigner presigner;
 
     public String generateDownloadUrl(String bucketName, String key, String originalFilename) {
+        String safeFilename = originalFilename == null ? "file" : originalFilename.replaceAll("[^\\x00-\\x7F]", "");
+        if (safeFilename.isBlank()) {
+            safeFilename = "file";
+        }
 
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                 .bucket(bucketName)
                 .key(key)
-                .responseContentDisposition("attachment; filename=\"" + originalFilename + "\"")
+                .responseContentDisposition("attachment; filename=\"" + safeFilename + "\"")
                 .build();
 
         GetObjectPresignRequest presignRequest =
