@@ -10,7 +10,6 @@ import {
   Code2,
   ListChecks,
   Monitor,
-  User,
   UserSearch,
 } from "lucide-react";
 import type { ComponentType } from "react";
@@ -62,7 +61,6 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
 
   // NOTE: University navigation is section-based and mapped to nested /university-admin/* routes.
   const universityItems: SidebarNavItem[] = [
-    { icon: User, label: "Account", to: "/university-admin/settings", matchPrefixes: ["/university-admin/settings"] },
     { icon: Users, label: "Faculty", to: "/university-admin/faculty" },
     { icon: Calendar, label: "Semesters", to: "/university-admin/semesters" },
     { icon: BookOpen, label: "Courses", to: "/university-admin/courses" },

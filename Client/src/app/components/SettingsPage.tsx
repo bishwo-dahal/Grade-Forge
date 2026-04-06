@@ -70,6 +70,9 @@ export function SettingsPage() {
   const role = getAuthenticatedRole();
   const settingsBasePath = role === "UNIVERSITY_ADMIN" ? "/university-admin/settings" : "/settings";
   const accountBackHref = role === "UNIVERSITY_ADMIN" ? "/university-admin/faculty" : "/dashboard";
+  // NOTE: University settings is a child of `UniversityAdminWorkspace`, which already renders `AuthShell`; skip the inner shell to avoid duplicate sidebars.
+  const isUniversitySettingsEmbedded =
+    role === "UNIVERSITY_ADMIN" && location.pathname.startsWith("/university-admin/");
   // NOTE: Settings shell matches workspace: student/faculty/GA/university admin.
   const viewMode: "student" | "faculty" | "gradingAssistant" | "university" =
     role === "FACULTY"
@@ -534,13 +537,7 @@ export function SettingsPage() {
     />
   );
 
-  return (
-    <>
-      <AuthShell
-        roleView={viewMode}
-        topBar={topBar}
-        // NOTE: Settings page now reuses the shared shell instead of duplicating sidebar/topbar wrappers.
-        mainContent={
+  const settingsMainContent = (
         <main className="flex-1 overflow-y-auto px-8 py-8">
           <Link
             to={accountBackHref}
@@ -1145,8 +1142,15 @@ export function SettingsPage() {
             )}
           </div>
         </main>
-        }
-      />
+  );
+
+  return (
+    <>
+      {isUniversitySettingsEmbedded ? (
+        settingsMainContent
+      ) : (
+        <AuthShell roleView={viewMode} topBar={topBar} mainContent={settingsMainContent} />
+      )}
 
       {showChangePasswordModal && (
         <div className="fixed inset-0 bg-black/35 flex items-center justify-center p-4 z-50">
