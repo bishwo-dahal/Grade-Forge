@@ -89,13 +89,13 @@ public class GraderReportRunnerService {
     @Value("${grader.faculty-triage.enabled:true}")
     private boolean facultyTriageEnabled;
 
-    @Value("${grader.faculty-triage.human-delta:-0.12}")
+    @Value("${grader.faculty-triage.human-delta}")
     private double facultyTriageHumanDelta;
 
-    @Value("${grader.faculty-triage.ai-delta:0.12}")
+    @Value("${grader.faculty-triage.ai-delta}")
     private double facultyTriageAiDelta;
 
-    @Value("${grader.faculty-triage.unclear-delta:0.03}")
+    @Value("${grader.faculty-triage.unclear-delta}")
     private double facultyTriageUnclearDelta;
 
     private final GraderReportRepository graderReportRepository;

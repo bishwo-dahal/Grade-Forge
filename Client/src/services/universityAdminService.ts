@@ -2,6 +2,7 @@ import type {
   AcademicSemester,
   ActivityLogPageResponse,
   ActivityLogQueryParams,
+  AuthorshipTriageTrainingRow,
   FacultyApiResponse,
   FacultyCreatePayload,
   FacultyMember,
@@ -14,6 +15,7 @@ import type {
   SupportedLanguage,
   UniversityCourseRow,
 } from "../types/universityAdmin";
+import axios from "axios";
 import api from "../api/axios";
 
 const departmentOptions = ["Computer Science", "Software Engineering", "Data Science"];
@@ -177,6 +179,56 @@ export function listDepartmentOptions(): Promise<string[]> {
 export function listUniversityCourses(): Promise<UniversityCourseRow[]> {
   // TODO(backend): Replace with university courses listing endpoint and keep return shape stable.
   return Promise.resolve(universityCourses);
+}
+
+export async function listAuthorshipTriageTrainingRows(): Promise<AuthorshipTriageTrainingRow[]> {
+  const { data } = await api.get<AuthorshipTriageTrainingRow[]>(
+    "/api/v1/university_admin/authorship-triage-training",
+  );
+  return Array.isArray(data) ? data : [];
+}
+
+/** Download the configured on-disk authorship model (404 if path unset or missing). */
+export async function downloadAuthorshipModelArtifact(): Promise<void> {
+  try {
+    const response = await api.get<Blob>("/api/v1/university_admin/authorship-model", {
+      responseType: "blob",
+    });
+    const blob = response.data;
+    const disposition = response.headers["content-disposition"] as string | undefined;
+    let filename = "authorship-model";
+    if (disposition) {
+      const quoted = /filename="([^"]+)"/i.exec(disposition);
+      const unquoted = /filename=([^;\s]+)/i.exec(disposition);
+      const raw = quoted?.[1] ?? unquoted?.[1];
+      if (raw) {
+        filename = decodeURIComponent(raw.replace(/["']/g, "").trim());
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    if (axios.isAxiosError(e) && e.response?.data instanceof Blob) {
+      try {
+        const text = await e.response.data.text();
+        const parsed = JSON.parse(text) as { message?: string };
+        if (typeof parsed.message === "string" && parsed.message.trim()) {
+          throw new Error(parsed.message.trim());
+        }
+      } catch (inner) {
+        if (inner instanceof SyntaxError) {
+          /* ignore non-JSON error body */
+        } else {
+          throw inner;
+        }
+      }
+    }
+    throw e;
+  }
 }
 
 export async function fetchActivityLogs(params: ActivityLogQueryParams): Promise<ActivityLogPageResponse> {

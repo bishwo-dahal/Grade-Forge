@@ -10,7 +10,6 @@ import com.grade.forge.group.entity.SubGroup;
 import com.grade.forge.group.repository.SubGroupRepository;
 import com.grade.forge.student.entity.Student;
 import com.grade.forge.student.repository.StudentRepository;
-import com.grade.forge.submission.dto.AuthorshipTriageExportItem;
 import com.grade.forge.submission.dto.AuthorshipTriageRequest;
 import com.grade.forge.submission.dto.SubmissionFileResponse;
 import com.grade.forge.submission.dto.SubmissionResponse;
@@ -40,7 +39,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -370,30 +368,6 @@ public class SubmissionService {
         }
         submissionAuthorshipTriageRepository.save(row);
         return mapToResponse(target, true);
-    }
-
-    @Transactional(readOnly = true)
-    public List<AuthorshipTriageExportItem> exportAuthorshipTriageForAssignment(String facultyEmail, Long assignmentId) {
-        Faculty faculty = facultyRepository.findByEmail(facultyEmail)
-                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with email: " + facultyEmail));
-
-        Assignment assignment = assignmentRepository.findById(assignmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId));
-
-        if (!assignment.getCourse().getFaculty().getId().equals(faculty.getId())) {
-            throw new IllegalArgumentException("You are not allowed to export labels for this assignment");
-        }
-
-        return submissionAuthorshipTriageRepository.findBySubmission_Assignment_IdAndFaculty_Id(assignmentId, faculty.getId()).stream()
-                .sorted(Comparator.comparing(SubmissionAuthorshipTriage::getLabeledAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
-                .map(t -> AuthorshipTriageExportItem.builder()
-                        .submissionId(t.getSubmission().getId())
-                        .studentId(t.getSubmission().getStudent().getId())
-                        .label(t.getLabel())
-                        .labeledAt(t.getLabeledAt())
-                        .notes(t.getNotes())
-                        .build())
-                .toList();
     }
 
     private void sendGradeUpdatedEmail(Submission submission) {

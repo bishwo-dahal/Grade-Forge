@@ -2,7 +2,6 @@ package com.grade.forge.submission.controller;
 
 import com.grade.forge.audit.ActivityLogService;
 import com.grade.forge.configuration.security.CustomUserDetails;
-import com.grade.forge.submission.dto.AuthorshipTriageExportItem;
 import com.grade.forge.submission.dto.AuthorshipTriageRequest;
 import com.grade.forge.submission.dto.SubmissionGradeRequest;
 import com.grade.forge.submission.dto.SubmissionResponse;
@@ -34,7 +33,7 @@ public class SubmissionFacultyController {
         return new ResponseEntity<>(submissions, HttpStatus.OK);
     }
 
-    @PatchMapping("/{submissionId}/grade")
+    @PatchMapping("/{submissionId:\\d+}/grade")
     public ResponseEntity<SubmissionResponse> updateGrade(Authentication authentication, @AuthenticationPrincipal CustomUserDetails customUserDetails,
                                                           @PathVariable Long submissionId,
                                                           @RequestBody SubmissionGradeRequest request) {
@@ -43,17 +42,7 @@ public class SubmissionFacultyController {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    /** Export this instructor's triage labels for an assignment (for offline ML / audit). Must be before /{submissionId}. */
-    @GetMapping("/authorship-triage-export")
-    public ResponseEntity<List<AuthorshipTriageExportItem>> exportAuthorshipTriage(
-            @AuthenticationPrincipal CustomUserDetails customUserDetails,
-            @RequestParam("assignmentId") Long assignmentId) {
-        List<AuthorshipTriageExportItem> rows = submissionService.exportAuthorshipTriageForAssignment(
-                customUserDetails.getUsername(), assignmentId);
-        return new ResponseEntity<>(rows, HttpStatus.OK);
-    }
-
-    @GetMapping("/{submissionId}")
+    @GetMapping("/{submissionId:\\d+}")
     public ResponseEntity<SubmissionResponse> getSubmission(Authentication authentication, @AuthenticationPrincipal CustomUserDetails customUserDetails,
                                                             @PathVariable Long submissionId) {
         SubmissionResponse response = submissionService.getSubmissionForFaculty(customUserDetails.getUsername(), submissionId);
@@ -64,7 +53,7 @@ public class SubmissionFacultyController {
      * Faculty authorship triage for Plagiarism & AI (training signal + optional grader nudge). Not a misconduct finding.
      * Set label to null to clear.
      */
-    @PatchMapping("/{submissionId}/authorship-triage")
+    @PatchMapping("/{submissionId:\\d+}/authorship-triage")
     public ResponseEntity<SubmissionResponse> upsertAuthorshipTriage(
             Authentication authentication,
             @AuthenticationPrincipal CustomUserDetails customUserDetails,

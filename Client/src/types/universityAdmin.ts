@@ -178,3 +178,21 @@ export interface GradingAssistantResponse {
   department: string;
   faculty?: FacultySearchResponse | null;
 }
+
+/** Faculty authorship triage rows exposed to university admins for ML training oversight (metadata only). */
+export interface AuthorshipTriageTrainingRow {
+  submissionId: number;
+  studentId: number;
+  studentName: string;
+  assignmentId: number;
+  assignmentName: string;
+  courseId: number;
+  courseName: string;
+  courseCode: string;
+  facultyId: number;
+  facultyName: string;
+  facultyEmail: string;
+  label: "AI_ASSISTED" | "HUMAN_WRITTEN" | "UNCLEAR";
+  labeledAt: string;
+  notes: string | null;
+}

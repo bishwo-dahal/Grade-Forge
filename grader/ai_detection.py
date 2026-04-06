@@ -80,6 +80,7 @@ class SubmissionMetrics:
     approx_cyclomatic_markers: int
     template_cluster_size: int
     test_pass_ratio: float
+    authorship_triage_label: str | None = None
 
     @property
     def comment_ratio(self) -> float:
@@ -100,7 +101,19 @@ def _is_comment_line(line: str, language: str) -> bool:
     return stripped.startswith("#") or stripped.startswith("//")
 
 
+def _parse_submission_triage_label(submission: Submission) -> str | None:
+    tri = getattr(submission, "authorship_triage", None)
+    if not isinstance(tri, dict):
+        return None
+    raw = tri.get("label")
+    if raw is None:
+        return None
+    s = str(raw).strip().upper()
+    return s or None
+
+
 def _extract_metrics(submission: Submission, language: str) -> SubmissionMetrics:
+    triage_label = _parse_submission_triage_label(submission)
     code_lines = 0
     comment_lines = 0
     line_lengths: List[int] = []
@@ -171,6 +184,7 @@ def _extract_metrics(submission: Submission, language: str) -> SubmissionMetrics
         approx_cyclomatic_markers=complexity_markers,
         template_cluster_size=0,
         test_pass_ratio=float(max(0, raw_passes)),
+        authorship_triage_label=triage_label,
     )
     setattr(metrics, "_template_hash", submission_hash)
     return metrics
@@ -239,6 +253,25 @@ def _get_llm_min() -> float:
         return max(0.0, min(1.0, v))
     except ValueError:
         return 0.6
+
+
+def _faculty_triage_env_enabled() -> bool:
+    v = (os.environ.get("GRADER_FACULTY_TRIAGE_ENABLED", "true") or "").strip().lower()
+    return v not in ("0", "false", "no", "off")
+
+
+def _faculty_triage_deltas() -> tuple[float, float, float]:
+    def f(key: str, default: str) -> float:
+        try:
+            return float(os.environ.get(key, default))
+        except ValueError:
+            return float(default)
+
+    return (
+        f("GRADER_FACULTY_TRIAGE_HUMAN_DELTA", "-0.12"),
+        f("GRADER_FACULTY_TRIAGE_AI_DELTA", "0.12"),
+        f("GRADER_FACULTY_TRIAGE_UNCLEAR_DELTA", "0.03"),
+    )
 
 
 def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, float]) -> Dict[str, object]:
@@ -484,6 +517,31 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
                     "tags": tags,
                 }
             )
+
+        tri_label = (m.authorship_triage_label or "").upper()
+        if _faculty_triage_env_enabled() and tri_label:
+            human_d, ai_d, unclear_d = _faculty_triage_deltas()
+            delta = 0.0
+            reason = ""
+            if tri_label == "HUMAN_WRITTEN":
+                delta = human_d
+                reason = "Course instructor labeled this submission as likely human-written (bounded score adjustment)."
+            elif tri_label == "AI_ASSISTED":
+                delta = ai_d
+                reason = "Course instructor labeled this submission as AI-assisted (triage signal; not a finding)."
+            elif tri_label == "UNCLEAR":
+                delta = unclear_d
+                reason = "Course instructor marked authorship as unclear (small bounded nudge)."
+            if delta != 0.0:
+                score += delta
+                signals.append(
+                    {
+                        "kind": "faculty_authorship_triage",
+                        "weight": round(delta, 3),
+                        "value": tri_label,
+                        "reason": reason,
+                    }
+                )
 
         # Clamp and classify.
         score = max(0.0, min(1.0, score))
