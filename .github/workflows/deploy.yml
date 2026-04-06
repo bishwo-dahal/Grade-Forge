@@ -8,6 +8,7 @@ on:
     paths:
       - "Client/**"
       - "Server/**"
+      - "docs-site/**"
       - "grader/**"
       - "Dockerfile"
       - ".dockerignore"
