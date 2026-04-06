@@ -8,6 +8,8 @@
 **Path:** `/signup`  
 **Example URL:** `https://gradeforge.tech/signup`
 
+![Sign-up page on the public site](/docs/manual/images/signup.png)
+
 ## How do I sign in?
 
 1. Open **Sign in**.
@@ -15,6 +17,8 @@
 
 **Path:** `/signin`  
 **Example URL:** `https://gradeforge.tech/signin`
+
+![Sign-in page on the public site](/docs/manual/images/signin.png)
 
 ## How do I finish student registration the first time?
 
