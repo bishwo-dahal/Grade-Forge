@@ -3,40 +3,45 @@ layout: home
 
 hero:
   name: Grade-Forge
-  text: Documentation
-  tagline: Clear guides by role — students, faculty, grading assistants, university admins
+  text: User manual
+  tagline: Step-by-step help for students, faculty, grading assistants, and university admins
 
 features:
-  - title: Getting started
-    details: Sign in, roles, settings, and first steps.
-    link: /getting-started
-    linkText: Open
-  - title: Students
-    details: Courses, assignments, tests, submissions, calendar.
-    link: /students/guide
-    linkText: Student guide
-  - title: Faculty
-    details: Classes, assignments, grading, rubrics, plagiarism & AI reports.
-    link: /faculty/guide
-    linkText: Faculty guide
-  - title: Grading assistants
-    details: Courses, assignments, grading workflow.
-    link: /grading-assistants/guide
-    linkText: GA guide
-  - title: University admins
-    details: Faculty, semesters, courses, languages, users, monitor.
-    link: /university-admin/guide
-    linkText: Admin guide
+  - title: Start here
+    details: How paths and example URLs work, then the big picture.
+    link: /manual/conventions
+    linkText: URLs and paths
+  - title: Every action
+    details: Full list of tasks by role with steps, paths, and example links.
+    link: /manual/actions/
+    linkText: All actions
+  - title: Who can do what
+    details: Permission table with paths for each area.
+    link: /manual/roles-and-permissions
+    linkText: Open table
+  - title: FAQ
+    details: Tests, stdin, grades, admin settings.
+    link: /manual/faq
+    linkText: FAQ
 ---
 
-## Browse by role
+## Choose your role
 
-| Audience | Overview | Full task list |
-| -------- | -------- | ---------------- |
-| Everyone | [Getting started](/getting-started) | — |
-| Students | [Students](/students/) | [Student guide](/students/guide) |
-| Faculty | [Faculty](/faculty/) | [Faculty guide](/faculty/guide) |
-| Grading assistants | [Grading assistants](/grading-assistants/) | [GA guide](/grading-assistants/guide) |
-| University administrators | [University admin](/university-admin/) | [Admin guide](/university-admin/guide) |
+| I am a… | Start page |
+| ------- | ---------- |
+| Student | [Student](/manual/roles/student) |
+| Faculty | [Faculty](/manual/roles/faculty) |
+| Grading assistant | [Grading assistant](/manual/roles/grading-assistant) |
+| University admin | [University admin](/manual/roles/university-admin) |
 
-Use the **search** box (or press `/`) to jump to any heading.
+## Feature topics
+
+[Sign-in and account](/manual/features/sign-in-and-account) · [Courses and classes](/manual/features/courses-and-classes) · [Assignments and editor](/manual/features/assignments-and-editor) · [Tests and submissions](/manual/features/tests-and-submissions) · [Grading and feedback](/manual/features/grading-and-feedback) · [Rubrics and groups](/manual/features/rubrics-and-groups) · [Grading assistants](/manual/features/grading-assistants) · [Plagiarism and AI](/manual/features/plagiarism-and-ai-reports) · [University administration](/manual/features/university-administration) · [Calendar, materials, discussions](/manual/features/calendar-materials-discussions) · [Files and downloads](/manual/features/files-and-downloads)
+
+## Developers
+
+[API, Swagger, and repository](/manual/for-developers) (not part of the end-user manual).
+
+## Older bookmarks
+
+Pages such as **Getting started** or **Students guide** now redirect into this manual. Use [Overview](/manual/overview) if you are lost.

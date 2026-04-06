@@ -1,5 +1,3 @@
-# University administrators
+# This page moved
 
-You use the **University admin** workspace with sections: **Faculty**, **Semesters**, **Courses**, **Languages**, **Manage users**, **Monitor**, and **Settings**.
-
-**Full task reference:** [University admin guide](./guide.md)
+University admin help is in the user manual: [University admin](/manual/roles/university-admin) and [University administration](/manual/features/university-administration).

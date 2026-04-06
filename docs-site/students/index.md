@@ -1,5 +1,3 @@
-# Students
+# This page moved
 
-Use the **Learning** section in the sidebar: Dashboard, My Courses, Assignments, Calendar. **Resources** lists Materials and Discussions.
-
-**Full task reference:** [Student guide](./guide.md)
+Student help is in the user manual: [Student](/manual/roles/student) and [All actions](/manual/actions/) (filter by student tasks).

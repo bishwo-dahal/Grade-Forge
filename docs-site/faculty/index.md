@@ -1,7 +1,3 @@
-# Faculty
+# This page moved
 
-Use the **Teaching** section: Dashboard, My Classes, Rubrics, Grading Assistants, Students, Schedule. **Resources** has Materials and Discussions.
-
-Grading happens **inside a class** on an assignment (there is no separate global grading hub).
-
-**Full task reference:** [Faculty guide](./guide.md)
+Faculty help is in the user manual: [Faculty](/manual/roles/faculty) and [All actions](/manual/actions/).
