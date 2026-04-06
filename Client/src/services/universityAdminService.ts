@@ -2,7 +2,8 @@ import type {
   AcademicSemester,
   ActivityLogPageResponse,
   ActivityLogQueryParams,
-  AuthorshipTrainingRunResponse,
+  AuthorshipTrainingStartResponse,
+  AuthorshipTrainingStatusResponse,
   AuthorshipTriageTrainingRow,
   FacultyApiResponse,
   FacultyCreatePayload,
@@ -189,19 +190,19 @@ export async function listAuthorshipTriageTrainingRows(): Promise<AuthorshipTria
   return Array.isArray(data) ? data : [];
 }
 
-/** Run on-server training (joins triage labels with latest Plagiarism & AI report features). */
-export async function runAuthorshipTraining(): Promise<AuthorshipTrainingRunResponse> {
-  try {
-    const { data } = await api.post<AuthorshipTrainingRunResponse>(
-      "/api/v1/university_admin/run-authorship-training",
-    );
-    return data;
-  } catch (e) {
-    if (axios.isAxiosError(e) && e.response?.data && typeof e.response.data === "object" && "success" in e.response.data) {
-      return e.response.data as AuthorshipTrainingRunResponse;
-    }
-    throw e;
-  }
+/** Starts async training; poll {@link getAuthorshipTrainingStatus} until state is not RUNNING. */
+export async function startAuthorshipTraining(): Promise<AuthorshipTrainingStartResponse> {
+  const { data } = await api.post<AuthorshipTrainingStartResponse>(
+    "/api/v1/university_admin/run-authorship-training/start",
+  );
+  return data;
+}
+
+export async function getAuthorshipTrainingStatus(runId: string): Promise<AuthorshipTrainingStatusResponse> {
+  const { data } = await api.get<AuthorshipTrainingStatusResponse>(
+    `/api/v1/university_admin/run-authorship-training/status/${encodeURIComponent(runId)}`,
+  );
+  return data;
 }
 
 /** Download the configured on-disk authorship model (404 if path unset or missing). */

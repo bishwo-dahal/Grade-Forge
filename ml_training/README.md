@@ -4,7 +4,12 @@ Instructor labels are stored in Grade-Forge and used to **train and improve our 
 
 ## Train from the app (university admin)
 
-**POST** `/api/v1/university_admin/run-authorship-training`
+Training is **asynchronous** so the UI can show progress.
+
+1. **POST** `/api/v1/university_admin/run-authorship-training/start` → `202 Accepted` with `{ "runId": "<uuid>" }` (or **409** if a run is already in progress).
+2. **GET** `/api/v1/university_admin/run-authorship-training/status/{runId}` → `{ "state": "RUNNING" | "SUCCEEDED" | "FAILED", "phase": "…", … }` until finished.
+
+The server then:
 
 - Loads all triage labels.
 - For each assignment, reads the **latest completed** Plagiarism & AI report and pulls per-student features (`risk_score`, `similarity_score`, heuristic metrics, LLM likeness when present).

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Cpu, Download, Loader2, RefreshCw, Search } from "lucide-react";
 import {
   downloadAuthorshipModelArtifact,
+  getAuthorshipTrainingStatus,
   listAuthorshipTriageTrainingRows,
-  runAuthorshipTraining,
+  startAuthorshipTraining,
 } from "../../services/universityAdminService";
 import type { AuthorshipTriageTrainingRow } from "../../types/universityAdmin";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
@@ -48,8 +49,11 @@ export function UniversityTrainingDataPage() {
   const [modelDownloading, setModelDownloading] = useState(false);
   const [modelDownloadError, setModelDownloadError] = useState<string | null>(null);
   const [trainingRunning, setTrainingRunning] = useState(false);
+  const [trainingPhase, setTrainingPhase] = useState<string | null>(null);
   const [trainingResult, setTrainingResult] = useState<string | null>(null);
   const [trainingError, setTrainingError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollInFlight = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,6 +72,22 @@ export function UniversityTrainingDataPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current != null) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, []);
+
+  const clearTrainingPoll = useCallback(() => {
+    if (pollRef.current != null) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
 
   const filtered = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -116,21 +136,50 @@ export function UniversityTrainingDataPage() {
               setTrainingResult(null);
               setTrainingError(null);
               setTrainingRunning(true);
-              void runAuthorshipTraining()
-                .then((r) => {
-                  if (r.success) {
-                    setTrainingResult(
-                      `${r.message} (${r.rowsUsedForTraining} rows used, ${r.rowsSkippedNoGraderFeatures} skipped without grader features).`,
-                    );
-                  } else {
-                    setTrainingError(
-                      [r.message, r.stderrTail ? `\n${r.stderrTail}` : ""].filter(Boolean).join(""),
-                    );
-                  }
-                  void load();
-                })
-                .catch((e) => setTrainingError(getApiErrorMessage(e, "Training request failed.")))
-                .finally(() => setTrainingRunning(false));
+              setTrainingPhase("Starting…");
+              clearTrainingPoll();
+              void (async () => {
+                try {
+                  const { runId } = await startAuthorshipTraining();
+                  pollRef.current = window.setInterval(() => {
+                    if (pollInFlight.current) return;
+                    pollInFlight.current = true;
+                    void getAuthorshipTrainingStatus(runId)
+                      .then((s) => {
+                        setTrainingPhase(s.phase);
+                        if (s.state === "RUNNING") return;
+                        clearTrainingPoll();
+                        setTrainingRunning(false);
+                        setTrainingPhase(null);
+                        if (s.state === "SUCCEEDED" && s.success) {
+                          setTrainingResult(
+                            `${s.message ?? "Done."} (${s.rowsUsedForTraining ?? 0} rows used, ${s.rowsSkippedNoGraderFeatures ?? 0} skipped without grader features).`,
+                          );
+                        } else {
+                          setTrainingError(
+                            [s.message ?? "Training failed.", s.stderrTail ? `\n${s.stderrTail}` : ""]
+                              .filter(Boolean)
+                              .join(""),
+                          );
+                        }
+                        void load();
+                      })
+                      .catch((e) => {
+                        clearTrainingPoll();
+                        setTrainingRunning(false);
+                        setTrainingPhase(null);
+                        setTrainingError(getApiErrorMessage(e, "Could not read training status."));
+                      })
+                      .finally(() => {
+                        pollInFlight.current = false;
+                      });
+                  }, 400);
+                } catch (e) {
+                  setTrainingRunning(false);
+                  setTrainingPhase(null);
+                  setTrainingError(getApiErrorMessage(e, "Could not start training."));
+                }
+              })();
             }}
             disabled={trainingRunning}
             className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#5A7ACD] px-4 text-[14px] font-semibold text-white disabled:opacity-50"
@@ -159,6 +208,13 @@ export function UniversityTrainingDataPage() {
           </button>
         </div>
       </section>
+
+      {trainingPhase ? (
+        <p className="mt-3 flex items-center gap-2 text-[14px] text-[#5D6A80]">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#5A7ACD]" strokeWidth={2} />
+          <span>{trainingPhase}</span>
+        </p>
+      ) : null}
 
       <section className="mt-6 flex flex-wrap items-center gap-3">
         <div className="relative min-w-[240px] flex-1">
