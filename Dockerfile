@@ -38,10 +38,14 @@ COPY --from=backend-build /app/backend/target/*.jar app.jar
 # Copy grader pipeline into the runtime image and install Python deps.
 # Backend uses GRADER_DIR to locate this directory.
 COPY grader/ /app/grader/
+COPY ml_training/ /app/ml_training/
 RUN python3 -m venv /opt/grader-venv && \
-    /opt/grader-venv/bin/pip install --no-cache-dir -r /app/grader/requirements.txt
+    /opt/grader-venv/bin/pip install --no-cache-dir -r /app/grader/requirements.txt && \
+    /opt/grader-venv/bin/pip install --no-cache-dir -r /app/ml_training/requirements-train.txt
 
 ENV GRADER_DIR=/app/grader
+ENV ML_TRAINING_DIR=/app/ml_training
+ENV ML_AUTHORSHIP_MODEL_PATH=/app/authorship-model.joblib
 ENV GRADER_PYTHON_CMD=/opt/grader-venv/bin/python
 
 EXPOSE 8080
