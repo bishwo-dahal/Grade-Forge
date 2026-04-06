@@ -55,6 +55,7 @@ export default function SignInPage() {
         email: response.email,
         role: response.role,
         profileCompleted: response.profileCompleted,
+        profilePictureUrl: response.profilePictureUrl ?? undefined,
       });
       if (isFirstTimeSignIn(response.email, response.role)) {
         markFirstTimeSignInSeen(response.email, response.role);

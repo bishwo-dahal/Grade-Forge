@@ -9,6 +9,7 @@ import com.grade.forge.auth.dto.SignupRequest;
 import com.grade.forge.auth.dto.response.AuthResponse;
 import com.grade.forge.auth.service.AuthService;
 import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.user.entity.Users;
 import com.grade.forge.user.enums.Role;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -43,6 +45,16 @@ public class AuthController {
             throw ex;
         }
     }
+
+    @GetMapping("/me")
+    public ResponseEntity<AuthResponse> getCurrentUser(Authentication authentication,
+                                                       @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+        AuthResponse response = authService.getCurrentUserAuthResponse(customUserDetails.getUsername());
+        logActivity(authentication, response.getRole(), response.getEmail(), "Fetched current user", "User: " + response.getEmail(), "success");
+        return ResponseEntity.ok(response);
+    }
+
+
 
     @PostMapping(value = "/signup", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<AuthResponse> signup(Authentication authentication, @RequestBody SignupRequest signupRequest) {

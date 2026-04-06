@@ -206,6 +206,23 @@ public class AuthService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
+    public AuthResponse getCurrentUserAuthResponse(String email) {
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+
+        return AuthResponse.builder()
+                .token(null)
+                .userId(String.valueOf(user.getId()))
+                .email(user.getEmail())
+                .name(user.getName())
+                .role(user.getRole())
+                .profileCompleted(resolveProfileCompletion(user))
+                .profilePictureUrl(resolveProfilePictureUrl(user))
+                .message("User fetched successfully")
+                .build();
+    }
+
     private void uploadOrReplaceProfilePicture(Users user, MultipartFile profilePictureFile) {
         UserProfilePicture existingPicture = userProfilePictureRepository.findByUser_Id(user.getId()).orElse(null);
         UserProfilePicture uploadedPicture = fileStorageService.uploadUserProfilePicture(user, profilePictureFile);

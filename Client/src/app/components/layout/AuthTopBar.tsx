@@ -1,5 +1,5 @@
 import { Bell, Lock, LogOut, Plus, Search, Settings, SunMedium, User } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,7 +18,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../ui/alert-dialog";
+import { getAuthenticatedUser, getAuthSessionTick, subscribeAuthSession } from "../../auth";
 import { buildLogoutConfirmationMessage, queueAuthNotification } from "../../authNotifications";
+import { ProfileAvatarCircle } from "./ProfileAvatarCircle";
 
 export type SettingsSection = "profile" | "security" | "notifications" | "appearance";
 
@@ -28,6 +30,8 @@ export interface AuthTopBarProps {
     name: string;
     email: string;
     initials: string;
+    /** Optional; when omitted, session `profilePictureUrl` (e.g. after login) is used. */
+    profilePictureUrl?: string | null;
   };
   onLogout: () => void;
   onSettingsSectionSelect?: (section: SettingsSection) => void;
@@ -50,6 +54,21 @@ export function AuthTopBar({
   isSettingsActive = false,
 }: AuthTopBarProps) {
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
+  useSyncExternalStore(subscribeAuthSession, getAuthSessionTick, getAuthSessionTick);
+  const sessionUser = getAuthenticatedUser();
+  const displayName = sessionUser?.name?.trim() || profile.name;
+  const displayEmail = sessionUser?.email?.trim() || profile.email;
+  const barInitials = useMemo(() => {
+    const fromName = displayName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("");
+    return fromName || profile.initials;
+  }, [displayName, profile.initials]);
+  const avatarPictureUrl =
+    sessionUser?.profilePictureUrl?.trim() || profile.profilePictureUrl?.trim() || null;
   const avatarGradient =
     roleView === "faculty" || roleView === "gradingAssistant" || roleView === "university"
       ? "from-[#7A1226] to-[#65101F]"
@@ -173,12 +192,15 @@ export function AuthTopBar({
           </DropdownMenu>
 
           <div className="ml-2 flex items-center gap-3 pl-3 border-l border-[#C9C4C9]">
-            <div className={`w-9 h-9 bg-gradient-to-br ${avatarGradient} rounded-full flex items-center justify-center`}>
-              <span className="text-white text-[13px] font-medium">{profile.initials}</span>
-            </div>
+            <ProfileAvatarCircle
+              initials={barInitials}
+              gradientClassName={avatarGradient}
+              imageUrl={avatarPictureUrl}
+              alt=""
+            />
             <div>
-              <div className="text-[13px] font-semibold text-[#1F2430]">{profile.name}</div>
-              <div className="text-[11px] text-gray-500">{profile.email}</div>
+              <div className="text-[13px] font-semibold text-[#1F2430]">{displayName}</div>
+              <div className="text-[11px] text-gray-500">{displayEmail}</div>
             </div>
           </div>
         </div>

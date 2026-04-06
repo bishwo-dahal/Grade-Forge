@@ -2,6 +2,25 @@ const AUTH_KEY = "gradeforge:auth";
 const TOKEN_KEY = "gradeforge:token";
 const USER_KEY = "gradeforge:user";
 
+type AuthSessionListener = () => void;
+const authSessionListeners = new Set<AuthSessionListener>();
+let authSessionTick = 0;
+
+/** Subscribe to session writes so UI (e.g. top bar) re-renders after `setAuthenticated` / `clearAuthenticated`. */
+export function subscribeAuthSession(listener: AuthSessionListener): () => void {
+  authSessionListeners.add(listener);
+  return () => authSessionListeners.delete(listener);
+}
+
+export function getAuthSessionTick(): number {
+  return authSessionTick;
+}
+
+function notifyAuthSession(): void {
+  authSessionTick += 1;
+  authSessionListeners.forEach((l) => l());
+}
+
 export interface AuthenticatedUser {
   name: string;
   email: string;
@@ -93,10 +112,12 @@ export function setAuthenticated(token: string, user?: AuthenticatedUser): void 
   if (user) {
     sessionStorage.setItem(USER_KEY, JSON.stringify(user));
   }
+  notifyAuthSession();
 }
 
 export function clearAuthenticated(): void {
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(AUTH_KEY);
   sessionStorage.removeItem(USER_KEY);
+  notifyAuthSession();
 }
