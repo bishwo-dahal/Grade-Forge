@@ -40,6 +40,35 @@ npm run dev
 
 Open the URL shown in the terminal (usually `http://localhost:5173`).
 
+### 4) Documentation (VitePress, optional)
+
+Product docs live in **`docs-site/`** ([VitePress](https://vitepress.dev/)). They are built into the Spring Boot JAR at **`/docs/`** in production (see the root **`Dockerfile`**).
+
+**Edit docs only (no backend):** from the project root:
+
+```bash
+cd docs-site
+npm install
+npm run docs:dev
+```
+
+Use the URL VitePress prints (with `base: '/docs/'` in config, it is often **`http://localhost:5173/docs/`**).
+
+**Serve docs from the Spring app on port 8080** (same as production layout): build the static site, copy the output into the backend resources tree, then run the server:
+
+```bash
+cd docs-site
+npm install
+npm run docs:build
+rm -rf ../Server/src/main/resources/static/docs
+mkdir -p ../Server/src/main/resources/static/docs
+cp -a .vitepress/dist/. ../Server/src/main/resources/static/docs/
+cd ../Server
+mvn spring-boot:run
+```
+
+Open **`http://localhost:8080/docs/`**. Re-run **`docs:build`** and the **`cp`** steps after you change Markdown under **`docs-site/`**.
+
 ---
 
 ## Production deployment (EC2 + GitHub Actions)
@@ -79,7 +108,7 @@ Optional **Plagiarism & AI / Ollama** secrets are listed in **Production: GitHub
 
 ### 3) Trigger a deploy
 
-- **Automatic:** Push to **`main`** or **`production`** when changed paths include `Client/`, `Server/`, `grader/`, `Dockerfile`, etc. (see the workflow `paths` filter).
+- **Automatic:** Push to **`main`** or **`production`** when changed paths include `Client/`, `Server/`, `docs-site/`, `grader/`, `Dockerfile`, etc. (see the workflow `paths` filter).
 - **Manual:** **Actions → Docker Deployment for Grade Forge → Run workflow** — pick branch, optionally “deploy as main” on port 8080.
 
 The workflow builds and pushes **`bishwodahal/grade-forge:<branch-name>`**, then SSHs into EC2, pulls that image, ensures RabbitMQ is up, and runs **`docker run`** with your DB/S3/RabbitMQ and LLM env vars.
@@ -192,6 +221,6 @@ nvm install 24
 
 ## Summary
 
-**Local dev:** `docker compose up -d` → run `Server` → run `Client`. Optional Ollama: see **Ollama (LLM)** above.
+**Local dev:** `docker compose up -d` → run `Server` → run `Client`. Optional docs: see **Documentation (VitePress, optional)** above. Optional Ollama: see **Ollama (LLM)** above.
 
 **Production:** EC2 + Docker + GitHub Actions — see **Production deployment (EC2 + GitHub Actions)**. LLM env vars and optional Ollama on the host: **Production: Ollama + Docker (EC2)** and **Production: GitHub Actions**.
