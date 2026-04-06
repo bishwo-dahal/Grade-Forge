@@ -3,6 +3,9 @@
 .npm_cache
 node_modules
 
+# VitePress (docs-site): dev dependency pre-bundles; not for version control
+docs-site/.vitepress/cache/
+
 # IDE & editor
 .idea
 .vscode
