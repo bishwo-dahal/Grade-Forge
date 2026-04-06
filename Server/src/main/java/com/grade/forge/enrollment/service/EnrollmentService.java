@@ -381,11 +381,11 @@ public class EnrollmentService {
         <div class="email-header">
 
           <div class="header-top">
-            <div class="logo-mark">
-              <img src="cid:logoHeader" width="48" height="44" alt="Grade Forge">
-            </div>
-            <div class="brand-name"> &nbsp; Grade Forge · ULM</div>
-          </div>
+                    <div class="logo-mark">
+                      <img src="https://grade-forge.s3.us-east-2.amazonaws.com/email_logo/logo.png" width="48" height="44" alt="Grade Forge">
+                    </div>
+                    <div class="brand-name"> &nbsp; Grade Forge · ULM</div>
+                  </div>
 
           <div class="course-badge">%s</div>
 
