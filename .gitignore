@@ -5,6 +5,8 @@ node_modules
 
 # VitePress (docs-site): dev dependency pre-bundles; not for version control
 docs-site/.vitepress/cache/
+# VitePress HTML/JS output synced into Spring for local runs (Dockerfile builds this in CI)
+Server/src/main/resources/static/docs/
 
 # IDE & editor
 .idea

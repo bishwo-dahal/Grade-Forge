@@ -38,7 +38,7 @@ npm install
 npm run dev
 ```
 
-Open the URL shown in the terminal (usually `http://localhost:5173`).
+Open the URL shown in the terminal (usually `http://localhost:5173`). With the backend running on **8080**, **`/docs`** on the dev server is **proxied** to Spring (see `Client/vite.config.ts`), so **`http://localhost:5173/docs/`** works after you run **`./scripts/build-and-sync-docs.sh`** once.
 
 ### 4) Documentation (VitePress, optional)
 
@@ -54,7 +54,19 @@ npm run docs:dev
 
 Use the URL VitePress prints (with `base: '/docs/'` in config, it is often **`http://localhost:5173/docs/`**).
 
-**Serve docs from the Spring app on port 8080** (same as production layout): build the static site, copy the output into the backend resources tree, then run the server:
+**Serve docs from the Spring app on port 8080** (same as production layout): from the **project root**, run:
+
+```bash
+./scripts/build-and-sync-docs.sh
+cd Server
+mvn spring-boot:run
+```
+
+That script installs `docs-site` dependencies if needed, runs **`vitepress build`**, and copies **`.vitepress/dist`** into **`Server/src/main/resources/static/docs/`**.
+
+Open **`http://localhost:8080/docs/`**. Re-run the script whenever you change Markdown under **`docs-site/`**.
+
+Manual equivalent (if you prefer not to use the script):
 
 ```bash
 cd docs-site
@@ -66,8 +78,6 @@ cp -a .vitepress/dist/. ../Server/src/main/resources/static/docs/
 cd ../Server
 mvn spring-boot:run
 ```
-
-Open **`http://localhost:8080/docs/`**. Re-run **`docs:build`** and the **`cp`** steps after you change Markdown under **`docs-site/`**.
 
 ---
 
