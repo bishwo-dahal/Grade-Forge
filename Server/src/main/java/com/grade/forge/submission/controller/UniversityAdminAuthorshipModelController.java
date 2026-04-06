@@ -31,12 +31,13 @@ public class UniversityAdminAuthorshipModelController {
     @GetMapping
     public ResponseEntity<?> download() {
         if (authorshipModelPath == null || authorshipModelPath.isBlank()) {
-            return notConfigured("No model file is configured. Set ml.authorship-model.path (or ML_AUTHORSHIP_MODEL_PATH) on the server.");
+            return notConfigured("Model path is empty. Set ml.authorship-model.path or ML_AUTHORSHIP_MODEL_PATH.");
         }
         Path file = Paths.get(authorshipModelPath.trim()).toAbsolutePath().normalize();
         if (!Files.isRegularFile(file)) {
             log.warn("Authorship model path is not a regular file: {}", file);
-            return notConfigured("Configured model path does not exist or is not a file.");
+            return notConfigured(
+                    "No trained model file yet at the configured path. Run Train model from University admin → ML training data, or wait for training to finish.");
         }
         try {
             long size = Files.size(file);

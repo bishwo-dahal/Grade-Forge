@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, RefreshCw, Search } from "lucide-react";
+import { Cpu, Download, Loader2, RefreshCw, Search } from "lucide-react";
 import {
   downloadAuthorshipModelArtifact,
   listAuthorshipTriageTrainingRows,
+  runAuthorshipTraining,
 } from "../../services/universityAdminService";
 import type { AuthorshipTriageTrainingRow } from "../../types/universityAdmin";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
@@ -46,6 +47,9 @@ export function UniversityTrainingDataPage() {
   const [labelFilter, setLabelFilter] = useState<LabelFilter>("ALL");
   const [modelDownloading, setModelDownloading] = useState(false);
   const [modelDownloadError, setModelDownloadError] = useState<string | null>(null);
+  const [trainingRunning, setTrainingRunning] = useState(false);
+  const [trainingResult, setTrainingResult] = useState<string | null>(null);
+  const [trainingError, setTrainingError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -94,8 +98,6 @@ export function UniversityTrainingDataPage() {
           <p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-[#5D6A80]">
             Instructor labels (AI-assisted, human-written, unclear) from authorship triage—these feed our own model
             training so authorship predictions get better over time. Only metadata appears here (no student source code).
-            Use <span className="font-medium text-[#44506B]">Download current model</span> to fetch the deployed
-            authorship model file when the server has one configured.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -107,6 +109,38 @@ export function UniversityTrainingDataPage() {
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} strokeWidth={2} />
             Refresh
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTrainingResult(null);
+              setTrainingError(null);
+              setTrainingRunning(true);
+              void runAuthorshipTraining()
+                .then((r) => {
+                  if (r.success) {
+                    setTrainingResult(
+                      `${r.message} (${r.rowsUsedForTraining} rows used, ${r.rowsSkippedNoGraderFeatures} skipped without grader features).`,
+                    );
+                  } else {
+                    setTrainingError(
+                      [r.message, r.stderrTail ? `\n${r.stderrTail}` : ""].filter(Boolean).join(""),
+                    );
+                  }
+                  void load();
+                })
+                .catch((e) => setTrainingError(getApiErrorMessage(e, "Training request failed.")))
+                .finally(() => setTrainingRunning(false));
+            }}
+            disabled={trainingRunning}
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#5A7ACD] px-4 text-[14px] font-semibold text-white disabled:opacity-50"
+          >
+            {trainingRunning ? (
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
+            ) : (
+              <Cpu className="h-4 w-4" strokeWidth={2} />
+            )}
+            {trainingRunning ? "Training…" : "Train model"}
           </button>
           <button
             type="button"
@@ -161,6 +195,12 @@ export function UniversityTrainingDataPage() {
       </p>
 
       {error ? <p className="mt-4 text-[14px] text-[#C23A42]">{error}</p> : null}
+      {trainingResult ? (
+        <p className="mt-2 text-[14px] text-emerald-800 whitespace-pre-wrap">{trainingResult}</p>
+      ) : null}
+      {trainingError ? (
+        <p className="mt-2 text-[14px] text-[#C23A42] whitespace-pre-wrap font-mono text-[12px]">{trainingError}</p>
+      ) : null}
       {modelDownloadError ? <p className="mt-2 text-[14px] text-[#C23A42]">{modelDownloadError}</p> : null}
 
       <section className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white">

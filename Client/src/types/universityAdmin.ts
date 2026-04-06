@@ -179,6 +179,17 @@ export interface GradingAssistantResponse {
   faculty?: FacultySearchResponse | null;
 }
 
+/** Response from POST /api/v1/university_admin/run-authorship-training */
+export interface AuthorshipTrainingRunResponse {
+  success: boolean;
+  message: string;
+  labeledRowsTotal: number;
+  rowsUsedForTraining: number;
+  rowsSkippedNoGraderFeatures: number;
+  modelOutputPath: string | null;
+  stderrTail: string | null;
+}
+
 /** Faculty authorship triage rows exposed to university admins for ML training oversight (metadata only). */
 export interface AuthorshipTriageTrainingRow {
   submissionId: number;

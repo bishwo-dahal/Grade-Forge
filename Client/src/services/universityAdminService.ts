@@ -2,6 +2,7 @@ import type {
   AcademicSemester,
   ActivityLogPageResponse,
   ActivityLogQueryParams,
+  AuthorshipTrainingRunResponse,
   AuthorshipTriageTrainingRow,
   FacultyApiResponse,
   FacultyCreatePayload,
@@ -186,6 +187,21 @@ export async function listAuthorshipTriageTrainingRows(): Promise<AuthorshipTria
     "/api/v1/university_admin/authorship-triage-training",
   );
   return Array.isArray(data) ? data : [];
+}
+
+/** Run on-server training (joins triage labels with latest Plagiarism & AI report features). */
+export async function runAuthorshipTraining(): Promise<AuthorshipTrainingRunResponse> {
+  try {
+    const { data } = await api.post<AuthorshipTrainingRunResponse>(
+      "/api/v1/university_admin/run-authorship-training",
+    );
+    return data;
+  } catch (e) {
+    if (axios.isAxiosError(e) && e.response?.data && typeof e.response.data === "object" && "success" in e.response.data) {
+      return e.response.data as AuthorshipTrainingRunResponse;
+    }
+    throw e;
+  }
 }
 
 /** Download the configured on-disk authorship model (404 if path unset or missing). */
