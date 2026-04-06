@@ -55,6 +55,11 @@ export function SettingsPage() {
   const [updatingStudentAccount, setUpdatingStudentAccount] = useState(false);
   const [facultyProfilePicture, setFacultyProfilePicture] = useState<File | null>(null);
   const [facultyProfilePreviewUrl, setFacultyProfilePreviewUrl] = useState<string | null>(null);
+  const [isEditingGa, setIsEditingGa] = useState(false);
+  const [gaNameEdit, setGaNameEdit] = useState("");
+  const [gaProfilePicture, setGaProfilePicture] = useState<File | null>(null);
+  const [gaProfilePicturePreviewUrl, setGaProfilePicturePreviewUrl] = useState<string | null>(null);
+  const [updatingGaAccount, setUpdatingGaAccount] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const role = getAuthenticatedRole();
@@ -144,6 +149,16 @@ export function SettingsPage() {
     return () => URL.revokeObjectURL(url);
   }, [facultyProfilePicture]);
 
+  useEffect(() => {
+    if (!gaProfilePicture) {
+      setGaProfilePicturePreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(gaProfilePicture);
+    setGaProfilePicturePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [gaProfilePicture]);
+
   const loggedInUser = getAuthenticatedUser();
   const displayName =
     (role === "FACULTY" ? facultyProfile?.name : role === "GRADING_ASSISTANT" ? gaProfile?.name : null) ??
@@ -172,14 +187,22 @@ export function SettingsPage() {
   const headerAvatarImageUrl =
     viewMode === "student" && isEditingStudent
       ? studentProfilePreviewUrl ?? loggedInUser?.profilePictureUrl
-      : viewMode === "faculty" && isEditingFaculty
-        ? facultyProfilePreviewUrl ?? loggedInUser?.profilePictureUrl
-        : loggedInUser?.profilePictureUrl;
+      : viewMode === "gradingAssistant" && isEditingGa
+        ? gaProfilePicturePreviewUrl ?? loggedInUser?.profilePictureUrl
+        : viewMode === "faculty" && isEditingFaculty
+          ? facultyProfilePreviewUrl ?? loggedInUser?.profilePictureUrl
+          : loggedInUser?.profilePictureUrl;
 
   const showAvatarPhotoOverlay =
-    (viewMode === "student" && isEditingStudent) || (viewMode === "faculty" && isEditingFaculty);
+    (viewMode === "student" && isEditingStudent) ||
+    (viewMode === "gradingAssistant" && isEditingGa) ||
+    (viewMode === "faculty" && isEditingFaculty);
 
-  const applyChosenProfileFile = (file: File | null, input: HTMLInputElement, which: "student" | "faculty") => {
+  const applyChosenProfileFile = (
+    file: File | null,
+    input: HTMLInputElement,
+    which: "student" | "faculty" | "ga",
+  ) => {
     if (file) {
       const okMime = file.type === "image/jpeg" || file.type === "image/png";
       const okName = /\.(jpe?g|png)$/i.test(file.name);
@@ -191,6 +214,8 @@ export function SettingsPage() {
     }
     if (which === "student") {
       setStudentProfilePicture(file);
+    } else if (which === "ga") {
+      setGaProfilePicture(file);
     } else {
       setFacultyProfilePicture(file);
     }
@@ -288,6 +313,61 @@ export function SettingsPage() {
     setStudentNameEdit(loggedInUser?.name ?? displayName);
     setStudentProfilePicture(null);
     setIsEditingStudent(false);
+  };
+
+  const handleGaAccountSave = async () => {
+    const token = getToken();
+    if (!token || !loggedInUser) {
+      toast.error("Unable to save. Please sign in again.");
+      return;
+    }
+    const trimmed = gaNameEdit.trim();
+    if (!trimmed) {
+      toast.error("Full name cannot be empty.");
+      return;
+    }
+    const nameChanged = trimmed !== (loggedInUser.name ?? "").trim();
+    const hasFile = Boolean(gaProfilePicture && gaProfilePicture.size > 0);
+    if (!nameChanged && !hasFile) {
+      toast.info("No changes to save.");
+      return;
+    }
+
+    setUpdatingGaAccount(true);
+    try {
+      await patchCurrentUserProfile({
+        name: nameChanged ? trimmed : undefined,
+        file: hasFile ? gaProfilePicture : undefined,
+      });
+      try {
+        await refreshAuthSessionFromMe();
+      } catch (refreshErr: unknown) {
+        toast.error(getApiErrorMessage(refreshErr, "Saved, but could not refresh account."));
+      }
+      try {
+        const refreshedGa = await getCurrentGradingAssistantProfile();
+        setGaProfile(refreshedGa);
+      } catch {
+        /* GA profile read is best-effort after user patch */
+      }
+      setGaProfilePicture(null);
+      setIsEditingGa(false);
+      toast.success("Account updated.");
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error && err.message
+          ? err.message
+          : getApiErrorMessage(err, "Failed to update account.");
+      toast.error(msg);
+    } finally {
+      setUpdatingGaAccount(false);
+    }
+  };
+
+  const cancelGaAccountEdit = () => {
+    setGaNameEdit(loggedInUser?.name ?? displayName);
+    setGaProfilePicture(null);
+    setIsEditingGa(false);
   };
 
   const goToSettingsSection = (section: "profile" | "security" | "notifications" | "appearance") => {
@@ -441,6 +521,34 @@ export function SettingsPage() {
                                 <button
                                   type="button"
                                   onClick={() => setStudentProfilePicture(null)}
+                                  className="rounded-full p-1 text-white opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                                  aria-label="Remove selected photo"
+                                >
+                                  <X className="h-4 w-4" strokeWidth={2} />
+                                </button>
+                              ) : null}
+                            </>
+                          ) : viewMode === "gradingAssistant" ? (
+                            <>
+                              <label
+                                className="flex cursor-pointer items-center justify-center rounded-full p-2 text-white opacity-75 transition-opacity hover:opacity-100 focus-within:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                                aria-label="Change profile photo"
+                              >
+                                <input
+                                  type="file"
+                                  accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                                  className="sr-only"
+                                  onChange={(event) => {
+                                    const file = event.target.files?.[0] ?? null;
+                                    applyChosenProfileFile(file, event.target, "ga");
+                                  }}
+                                />
+                                <Camera className="h-7 w-7" strokeWidth={1.75} />
+                              </label>
+                              {gaProfilePicture ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setGaProfilePicture(null)}
                                   className="rounded-full p-1 text-white opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
                                   aria-label="Remove selected photo"
                                 >
@@ -648,17 +756,28 @@ export function SettingsPage() {
                       {!gaProfileLoading && gaProfile && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                           <div>
-                            <label className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">Full Name</label>
+                            <label htmlFor="settings-ga-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                              Full Name
+                            </label>
                             <input
-                              value={gaProfile.name ?? ""}
-                              readOnly
-                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                              id="settings-ga-full-name"
+                              value={isEditingGa ? gaNameEdit : displayName}
+                              onChange={(e) => setGaNameEdit(e.target.value)}
+                              readOnly={!isEditingGa}
+                              className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${
+                                isEditingGa
+                                  ? "text-[#2B2A2A] focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                                  : "bg-gray-50 text-gray-700"
+                              }`}
                             />
                           </div>
                           <div>
-                            <label className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">Email Address</label>
+                            <label htmlFor="settings-ga-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                              Email Address
+                            </label>
                             <input
-                              value={gaProfile.email ?? ""}
+                              id="settings-ga-email"
+                              value={displayEmail}
                               readOnly
                               disabled
                               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-500 cursor-not-allowed opacity-90"
@@ -687,6 +806,41 @@ export function SettingsPage() {
                               readOnly
                               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
                             />
+                          </div>
+                          <div className="md:col-span-2 flex flex-wrap items-center gap-3 pt-1">
+                            {isEditingGa ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={cancelGaAccountEdit}
+                                  disabled={updatingGaAccount}
+                                  className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 bg-white hover:bg-gray-50 rounded-xl text-[14px] font-medium text-[#2B2A2A] transition-colors disabled:opacity-60"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleGaAccountSave}
+                                  disabled={updatingGaAccount}
+                                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
+                                >
+                                  {updatingGaAccount ? "Saving…" : "Save changes"}
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setGaNameEdit(displayName);
+                                  setGaProfilePicture(null);
+                                  setIsEditingGa(true);
+                                }}
+                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] rounded-xl text-[14px] font-semibold text-white transition-colors"
+                              >
+                                <Pencil className="w-4 h-4" strokeWidth={2} />
+                                Edit account
+                              </button>
+                            )}
                           </div>
                         </div>
                       )}
