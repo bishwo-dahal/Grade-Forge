@@ -8,9 +8,6 @@ public interface UserServiceInterface {
 
 	UserProfilePictureResponse uploadCurrentUserProfilePicture(String email, MultipartFile file);
 
-	UserProfilePictureResponse getCurrentUserProfilePicture(String email);
-
-	void deleteCurrentUserProfilePicture(String email);
 
 	UserProfileResponse patchCurrentUserProfile(String email, String name, MultipartFile file);
 }

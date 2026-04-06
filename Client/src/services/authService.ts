@@ -1,5 +1,5 @@
 import api, { apiBaseURL } from "../api/axios";
-import { getToken } from "../app/auth";
+import { getToken, setAuthenticated } from "../app/auth";
 import { getApiErrorMessage } from "../utils/apiErrorMessage";
 import type { UserProfile } from "../types/user";
 import type {
@@ -8,15 +8,16 @@ import type {
 } from "../types/student";
 
 export interface AuthResponse {
-  token: string;
-  userId: string;
+  /** Omitted on some responses (e.g. GET `/api/v1/auth/me`); keep the existing session token when missing. */
+  token?: string;
+  userId?: string;
   email: string;
   name: string;
   role: string;
   // NOTE: Student auth responses include this gate flag so incomplete profiles can be redirected before dashboard access.
   profileCompleted: boolean;
   profilePictureUrl?: string | null;
-  message: string;
+  message?: string;
 }
 
 export interface LoginRequest {
@@ -128,6 +129,29 @@ export async function completeStudentRegistration(
 export async function updatePassword(payload: PasswordUpdateRequest): Promise<AuthResponse> {
   const { data } = await api.post<AuthResponse>("/api/v1/auth/update-password", payload);
   return data;
+}
+
+/**
+ * GET `/api/v1/auth/me` — hydrates session from server (name, email, role, profile flags, presigned photo URL).
+ * Use after settings page load/refresh and after profile edits so the top bar stays in sync with the backend.
+ */
+export async function refreshAuthSessionFromMe(): Promise<void> {
+  const token = getToken();
+  if (!token) {
+    return;
+  }
+
+  const { data } = await api.get<AuthResponse>("/api/v1/auth/me");
+  const nextToken =
+    typeof data.token === "string" && data.token.trim().length > 0 ? data.token.trim() : token;
+
+  setAuthenticated(nextToken, {
+    name: data.name,
+    email: data.email,
+    role: data.role,
+    profileCompleted: data.profileCompleted,
+    profilePictureUrl: data.profilePictureUrl ?? undefined,
+  });
 }
 
 export function getStudentProfile(): Promise<UserProfile> {

@@ -70,6 +70,10 @@ export default function SignUpPage() {
         profilePicture,
       );
 
+      if (!response.token) {
+        setError("Invalid response from server.");
+        return;
+      }
       setAuthenticated(response.token, {
         name: response.name,
         email: response.email,

@@ -72,30 +72,9 @@ public class UserService implements UserServiceInterface {
 		return mapToResponse(target);
 	}
 
-	@Override
-	@Transactional(readOnly = true)
-	public UserProfilePictureResponse getCurrentUserProfilePicture(String email) {
-		Users user = userRepository.findByEmail(email)
-				.orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
 
-		UserProfilePicture picture = userProfilePictureRepository.findByUser_Id(user.getId())
-				.orElseThrow(() -> new ResourceNotFoundException("Profile picture not found for user email: " + email));
-		return mapToResponse(picture);
-	}
 
-	@Override
-	public void deleteCurrentUserProfilePicture(String email) {
-		Users user = userRepository.findByEmail(email)
-				.orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
 
-		UserProfilePicture picture = userProfilePictureRepository.findByUser_Id(user.getId())
-				.orElseThrow(() -> new ResourceNotFoundException("Profile picture not found for user email: " + email));
-
-		fileStorageService.deleteObject(picture.getFileKey());
-		userProfilePictureRepository.delete(picture);
-		user.setProfilePicture(null);
-		userRepository.save(user);
-	}
 
 	private UserProfilePictureResponse mapToResponse(UserProfilePicture picture) {
 		return UserProfilePictureResponse.builder()

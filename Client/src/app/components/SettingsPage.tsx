@@ -4,13 +4,15 @@ import { Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff, Pencil, Camera
 import type { UserProfile } from "../../types/user";
 import type { FacultyResponse, FacultyUpdateRequest } from "../../types/faculty";
 import type { GradingAssistantResponse } from "../../types/gradingAssistant";
-import { getFacultyProfile, getStudentProfile, updatePassword } from "../../services/authService";
+import {
+  getFacultyProfile,
+  getStudentProfile,
+  refreshAuthSessionFromMe,
+  updatePassword,
+} from "../../services/authService";
 import { getCurrentFaculty, updateCurrentFaculty } from "../../services/facultyService";
 import { getCurrentGradingAssistantProfile } from "../../services/gradingAssistantService";
-import {
-  extractProfilePictureUrlFromResponse,
-  patchCurrentUserProfile,
-} from "../../services/userService";
+import { patchCurrentUserProfile } from "../../services/userService";
 import { clearAuthenticated, getAuthenticatedRole, getAuthenticatedUser, getToken, setAuthenticated } from "../auth";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
@@ -103,6 +105,25 @@ export function SettingsPage() {
     }
   }, [location.search]);
 
+  // NOTE: GET `/api/v1/auth/me` hydrates session after refresh and when opening Account (profile) so UI matches the server.
+  useEffect(() => {
+    if (activeSection !== "profile") {
+      return;
+    }
+    if (role === "UNIVERSITY_ADMIN") {
+      return;
+    }
+    let cancelled = false;
+    void refreshAuthSessionFromMe().catch(() => {
+      if (!cancelled) {
+        /* non-fatal; 401 handled by axios interceptor */
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSection, role]);
+
   useEffect(() => {
     if (!studentProfilePicture) {
       setStudentProfilePreviewUrl(null);
@@ -184,33 +205,22 @@ export function SettingsPage() {
       const updated = await updateCurrentFaculty(facultyForm);
       setFacultyProfile(updated);
       const token = getToken();
-      let sessionName = updated.name ?? "";
-      let sessionEmail = updated.email ?? "";
-      let profilePictureUrl = loggedInUser?.profilePictureUrl;
       if (token && facultyProfilePicture && facultyProfilePicture.size > 0) {
         try {
-          const userResp = await patchCurrentUserProfile({
+          await patchCurrentUserProfile({
             name: updated.name,
             file: facultyProfilePicture,
           });
-          const pic = extractProfilePictureUrlFromResponse(userResp);
-          if (pic) {
-            profilePictureUrl = pic;
-          }
-          sessionName = userResp.name ?? sessionName;
-          sessionEmail = userResp.email ?? sessionEmail;
         } catch (patchErr: unknown) {
           toast.error(getApiErrorMessage(patchErr, "Profile saved, but photo upload failed."));
         }
       }
       if (token) {
-        setAuthenticated(token, {
-          name: sessionName,
-          email: sessionEmail,
-          role: loggedInUser?.role ?? "FACULTY",
-          profileCompleted: true,
-          profilePictureUrl: profilePictureUrl ?? undefined,
-        });
+        try {
+          await refreshAuthSessionFromMe();
+        } catch (refreshErr: unknown) {
+          toast.error(getApiErrorMessage(refreshErr, "Profile saved, but could not refresh account."));
+        }
       }
       setFacultyProfilePicture(null);
       setFacultyUpdateSuccess("Profile updated successfully.");
@@ -251,18 +261,15 @@ export function SettingsPage() {
 
     setUpdatingStudentAccount(true);
     try {
-      const resp = await patchCurrentUserProfile({
+      await patchCurrentUserProfile({
         name: nameChanged ? trimmed : undefined,
         file: hasFile ? studentProfilePicture : undefined,
       });
-      const pic = extractProfilePictureUrlFromResponse(resp);
-      setAuthenticated(token, {
-        ...loggedInUser,
-        name: resp.name,
-        email: resp.email,
-        role: resp.role ?? loggedInUser.role,
-        profilePictureUrl: pic ?? loggedInUser.profilePictureUrl ?? undefined,
-      });
+      try {
+        await refreshAuthSessionFromMe();
+      } catch (refreshErr: unknown) {
+        toast.error(getApiErrorMessage(refreshErr, "Saved, but could not refresh account."));
+      }
       setStudentProfilePicture(null);
       setIsEditingStudent(false);
       toast.success("Account updated.");
@@ -327,13 +334,23 @@ export function SettingsPage() {
         newPassword,
       });
 
-      setAuthenticated(response.token, {
+      const nextToken = response.token?.trim() || getToken();
+      if (!nextToken) {
+        toast.error("Unable to update session. Please sign in again.");
+        return;
+      }
+      setAuthenticated(nextToken, {
         name: response.name,
         email: response.email,
         role: response.role,
         profileCompleted: response.profileCompleted,
         profilePictureUrl: response.profilePictureUrl ?? loggedInUser?.profilePictureUrl ?? undefined,
       });
+      try {
+        await refreshAuthSessionFromMe();
+      } catch {
+        /* session already updated from password response */
+      }
       toast.success(response.message || "Password updated successfully.");
       closeChangePasswordModal();
     } catch (err: unknown) {

@@ -28,29 +28,8 @@ public class UserController {
     private final UserService userService;
     private final ActivityLogService activityLogService;
 
-    @PostMapping(value = "/me/profile-picture", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<UserProfilePictureResponse> uploadProfilePicture(Authentication authentication,
-                                                                           @AuthenticationPrincipal CustomUserDetails customUserDetails,
-                                                                           @RequestPart("file") MultipartFile file) {
-        UserProfilePictureResponse response = userService.uploadCurrentUserProfilePicture(customUserDetails.getUsername(), file);
-        activityLogService.log(authentication, "Uploaded profile picture", "User: " + customUserDetails.getUsername(), "success");
-        return new ResponseEntity<>(response, HttpStatus.OK);
-    }
 
-    @GetMapping("/me/profile-picture")
-    public ResponseEntity<UserProfilePictureResponse> getProfilePicture(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
-        UserProfilePictureResponse response = userService.getCurrentUserProfilePicture(customUserDetails.getUsername());
-        return new ResponseEntity<>(response, HttpStatus.OK);
-    }
-
-    @DeleteMapping("/me/profile-picture")
-    public ResponseEntity<Void> deleteProfilePicture(Authentication authentication,
-                                                     @AuthenticationPrincipal CustomUserDetails customUserDetails) {
-        userService.deleteCurrentUserProfilePicture(customUserDetails.getUsername());
-        activityLogService.log(authentication, "Deleted profile picture", "User: " + customUserDetails.getUsername(), "success");
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-    }
-
+//Update User Details
     @PatchMapping(value = "/me", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE, "multipart/form-data;charset=UTF-8"})
     public ResponseEntity<UserProfileResponse> patchCurrentUser(Authentication authentication,
                                                                 @AuthenticationPrincipal CustomUserDetails customUserDetails,

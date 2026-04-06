@@ -50,6 +50,10 @@ export default function SignInPage() {
     setLoading(true);
     try {
       const response = await login({ email, password });
+      if (!response.token) {
+        setError("Invalid response from server.");
+        return;
+      }
       setAuthenticated(response.token, {
         name: response.name,
         email: response.email,
