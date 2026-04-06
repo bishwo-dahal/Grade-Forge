@@ -1,33 +1,33 @@
 package com.grade.forge.submission.controller;
 
-import com.grade.forge.audit.ActivityLogService;
-import com.grade.forge.submission.dto.AuthorshipTrainingRunResponse;
-import com.grade.forge.submission.service.AuthorshipTrainingRunnerService;
+import com.grade.forge.submission.dto.AuthorshipTrainingStartResponse;
+import com.grade.forge.submission.dto.AuthorshipTrainingStatusResponse;
+import com.grade.forge.submission.service.AuthorshipTrainingJobService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Triggers on-server authorship triage model training (university admin only).
+ * Triggers on-server authorship triage model training (university admin only). Training runs asynchronously; poll
+ * {@code GET .../status/{runId}} for progress.
  */
 @RestController
 @RequiredArgsConstructor
 public class UniversityAdminAuthorshipTrainingController {
 
-    private final AuthorshipTrainingRunnerService authorshipTrainingRunnerService;
-    private final ActivityLogService activityLogService;
+    private final AuthorshipTrainingJobService authorshipTrainingJobService;
 
-    @PostMapping("/api/v1/university_admin/run-authorship-training")
-    public ResponseEntity<AuthorshipTrainingRunResponse> runTraining(Authentication authentication) {
-        AuthorshipTrainingRunResponse result = authorshipTrainingRunnerService.runTraining();
-        if (result.isSuccess()) {
-            activityLogService.log(authentication, "Authorship ML model trained", result.getMessage(), "success");
-            return ResponseEntity.ok(result);
-        }
-        HttpStatus status = result.getStderrTail() != null ? HttpStatus.INTERNAL_SERVER_ERROR : HttpStatus.BAD_REQUEST;
-        return ResponseEntity.status(status).body(result);
+    @PostMapping("/api/v1/university_admin/run-authorship-training/start")
+    public ResponseEntity<AuthorshipTrainingStartResponse> startTraining(Authentication authentication) {
+        return authorshipTrainingJobService.start(authentication);
+    }
+
+    @GetMapping("/api/v1/university_admin/run-authorship-training/status/{runId}")
+    public AuthorshipTrainingStatusResponse trainingStatus(@PathVariable String runId) {
+        return authorshipTrainingJobService.getStatus(runId);
     }
 }

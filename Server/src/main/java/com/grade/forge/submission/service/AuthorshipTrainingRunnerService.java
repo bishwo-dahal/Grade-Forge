@@ -13,7 +13,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,7 +27,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /**
  * Builds label + grader-derived feature tables and runs {@code ml_training/train_authorship.py} on the server.
@@ -51,6 +58,15 @@ public class AuthorshipTrainingRunnerService {
     private String authorshipModelPath;
 
     public AuthorshipTrainingRunResponse runTraining() {
+        return runTraining(null);
+    }
+
+    /**
+     * @param onPhase invoked on the calling thread during feature build; during the Python subprocess from a ticker thread as well.
+     */
+    public AuthorshipTrainingRunResponse runTraining(Consumer<String> onPhase) {
+        Consumer<String> phase = onPhase != null ? onPhase : (s -> {});
+
         if (authorshipModelPath == null || authorshipModelPath.isBlank()) {
             return fail("Model path is empty. Unset ML_AUTHORSHIP_MODEL_PATH or set ml.authorship-model.path to a writable file.", 0, 0, 0, null);
         }
@@ -62,6 +78,7 @@ public class AuthorshipTrainingRunnerService {
             return fail("train_authorship.py not found at " + trainScript + ". Set ml.training.dir (or ML_TRAINING_DIR).", 0, 0, 0, null);
         }
 
+        phase.accept("Loading triage labels…");
         List<AuthorshipTriageUniversityAdminItem> all = submissionAuthorshipTriageRepository.findAllTrainingRowsForUniversityAdmin();
         if (all.isEmpty()) {
             return fail("No authorship triage labels in the database yet.", 0, 0, 0, null);
@@ -73,7 +90,14 @@ public class AuthorshipTrainingRunnerService {
         Map<String, Map<String, Double>> featuresBySubmission = new LinkedHashMap<>();
         int skipped = 0;
 
+        int allSize = all.size();
+        int progressStep = Math.max(1, allSize / 20);
+        int rowIndex = 0;
         for (AuthorshipTriageUniversityAdminItem row : all) {
+            rowIndex++;
+            if (rowIndex % progressStep == 0 || rowIndex == allSize) {
+                phase.accept("Joining labels with grader reports… (" + rowIndex + " / " + allSize + " rows)");
+            }
             Map<String, Map<String, Double>> byStudent = featuresByAssignment.computeIfAbsent(
                     row.getAssignmentId(), aid -> loadFeaturesByStudentForAssignment(aid));
             String studentKey = String.valueOf(row.getStudentId());
@@ -103,6 +127,7 @@ public class AuthorshipTrainingRunnerService {
 
         Path workDir = null;
         try {
+            phase.accept("Writing training files…");
             workDir = Files.createTempDirectory("authorship-train-");
             Path labelsFile = workDir.resolve("labels.json");
             Path featuresFile = workDir.resolve("features.json");
@@ -126,10 +151,55 @@ public class AuthorshipTrainingRunnerService {
             Map<String, String> env = pb.environment();
             env.put("PYTHONUTF8", "1");
 
+            phase.accept("Starting Python training…");
             Process process = pb.start();
-            String stderr = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
-            String stdout = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            boolean finished = process.waitFor(20, TimeUnit.MINUTES);
+            StringBuilder stdoutBuf = new StringBuilder();
+            StringBuilder stderrBuf = new StringBuilder();
+            AtomicReference<String> lastStdoutLine = new AtomicReference<>("");
+
+            Thread outThread = new Thread(() -> drainLines(process.getInputStream(), stdoutBuf, lastStdoutLine), "authorship-train-out");
+            Thread errThread = new Thread(() -> drainLines(process.getErrorStream(), stderrBuf, null), "authorship-train-err");
+            outThread.setDaemon(true);
+            errThread.setDaemon(true);
+            outThread.start();
+            errThread.start();
+
+            ScheduledExecutorService ticker = Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "authorship-train-tick");
+                t.setDaemon(true);
+                return t;
+            });
+            ticker.scheduleAtFixedRate(
+                    () -> {
+                        String l = lastStdoutLine.get();
+                        if (l != null && !l.isBlank()) {
+                            String t = l.length() > 160 ? l.substring(0, 157) + "…" : l;
+                            phase.accept("Training: " + t);
+                        } else {
+                            phase.accept("Running Python training…");
+                        }
+                    },
+                    1,
+                    1,
+                    TimeUnit.SECONDS);
+
+            boolean finished;
+            try {
+                finished = process.waitFor(20, TimeUnit.MINUTES);
+            } finally {
+                ticker.shutdown();
+                try {
+                    ticker.awaitTermination(2, TimeUnit.SECONDS);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+
+            outThread.join(5000);
+            errThread.join(5000);
+
+            String stdout = stdoutBuf.toString();
+            String stderr = stderrBuf.toString();
             if (!finished) {
                 process.destroyForcibly();
                 return fail("Training timed out after 20 minutes.", all.size(), trainingLabels.size(), skipped, tail(stderr));
@@ -145,6 +215,7 @@ public class AuthorshipTrainingRunnerService {
                 return fail("Training finished but model file was not written to " + outPath, all.size(), trainingLabels.size(), skipped, tail(stderr));
             }
 
+            phase.accept("Saving model…");
             return AuthorshipTrainingRunResponse.builder()
                     .success(true)
                     .message("Trained model saved to " + outPath + " using " + trainingLabels.size() + " labeled rows.")
@@ -162,6 +233,20 @@ public class AuthorshipTrainingRunnerService {
             if (workDir != null) {
                 deleteRecursively(workDir);
             }
+        }
+    }
+
+    private static void drainLines(InputStream in, StringBuilder full, AtomicReference<String> lastLine) {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                full.append(line).append('\n');
+                if (lastLine != null && !line.isBlank()) {
+                    lastLine.set(line.trim());
+                }
+            }
+        } catch (IOException ignored) {
+            // Process may have been destroyed
         }
     }
 
