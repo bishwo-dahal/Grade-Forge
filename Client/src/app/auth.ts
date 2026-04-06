@@ -7,6 +7,7 @@ export interface AuthenticatedUser {
   email: string;
   role: string;
   profileCompleted?: boolean;
+  profilePictureUrl?: string | null;
 }
 
 // NOTE: Centralized app role union used by route-guard logic.
