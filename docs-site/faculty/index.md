@@ -1,15 +1,7 @@
-# Faculty guide
+# Faculty
 
-This section explains Grade-Forge for **instructors and faculty**.
+Use the **Teaching** section: Dashboard, My Classes, Rubrics, Grading Assistants, Students, Schedule. **Resources** has Materials and Discussions.
 
-## Coming soon
+Grading happens **inside a class** on an assignment (there is no separate global grading hub).
 
-Topics to cover here can include:
-
-- Creating and managing classes
-- Creating assignments, rubrics, and test suites
-- Grading submissions and speed grading
-- Plagiarism and academic integrity reports (where applicable)
-- Working with grading assistants
-
-Use the site **search** to find pages as they are added.
+**Full task reference:** [Faculty guide](./guide.md)

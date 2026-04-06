@@ -1,13 +1,7 @@
-# Grading assistant guide
+# Grading assistants
 
-This section is for **grading assistants (GAs)** who support faculty on courses and assignments.
+Your sidebar focuses on **Grading**: Dashboard and **Courses**.
 
-## Coming soon
+You grade inside **courses and assignments** you are assigned to—similar grading tools as faculty, without class creation or university settings.
 
-Topics to cover here can include:
-
-- Accessing assigned courses and classes
-- Viewing and helping grade submissions (per faculty permissions)
-- Assignment workflows shared with faculty
-
-Use the site **search** to find pages as they are added.
+**Full task reference:** [Grading assistant guide](./guide.md)

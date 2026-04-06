@@ -1,16 +1,5 @@
-# Student guide
+# Students
 
-This section explains Grade-Forge from a **student** perspective.
+Use the **Learning** section in the sidebar: Dashboard, My Courses, Assignments, Calendar. **Resources** lists Materials and Discussions.
 
-## Coming soon
-
-Topics to cover here can include:
-
-- Signing in and profile settings
-- Enrolling in courses and viewing classes
-- Viewing assignments and due dates
-- Submitting code or files
-- Running tests against your submission (if enabled)
-- Viewing grades and feedback
-
-Use the site **search** to find pages as they are added.
+**Full task reference:** [Student guide](./guide.md)

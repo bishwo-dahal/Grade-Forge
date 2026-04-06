@@ -1,14 +1,5 @@
-# University administrator guide
+# University administrators
 
-This section is for **university administrators** who configure the institution on Grade-Forge.
+You use the **University admin** workspace with sections: **Faculty**, **Semesters**, **Courses**, **Languages**, **Manage users**, **Monitor**, and **Settings**.
 
-## Coming soon
-
-Topics to cover here can include:
-
-- Semesters, courses, and faculty assignments
-- Managing users and roles
-- Institution-wide settings and monitoring
-- Programming languages and other global options
-
-Use the site **search** to find pages as they are added.
+**Full task reference:** [University admin guide](./guide.md)
