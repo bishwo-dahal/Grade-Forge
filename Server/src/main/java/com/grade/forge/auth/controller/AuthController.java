@@ -50,7 +50,6 @@ public class AuthController {
     public ResponseEntity<AuthResponse> getCurrentUser(Authentication authentication,
                                                        @AuthenticationPrincipal CustomUserDetails customUserDetails) {
         AuthResponse response = authService.getCurrentUserAuthResponse(customUserDetails.getUsername());
-        logActivity(authentication, response.getRole(), response.getEmail(), "Fetched current user", "User: " + response.getEmail(), "success");
         return ResponseEntity.ok(response);
     }
 

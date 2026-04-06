@@ -292,6 +292,10 @@ export const router = createBrowserRouter([
         path: "monitor",
         Component: UniversityMonitorPage,
       },
+      {
+        path: "settings",
+        Component: SettingsPage,
+      },
     ],
   },
   {

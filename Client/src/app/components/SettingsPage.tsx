@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, Navigate, useLocation, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff, Pencil, Camera } from "lucide-react";
 import type { UserProfile } from "../../types/user";
 import type { FacultyResponse, FacultyUpdateRequest } from "../../types/faculty";
@@ -60,12 +60,25 @@ export function SettingsPage() {
   const [gaProfilePicture, setGaProfilePicture] = useState<File | null>(null);
   const [gaProfilePicturePreviewUrl, setGaProfilePicturePreviewUrl] = useState<string | null>(null);
   const [updatingGaAccount, setUpdatingGaAccount] = useState(false);
+  const [isEditingUniversityAdmin, setIsEditingUniversityAdmin] = useState(false);
+  const [universityAdminNameEdit, setUniversityAdminNameEdit] = useState("");
+  const [universityAdminProfilePicture, setUniversityAdminProfilePicture] = useState<File | null>(null);
+  const [universityAdminProfilePreviewUrl, setUniversityAdminProfilePreviewUrl] = useState<string | null>(null);
+  const [updatingUniversityAdminAccount, setUpdatingUniversityAdminAccount] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const role = getAuthenticatedRole();
-  // NOTE: Settings keeps the same role mapping as dashboard; grading assistant uses faculty-style UI (profile/settings same).
-  const viewMode: "student" | "faculty" | "gradingAssistant" =
-    role === "FACULTY" ? "faculty" : role === "GRADING_ASSISTANT" ? "gradingAssistant" : "student";
+  const settingsBasePath = role === "UNIVERSITY_ADMIN" ? "/university-admin/settings" : "/settings";
+  const accountBackHref = role === "UNIVERSITY_ADMIN" ? "/university-admin/faculty" : "/dashboard";
+  // NOTE: Settings shell matches workspace: student/faculty/GA/university admin.
+  const viewMode: "student" | "faculty" | "gradingAssistant" | "university" =
+    role === "FACULTY"
+      ? "faculty"
+      : role === "GRADING_ASSISTANT"
+        ? "gradingAssistant"
+        : role === "UNIVERSITY_ADMIN"
+          ? "university"
+          : "student";
 
   useEffect(() => {
     if (role === "FACULTY") {
@@ -99,6 +112,10 @@ export function SettingsPage() {
       return;
     }
 
+    if (role === "UNIVERSITY_ADMIN") {
+      return;
+    }
+
     getStudentProfile().then(setProfile);
   }, [role]);
 
@@ -113,9 +130,6 @@ export function SettingsPage() {
   // NOTE: GET `/api/v1/auth/me` hydrates session after refresh and when opening Account (profile) so UI matches the server.
   useEffect(() => {
     if (activeSection !== "profile") {
-      return;
-    }
-    if (role === "UNIVERSITY_ADMIN") {
       return;
     }
     let cancelled = false;
@@ -159,6 +173,16 @@ export function SettingsPage() {
     return () => URL.revokeObjectURL(url);
   }, [gaProfilePicture]);
 
+  useEffect(() => {
+    if (!universityAdminProfilePicture) {
+      setUniversityAdminProfilePreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(universityAdminProfilePicture);
+    setUniversityAdminProfilePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [universityAdminProfilePicture]);
+
   const loggedInUser = getAuthenticatedUser();
   const displayName =
     (role === "FACULTY" ? facultyProfile?.name : role === "GRADING_ASSISTANT" ? gaProfile?.name : null) ??
@@ -180,7 +204,7 @@ export function SettingsPage() {
     : profile?.initials ?? "AJ";
   const displayStudentId = profile?.id ?? "2024-CS-1234";
   const accountAvatarGradient =
-    viewMode === "faculty" || viewMode === "gradingAssistant"
+    viewMode === "faculty" || viewMode === "gradingAssistant" || viewMode === "university"
       ? "from-[#7A1226] to-[#65101F]"
       : "from-[#5A606B] to-[#474D56]";
 
@@ -189,19 +213,22 @@ export function SettingsPage() {
       ? studentProfilePreviewUrl ?? loggedInUser?.profilePictureUrl
       : viewMode === "gradingAssistant" && isEditingGa
         ? gaProfilePicturePreviewUrl ?? loggedInUser?.profilePictureUrl
-        : viewMode === "faculty" && isEditingFaculty
-          ? facultyProfilePreviewUrl ?? loggedInUser?.profilePictureUrl
-          : loggedInUser?.profilePictureUrl;
+        : viewMode === "university" && isEditingUniversityAdmin
+          ? universityAdminProfilePreviewUrl ?? loggedInUser?.profilePictureUrl
+          : viewMode === "faculty" && isEditingFaculty
+            ? facultyProfilePreviewUrl ?? loggedInUser?.profilePictureUrl
+            : loggedInUser?.profilePictureUrl;
 
   const showAvatarPhotoOverlay =
     (viewMode === "student" && isEditingStudent) ||
     (viewMode === "gradingAssistant" && isEditingGa) ||
+    (viewMode === "university" && isEditingUniversityAdmin) ||
     (viewMode === "faculty" && isEditingFaculty);
 
   const applyChosenProfileFile = (
     file: File | null,
     input: HTMLInputElement,
-    which: "student" | "faculty" | "ga",
+    which: "student" | "faculty" | "ga" | "universityAdmin",
   ) => {
     if (file) {
       const okMime = file.type === "image/jpeg" || file.type === "image/png";
@@ -216,6 +243,8 @@ export function SettingsPage() {
       setStudentProfilePicture(file);
     } else if (which === "ga") {
       setGaProfilePicture(file);
+    } else if (which === "universityAdmin") {
+      setUniversityAdminProfilePicture(file);
     } else {
       setFacultyProfilePicture(file);
     }
@@ -370,9 +399,58 @@ export function SettingsPage() {
     setIsEditingGa(false);
   };
 
+  const handleUniversityAdminAccountSave = async () => {
+    const token = getToken();
+    if (!token || !loggedInUser) {
+      toast.error("Unable to save. Please sign in again.");
+      return;
+    }
+    const trimmed = universityAdminNameEdit.trim();
+    if (!trimmed) {
+      toast.error("Full name cannot be empty.");
+      return;
+    }
+    const nameChanged = trimmed !== (loggedInUser.name ?? "").trim();
+    const hasFile = Boolean(universityAdminProfilePicture && universityAdminProfilePicture.size > 0);
+    if (!nameChanged && !hasFile) {
+      toast.info("No changes to save.");
+      return;
+    }
+
+    setUpdatingUniversityAdminAccount(true);
+    try {
+      await patchCurrentUserProfile({
+        name: nameChanged ? trimmed : undefined,
+        file: hasFile ? universityAdminProfilePicture : undefined,
+      });
+      try {
+        await refreshAuthSessionFromMe();
+      } catch (refreshErr: unknown) {
+        toast.error(getApiErrorMessage(refreshErr, "Saved, but could not refresh account."));
+      }
+      setUniversityAdminProfilePicture(null);
+      setIsEditingUniversityAdmin(false);
+      toast.success("Account updated.");
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error && err.message
+          ? err.message
+          : getApiErrorMessage(err, "Failed to update account.");
+      toast.error(msg);
+    } finally {
+      setUpdatingUniversityAdminAccount(false);
+    }
+  };
+
+  const cancelUniversityAdminAccountEdit = () => {
+    setUniversityAdminNameEdit(loggedInUser?.name ?? displayName);
+    setUniversityAdminProfilePicture(null);
+    setIsEditingUniversityAdmin(false);
+  };
+
   const goToSettingsSection = (section: "profile" | "security" | "notifications" | "appearance") => {
     setActiveSection(section);
-    navigate(`/settings?section=${section}`, { replace: true });
+    navigate(`${settingsBasePath}?section=${section}`, { replace: true });
   };
 
   const closeChangePasswordModal = () => {
@@ -440,11 +518,6 @@ export function SettingsPage() {
     }
   };
 
-  if (role === "UNIVERSITY_ADMIN") {
-    // NOTE: University admins use their dedicated dashboard/settings surface, not the student/faculty shell.
-    return <Navigate to="/university-admin" replace />;
-  }
-
   const topBar = (
     <AuthTopBar
       roleView={viewMode}
@@ -470,11 +543,11 @@ export function SettingsPage() {
         mainContent={
         <main className="flex-1 overflow-y-auto px-8 py-8">
           <Link
-            to="/dashboard"
+            to={accountBackHref}
             className="inline-flex items-center gap-1.5 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors mb-4"
           >
             <ChevronLeft className="w-4 h-4" strokeWidth={2} />
-            <span>Back to Dashboard</span>
+            <span>{role === "UNIVERSITY_ADMIN" ? "Back to admin" : "Back to Dashboard"}</span>
           </Link>
 
           <h1 className="text-[38px] leading-none font-bold text-[#2B2A2A] mb-3">Settings</h1>
@@ -549,6 +622,34 @@ export function SettingsPage() {
                                 <button
                                   type="button"
                                   onClick={() => setGaProfilePicture(null)}
+                                  className="rounded-full p-1 text-white opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                                  aria-label="Remove selected photo"
+                                >
+                                  <X className="h-4 w-4" strokeWidth={2} />
+                                </button>
+                              ) : null}
+                            </>
+                          ) : viewMode === "university" ? (
+                            <>
+                              <label
+                                className="flex cursor-pointer items-center justify-center rounded-full p-2 text-white opacity-75 transition-opacity hover:opacity-100 focus-within:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                                aria-label="Change profile photo"
+                              >
+                                <input
+                                  type="file"
+                                  accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                                  className="sr-only"
+                                  onChange={(event) => {
+                                    const file = event.target.files?.[0] ?? null;
+                                    applyChosenProfileFile(file, event.target, "universityAdmin");
+                                  }}
+                                />
+                                <Camera className="h-7 w-7" strokeWidth={1.75} />
+                              </label>
+                              {universityAdminProfilePicture ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setUniversityAdminProfilePicture(null)}
                                   className="rounded-full p-1 text-white opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
                                   aria-label="Remove selected photo"
                                 >
@@ -845,6 +946,72 @@ export function SettingsPage() {
                         </div>
                       )}
                     </>
+                  ) : viewMode === "university" ? (
+                    <div className="space-y-4">
+                      <div>
+                        <label htmlFor="settings-uni-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                          Full Name
+                        </label>
+                        <input
+                          id="settings-uni-full-name"
+                          value={isEditingUniversityAdmin ? universityAdminNameEdit : displayName}
+                          onChange={(e) => setUniversityAdminNameEdit(e.target.value)}
+                          readOnly={!isEditingUniversityAdmin}
+                          className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${
+                            isEditingUniversityAdmin
+                              ? "text-[#2B2A2A] focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                              : "bg-gray-50 text-gray-700"
+                          }`}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="settings-uni-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                          Email Address
+                        </label>
+                        <input
+                          id="settings-uni-email"
+                          value={displayEmail}
+                          readOnly
+                          disabled
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-500 cursor-not-allowed opacity-90"
+                        />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 pt-1">
+                        {isEditingUniversityAdmin ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={cancelUniversityAdminAccountEdit}
+                              disabled={updatingUniversityAdminAccount}
+                              className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 bg-white hover:bg-gray-50 rounded-xl text-[14px] font-medium text-[#2B2A2A] transition-colors disabled:opacity-60"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleUniversityAdminAccountSave}
+                              disabled={updatingUniversityAdminAccount}
+                              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
+                            >
+                              {updatingUniversityAdminAccount ? "Saving…" : "Save changes"}
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUniversityAdminNameEdit(displayName);
+                              setUniversityAdminProfilePicture(null);
+                              setIsEditingUniversityAdmin(true);
+                            }}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] rounded-xl text-[14px] font-semibold text-white transition-colors"
+                          >
+                            <Pencil className="w-4 h-4" strokeWidth={2} />
+                            Edit account
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   ) : (
                     <div className="space-y-4">
                       <div>
