@@ -8,6 +8,7 @@ on:
     paths:
       - "Client/**"
       - "Server/**"
+      - "docs-site/**"
       - "grader/**"
       - "Dockerfile"
       - ".dockerignore"
@@ -131,15 +132,62 @@ jobs:
           docker stop "${CONTAINER_NAME}" >/dev/null 2>&1 || true
           docker rm "${CONTAINER_NAME}" >/dev/null 2>&1 || true
 
+          # Required secrets (fail fast with a clear error instead of deploying a broken container)
+          SPRING_DATASOURCE_URL_VAL="${{ secrets.SPRING_DATASOURCE_URL }}"
+          SPRING_DATASOURCE_USERNAME_VAL="${{ secrets.SPRING_DATASOURCE_USERNAME }}"
+          SPRING_DATASOURCE_PASSWORD_VAL="${{ secrets.SPRING_DATASOURCE_PASSWORD }}"
+          CLOUD_AWS_S3_BUCKET_NAME_VAL="${{ secrets.CLOUD_AWS_S3_BUCKET_NAME }}"
+          CLOUD_AWS_CREDENTIAL_ACCESS_KEY_VAL="${{ secrets.CLOUD_AWS_CREDENTIAL_ACCESS_KEY }}"
+          CLOUD_AWS_CREDENTIAL_SECRET_KEY_VAL="${{ secrets.CLOUD_AWS_CREDENTIAL_SECRET_KEY }}"
+          CLOUD_AWS_REGION_VAL="${{ secrets.CLOUD_AWS_REGION }}"
+
+          missing_required=""
+          if [ -z "${SPRING_DATASOURCE_URL_VAL}" ]; then missing_required="${missing_required} SPRING_DATASOURCE_URL"; fi
+          if [ -z "${SPRING_DATASOURCE_USERNAME_VAL}" ]; then missing_required="${missing_required} SPRING_DATASOURCE_USERNAME"; fi
+          if [ -z "${SPRING_DATASOURCE_PASSWORD_VAL}" ]; then missing_required="${missing_required} SPRING_DATASOURCE_PASSWORD"; fi
+          if [ -z "${CLOUD_AWS_S3_BUCKET_NAME_VAL}" ]; then missing_required="${missing_required} CLOUD_AWS_S3_BUCKET_NAME"; fi
+          if [ -z "${CLOUD_AWS_CREDENTIAL_ACCESS_KEY_VAL}" ]; then missing_required="${missing_required} CLOUD_AWS_CREDENTIAL_ACCESS_KEY"; fi
+          if [ -z "${CLOUD_AWS_CREDENTIAL_SECRET_KEY_VAL}" ]; then missing_required="${missing_required} CLOUD_AWS_CREDENTIAL_SECRET_KEY"; fi
+          if [ -z "${CLOUD_AWS_REGION_VAL}" ]; then missing_required="${missing_required} CLOUD_AWS_REGION"; fi
+          if [ -n "${missing_required}" ]; then
+            echo "ERROR: Missing required GitHub secrets for Docker deploy:${missing_required}"
+            echo "Set these in GitHub repo settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
           # Plagiarism & AI / Ollama (optional GitHub secrets — see SETUP.md "Production: GitHub Actions")
           GRADER_LLM_AI_SIGNAL_ENABLED_VAL="${{ secrets.GRADER_LLM_AI_SIGNAL_ENABLED }}"
           GRADER_LLM_AI_SIGNAL_URL_VAL="${{ secrets.GRADER_LLM_AI_SIGNAL_URL }}"
           GRADER_LLM_AI_SIGNAL_MODEL_VAL="${{ secrets.GRADER_LLM_AI_SIGNAL_MODEL }}"
           GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC_VAL="${{ secrets.GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC }}"
+          GRADER_LLM_AI_SIGNAL_MAX_FILES_VAL="${{ secrets.GRADER_LLM_AI_SIGNAL_MAX_FILES }}"
+          GRADER_LLM_AI_SIGNAL_MAX_STUDENTS_VAL="${{ secrets.GRADER_LLM_AI_SIGNAL_MAX_STUDENTS }}"
+          GRADER_LLM_AI_SIGNAL_MAX_CHARS_TOTAL_VAL="${{ secrets.GRADER_LLM_AI_SIGNAL_MAX_CHARS_TOTAL }}"
+          GRADER_LLM_AI_SIGNAL_MAX_CHARS_PER_FILE_VAL="${{ secrets.GRADER_LLM_AI_SIGNAL_MAX_CHARS_PER_FILE }}"
+          GRADER_LLM_AI_SIGNAL_MIN_LIKELINESS_VAL="${{ secrets.GRADER_LLM_AI_SIGNAL_MIN_LIKELINESS }}"
+          GRADER_LLM_AI_SIGNAL_WEIGHT_VAL="${{ secrets.GRADER_LLM_AI_SIGNAL_WEIGHT }}"
           if [ -z "${GRADER_LLM_AI_SIGNAL_ENABLED_VAL}" ]; then GRADER_LLM_AI_SIGNAL_ENABLED_VAL="false"; fi
           if [ -z "${GRADER_LLM_AI_SIGNAL_URL_VAL}" ]; then GRADER_LLM_AI_SIGNAL_URL_VAL="http://host.docker.internal:11434/api/generate"; fi
           if [ -z "${GRADER_LLM_AI_SIGNAL_MODEL_VAL}" ]; then GRADER_LLM_AI_SIGNAL_MODEL_VAL="llama3"; fi
           if [ -z "${GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC_VAL}" ]; then GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC_VAL="120"; fi
+          if [ -z "${GRADER_LLM_AI_SIGNAL_MAX_FILES_VAL}" ]; then GRADER_LLM_AI_SIGNAL_MAX_FILES_VAL="5"; fi
+          if [ -z "${GRADER_LLM_AI_SIGNAL_MAX_STUDENTS_VAL}" ]; then GRADER_LLM_AI_SIGNAL_MAX_STUDENTS_VAL="0"; fi
+          if [ -z "${GRADER_LLM_AI_SIGNAL_MAX_CHARS_TOTAL_VAL}" ]; then GRADER_LLM_AI_SIGNAL_MAX_CHARS_TOTAL_VAL="9000"; fi
+          if [ -z "${GRADER_LLM_AI_SIGNAL_MAX_CHARS_PER_FILE_VAL}" ]; then GRADER_LLM_AI_SIGNAL_MAX_CHARS_PER_FILE_VAL="2500"; fi
+          if [ -z "${GRADER_LLM_AI_SIGNAL_MIN_LIKELINESS_VAL}" ]; then GRADER_LLM_AI_SIGNAL_MIN_LIKELINESS_VAL="0.45"; fi
+          if [ -z "${GRADER_LLM_AI_SIGNAL_WEIGHT_VAL}" ]; then GRADER_LLM_AI_SIGNAL_WEIGHT_VAL="0.20"; fi
+
+          # Email (optional). If not set, app uses defaults from application.properties.
+          SPRING_MAIL_HOST_VAL="${{ secrets.SPRING_MAIL_HOST }}"
+          SPRING_MAIL_PORT_VAL="${{ secrets.SPRING_MAIL_PORT }}"
+          SPRING_MAIL_USERNAME_VAL="${{ secrets.SPRING_MAIL_USERNAME }}"
+          SPRING_MAIL_PASSWORD_VAL="${{ secrets.SPRING_MAIL_PASSWORD }}"
+
+          EMAIL_ENV_ARGS=""
+          if [ -n "${SPRING_MAIL_HOST_VAL}" ]; then EMAIL_ENV_ARGS="${EMAIL_ENV_ARGS} -e SPRING_MAIL_HOST=${SPRING_MAIL_HOST_VAL}"; fi
+          if [ -n "${SPRING_MAIL_PORT_VAL}" ]; then EMAIL_ENV_ARGS="${EMAIL_ENV_ARGS} -e SPRING_MAIL_PORT=${SPRING_MAIL_PORT_VAL}"; fi
+          if [ -n "${SPRING_MAIL_USERNAME_VAL}" ]; then EMAIL_ENV_ARGS="${EMAIL_ENV_ARGS} -e SPRING_MAIL_USERNAME=${SPRING_MAIL_USERNAME_VAL}"; fi
+          if [ -n "${SPRING_MAIL_PASSWORD_VAL}" ]; then EMAIL_ENV_ARGS="${EMAIL_ENV_ARGS} -e SPRING_MAIL_PASSWORD=${SPRING_MAIL_PASSWORD_VAL}"; fi
 
           docker run -d \
             -p ${PORT}:8080 \
@@ -148,17 +196,24 @@ jobs:
             -v /var/run/docker.sock:/var/run/docker.sock \
             -e SPRING_RABBITMQ_HOST=host.docker.internal \
             -e RUN_TESTS_WORK_DIR_BASE=/var/gradeforge/work \
-            -e SPRING_DATASOURCE_URL="${{ secrets.SPRING_DATASOURCE_URL }}" \
-            -e SPRING_DATASOURCE_USERNAME="${{ secrets.SPRING_DATASOURCE_USERNAME }}" \
-            -e SPRING_DATASOURCE_PASSWORD="${{ secrets.SPRING_DATASOURCE_PASSWORD }}" \
-            -e CLOUD_AWS_S3_BUCKET_NAME="${{ secrets.CLOUD_AWS_S3_BUCKET_NAME }}" \
-            -e CLOUD_AWS_CREDENTIAL_ACCESS_KEY="${{ secrets.CLOUD_AWS_CREDENTIAL_ACCESS_KEY }}" \
-            -e CLOUD_AWS_CREDENTIAL_SECRET_KEY="${{ secrets.CLOUD_AWS_CREDENTIAL_SECRET_KEY }}" \
-            -e CLOUD_AWS_REGION="${{ secrets.CLOUD_AWS_REGION }}" \
+            -e SPRING_DATASOURCE_URL="${SPRING_DATASOURCE_URL_VAL}" \
+            -e SPRING_DATASOURCE_USERNAME="${SPRING_DATASOURCE_USERNAME_VAL}" \
+            -e SPRING_DATASOURCE_PASSWORD="${SPRING_DATASOURCE_PASSWORD_VAL}" \
+            -e CLOUD_AWS_S3_BUCKET_NAME="${CLOUD_AWS_S3_BUCKET_NAME_VAL}" \
+            -e CLOUD_AWS_CREDENTIAL_ACCESS_KEY="${CLOUD_AWS_CREDENTIAL_ACCESS_KEY_VAL}" \
+            -e CLOUD_AWS_CREDENTIAL_SECRET_KEY="${CLOUD_AWS_CREDENTIAL_SECRET_KEY_VAL}" \
+            -e CLOUD_AWS_REGION="${CLOUD_AWS_REGION_VAL}" \
             -e GRADER_LLM_AI_SIGNAL_ENABLED="${GRADER_LLM_AI_SIGNAL_ENABLED_VAL}" \
             -e GRADER_LLM_AI_SIGNAL_URL="${GRADER_LLM_AI_SIGNAL_URL_VAL}" \
             -e GRADER_LLM_AI_SIGNAL_MODEL="${GRADER_LLM_AI_SIGNAL_MODEL_VAL}" \
             -e GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC="${GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC_VAL}" \
+            -e GRADER_LLM_AI_SIGNAL_MAX_FILES="${GRADER_LLM_AI_SIGNAL_MAX_FILES_VAL}" \
+            -e GRADER_LLM_AI_SIGNAL_MAX_STUDENTS="${GRADER_LLM_AI_SIGNAL_MAX_STUDENTS_VAL}" \
+            -e GRADER_LLM_AI_SIGNAL_MAX_CHARS_TOTAL="${GRADER_LLM_AI_SIGNAL_MAX_CHARS_TOTAL_VAL}" \
+            -e GRADER_LLM_AI_SIGNAL_MAX_CHARS_PER_FILE="${GRADER_LLM_AI_SIGNAL_MAX_CHARS_PER_FILE_VAL}" \
+            -e GRADER_LLM_AI_SIGNAL_MIN_LIKELINESS="${GRADER_LLM_AI_SIGNAL_MIN_LIKELINESS_VAL}" \
+            -e GRADER_LLM_AI_SIGNAL_WEIGHT="${GRADER_LLM_AI_SIGNAL_WEIGHT_VAL}" \
+            ${EMAIL_ENV_ARGS} \
             --name "${CONTAINER_NAME}" \
             bishwodahal/grade-forge:${IMAGE_TAG}
           echo "Deployed bishwodahal/grade-forge:${IMAGE_TAG} on port ${PORT} (container: ${CONTAINER_NAME})"
