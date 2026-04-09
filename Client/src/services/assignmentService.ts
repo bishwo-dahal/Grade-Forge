@@ -18,6 +18,7 @@ import type { PublicTestCase } from "../types/submission";
 import type { GroupStudentResponse } from "../types/courseGroup";
 import api from "../api/axios";
 import { getAuthenticatedRole } from "../app/auth";
+import { invalidateFacultyCourseworkSnapshotCache } from "./facultyCourseworkService";
 import { getRubric } from "./rubricService";
 import { listFacultyCourseGroups } from "./courseGroupService";
 import { fetchSubmissionFileText, resolvePreviewLanguage } from "./submissionService";
@@ -1037,6 +1038,7 @@ export async function createFacultyAssignmentDraft(
   const parsedClassId = parseClassId(classId || defaultCreateAssignmentHeader.classId);
   const formData = buildFacultyAssignmentMultipartForm(form, parsedClassId);
   const { data } = await api.post<AssignmentApiResponse>("/api/v1/faculty/assignments", formData);
+  invalidateFacultyCourseworkSnapshotCache();
   return { assignmentId: String(data.id) };
 }
 
@@ -1081,5 +1083,6 @@ export async function updateFacultyAssignmentDraft(
   }
 
   const { data } = await api.put<AssignmentApiResponse>(`/api/v1/faculty/assignments/${parsedAssignmentId}`, formData);
+  invalidateFacultyCourseworkSnapshotCache();
   return { assignmentId: String(data.id), assignment: data };
 }

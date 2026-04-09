@@ -27,6 +27,10 @@ import type {
 import api from "../api/axios";
 import { DEFAULT_COURSE_COVER_IMAGE } from "../constants/defaultCourseCover";
 import { roundTo2 } from "../utils/number";
+import {
+  getFacultyCourseworkSnapshot,
+  invalidateFacultyCourseworkSnapshotCache,
+} from "./facultyCourseworkService";
 import { getCourseGradeReport } from "./gradeReportService";
 import { getStudentCourseworkSnapshot } from "./studentCourseworkService";
 
@@ -908,7 +912,7 @@ function mapStudentClassAssignment(
   };
 }
 
-async function getFacultyCourseMetrics(courseId: number): Promise<{
+interface FacultyCourseMetrics {
   students: number;
   assignments: number;
   activeAssignments: number;
@@ -916,12 +920,12 @@ async function getFacultyCourseMetrics(courseId: number): Promise<{
   pendingGrading: number;
   pendingReview: number;
   avgScore: number;
-}> {
-  const [enrollments, assignmentsWithSubmissions] = await Promise.all([
-    listFacultyEnrollmentsByCourse(courseId),
-    fetchFacultyAssignmentsWithSubmissions(courseId),
-  ]);
+}
 
+function buildFacultyCourseMetrics(
+  enrollments: EnrollmentApiResponse[],
+  assignmentsWithSubmissions: Array<{ assignment: AssignmentApiResponse; submissions: SubmissionApiResponse[] }>,
+): FacultyCourseMetrics {
   const activeStudents = enrollments.filter((enrollment) => enrollment.enrolledStatus === "ENROLLED").length;
   const students = activeStudents > 0 ? activeStudents : enrollments.length;
   const assignments = assignmentsWithSubmissions.length;
@@ -956,7 +960,15 @@ async function getFacultyCourseMetrics(courseId: number): Promise<{
   };
 }
 
-function mapFacultyCourseToCard(course: CourseApiResponse, metrics: Awaited<ReturnType<typeof getFacultyCourseMetrics>>): FacultyCourseCard {
+async function getFacultyCourseMetrics(courseId: number): Promise<FacultyCourseMetrics> {
+  const [enrollments, assignmentsWithSubmissions] = await Promise.all([
+    listFacultyEnrollmentsByCourse(courseId),
+    fetchFacultyAssignmentsWithSubmissions(courseId),
+  ]);
+  return buildFacultyCourseMetrics(enrollments, assignmentsWithSubmissions);
+}
+
+function mapFacultyCourseToCard(course: CourseApiResponse, metrics: FacultyCourseMetrics): FacultyCourseCard {
   const iconData = buildCourseIcon(course.courseCode || course.name);
   return {
     id: String(course.id),
@@ -974,7 +986,7 @@ function mapFacultyCourseToCard(course: CourseApiResponse, metrics: Awaited<Retu
 
 function mapFacultyCourseToWorkspaceItem(
   course: CourseApiResponse,
-  metrics: Awaited<ReturnType<typeof getFacultyCourseMetrics>>,
+  metrics: FacultyCourseMetrics,
   semesterNameById: Map<number, string>,
 ): FacultyMyClassItem {
   const iconData = buildCourseIcon(course.courseCode || course.name);
@@ -1042,47 +1054,39 @@ export async function listFacultyCourses(): Promise<FacultyCourseCard[]> {
   // IMPORTANT: Backend resolves faculty context from authenticated email.
   // IMPORTANT: This call returns 400 when the logged-in user exists in Users but is not mapped in Faculty.
   // NOTE: University admin must create/assign the faculty profile first.
-  // TODO(backend): Keep the return shape stable so course cards can stay mapped without UI rewrites.
-  const { data } = await api.get<CourseApiResponse[]>("/api/v1/faculty/courses");
-  const cards = await Promise.all(
-    data.map(async (course) => {
-      const metrics = await getFacultyCourseMetrics(course.id).catch(() => ({
-        students: 0,
-        assignments: 0,
-        activeAssignments: 0,
-        pendingSubmissions: 0,
-        pendingGrading: 0,
-        pendingReview: 0,
-        avgScore: 0,
-      }));
-      return mapFacultyCourseToCard(course, metrics);
-    }),
-  );
-  return cards;
+  const snapshot = await getFacultyCourseworkSnapshot();
+  return snapshot.courses.map((course) => {
+    const enrollments = snapshot.enrollmentsByCourseId.get(course.id) ?? [];
+    const assignments = snapshot.assignmentsByCourseId.get(course.id) ?? [];
+    const assignmentsWithSubmissions = assignments.map((assignment) => ({
+      assignment,
+      submissions: snapshot.submissionsByAssignmentId.get(assignment.id) ?? [],
+    }));
+    return mapFacultyCourseToCard(course, buildFacultyCourseMetrics(enrollments, assignmentsWithSubmissions));
+  });
 }
 
 export async function listFacultyMyClasses(): Promise<FacultyMyClassItem[]> {
-  // NOTE: Faculty workspace cards now hydrate from live backend metrics instead of hardcoded placeholder zeros.
-  const [{ data: courses }, semesters] = await Promise.all([
-    api.get<CourseApiResponse[]>("/api/v1/faculty/courses"),
+  // NOTE: Faculty workspace cards now reuse the same cached coursework snapshot as the dashboard
+  // NOTE: instead of rebuilding the course/assignment/submission graph again.
+  const [snapshot, semesters] = await Promise.all([
+    getFacultyCourseworkSnapshot(),
     listFacultySemesters().catch(() => []),
   ]);
   const semesterNameById = new Map<number, string>(semesters.map((semester) => [semester.id, semester.name]));
-  const classItems = await Promise.all(
-    courses.map(async (course) => {
-      const metrics = await getFacultyCourseMetrics(course.id).catch(() => ({
-        students: 0,
-        assignments: 0,
-        activeAssignments: 0,
-        pendingSubmissions: 0,
-        pendingGrading: 0,
-        pendingReview: 0,
-        avgScore: 0,
-      }));
-      return mapFacultyCourseToWorkspaceItem(course, metrics, semesterNameById);
-    }),
-  );
-  return classItems;
+  return snapshot.courses.map((course) => {
+    const enrollments = snapshot.enrollmentsByCourseId.get(course.id) ?? [];
+    const assignments = snapshot.assignmentsByCourseId.get(course.id) ?? [];
+    const assignmentsWithSubmissions = assignments.map((assignment) => ({
+      assignment,
+      submissions: snapshot.submissionsByAssignmentId.get(assignment.id) ?? [],
+    }));
+    return mapFacultyCourseToWorkspaceItem(
+      course,
+      buildFacultyCourseMetrics(enrollments, assignmentsWithSubmissions),
+      semesterNameById,
+    );
+  });
 }
 
 export async function listFacultySemesters(): Promise<FacultySemesterOption[]> {
@@ -1110,6 +1114,7 @@ export async function createFacultyCourse(form: ClassCreateFormData, coverImageF
     body.append("file", coverImageFile);
   }
   await api.post("/api/v1/faculty/courses/create", body);
+  invalidateFacultyCourseworkSnapshotCache();
 }
 
 export async function updateFacultyCourse(
@@ -1124,17 +1129,20 @@ export async function updateFacultyCourse(
     body.append("file", coverImageFile);
   }
   const { data } = await api.put<CourseApiResponse>(`/api/v1/faculty/courses/${id}`, body);
+  invalidateFacultyCourseworkSnapshotCache();
   return data;
 }
 
 export async function deleteFacultyCourse(courseId: string): Promise<void> {
   const id = toCourseId(courseId);
   await api.delete(`/api/v1/faculty/courses/${id}`);
+  invalidateFacultyCourseworkSnapshotCache();
 }
 
 export async function toggleFacultyCourseActive(courseId: string): Promise<CourseApiResponse> {
   const id = toCourseId(courseId);
   const { data } = await api.patch<CourseApiResponse>(`/api/v1/faculty/courses/disable/${id}`);
+  invalidateFacultyCourseworkSnapshotCache();
   return data;
 }
 

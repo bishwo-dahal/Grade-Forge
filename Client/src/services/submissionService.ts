@@ -10,6 +10,7 @@ import type {
   SubmissionSummary,
 } from "../types/submission";
 import api from "../api/axios";
+import { invalidateFacultyCourseworkSnapshotCache } from "./facultyCourseworkService";
 import { invalidateStudentCourseworkSnapshotCache } from "./studentCourseworkService";
 
 // NOTE: Centralized mock submission data to create a single integration seam.
@@ -470,6 +471,7 @@ export async function submitFacultySubmissionGrade(payload: FacultySubmissionGra
     feedback: payload.feedback,
   };
   await api.patch(`/api/v1/faculty/submissions/${parsedSubmissionId}/grade`, body);
+  invalidateFacultyCourseworkSnapshotCache();
 }
 
 export function resolvePreviewLanguage(fileName: string, fallbackLanguage: string): string {
