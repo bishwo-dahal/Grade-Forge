@@ -28,6 +28,7 @@ import api from "../api/axios";
 import { DEFAULT_COURSE_COVER_IMAGE } from "../constants/defaultCourseCover";
 import { roundTo2 } from "../utils/number";
 import { getCourseGradeReport } from "./gradeReportService";
+import { getStudentCourseworkSnapshot } from "./studentCourseworkService";
 
 // NOTE: Centralized mock class/course data to create a single integration seam.
 // TODO(backend): Replace mock service with real API calls. Keep return shapes stable for the UI.
@@ -1138,32 +1139,33 @@ export async function toggleFacultyCourseActive(courseId: string): Promise<Cours
 }
 
 export async function listEnrolledCourses(): Promise<CourseCard[]> {
-  // NOTE: Student dashboard and My Courses now consume enrolled classes from backend.
-  const { data } = await api.get<CourseApiResponse[]>("/api/v1/student/classes/enrolled");
-  const courseCards = await Promise.all(
-    data.map(async (course) => {
-      const assignmentBundles = await fetchStudentAssignmentsWithSubmissions(course.id).catch(() => []);
-      const completed = assignmentBundles.filter(({ submissions }) => submissions.length > 0).length;
-      const total = assignmentBundles.length;
-      const iconData = buildCourseIcon(course.courseCode || course.name);
-      return {
-        id: String(course.id),
-        courseCode: course.courseCode,
-        // NOTE: Backend does not expose credits yet; keep deterministic fallback until schema expands.
-        credits: 3,
-        title: course.name,
-        instructor: course.faculty?.name ?? "TBD",
-        semester: course.semester?.name ?? "TBD",
-        completed,
-        total,
-        icon: iconData.icon,
-        iconBg: iconData.iconBg,
-        progressColor: iconData.iconBg.includes("FEB05D") ? "bg-[#FEB05D]" : "bg-[#5A7ACD]",
-        coverImageUrl: getCourseCoverImageUrl(course),
-      };
-    }),
-  );
-  return courseCards;
+  // NOTE: Dashboard/My Courses share one cached coursework snapshot so they do not duplicate
+  // NOTE: enrolled-course, assignment-list, and submission-list requests on initial load.
+  const snapshot = await getStudentCourseworkSnapshot();
+  return snapshot.courses.map((course) => {
+    const assignments = snapshot.assignmentsByCourseId.get(course.id) ?? [];
+    const completed = assignments.filter((assignment) => {
+      const submissions = snapshot.submissionsByAssignmentId.get(assignment.id) ?? [];
+      return submissions.length > 0;
+    }).length;
+    const total = assignments.length;
+    const iconData = buildCourseIcon(course.courseCode || course.name);
+    return {
+      id: String(course.id),
+      courseCode: course.courseCode,
+      // NOTE: Backend does not expose credits yet; keep deterministic fallback until schema expands.
+      credits: 3,
+      title: course.name,
+      instructor: course.faculty?.name ?? "TBD",
+      semester: course.semester?.name ?? "TBD",
+      completed,
+      total,
+      icon: iconData.icon,
+      iconBg: iconData.iconBg,
+      progressColor: iconData.iconBg.includes("FEB05D") ? "bg-[#FEB05D]" : "bg-[#5A7ACD]",
+      coverImageUrl: getCourseCoverImageUrl(course),
+    };
+  });
 }
 
 export async function getCourseDetailById(id: string): Promise<CourseDetail> {

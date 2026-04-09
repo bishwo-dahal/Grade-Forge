@@ -21,6 +21,7 @@ import { getAuthenticatedRole } from "../app/auth";
 import { getRubric } from "./rubricService";
 import { listFacultyCourseGroups } from "./courseGroupService";
 import { fetchSubmissionFileText, resolvePreviewLanguage } from "./submissionService";
+import { getStudentCourseworkSnapshot } from "./studentCourseworkService";
 
 // NOTE: This service keeps assignment data access centralized for both live API endpoints and remaining mock-only views.
 // TODO(backend): Migrate remaining mock-only helper sections to backend endpoints while keeping return shapes stable.
@@ -594,47 +595,37 @@ export function getGradingAssignmentContext(assignmentId: string): Promise<Gradi
 }
 
 export async function listUpcomingAssignments(): Promise<UpcomingAssignment[]> {
-  // NOTE: Dashboard upcoming assignments now come from live enrolled-course assignments instead of mock rows.
-  const { data: enrolledCourses } = await api.get<StudentEnrolledCourseApiResponse[]>("/api/v1/student/classes/enrolled");
+  // NOTE: Reuse the same cached coursework snapshot as the course cards to avoid a second
+  // NOTE: dashboard-wide pass over enrolled courses, assignments, and submissions.
+  const snapshot = await getStudentCourseworkSnapshot();
 
-  const upcomingByCourse = await Promise.all(
-    enrolledCourses.map(async (course) => {
-      const { data: assignments } = await api.get<AssignmentApiResponse[]>(`/api/v1/student/assignments/course/${course.id}`);
-      const pendingAssignments = await Promise.all(
-        assignments.map(async (assignment) => {
-          const { data: submissions } = await api.get<SubmissionApiResponse[]>(
-            `/api/v1/student/submissions/assignment?assignmentId=${assignment.id}`,
-          );
-          const latestSubmission = getLatestSubmission(submissions);
-          // CLEANUP: Only unresolved work is shown in "Upcoming Assignments"; graded/submitted items are omitted.
-          if (latestSubmission) {
-            return null;
-          }
-
-          const dueMeta = buildUpcomingDueMeta(assignment.dueDate);
-          const iconData = resolveAssignmentIcon(course.courseCode || assignment.courseName);
-          return {
-            row: {
-              id: assignment.id,
-              title: assignment.name,
-              course: course.name || assignment.courseName || "placeholder text",
-              dueDate: formatDate(assignment.dueDate),
-              daysLeft: dueMeta.label,
-              urgent: dueMeta.urgent,
-              icon: iconData.icon,
-              iconBg: iconData.iconBg,
-            } satisfies UpcomingAssignment,
-            sortTimestamp: dueMeta.sortTimestamp,
-          };
-        }),
-      );
-
-      return pendingAssignments.filter((item): item is { row: UpcomingAssignment; sortTimestamp: number } => item !== null);
-    }),
-  );
+  const upcomingByCourse = snapshot.courses.flatMap((course) => {
+    const assignments = snapshot.assignmentsByCourseId.get(course.id) ?? [];
+    return assignments
+      .filter((assignment) => {
+        const submissions = snapshot.submissionsByAssignmentId.get(assignment.id) ?? [];
+        return getLatestSubmission(submissions) == null;
+      })
+      .map((assignment) => {
+        const dueMeta = buildUpcomingDueMeta(assignment.dueDate);
+        const iconData = resolveAssignmentIcon(course.courseCode || assignment.courseName);
+        return {
+          row: {
+            id: assignment.id,
+            title: assignment.name,
+            course: course.name || assignment.courseName || "placeholder text",
+            dueDate: formatDate(assignment.dueDate),
+            daysLeft: dueMeta.label,
+            urgent: dueMeta.urgent,
+            icon: iconData.icon,
+            iconBg: iconData.iconBg,
+          } satisfies UpcomingAssignment,
+          sortTimestamp: dueMeta.sortTimestamp,
+        };
+      });
+  });
 
   return upcomingByCourse
-    .flat()
     .sort((left, right) => left.sortTimestamp - right.sortTimestamp)
     .slice(0, 3)
     .map((item) => item.row);

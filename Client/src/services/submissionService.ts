@@ -10,6 +10,7 @@ import type {
   SubmissionSummary,
 } from "../types/submission";
 import api from "../api/axios";
+import { invalidateStudentCourseworkSnapshotCache } from "./studentCourseworkService";
 
 // NOTE: Centralized mock submission data to create a single integration seam.
 // TODO(backend): Replace mock service with real API calls. Keep return shapes stable for the UI.
@@ -341,6 +342,7 @@ export async function submitStudentAssignmentFiles(assignmentId: string, files: 
     formData.append("files", normalized, normalized.name);
   }
   await api.post(`/api/v1/student/submissions?assignmentId=${parsedAssignmentId}`, formData);
+  invalidateStudentCourseworkSnapshotCache();
 }
 
 export async function listClassSubmissions(classId: string): Promise<ClassSubmissionItem[]> {
