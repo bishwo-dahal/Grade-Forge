@@ -1,11 +1,9 @@
-import { Bell, Lock, LogOut, Plus, Search, Settings, SunMedium, User } from "lucide-react";
+import { LogOut, Plus, Search } from "lucide-react";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import {
@@ -46,12 +44,12 @@ export function AuthTopBar({
   roleView,
   profile,
   onLogout,
-  onSettingsSectionSelect,
+  onSettingsSectionSelect: _onSettingsSectionSelect,
   showSearch = true,
   searchPlaceholder = "Search...",
   primaryActionLabel,
   onPrimaryAction,
-  isSettingsActive = false,
+  isSettingsActive: _isSettingsActive = false,
 }: AuthTopBarProps) {
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   useSyncExternalStore(subscribeAuthSession, getAuthSessionTick, getAuthSessionTick);
@@ -77,10 +75,6 @@ export function AuthTopBar({
     roleView === "faculty" || roleView === "gradingAssistant" || roleView === "university"
       ? "from-[#7A1226] to-[#65101F]"
       : "from-[#5A606B] to-[#474D56]";
-  // NOTE: Keep top-bar visual tokens centralized so future pages inherit the same navigation style by default.
-  const iconButtonBaseClass =
-    // FIX: Notification/settings actions now use plain white surfaces (no gray fill) to match toolbar styling requirements.
-    "h-9 w-9 rounded-md border border-[#C9C4C9] bg-white text-[#5D667A] hover:bg-[#F5F4F6] transition-colors flex items-center justify-center";
   // FIX: University mode needs a taller search/topbar block so its divider aligns with the sidebar section break.
   const topBarHeightClass = roleView === "university" ? "py-5" : "h-[76px]";
 
@@ -126,58 +120,26 @@ export function AuthTopBar({
             </button>
           )}
 
-          <button
-            aria-label="Notifications"
-            // NOTE: Icon buttons use a bordered neutral container to match the updated top-nav visual system.
-            className={iconButtonBaseClass}
-          >
-            <Bell className="w-[17px] h-[17px]" strokeWidth={2} />
-          </button>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                aria-label="Open settings menu"
-                className={`${iconButtonBaseClass} ${isSettingsActive ? "border-[#9F3549]" : ""}`}
+                type="button"
+                aria-label="Open account menu"
+                className="ml-2 flex items-center gap-3 rounded-xl border border-transparent pl-3 transition-colors hover:border-[#C9C4C9] hover:bg-[#F5F4F6]"
               >
-                <Settings className="w-[17px] h-[17px]" strokeWidth={2} />
+                <ProfileAvatarCircle
+                  initials={barInitials}
+                  gradientClassName={avatarGradient}
+                  imageUrl={avatarPictureUrl}
+                  alt=""
+                />
+                <div className="border-l border-[#C9C4C9] pl-3 text-left">
+                  <div className="text-[13px] font-semibold text-[#1F2430]">{displayName}</div>
+                  <div className="text-[11px] text-gray-500">{displayEmail}</div>
+                </div>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-60">
-              <DropdownMenuLabel className="flex flex-col gap-0.5">
-                <span className="text-[13px] font-semibold text-[#1F2430]">Settings</span>
-                <span className="text-[11px] text-gray-500">Manage your account and preferences</span>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => onSettingsSectionSelect?.("profile")}>
-                <User className="w-4 h-4 text-gray-600" strokeWidth={2} />
-                <div className="flex flex-col">
-                  <span className="text-[13px] font-medium text-[#1F2430]">Account</span>
-                  <span className="text-[11px] text-gray-500">Profile info and basic details</span>
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => onSettingsSectionSelect?.("security")}>
-                <Lock className="w-4 h-4 text-gray-600" strokeWidth={2} />
-                <div className="flex flex-col">
-                  <span className="text-[13px] font-medium text-[#1F2430]">Security</span>
-                  <span className="text-[11px] text-gray-500">Password and sign-in settings</span>
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => onSettingsSectionSelect?.("notifications")}>
-                <Bell className="w-4 h-4 text-gray-600" strokeWidth={2} />
-                <div className="flex flex-col">
-                  <span className="text-[13px] font-medium text-[#1F2430]">Notifications</span>
-                  <span className="text-[11px] text-gray-500">Email and in-app alerts</span>
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => onSettingsSectionSelect?.("appearance")}>
-                <SunMedium className="w-4 h-4 text-gray-600" strokeWidth={2} />
-                <div className="flex flex-col">
-                  <span className="text-[13px] font-medium text-[#1F2430]">Appearance</span>
-                  <span className="text-[11px] text-gray-500">Theme and display preferences</span>
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+            <DropdownMenuContent className="w-52">
               <DropdownMenuItem
                 variant="destructive"
                 onSelect={(event) => {
@@ -190,19 +152,6 @@ export function AuthTopBar({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          <div className="ml-2 flex items-center gap-3 pl-3 border-l border-[#C9C4C9]">
-            <ProfileAvatarCircle
-              initials={barInitials}
-              gradientClassName={avatarGradient}
-              imageUrl={avatarPictureUrl}
-              alt=""
-            />
-            <div>
-              <div className="text-[13px] font-semibold text-[#1F2430]">{displayName}</div>
-              <div className="text-[11px] text-gray-500">{displayEmail}</div>
-            </div>
-          </div>
         </div>
         </div>
       </div>

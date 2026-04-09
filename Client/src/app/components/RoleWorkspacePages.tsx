@@ -107,11 +107,3 @@ export function FacultyStudentsPage() {
 export function FacultySchedulePage() {
   return <RoleWorkspacePage roleView="faculty" title="Schedule" description="Plan deadlines, classes, and grading windows." />;
 }
-
-export function FacultyMaterialsPage() {
-  return <RoleWorkspacePage roleView="faculty" title="Materials" description="Organize course materials for your classes." />;
-}
-
-export function FacultyDiscussionsPage() {
-  return <RoleWorkspacePage roleView="faculty" title="Discussions" description="Moderate class discussion spaces." />;
-}

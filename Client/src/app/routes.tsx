@@ -25,8 +25,6 @@ import { FacultyClassStudentDetailPage } from "./components/faculty/FacultyClass
 import { FacultyMainGroupDetailPage } from "./components/faculty/FacultyMainGroupDetailPage";
 import CompleteStudentRegistrationPage from "./components/CompleteStudentRegistrationPage";
 import {
-  FacultyDiscussionsPage,
-  FacultyMaterialsPage,
   FacultyMyClassesPage,
   FacultySchedulePage,
   FacultyStudentsPage,
@@ -235,22 +233,6 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={["FACULTY"]}>
         <FacultySchedulePage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/faculty/materials",
-    element: (
-      <ProtectedRoute allowedRoles={["FACULTY"]}>
-        <FacultyMaterialsPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/faculty/discussions",
-    element: (
-      <ProtectedRoute allowedRoles={["FACULTY"]}>
-        <FacultyDiscussionsPage />
       </ProtectedRoute>
     ),
   },

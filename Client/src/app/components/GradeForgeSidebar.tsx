@@ -5,6 +5,7 @@ import {
   Calendar,
   FolderOpen,
   MessageSquare,
+  Settings,
   Users,
   UserPlus,
   Code2,
@@ -88,10 +89,11 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
               { icon: FolderOpen, label: "Materials", to: "/student/materials" },
               { icon: MessageSquare, label: "Discussions", to: "/student/discussions" },
             ]
-          : [
-              { icon: FolderOpen, label: "Materials", to: "/faculty/materials" },
-              { icon: MessageSquare, label: "Discussions", to: "/faculty/discussions" },
-            ];
+          : [];
+  const settingsItem: SidebarNavItem | null =
+    viewMode === "student" || viewMode === "faculty"
+      ? { icon: Settings, label: "Settings", to: "/settings", matchPrefixes: ["/settings"] }
+      : null;
 
   const isItemActive = (item: SidebarNavItem): boolean => {
     const prefixes = [item.to, ...(item.matchPrefixes ?? [])];
@@ -171,7 +173,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
         {/* Learning Section */}
         <div className="mb-6">
           {viewMode !== "university" && (
-            <div className={`px-3 mb-2 ${collapsibleHeadingClass}`}>
+            <div className={`px-3 mb-2 ${viewMode === "faculty" ? "pt-3" : ""} ${collapsibleHeadingClass}`}>
               <span className={`text-[11px] font-semibold tracking-wider uppercase ${isUniversityView ? "text-[#8D97AC]" : "text-[#D8B7BE]"}`}>
                 {viewMode === "student" ? "Learning" : viewMode === "gradingAssistant" ? "Grading" : "Teaching"}
               </span>
@@ -232,6 +234,26 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
           </div>
         )}
       </nav>
+
+      {settingsItem && (
+        <div className={`shrink-0 px-4 pb-3 ${viewMode === "faculty" || viewMode === "student" ? "pt-2" : ""}`}>
+          <Link
+            to={settingsItem.to}
+            className={`w-full flex items-center rounded-lg transition-all ${navLinkLayoutClass} ${
+              isItemActive(settingsItem)
+                ? (isUniversityView
+                    ? "bg-[#7A1226] text-white shadow-[0_8px_18px_rgba(122,18,38,0.32)]"
+                    : "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]")
+                : (isUniversityView
+                    ? "text-[#44506B] hover:text-[#1F2430] hover:bg-[#F1EEF1]"
+                    : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]")
+            }`}
+          >
+            <settingsItem.icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />
+            <span className={`text-[14px] whitespace-nowrap ${navLabelClass}`}>{settingsItem.label}</span>
+          </Link>
+        </div>
+      )}
 
       <SidebarPinnedCollapseFooter
         variant={isUniversityView ? "university" : "maroon"}
