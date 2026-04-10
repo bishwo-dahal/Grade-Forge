@@ -22,7 +22,7 @@ public class EmailService {
         MimeMessage mimeMessage = mailSender.createMimeMessage();
 
         try {
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, "UTF-8");
 
             helper.setTo(to);
             helper.setSubject(subject);
@@ -74,7 +74,7 @@ public class EmailService {
                       text-align:center;
                       line-height:50px;
                     ">
-                      <img src="cid:logo" width="40" height="40" style="border-radius:50%%;" />
+                      <img src="https://grade-forge.s3.us-east-2.amazonaws.com/email_logo/ulm_logo.png" width="40" height="40" style="border-radius:50%%;" />
                     </div>
                   </td>
                   <td style="padding-left:12px;">
@@ -110,10 +110,12 @@ public class EmailService {
 """.formatted(content);
 
             helper.setText(html, true);
-            helper.addInline("logo", new ClassPathResource("logo/ulm_logo.png"));
-            helper.addInline("logoHeader", new ClassPathResource("logo/logo.png"));
+            helper.setFrom("gradeforgeulm@gmail.com");
+
             mailSender.send(mimeMessage);
+
         } catch (MessagingException e) {
+            System.out.println("Email Failed");
             throw new RuntimeException(e);
         }
     }

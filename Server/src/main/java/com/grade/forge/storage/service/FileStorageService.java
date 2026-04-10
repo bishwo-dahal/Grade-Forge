@@ -9,6 +9,8 @@ import com.grade.forge.exceptionhandler.IncorrectFileException;
 import com.grade.forge.programminglanguage.entity.ProgrammingLanguage;
 import com.grade.forge.submission.entity.Submission;
 import com.grade.forge.submission.entity.SubmissionFile;
+import com.grade.forge.user.entity.UserProfilePicture;
+import com.grade.forge.user.entity.Users;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -225,6 +227,35 @@ public class FileStorageService {
 
         return CourseImage.builder()
                 .course(course)
+                .fileName(originalName)
+                .fileKey(key)
+                .fileType(multipartFile.getContentType())
+                .fileSize(multipartFile.getSize())
+                .build();
+    }
+
+    public UserProfilePicture uploadUserProfilePicture(Users user, MultipartFile multipartFile) {
+        String originalName = validateAndGetName(multipartFile);
+        enforceImageContentType(multipartFile.getContentType());
+
+        String key = String.format("upload/user/%d/profile-picture/%s-%s",
+                user.getId(), UUID.randomUUID(), originalName);
+
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .contentType(multipartFile.getContentType())
+                .build();
+
+        try {
+            getClient().putObject(putObjectRequest,
+                    RequestBody.fromInputStream(multipartFile.getInputStream(), multipartFile.getSize()));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload user profile image to S3", e);
+        }
+
+        return UserProfilePicture.builder()
+                .user(user)
                 .fileName(originalName)
                 .fileKey(key)
                 .fileType(multipartFile.getContentType())

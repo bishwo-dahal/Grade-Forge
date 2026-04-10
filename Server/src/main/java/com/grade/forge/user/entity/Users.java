@@ -40,5 +40,8 @@ public class Users {
     @OneToOne(mappedBy = "user")
     private GradingAssistant gradingAssistant;
 
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private UserProfilePicture profilePicture;
+
 
 }

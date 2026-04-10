@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router";
-import { ArrowRight, Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, ImagePlus, X } from "lucide-react";
 import { AuthSplitLayout } from "./auth/AuthSplitLayout";
 import {
   getAuthenticatedRole,
@@ -22,8 +22,20 @@ export default function SignUpPage() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [profilePicture, setProfilePicture] = useState<File | null>(null);
+  const [profilePreviewUrl, setProfilePreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!profilePicture) {
+      setProfilePreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(profilePicture);
+    setProfilePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [profilePicture]);
 
   if (isAuthenticated()) {
     const role = getAuthenticatedRole();
@@ -47,19 +59,27 @@ export default function SignUpPage() {
 
     try {
       const name = `${firstName.trim()} ${lastName.trim()}`.trim();
-      const response = await signup({
-        name: name || email,
-        email: email.trim(),
-        password,
-        // NOTE: Public signup is student-only; other roles are provisioned/admin-managed.
-        role: "STUDENT" as const,
-      });
+      const response = await signup(
+        {
+          name: name || email,
+          email: email.trim(),
+          password,
+          // NOTE: Public signup is student-only; other roles are provisioned/admin-managed.
+          role: "STUDENT" as const,
+        },
+        profilePicture,
+      );
 
+      if (!response.token) {
+        setError("Invalid response from server.");
+        return;
+      }
       setAuthenticated(response.token, {
         name: response.name,
         email: response.email,
         role: response.role,
         profileCompleted: response.profileCompleted,
+        profilePictureUrl: response.profilePictureUrl ?? undefined,
       });
       markFirstTimeSignInSeen(response.email, response.role);
       queueAuthNotification(buildFirstTimeSignInMessage(response.role));
@@ -69,11 +89,15 @@ export default function SignUpPage() {
           ? "/complete-registration"
           : getDefaultRouteForRole(response.role);
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === "object" && "response" in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : "Sign up failed. Please try again.";
-      setError(msg ?? "Sign up failed.");
+      if (err instanceof Error && err.message) {
+        setError(err.message);
+      } else {
+        const msg =
+          err && typeof err === "object" && "response" in err
+            ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+            : "Sign up failed. Please try again.";
+        setError(msg ?? "Sign up failed.");
+      }
     } finally {
       setLoading(false);
     }
@@ -157,6 +181,59 @@ export default function SignUpPage() {
           >
             {showPassword ? <EyeOff className="h-5 w-5" strokeWidth={2} /> : <Eye className="h-5 w-5" strokeWidth={2} />}
           </button>
+        </div>
+
+        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/80 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-white">
+                {profilePreviewUrl ? (
+                  <img src={profilePreviewUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <ImagePlus className="h-7 w-7 text-gray-400" strokeWidth={1.5} />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[14px] font-medium text-[#2B2A2A]">Profile picture</p>
+                <p className="text-[12px] text-gray-500">Optional. JPG or PNG — up to 5 MB.</p>
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <label className="cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-[#2B2A2A] transition-colors hover:bg-gray-50">
+                <input
+                  type="file"
+                  accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                  className="sr-only"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null;
+                    if (file) {
+                      const okMime = file.type === "image/jpeg" || file.type === "image/png";
+                      const okName = /\.(jpe?g|png)$/i.test(file.name);
+                      if (!okMime && !okName) {
+                        setError("Profile picture must be a JPG or PNG file.");
+                        event.target.value = "";
+                        return;
+                      }
+                    }
+                    setProfilePicture(file);
+                    event.target.value = "";
+                  }}
+                />
+                Choose photo
+              </label>
+              {profilePicture ? (
+                <button
+                  type="button"
+                  onClick={() => setProfilePicture(null)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-[13px] text-gray-700 transition-colors hover:bg-gray-50"
+                  aria-label="Remove profile picture"
+                >
+                  <X className="h-4 w-4" strokeWidth={2} />
+                  Remove
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
 
         <button

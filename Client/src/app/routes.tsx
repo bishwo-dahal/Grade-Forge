@@ -297,6 +297,10 @@ export const router = createBrowserRouter([
         path: "training-data",
         Component: UniversityTrainingDataPage,
       },
+      {
+        path: "settings",
+        Component: SettingsPage,
+      },
     ],
   },
   {

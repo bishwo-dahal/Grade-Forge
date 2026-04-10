@@ -1,15 +1,22 @@
 import React, { useEffect, useState } from "react";
-import { Link, Navigate, useLocation, useNavigate } from "react-router";
-import { Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff, Pencil } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router";
+import { Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff, Pencil, Camera } from "lucide-react";
 import type { UserProfile } from "../../types/user";
 import type { FacultyResponse, FacultyUpdateRequest } from "../../types/faculty";
 import type { GradingAssistantResponse } from "../../types/gradingAssistant";
-import { getFacultyProfile, getStudentProfile, updatePassword } from "../../services/authService";
+import {
+  getFacultyProfile,
+  getStudentProfile,
+  refreshAuthSessionFromMe,
+  updatePassword,
+} from "../../services/authService";
 import { getCurrentFaculty, updateCurrentFaculty } from "../../services/facultyService";
 import { getCurrentGradingAssistantProfile } from "../../services/gradingAssistantService";
+import { patchCurrentUserProfile } from "../../services/userService";
 import { clearAuthenticated, getAuthenticatedRole, getAuthenticatedUser, getToken, setAuthenticated } from "../auth";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
+import { ProfileAvatarCircle } from "./layout/ProfileAvatarCircle";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
@@ -41,12 +48,40 @@ export function SettingsPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showRepeatPassword, setShowRepeatPassword] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [isEditingStudent, setIsEditingStudent] = useState(false);
+  const [studentNameEdit, setStudentNameEdit] = useState("");
+  const [studentProfilePicture, setStudentProfilePicture] = useState<File | null>(null);
+  const [studentProfilePreviewUrl, setStudentProfilePreviewUrl] = useState<string | null>(null);
+  const [updatingStudentAccount, setUpdatingStudentAccount] = useState(false);
+  const [facultyProfilePicture, setFacultyProfilePicture] = useState<File | null>(null);
+  const [facultyProfilePreviewUrl, setFacultyProfilePreviewUrl] = useState<string | null>(null);
+  const [isEditingGa, setIsEditingGa] = useState(false);
+  const [gaNameEdit, setGaNameEdit] = useState("");
+  const [gaProfilePicture, setGaProfilePicture] = useState<File | null>(null);
+  const [gaProfilePicturePreviewUrl, setGaProfilePicturePreviewUrl] = useState<string | null>(null);
+  const [updatingGaAccount, setUpdatingGaAccount] = useState(false);
+  const [isEditingUniversityAdmin, setIsEditingUniversityAdmin] = useState(false);
+  const [universityAdminNameEdit, setUniversityAdminNameEdit] = useState("");
+  const [universityAdminProfilePicture, setUniversityAdminProfilePicture] = useState<File | null>(null);
+  const [universityAdminProfilePreviewUrl, setUniversityAdminProfilePreviewUrl] = useState<string | null>(null);
+  const [updatingUniversityAdminAccount, setUpdatingUniversityAdminAccount] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const role = getAuthenticatedRole();
-  // NOTE: Settings keeps the same role mapping as dashboard; grading assistant uses faculty-style UI (profile/settings same).
-  const viewMode: "student" | "faculty" | "gradingAssistant" =
-    role === "FACULTY" ? "faculty" : role === "GRADING_ASSISTANT" ? "gradingAssistant" : "student";
+  const settingsBasePath = role === "UNIVERSITY_ADMIN" ? "/university-admin/settings" : "/settings";
+  const accountBackHref = role === "UNIVERSITY_ADMIN" ? "/university-admin/faculty" : "/dashboard";
+  // NOTE: University settings is a child of `UniversityAdminWorkspace`, which already renders `AuthShell`; skip the inner shell to avoid duplicate sidebars.
+  const isUniversitySettingsEmbedded =
+    role === "UNIVERSITY_ADMIN" && location.pathname.startsWith("/university-admin/");
+  // NOTE: Settings shell matches workspace: student/faculty/GA/university admin.
+  const viewMode: "student" | "faculty" | "gradingAssistant" | "university" =
+    role === "FACULTY"
+      ? "faculty"
+      : role === "GRADING_ASSISTANT"
+        ? "gradingAssistant"
+        : role === "UNIVERSITY_ADMIN"
+          ? "university"
+          : "student";
 
   useEffect(() => {
     if (role === "FACULTY") {
@@ -80,6 +115,10 @@ export function SettingsPage() {
       return;
     }
 
+    if (role === "UNIVERSITY_ADMIN") {
+      return;
+    }
+
     getStudentProfile().then(setProfile);
   }, [role]);
 
@@ -90,6 +129,62 @@ export function SettingsPage() {
       setActiveSection(section);
     }
   }, [location.search]);
+
+  // NOTE: GET `/api/v1/auth/me` hydrates session after refresh and when opening Account (profile) so UI matches the server.
+  useEffect(() => {
+    if (activeSection !== "profile") {
+      return;
+    }
+    let cancelled = false;
+    void refreshAuthSessionFromMe().catch(() => {
+      if (!cancelled) {
+        /* non-fatal; 401 handled by axios interceptor */
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSection, role]);
+
+  useEffect(() => {
+    if (!studentProfilePicture) {
+      setStudentProfilePreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(studentProfilePicture);
+    setStudentProfilePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [studentProfilePicture]);
+
+  useEffect(() => {
+    if (!facultyProfilePicture) {
+      setFacultyProfilePreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(facultyProfilePicture);
+    setFacultyProfilePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [facultyProfilePicture]);
+
+  useEffect(() => {
+    if (!gaProfilePicture) {
+      setGaProfilePicturePreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(gaProfilePicture);
+    setGaProfilePicturePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [gaProfilePicture]);
+
+  useEffect(() => {
+    if (!universityAdminProfilePicture) {
+      setUniversityAdminProfilePreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(universityAdminProfilePicture);
+    setUniversityAdminProfilePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [universityAdminProfilePicture]);
 
   const loggedInUser = getAuthenticatedUser();
   const displayName =
@@ -111,6 +206,53 @@ export function SettingsPage() {
         .join("") || "AJ"
     : profile?.initials ?? "AJ";
   const displayStudentId = profile?.id ?? "2024-CS-1234";
+  const accountAvatarGradient =
+    viewMode === "faculty" || viewMode === "gradingAssistant" || viewMode === "university"
+      ? "from-[#7A1226] to-[#65101F]"
+      : "from-[#5A606B] to-[#474D56]";
+
+  const headerAvatarImageUrl =
+    viewMode === "student" && isEditingStudent
+      ? studentProfilePreviewUrl ?? loggedInUser?.profilePictureUrl
+      : viewMode === "gradingAssistant" && isEditingGa
+        ? gaProfilePicturePreviewUrl ?? loggedInUser?.profilePictureUrl
+        : viewMode === "university" && isEditingUniversityAdmin
+          ? universityAdminProfilePreviewUrl ?? loggedInUser?.profilePictureUrl
+          : viewMode === "faculty" && isEditingFaculty
+            ? facultyProfilePreviewUrl ?? loggedInUser?.profilePictureUrl
+            : loggedInUser?.profilePictureUrl;
+
+  const showAvatarPhotoOverlay =
+    (viewMode === "student" && isEditingStudent) ||
+    (viewMode === "gradingAssistant" && isEditingGa) ||
+    (viewMode === "university" && isEditingUniversityAdmin) ||
+    (viewMode === "faculty" && isEditingFaculty);
+
+  const applyChosenProfileFile = (
+    file: File | null,
+    input: HTMLInputElement,
+    which: "student" | "faculty" | "ga" | "universityAdmin",
+  ) => {
+    if (file) {
+      const okMime = file.type === "image/jpeg" || file.type === "image/png";
+      const okName = /\.(jpe?g|png)$/i.test(file.name);
+      if (!okMime && !okName) {
+        toast.error("Profile picture must be a JPG or PNG file.");
+        input.value = "";
+        return;
+      }
+    }
+    if (which === "student") {
+      setStudentProfilePicture(file);
+    } else if (which === "ga") {
+      setGaProfilePicture(file);
+    } else if (which === "universityAdmin") {
+      setUniversityAdminProfilePicture(file);
+    } else {
+      setFacultyProfilePicture(file);
+    }
+    input.value = "";
+  };
 
   const handleFacultyUpdate = async () => {
     setFacultyProfileError(null);
@@ -120,14 +262,24 @@ export function SettingsPage() {
       const updated = await updateCurrentFaculty(facultyForm);
       setFacultyProfile(updated);
       const token = getToken();
-      if (token) {
-        setAuthenticated(token, {
-          name: updated.name,
-          email: updated.email,
-          role: loggedInUser?.role ?? "FACULTY",
-          profileCompleted: true,
-        });
+      if (token && facultyProfilePicture && facultyProfilePicture.size > 0) {
+        try {
+          await patchCurrentUserProfile({
+            name: updated.name,
+            file: facultyProfilePicture,
+          });
+        } catch (patchErr: unknown) {
+          toast.error(getApiErrorMessage(patchErr, "Profile saved, but photo upload failed."));
+        }
       }
+      if (token) {
+        try {
+          await refreshAuthSessionFromMe();
+        } catch (refreshErr: unknown) {
+          toast.error(getApiErrorMessage(refreshErr, "Profile saved, but could not refresh account."));
+        }
+      }
+      setFacultyProfilePicture(null);
       setFacultyUpdateSuccess("Profile updated successfully.");
       setIsEditingFaculty(false);
     } catch (err: unknown) {
@@ -146,9 +298,162 @@ export function SettingsPage() {
     navigate("/signin", { replace: true });
   };
 
+  const handleStudentAccountSave = async () => {
+    const token = getToken();
+    if (!token || !loggedInUser) {
+      toast.error("Unable to save. Please sign in again.");
+      return;
+    }
+    const trimmed = studentNameEdit.trim();
+    if (!trimmed) {
+      toast.error("Full name cannot be empty.");
+      return;
+    }
+    const nameChanged = trimmed !== (loggedInUser.name ?? "").trim();
+    const hasFile = Boolean(studentProfilePicture && studentProfilePicture.size > 0);
+    if (!nameChanged && !hasFile) {
+      toast.info("No changes to save.");
+      return;
+    }
+
+    setUpdatingStudentAccount(true);
+    try {
+      await patchCurrentUserProfile({
+        name: nameChanged ? trimmed : undefined,
+        file: hasFile ? studentProfilePicture : undefined,
+      });
+      try {
+        await refreshAuthSessionFromMe();
+      } catch (refreshErr: unknown) {
+        toast.error(getApiErrorMessage(refreshErr, "Saved, but could not refresh account."));
+      }
+      setStudentProfilePicture(null);
+      setIsEditingStudent(false);
+      toast.success("Account updated.");
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error && err.message
+          ? err.message
+          : getApiErrorMessage(err, "Failed to update account.");
+      toast.error(msg);
+    } finally {
+      setUpdatingStudentAccount(false);
+    }
+  };
+
+  const cancelStudentAccountEdit = () => {
+    setStudentNameEdit(loggedInUser?.name ?? displayName);
+    setStudentProfilePicture(null);
+    setIsEditingStudent(false);
+  };
+
+  const handleGaAccountSave = async () => {
+    const token = getToken();
+    if (!token || !loggedInUser) {
+      toast.error("Unable to save. Please sign in again.");
+      return;
+    }
+    const trimmed = gaNameEdit.trim();
+    if (!trimmed) {
+      toast.error("Full name cannot be empty.");
+      return;
+    }
+    const nameChanged = trimmed !== (loggedInUser.name ?? "").trim();
+    const hasFile = Boolean(gaProfilePicture && gaProfilePicture.size > 0);
+    if (!nameChanged && !hasFile) {
+      toast.info("No changes to save.");
+      return;
+    }
+
+    setUpdatingGaAccount(true);
+    try {
+      await patchCurrentUserProfile({
+        name: nameChanged ? trimmed : undefined,
+        file: hasFile ? gaProfilePicture : undefined,
+      });
+      try {
+        await refreshAuthSessionFromMe();
+      } catch (refreshErr: unknown) {
+        toast.error(getApiErrorMessage(refreshErr, "Saved, but could not refresh account."));
+      }
+      try {
+        const refreshedGa = await getCurrentGradingAssistantProfile();
+        setGaProfile(refreshedGa);
+      } catch {
+        /* GA profile read is best-effort after user patch */
+      }
+      setGaProfilePicture(null);
+      setIsEditingGa(false);
+      toast.success("Account updated.");
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error && err.message
+          ? err.message
+          : getApiErrorMessage(err, "Failed to update account.");
+      toast.error(msg);
+    } finally {
+      setUpdatingGaAccount(false);
+    }
+  };
+
+  const cancelGaAccountEdit = () => {
+    setGaNameEdit(loggedInUser?.name ?? displayName);
+    setGaProfilePicture(null);
+    setIsEditingGa(false);
+  };
+
+  const handleUniversityAdminAccountSave = async () => {
+    const token = getToken();
+    if (!token || !loggedInUser) {
+      toast.error("Unable to save. Please sign in again.");
+      return;
+    }
+    const trimmed = universityAdminNameEdit.trim();
+    if (!trimmed) {
+      toast.error("Full name cannot be empty.");
+      return;
+    }
+    const nameChanged = trimmed !== (loggedInUser.name ?? "").trim();
+    const hasFile = Boolean(universityAdminProfilePicture && universityAdminProfilePicture.size > 0);
+    if (!nameChanged && !hasFile) {
+      toast.info("No changes to save.");
+      return;
+    }
+
+    setUpdatingUniversityAdminAccount(true);
+    try {
+      await patchCurrentUserProfile({
+        name: nameChanged ? trimmed : undefined,
+        file: hasFile ? universityAdminProfilePicture : undefined,
+      });
+      try {
+        await refreshAuthSessionFromMe();
+      } catch (refreshErr: unknown) {
+        toast.error(getApiErrorMessage(refreshErr, "Saved, but could not refresh account."));
+      }
+      setUniversityAdminProfilePicture(null);
+      setIsEditingUniversityAdmin(false);
+      toast.success("Account updated.");
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error && err.message
+          ? err.message
+          : getApiErrorMessage(err, "Failed to update account.");
+      toast.error(msg);
+    } finally {
+      setUpdatingUniversityAdminAccount(false);
+    }
+  };
+
+  const cancelUniversityAdminAccountEdit = () => {
+    setUniversityAdminNameEdit(loggedInUser?.name ?? displayName);
+    setUniversityAdminProfilePicture(null);
+    setIsEditingUniversityAdmin(false);
+  };
+
   const goToSettingsSection = (section: "profile" | "security" | "notifications" | "appearance") => {
     setActiveSection(section);
-    navigate(`/settings?section=${section}`, { replace: true });
+    navigate(`${settingsBasePath}?section=${section}`, { replace: true });
   };
 
   const closeChangePasswordModal = () => {
@@ -190,12 +495,23 @@ export function SettingsPage() {
         newPassword,
       });
 
-      setAuthenticated(response.token, {
+      const nextToken = response.token?.trim() || getToken();
+      if (!nextToken) {
+        toast.error("Unable to update session. Please sign in again.");
+        return;
+      }
+      setAuthenticated(nextToken, {
         name: response.name,
         email: response.email,
         role: response.role,
         profileCompleted: response.profileCompleted,
+        profilePictureUrl: response.profilePictureUrl ?? loggedInUser?.profilePictureUrl ?? undefined,
       });
+      try {
+        await refreshAuthSessionFromMe();
+      } catch {
+        /* session already updated from password response */
+      }
       toast.success(response.message || "Password updated successfully.");
       closeChangePasswordModal();
     } catch (err: unknown) {
@@ -205,15 +521,15 @@ export function SettingsPage() {
     }
   };
 
-  if (role === "UNIVERSITY_ADMIN") {
-    // NOTE: University admins use their dedicated dashboard/settings surface, not the student/faculty shell.
-    return <Navigate to="/university-admin" replace />;
-  }
-
   const topBar = (
     <AuthTopBar
       roleView={viewMode}
-      profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
+      profile={{
+        name: displayName,
+        email: displayEmail,
+        initials: displayInitials,
+        profilePictureUrl: loggedInUser?.profilePictureUrl,
+      }}
       showSearch={false}
       isSettingsActive
       onSettingsSectionSelect={goToSettingsSection}
@@ -221,20 +537,14 @@ export function SettingsPage() {
     />
   );
 
-  return (
-    <>
-      <AuthShell
-        roleView={viewMode}
-        topBar={topBar}
-        // NOTE: Settings page now reuses the shared shell instead of duplicating sidebar/topbar wrappers.
-        mainContent={
+  const settingsMainContent = (
         <main className="flex-1 overflow-y-auto px-8 py-8">
           <Link
-            to="/dashboard"
+            to={accountBackHref}
             className="inline-flex items-center gap-1.5 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors mb-4"
           >
             <ChevronLeft className="w-4 h-4" strokeWidth={2} />
-            <span>Back to Dashboard</span>
+            <span>{role === "UNIVERSITY_ADMIN" ? "Back to admin" : "Back to Dashboard"}</span>
           </Link>
 
           <h1 className="text-[38px] leading-none font-bold text-[#2B2A2A] mb-3">Settings</h1>
@@ -247,6 +557,140 @@ export function SettingsPage() {
                     <User className="w-6 h-6 text-[#5A7ACD]" strokeWidth={2} />
                     <span>Profile Information</span>
                   </h2>
+
+                  <div className="flex flex-col gap-4 border-b border-gray-100 pb-6 mb-6 sm:flex-row sm:items-center">
+                    <div className="relative h-20 w-20 shrink-0">
+                      <ProfileAvatarCircle
+                        initials={displayInitials}
+                        gradientClassName={accountAvatarGradient}
+                        imageUrl={headerAvatarImageUrl}
+                        sizeClassName="h-20 w-20"
+                        initialsClassName="text-2xl font-semibold text-white"
+                        alt=""
+                      />
+                      {showAvatarPhotoOverlay ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-full bg-black/45 p-1.5">
+                          {viewMode === "student" ? (
+                            <>
+                              <label
+                                className="flex cursor-pointer items-center justify-center rounded-full p-2 text-white opacity-75 transition-opacity hover:opacity-100 focus-within:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                                aria-label="Change profile photo"
+                              >
+                                <input
+                                  type="file"
+                                  accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                                  className="sr-only"
+                                  onChange={(event) => {
+                                    const file = event.target.files?.[0] ?? null;
+                                    applyChosenProfileFile(file, event.target, "student");
+                                  }}
+                                />
+                                <Camera className="h-7 w-7" strokeWidth={1.75} />
+                              </label>
+                              {studentProfilePicture ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setStudentProfilePicture(null)}
+                                  className="rounded-full p-1 text-white opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                                  aria-label="Remove selected photo"
+                                >
+                                  <X className="h-4 w-4" strokeWidth={2} />
+                                </button>
+                              ) : null}
+                            </>
+                          ) : viewMode === "gradingAssistant" ? (
+                            <>
+                              <label
+                                className="flex cursor-pointer items-center justify-center rounded-full p-2 text-white opacity-75 transition-opacity hover:opacity-100 focus-within:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                                aria-label="Change profile photo"
+                              >
+                                <input
+                                  type="file"
+                                  accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                                  className="sr-only"
+                                  onChange={(event) => {
+                                    const file = event.target.files?.[0] ?? null;
+                                    applyChosenProfileFile(file, event.target, "ga");
+                                  }}
+                                />
+                                <Camera className="h-7 w-7" strokeWidth={1.75} />
+                              </label>
+                              {gaProfilePicture ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setGaProfilePicture(null)}
+                                  className="rounded-full p-1 text-white opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                                  aria-label="Remove selected photo"
+                                >
+                                  <X className="h-4 w-4" strokeWidth={2} />
+                                </button>
+                              ) : null}
+                            </>
+                          ) : viewMode === "university" ? (
+                            <>
+                              <label
+                                className="flex cursor-pointer items-center justify-center rounded-full p-2 text-white opacity-75 transition-opacity hover:opacity-100 focus-within:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                                aria-label="Change profile photo"
+                              >
+                                <input
+                                  type="file"
+                                  accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                                  className="sr-only"
+                                  onChange={(event) => {
+                                    const file = event.target.files?.[0] ?? null;
+                                    applyChosenProfileFile(file, event.target, "universityAdmin");
+                                  }}
+                                />
+                                <Camera className="h-7 w-7" strokeWidth={1.75} />
+                              </label>
+                              {universityAdminProfilePicture ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setUniversityAdminProfilePicture(null)}
+                                  className="rounded-full p-1 text-white opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                                  aria-label="Remove selected photo"
+                                >
+                                  <X className="h-4 w-4" strokeWidth={2} />
+                                </button>
+                              ) : null}
+                            </>
+                          ) : (
+                            <>
+                              <label
+                                className="flex cursor-pointer items-center justify-center rounded-full p-2 text-white opacity-75 transition-opacity hover:opacity-100 focus-within:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                                aria-label="Change profile photo"
+                              >
+                                <input
+                                  type="file"
+                                  accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                                  className="sr-only"
+                                  onChange={(event) => {
+                                    const file = event.target.files?.[0] ?? null;
+                                    applyChosenProfileFile(file, event.target, "faculty");
+                                  }}
+                                />
+                                <Camera className="h-7 w-7" strokeWidth={1.75} />
+                              </label>
+                              {facultyProfilePicture ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setFacultyProfilePicture(null)}
+                                  className="rounded-full p-1 text-white opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                                  aria-label="Remove selected photo"
+                                >
+                                  <X className="h-4 w-4" strokeWidth={2} />
+                                </button>
+                              ) : null}
+                            </>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[16px] font-semibold text-[#2B2A2A] truncate">{displayName}</p>
+                      <p className="text-[13px] text-gray-500 truncate">{displayEmail}</p>
+                    </div>
+                  </div>
 
                   {viewMode === "faculty" ? (
                     <>
@@ -285,7 +729,8 @@ export function SettingsPage() {
                               id="settings-email"
                               value={facultyProfile.email}
                               readOnly
-                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                              disabled
+                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-500 cursor-not-allowed opacity-90"
                             />
                           </div>
                           <div>
@@ -361,6 +806,7 @@ export function SettingsPage() {
                                   type="button"
                                   onClick={() => {
                                     setIsEditingFaculty(false);
+                                    setFacultyProfilePicture(null);
                                     setFacultyForm({
                                       name: facultyProfile.name ?? "",
                                       department: facultyProfile.department ?? "",
@@ -390,7 +836,7 @@ export function SettingsPage() {
                                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] rounded-xl text-[14px] font-semibold text-white transition-colors"
                               >
                                 <Pencil className="w-4 h-4" strokeWidth={2} />
-                                Edit
+                                Edit account
                               </button>
                             )}
                           </div>
@@ -408,19 +854,31 @@ export function SettingsPage() {
                       {!gaProfileLoading && gaProfile && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                           <div>
-                            <label className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">Full Name</label>
+                            <label htmlFor="settings-ga-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                              Full Name
+                            </label>
                             <input
-                              value={gaProfile.name ?? ""}
-                              readOnly
-                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                              id="settings-ga-full-name"
+                              value={isEditingGa ? gaNameEdit : displayName}
+                              onChange={(e) => setGaNameEdit(e.target.value)}
+                              readOnly={!isEditingGa}
+                              className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${
+                                isEditingGa
+                                  ? "text-[#2B2A2A] focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                                  : "bg-gray-50 text-gray-700"
+                              }`}
                             />
                           </div>
                           <div>
-                            <label className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">Email Address</label>
+                            <label htmlFor="settings-ga-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                              Email Address
+                            </label>
                             <input
-                              value={gaProfile.email ?? ""}
+                              id="settings-ga-email"
+                              value={displayEmail}
                               readOnly
-                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                              disabled
+                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-500 cursor-not-allowed opacity-90"
                             />
                           </div>
                           <div>
@@ -447,31 +905,138 @@ export function SettingsPage() {
                               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
                             />
                           </div>
+                          <div className="md:col-span-2 flex flex-wrap items-center gap-3 pt-1">
+                            {isEditingGa ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={cancelGaAccountEdit}
+                                  disabled={updatingGaAccount}
+                                  className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 bg-white hover:bg-gray-50 rounded-xl text-[14px] font-medium text-[#2B2A2A] transition-colors disabled:opacity-60"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleGaAccountSave}
+                                  disabled={updatingGaAccount}
+                                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
+                                >
+                                  {updatingGaAccount ? "Saving…" : "Save changes"}
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setGaNameEdit(displayName);
+                                  setGaProfilePicture(null);
+                                  setIsEditingGa(true);
+                                }}
+                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] rounded-xl text-[14px] font-semibold text-white transition-colors"
+                              >
+                                <Pencil className="w-4 h-4" strokeWidth={2} />
+                                Edit account
+                              </button>
+                            )}
+                          </div>
                         </div>
                       )}
                     </>
-                  ) : (
+                  ) : viewMode === "university" ? (
                     <div className="space-y-4">
                       <div>
-                        <label htmlFor="settings-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                        <label htmlFor="settings-uni-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
                           Full Name
                         </label>
                         <input
-                          id="settings-full-name"
-                          value={displayName}
-                          readOnly
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                          id="settings-uni-full-name"
+                          value={isEditingUniversityAdmin ? universityAdminNameEdit : displayName}
+                          onChange={(e) => setUniversityAdminNameEdit(e.target.value)}
+                          readOnly={!isEditingUniversityAdmin}
+                          className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${
+                            isEditingUniversityAdmin
+                              ? "text-[#2B2A2A] focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                              : "bg-gray-50 text-gray-700"
+                          }`}
                         />
                       </div>
                       <div>
-                        <label htmlFor="settings-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                        <label htmlFor="settings-uni-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
                           Email Address
                         </label>
                         <input
-                          id="settings-email"
+                          id="settings-uni-email"
                           value={displayEmail}
                           readOnly
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                          disabled
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-500 cursor-not-allowed opacity-90"
+                        />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 pt-1">
+                        {isEditingUniversityAdmin ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={cancelUniversityAdminAccountEdit}
+                              disabled={updatingUniversityAdminAccount}
+                              className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 bg-white hover:bg-gray-50 rounded-xl text-[14px] font-medium text-[#2B2A2A] transition-colors disabled:opacity-60"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleUniversityAdminAccountSave}
+                              disabled={updatingUniversityAdminAccount}
+                              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
+                            >
+                              {updatingUniversityAdminAccount ? "Saving…" : "Save changes"}
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUniversityAdminNameEdit(displayName);
+                              setUniversityAdminProfilePicture(null);
+                              setIsEditingUniversityAdmin(true);
+                            }}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] rounded-xl text-[14px] font-semibold text-white transition-colors"
+                          >
+                            <Pencil className="w-4 h-4" strokeWidth={2} />
+                            Edit account
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <label htmlFor="settings-student-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                          Full Name
+                        </label>
+                        <input
+                          id="settings-student-full-name"
+                          value={isEditingStudent ? studentNameEdit : displayName}
+                          onChange={(e) => setStudentNameEdit(e.target.value)}
+                          readOnly={!isEditingStudent}
+                          className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${
+                            isEditingStudent
+                              ? "text-[#2B2A2A] focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                              : "bg-gray-50 text-gray-700"
+                          }`}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="settings-student-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                          Email Address
+                        </label>
+                        <input
+                          id="settings-student-email"
+                          value={displayEmail}
+                          readOnly
+                          disabled
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-500 cursor-not-allowed opacity-90"
                         />
                       </div>
                       <div>
@@ -484,6 +1049,41 @@ export function SettingsPage() {
                           readOnly
                           className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
                         />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 pt-1">
+                        {isEditingStudent ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={cancelStudentAccountEdit}
+                              disabled={updatingStudentAccount}
+                              className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 bg-white hover:bg-gray-50 rounded-xl text-[14px] font-medium text-[#2B2A2A] transition-colors disabled:opacity-60"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleStudentAccountSave}
+                              disabled={updatingStudentAccount}
+                              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
+                            >
+                              {updatingStudentAccount ? "Saving…" : "Save changes"}
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStudentNameEdit(displayName);
+                              setStudentProfilePicture(null);
+                              setIsEditingStudent(true);
+                            }}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] rounded-xl text-[14px] font-semibold text-white transition-colors"
+                          >
+                            <Pencil className="w-4 h-4" strokeWidth={2} />
+                            Edit account
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
@@ -542,8 +1142,15 @@ export function SettingsPage() {
             )}
           </div>
         </main>
-        }
-      />
+  );
+
+  return (
+    <>
+      {isUniversitySettingsEmbedded ? (
+        settingsMainContent
+      ) : (
+        <AuthShell roleView={viewMode} topBar={topBar} mainContent={settingsMainContent} />
+      )}
 
       {showChangePasswordModal && (
         <div className="fixed inset-0 bg-black/35 flex items-center justify-center p-4 z-50">
