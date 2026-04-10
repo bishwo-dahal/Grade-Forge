@@ -178,43 +178,44 @@ jobs:
           if [ -z "${GRADER_LLM_AI_SIGNAL_WEIGHT_VAL}" ]; then GRADER_LLM_AI_SIGNAL_WEIGHT_VAL="0.20"; fi
 
           # Email (optional). If not set, app uses defaults from application.properties.
+          # Must pass each -e as a single quoted argv (bash array); unquoted concatenation breaks when
+          # values contain spaces or substrings Docker mistakes for an image name (e.g. "... rrcg ...").
           SPRING_MAIL_HOST_VAL="${{ secrets.SPRING_MAIL_HOST }}"
           SPRING_MAIL_PORT_VAL="${{ secrets.SPRING_MAIL_PORT }}"
           SPRING_MAIL_USERNAME_VAL="${{ secrets.SPRING_MAIL_USERNAME }}"
           SPRING_MAIL_PASSWORD_VAL="${{ secrets.SPRING_MAIL_PASSWORD }}"
 
-          EMAIL_ENV_ARGS=""
-          if [ -n "${SPRING_MAIL_HOST_VAL}" ]; then EMAIL_ENV_ARGS="${EMAIL_ENV_ARGS} -e SPRING_MAIL_HOST=${SPRING_MAIL_HOST_VAL}"; fi
-          if [ -n "${SPRING_MAIL_PORT_VAL}" ]; then EMAIL_ENV_ARGS="${EMAIL_ENV_ARGS} -e SPRING_MAIL_PORT=${SPRING_MAIL_PORT_VAL}"; fi
-          if [ -n "${SPRING_MAIL_USERNAME_VAL}" ]; then EMAIL_ENV_ARGS="${EMAIL_ENV_ARGS} -e SPRING_MAIL_USERNAME=${SPRING_MAIL_USERNAME_VAL}"; fi
-          if [ -n "${SPRING_MAIL_PASSWORD_VAL}" ]; then EMAIL_ENV_ARGS="${EMAIL_ENV_ARGS} -e SPRING_MAIL_PASSWORD=${SPRING_MAIL_PASSWORD_VAL}"; fi
+          run_args=(
+            -d
+            -p "${PORT}:8080"
+            --add-host=host.docker.internal:host-gateway
+            -v "${WORK_DIR_BASE}:/var/gradeforge/work"
+            -v /var/run/docker.sock:/var/run/docker.sock
+            -e SPRING_RABBITMQ_HOST=host.docker.internal
+            -e "RUN_TESTS_WORK_DIR_BASE=/var/gradeforge/work"
+            -e "SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL_VAL}"
+            -e "SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME_VAL}"
+            -e "SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD_VAL}"
+            -e "CLOUD_AWS_S3_BUCKET_NAME=${CLOUD_AWS_S3_BUCKET_NAME_VAL}"
+            -e "CLOUD_AWS_CREDENTIAL_ACCESS_KEY=${CLOUD_AWS_CREDENTIAL_ACCESS_KEY_VAL}"
+            -e "CLOUD_AWS_CREDENTIAL_SECRET_KEY=${CLOUD_AWS_CREDENTIAL_SECRET_KEY_VAL}"
+            -e "CLOUD_AWS_REGION=${CLOUD_AWS_REGION_VAL}"
+            -e "GRADER_LLM_AI_SIGNAL_ENABLED=${GRADER_LLM_AI_SIGNAL_ENABLED_VAL}"
+            -e "GRADER_LLM_AI_SIGNAL_URL=${GRADER_LLM_AI_SIGNAL_URL_VAL}"
+            -e "GRADER_LLM_AI_SIGNAL_MODEL=${GRADER_LLM_AI_SIGNAL_MODEL_VAL}"
+            -e "GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC=${GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC_VAL}"
+            -e "GRADER_LLM_AI_SIGNAL_MAX_FILES=${GRADER_LLM_AI_SIGNAL_MAX_FILES_VAL}"
+            -e "GRADER_LLM_AI_SIGNAL_MAX_STUDENTS=${GRADER_LLM_AI_SIGNAL_MAX_STUDENTS_VAL}"
+            -e "GRADER_LLM_AI_SIGNAL_MAX_CHARS_TOTAL=${GRADER_LLM_AI_SIGNAL_MAX_CHARS_TOTAL_VAL}"
+            -e "GRADER_LLM_AI_SIGNAL_MAX_CHARS_PER_FILE=${GRADER_LLM_AI_SIGNAL_MAX_CHARS_PER_FILE_VAL}"
+            -e "GRADER_LLM_AI_SIGNAL_MIN_LIKELINESS=${GRADER_LLM_AI_SIGNAL_MIN_LIKELINESS_VAL}"
+            -e "GRADER_LLM_AI_SIGNAL_WEIGHT=${GRADER_LLM_AI_SIGNAL_WEIGHT_VAL}"
+          )
+          [ -n "${SPRING_MAIL_HOST_VAL}" ] && run_args+=( -e "SPRING_MAIL_HOST=${SPRING_MAIL_HOST_VAL}" )
+          [ -n "${SPRING_MAIL_PORT_VAL}" ] && run_args+=( -e "SPRING_MAIL_PORT=${SPRING_MAIL_PORT_VAL}" )
+          [ -n "${SPRING_MAIL_USERNAME_VAL}" ] && run_args+=( -e "SPRING_MAIL_USERNAME=${SPRING_MAIL_USERNAME_VAL}" )
+          [ -n "${SPRING_MAIL_PASSWORD_VAL}" ] && run_args+=( -e "SPRING_MAIL_PASSWORD=${SPRING_MAIL_PASSWORD_VAL}" )
 
-          docker run -d \
-            -p ${PORT}:8080 \
-            --add-host=host.docker.internal:host-gateway \
-            -v "${WORK_DIR_BASE}:/var/gradeforge/work" \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -e SPRING_RABBITMQ_HOST=host.docker.internal \
-            -e RUN_TESTS_WORK_DIR_BASE=/var/gradeforge/work \
-            -e SPRING_DATASOURCE_URL="${SPRING_DATASOURCE_URL_VAL}" \
-            -e SPRING_DATASOURCE_USERNAME="${SPRING_DATASOURCE_USERNAME_VAL}" \
-            -e SPRING_DATASOURCE_PASSWORD="${SPRING_DATASOURCE_PASSWORD_VAL}" \
-            -e CLOUD_AWS_S3_BUCKET_NAME="${CLOUD_AWS_S3_BUCKET_NAME_VAL}" \
-            -e CLOUD_AWS_CREDENTIAL_ACCESS_KEY="${CLOUD_AWS_CREDENTIAL_ACCESS_KEY_VAL}" \
-            -e CLOUD_AWS_CREDENTIAL_SECRET_KEY="${CLOUD_AWS_CREDENTIAL_SECRET_KEY_VAL}" \
-            -e CLOUD_AWS_REGION="${CLOUD_AWS_REGION_VAL}" \
-            -e GRADER_LLM_AI_SIGNAL_ENABLED="${GRADER_LLM_AI_SIGNAL_ENABLED_VAL}" \
-            -e GRADER_LLM_AI_SIGNAL_URL="${GRADER_LLM_AI_SIGNAL_URL_VAL}" \
-            -e GRADER_LLM_AI_SIGNAL_MODEL="${GRADER_LLM_AI_SIGNAL_MODEL_VAL}" \
-            -e GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC="${GRADER_LLM_AI_SIGNAL_TIMEOUT_SEC_VAL}" \
-            -e GRADER_LLM_AI_SIGNAL_MAX_FILES="${GRADER_LLM_AI_SIGNAL_MAX_FILES_VAL}" \
-            -e GRADER_LLM_AI_SIGNAL_MAX_STUDENTS="${GRADER_LLM_AI_SIGNAL_MAX_STUDENTS_VAL}" \
-            -e GRADER_LLM_AI_SIGNAL_MAX_CHARS_TOTAL="${GRADER_LLM_AI_SIGNAL_MAX_CHARS_TOTAL_VAL}" \
-            -e GRADER_LLM_AI_SIGNAL_MAX_CHARS_PER_FILE="${GRADER_LLM_AI_SIGNAL_MAX_CHARS_PER_FILE_VAL}" \
-            -e GRADER_LLM_AI_SIGNAL_MIN_LIKELINESS="${GRADER_LLM_AI_SIGNAL_MIN_LIKELINESS_VAL}" \
-            -e GRADER_LLM_AI_SIGNAL_WEIGHT="${GRADER_LLM_AI_SIGNAL_WEIGHT_VAL}" \
-            ${EMAIL_ENV_ARGS} \
-            --name "${CONTAINER_NAME}" \
-            bishwodahal/grade-forge:${IMAGE_TAG}
+          docker run "${run_args[@]}" --name "${CONTAINER_NAME}" "bishwodahal/grade-forge:${IMAGE_TAG}"
           echo "Deployed bishwodahal/grade-forge:${IMAGE_TAG} on port ${PORT} (container: ${CONTAINER_NAME})"
  
