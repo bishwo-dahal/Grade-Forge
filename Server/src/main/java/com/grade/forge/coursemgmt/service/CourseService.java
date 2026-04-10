@@ -22,6 +22,7 @@ import com.grade.forge.student.entity.Student;
 import com.grade.forge.enrollment.enums.EnrolledStatus;
 import com.grade.forge.enrollment.repository.EnrollmentRepository;
 import com.grade.forge.student.repository.StudentRepository;
+import com.grade.forge.submission.repository.SubmissionRepository;
 import com.grade.forge.storage.service.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +30,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,6 +52,7 @@ public class CourseService {
     private final UserRepository userRepository;
     private final StudentRepository studentRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final SubmissionRepository submissionRepository;
     private final FileStorageService fileStorageService;
     private final CourseImageRepository courseImageRepository;
 
@@ -313,9 +318,9 @@ public class CourseService {
         Faculty faculty = facultyRepository.findByUser_Id(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Faculty not found for user id: " + userId));
 
-        return courseRepository.findByFaculty_Id(faculty.getId()).stream()
+        return attachFacultyDashboardMetrics(courseRepository.findByFaculty_Id(faculty.getId()).stream()
                 .map(this::mapToResponseDto)
-                .collect(Collectors.toList());
+                .collect(Collectors.toList()));
     }
 
     /**
@@ -334,9 +339,9 @@ public class CourseService {
       log.info(String.valueOf(user.getId()));
 
 
-        return courseRepository.findByFaculty_Id(faculty.getId()).stream()
+        return attachFacultyDashboardMetrics(courseRepository.findByFaculty_Id(faculty.getId()).stream()
                 .map(this::mapToResponseDto)
-                .collect(Collectors.toList());
+                .collect(Collectors.toList()));
     }
 
     public List<CourseResponseDto> getCoursesBySemesterForFaculty(String email, Long semesterId) {
@@ -347,9 +352,9 @@ public class CourseService {
         semesterRepository.findById(semesterId)
                 .orElseThrow(() -> new ResourceNotFoundException("Semester not found with id: " + semesterId));
 
-        return courseRepository.findByFaculty_IdAndSemester_Id(faculty.getId(), semesterId).stream()
+        return attachFacultyDashboardMetrics(courseRepository.findByFaculty_IdAndSemester_Id(faculty.getId(), semesterId).stream()
                 .map(this::mapToResponseDto)
-                .collect(Collectors.toList());
+                .collect(Collectors.toList()));
     }
 
     /**
@@ -418,6 +423,45 @@ public class CourseService {
                  .faculty(facultyDto)
                  .build();
      }
+
+    private List<CourseResponseDto> attachFacultyDashboardMetrics(List<CourseResponseDto> courses) {
+        if (courses.isEmpty()) {
+            return courses;
+        }
+
+        List<Long> courseIds = courses.stream()
+                .map(CourseResponseDto::getId)
+                .toList();
+
+        Map<Long, Integer> studentCounts = toCountMap(
+                enrollmentRepository.countByCourseIdsAndStatus(courseIds, EnrolledStatus.ENROLLED)
+        );
+        Map<Long, Integer> activeAssignmentCounts = toCountMap(
+                assignmentRepository.countActiveByCourseIds(courseIds, LocalDateTime.now())
+        );
+        Map<Long, Integer> pendingSubmissionCounts = toCountMap(
+                submissionRepository.countPendingByCourseIds(courseIds)
+        );
+
+        for (CourseResponseDto course : courses) {
+            Long courseId = course.getId();
+            course.setStudents(studentCounts.getOrDefault(courseId, 0));
+            course.setActiveAssignments(activeAssignmentCounts.getOrDefault(courseId, 0));
+            course.setPendingSubmissions(pendingSubmissionCounts.getOrDefault(courseId, 0));
+        }
+
+        return courses;
+    }
+
+    private Map<Long, Integer> toCountMap(List<Object[]> rows) {
+        Map<Long, Integer> counts = new HashMap<>();
+        for (Object[] row : rows) {
+            Long courseId = (Long) row[0];
+            Long count = (Long) row[1];
+            counts.put(courseId, count.intValue());
+        }
+        return counts;
+    }
 
     private CourseImageResponse mapToImageResponse(CourseImage image) {
         return CourseImageResponse.builder()

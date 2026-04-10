@@ -577,6 +577,9 @@ export interface CourseApiResponse {
   canvasCourseId: string | null;
   active: boolean;
   isPublished: boolean;
+  students?: number | null;
+  pendingSubmissions?: number | null;
+  activeAssignments?: number | null;
   semesterId?: number | null;
   semester?: {
     id: number;
@@ -968,16 +971,15 @@ async function getFacultyCourseMetrics(courseId: number): Promise<FacultyCourseM
   return buildFacultyCourseMetrics(enrollments, assignmentsWithSubmissions);
 }
 
-function mapFacultyCourseToCard(course: CourseApiResponse, metrics: FacultyCourseMetrics): FacultyCourseCard {
+function mapFacultyCourseToCard(course: CourseApiResponse, metrics?: FacultyCourseMetrics): FacultyCourseCard {
   const iconData = buildCourseIcon(course.courseCode || course.name);
   return {
     id: String(course.id),
     title: course.name,
     code: course.courseCode,
-    // NOTE: Faculty dashboard cards now use backend-derived metrics from assignments/submissions/enrollments.
-    students: metrics.students,
-    pendingSubmissions: metrics.pendingSubmissions,
-    activeAssignments: metrics.activeAssignments,
+    students: metrics?.students ?? course.students ?? null,
+    pendingSubmissions: metrics?.pendingSubmissions ?? course.pendingSubmissions ?? null,
+    activeAssignments: metrics?.activeAssignments ?? course.activeAssignments ?? null,
     icon: iconData.icon,
     iconBg: iconData.iconBg,
     coverImageUrl: getCourseCoverImageUrl(course),
@@ -1051,9 +1053,12 @@ export function listClassesOverview(): Promise<ClassOverviewItem[]> {
 }
 
 export async function listFacultyCourses(): Promise<FacultyCourseCard[]> {
-  // IMPORTANT: Backend resolves faculty context from authenticated email.
-  // IMPORTANT: This call returns 400 when the logged-in user exists in Users but is not mapped in Faculty.
-  // NOTE: University admin must create/assign the faculty profile first.
+  const { data } = await api.get<CourseApiResponse[]>("/api/v1/faculty/courses");
+  return data.map((course) => mapFacultyCourseToCard(course));
+}
+
+export async function listFacultyCoursesWithMetrics(): Promise<FacultyCourseCard[]> {
+  // NOTE: Fallback path for environments still serving course cards without inline dashboard metrics.
   const snapshot = await getFacultyCourseworkSnapshot();
   return snapshot.courses.map((course) => {
     const enrollments = snapshot.enrollmentsByCourseId.get(course.id) ?? [];
