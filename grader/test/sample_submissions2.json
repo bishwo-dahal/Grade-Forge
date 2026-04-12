@@ -1,0 +1,34 @@
+{
+  "assignment_id": "CS450_TSP_Final",
+  "public_tests": 2,
+  "private_tests": 3,
+  "language": "java",
+  "weights": { "public": 0.4, "private": 0.6 },
+  "submissions": [
+    {
+      "student_id": "student_201",
+      "file_paths": [
+        "test/submissions2/student_201/Main.java",
+        "test/submissions2/student_201/Graph.java",
+        "test/submissions2/student_201/TSPSolver.java"
+      ],
+      "test_results": { "public_pass": 2, "private_pass": 3 }
+    },
+    {
+      "student_id": "student_202",
+      "file_paths": [
+        "test/submissions2/student_202/TSPSolution.java"
+      ],
+      "test_results": { "public_pass": 2, "private_pass": 2 }
+    },
+    {
+      "student_id": "student_203",
+      "file_paths": [
+        "test/submissions2/student_203/Main.java",
+        "test/submissions2/student_203/AdjacencyMatrix.java",
+        "test/submissions2/student_203/BranchBoundTSP.java"
+      ],
+      "test_results": { "public_pass": 1, "private_pass": 3 }
+    }
+  ]
+}

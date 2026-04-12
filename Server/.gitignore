@@ -1,8 +1,11 @@
 HELP.md
 target/
+.npm-cache
+.npm_cache
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+logs
 
 ### STS ###
 .apt_generated
@@ -31,3 +34,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Environment variables
+.env

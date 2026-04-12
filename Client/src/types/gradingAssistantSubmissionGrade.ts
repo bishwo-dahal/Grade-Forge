@@ -1,0 +1,37 @@
+/** POST/PUT /api/v1/grading-assistant/submission-grades */
+export interface SubmissionGradeRequest {
+  submissionId: number;
+  rubricCriteriaId: number;
+  awardedScore: number;
+  feedback?: string | null;
+}
+
+/** GET /api/v1/grading-assistant/submission-grades, GET by id */
+export interface SubmissionGradeResponse {
+  id: number;
+  submissionId: number;
+  rubricCriteriaId: number;
+  rubricCriteriaTitle?: string | null;
+  awardedScore: number;
+  feedback?: string | null;
+}
+
+/** GET /api/v1/grading-assistant/submission-grades/{submissionId} response */
+export interface GASubmissionGradesResponse {
+  submissionId: number;
+  grades: Array<{
+    rubricSubCriteriaId: number;
+    awardedScore: number;
+    feedback?: string | null;
+  }>;
+}
+
+/** POST batch / PUT .../{submissionId} — same shape as faculty */
+export interface GASubmissionGradeBatchRequest {
+  submissionId: number;
+  grades: Array<{
+    rubricSubCriteriaId: number;
+    awardedScore: number;
+    feedback?: string | null;
+  }>;
+}

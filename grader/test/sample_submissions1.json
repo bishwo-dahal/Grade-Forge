@@ -1,0 +1,24 @@
+{
+  "assignment_id": "CS101_HW1",
+  "public_tests": 3,
+  "private_tests": 5,
+  "language": "python",
+  "weights": { "public": 0.4, "private": 0.6 },
+  "submissions": [
+    {
+      "student_id": "student_101",
+      "file_path": "test/submissions1/student_101/main.py",
+      "test_results": { "public_pass": 3, "private_pass": 5 }
+    },
+    {
+      "student_id": "student_102",
+      "file_path": "test/submissions1/student_102/main.py",
+      "test_results": { "public_pass": 2, "private_pass": 4 }
+    },
+    {
+      "student_id": "student_103",
+      "file_path": "test/submissions1/student_103/main.py",
+      "test_results": { "public_pass": 3, "private_pass": 3 }
+    }
+  ]
+}

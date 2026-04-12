@@ -1,0 +1,43 @@
+# Dependencies & caches
+.npm-cache
+.npm_cache
+node_modules
+
+# IDE & editor
+.idea
+.vscode
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Env & secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Grader
+grader/venv/
+grader/.venv/
+grader/models/
+grader/backend_input.json
+grader/final_results.json
+grader/submissions/
+grader/report/
+grader/copydetect_report/
