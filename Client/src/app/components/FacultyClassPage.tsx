@@ -95,6 +95,7 @@ import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection as TopBarSettingsSection } from "./layout/AuthTopBar";
 import { SidebarPinnedCollapseFooter } from "./layout/SidebarPinnedCollapseFooter";
 import { useSidebarPinnedCollapsed } from "./layout/useSidebarPinnedCollapsed";
+import { DEFAULT_COURSE_COVER_IMAGE } from "../../constants/defaultCourseCover";
 
 const SECTION_PATH_SEGMENTS = [
   "dashboard",
@@ -160,6 +161,7 @@ export function FacultyClassPage() {
     semester: "",
     instructor: "",
     role: "",
+    coverImageUrl: DEFAULT_COURSE_COVER_IMAGE,
   };
   const loggedInUser = getAuthenticatedUser();
   const displayName = loggedInUser?.name ?? "Dr. Sarah Miller";
@@ -348,23 +350,66 @@ export function FacultyClassPage() {
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto px-8 py-6">
-            {activeSection === "dashboard" && <DashboardSection />}
-            {activeSection === "assignments" && <AssignmentsSection />}
+            {activeSection === "dashboard" && (
+              <DashboardSection coverImageUrl={classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE} />
+            )}
+            {activeSection === "assignments" && (
+              <FacultySectionBackground coverImageUrl={classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}>
+                <AssignmentsSection />
+              </FacultySectionBackground>
+            )}
             {activeSection === "grades" && (
-              <GradesSection courseFullName={courseFullName} facultyName={facultyName} />
+              <FacultySectionBackground coverImageUrl={classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}>
+                <GradesSection courseFullName={courseFullName} facultyName={facultyName} />
+              </FacultySectionBackground>
             )}
             {activeSection === "students" && (
-              <StudentsSection
-                isAddStudentModalOpen={isAddStudentModalOpen}
-                onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
-              />
+              <FacultySectionBackground coverImageUrl={classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}>
+                <StudentsSection
+                  isAddStudentModalOpen={isAddStudentModalOpen}
+                  onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
+                />
+              </FacultySectionBackground>
             )}
-            {activeSection === "assistants" && <AssistantsSection />}
-            {activeSection === "groups" && <GroupsSection />}
-            {activeSection === "settings" && <SettingsSection classId={resolvedClassId} />}
+            {activeSection === "assistants" && (
+              <FacultySectionBackground coverImageUrl={classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}>
+                <AssistantsSection />
+              </FacultySectionBackground>
+            )}
+            {activeSection === "groups" && (
+              <FacultySectionBackground coverImageUrl={classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}>
+                <GroupsSection />
+              </FacultySectionBackground>
+            )}
+            {activeSection === "settings" && (
+              <FacultySectionBackground coverImageUrl={classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}>
+                <SettingsSection classId={resolvedClassId} />
+              </FacultySectionBackground>
+            )}
           </div>
         </main>
       </div>
+    </div>
+  );
+}
+
+function FacultySectionBackground({
+  coverImageUrl,
+  children,
+}: {
+  coverImageUrl: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-[#D9DCE5]">
+      <img
+        src={coverImageUrl}
+        alt=""
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+        aria-hidden
+      />
+      <div className="absolute inset-0 bg-[#F5F7FB]/45" aria-hidden />
+      <div className="relative z-10 p-6">{children}</div>
     </div>
   );
 }
@@ -419,7 +464,7 @@ function NavItem({
 }
 
 // Placeholder sections - will be implemented
-function DashboardSection() {
+function DashboardSection({ coverImageUrl }: { coverImageUrl: string }) {
   const { classId } = useParams();
   // NOTE: Dashboard stats and activity now load from backend-driven service calls.
   const [recentActivity, setRecentActivity] = useState<ClassRecentActivity[]>([]);
@@ -445,63 +490,56 @@ function DashboardSection() {
   } as const;
 
   return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Class Dashboard</h2>
-        <p className="text-[13px] text-gray-600">
-          Overview of your class activity and statistics
-        </p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {stats.map((stat) => {
-          const StatIcon = statIconMap[stat.iconKey];
-          return (
-            <StatCard
-              key={stat.label}
-              label={stat.label}
-              value={stat.value}
-              icon={<StatIcon className="w-5 h-5" strokeWidth={2} />}
-              iconBg={stat.iconBg}
-              iconColor={stat.iconColor}
-              badge={stat.badge}
-            />
-          );
-        })}
-      </div>
-
-      {/* Recent Activity */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[15px] font-semibold text-[#2B2A2A]">Recent Activity</h3>
-          <button className="text-[12px] text-gray-500 hover:text-[#2B2A2A]">View All</button>
+    <FacultySectionBackground coverImageUrl={coverImageUrl}>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {stats.map((stat) => {
+            const StatIcon = statIconMap[stat.iconKey];
+            return (
+              <StatCard
+                key={stat.label}
+                label={stat.label}
+                value={stat.value}
+                icon={<StatIcon className="w-5 h-5" strokeWidth={2} />}
+                iconBg={stat.iconBg}
+                iconColor={stat.iconColor}
+                badge={stat.badge}
+              />
+            );
+          })}
         </div>
-        <div className="space-y-4">
-          {recentActivity.length > 0 ? (
-            recentActivity.map((activity) => {
-              const ActivityIcon = activityIconMap[activity.iconKey];
-              return (
-                <div
-                  key={activity.id}
-                  className="flex items-start gap-3 pb-4 border-b border-gray-100 last:border-b-0 last:pb-0"
-                >
-                  <div className={`mt-0.5 w-8 h-8 ${activity.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                    <ActivityIcon className={`w-4 h-4 ${activity.iconColor}`} strokeWidth={2} />
+
+        {/* Recent Activity */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-[15px] font-semibold text-[#2B2A2A]">Recent Activity</h3>
+            <button className="text-[12px] text-gray-500 hover:text-[#2B2A2A]">View All</button>
+          </div>
+          <div className="space-y-4">
+            {recentActivity.length > 0 ? (
+              recentActivity.map((activity) => {
+                const ActivityIcon = activityIconMap[activity.iconKey];
+                return (
+                  <div
+                    key={activity.id}
+                    className="flex items-start gap-3 pb-4 border-b border-gray-100 last:border-b-0 last:pb-0"
+                  >
+                    <div className={`mt-0.5 w-8 h-8 ${activity.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                      <ActivityIcon className={`w-4 h-4 ${activity.iconColor}`} strokeWidth={2} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[14px] text-[#2B2A2A]">{activity.message}</p>
+                      <p className="text-[12px] text-gray-500 mt-0.5">{activity.time}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[14px] text-[#2B2A2A]">{activity.message}</p>
-                    <p className="text-[12px] text-gray-500 mt-0.5">{activity.time}</p>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <p className="text-[13px] text-gray-600">No recent class activity yet.</p>
-          )}
+                );
+              })
+            ) : (
+              <p className="text-[13px] text-gray-600">No recent class activity yet.</p>
+            )}
+          </div>
         </div>
-      </div>
-    </div>
+    </FacultySectionBackground>
   );
 }
 
@@ -587,8 +625,8 @@ function AssignmentsSection() {
   return (
     <div onClick={() => setOpenAssignmentActionsId(null)}>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Assignments</h2>
+        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Assignments</h2>
           <p className="text-[13px] text-gray-600">
             Create, publish, and manage course assignments
           </p>
@@ -1313,8 +1351,8 @@ function GradesSection({
   return (
     <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Grades</h2>
+        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Grades</h2>
           <p className="text-[13px] text-gray-600">
             View and manage student grades for this course
           </p>
@@ -2055,7 +2093,9 @@ function StudentsSection({
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Student Roster</h2>
+        <div className="inline-block rounded-lg border border-gray-300 bg-white px-4 py-2">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Student Roster</h2>
+        </div>
         {/* CLEANUP: Removed extra helper sentence under Student Roster heading per current UI copy direction. */}
       </div>
 
@@ -2668,8 +2708,8 @@ function AssistantsSection() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Grading Assistants</h2>
+        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Grading Assistants</h2>
           <p className="text-[13px] text-gray-600">
             Assign grading assistants to this course. They can help grade submissions.
           </p>
@@ -2931,8 +2971,8 @@ function GroupsSection() {
   return (
     <div>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Main groups</h2>
+        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Main groups</h2>
           <p className="text-[13px] text-gray-600">
             Open a group to create subgroups and assign students by dragging them from the roster.
           </p>
@@ -3209,8 +3249,10 @@ function SettingsSection({ classId }: { classId: string }) {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Class Settings</h2>
-        <p className="text-[13px] text-gray-600">Edit course metadata and control visibility</p>
+        <div className="inline-block rounded-lg border border-gray-300 bg-white px-4 py-2">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Class Settings</h2>
+          <p className="text-[13px] text-gray-600">Edit course metadata and control visibility</p>
+        </div>
       </div>
 
       {error ? (

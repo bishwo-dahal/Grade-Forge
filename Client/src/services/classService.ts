@@ -1282,6 +1282,7 @@ export async function getClassHeaderById(classId: string): Promise<ClassHeader> 
     semester: course.semester?.name ?? "Semester TBD",
     instructor: course.faculty?.name ?? "TBD",
     instructorEmail: course.faculty?.email ?? "",
+    coverImageUrl: getCourseCoverImageUrl(course),
   };
 }
 
@@ -1296,6 +1297,7 @@ export async function getFacultyClassHeaderById(classId: string): Promise<ClassH
     semester: course.semester?.name ?? "Semester TBD",
     instructor: course.faculty?.name ?? "TBD",
     role: "Instructor",
+    coverImageUrl: getCourseCoverImageUrl(course),
   };
 }
 

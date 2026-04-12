@@ -130,40 +130,29 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
 
   return (
     <aside
-      className={`${sidebarShellClass} ${isUniversityView ? "bg-white border-r border-[#C9C4C9]" : "bg-[#7A1226] border-r border-[#D1BCBF]"} flex-shrink-0 flex flex-col transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
+      className={`${sidebarShellClass} bg-[#7A1226] border-r border-[#D1BCBF] flex-shrink-0 flex flex-col transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
     >
       {/* NOTE: Role switcher was removed intentionally; access is controlled by auth role + route guards. */}
-      {viewMode === "university" ? (
-        <div className="px-4 py-4 border-b border-[#C9C4C9]">
-          {/* FIX: Use the same divider color token as the top bar so horizontal lines align visually. */}
-          {/* FIX: Keep university title on a single line with a smaller, natural size per updated design feedback. */}
-          {/* FIX: Set university heading to 22px to match the requested sidebar title size. */}
-          <h1 className={`text-[22px] font-semibold leading-none text-[#1F2430] whitespace-nowrap ${collapsibleTextClass}`}>University Admin</h1>
-          <p className={`mt-1.5 text-[14px] text-[#5D667A] whitespace-nowrap ${collapsibleTextClass}`}>System Management</p>
-        </div>
-      ) : (
-        /* REFACTOR: Keep existing logo header for student/faculty while university mode uses title-style sidebar header. */
-        <div
-          className={`h-[76px] border-b border-[#C9C4C9] bg-white ${isCollapsedMode ? "px-0 flex items-center justify-center" : "px-6 flex items-center"}`}
+      <div
+        className={`h-[76px] border-b border-[#C9C4C9] bg-white ${isCollapsedMode ? "px-0 flex items-center justify-center" : "px-6 flex items-center"}`}
+      >
+        <Link
+          to="/dashboard"
+          className={`flex items-center hover:opacity-90 transition-[opacity,transform] duration-300 ease-out ${isCollapsedMode ? "justify-center w-12 h-12 rounded-[14px]" : "gap-3"}`}
+          aria-label="Go to dashboard"
         >
-          <Link
-            to="/dashboard"
-            className={`flex items-center hover:opacity-90 transition-[opacity,transform] duration-300 ease-out ${isCollapsedMode ? "justify-center w-12 h-12 rounded-[14px]" : "gap-3"}`}
-            aria-label="Go to dashboard"
-          >
-            <img
-              src="/favicon.svg"
-              alt="Grade Forge"
-              className="h-8 w-8 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
-            />
-            {!isCollapsedMode && (
-              <span className={`text-[15px] font-semibold text-[#1F2430] whitespace-nowrap ${collapsibleTextClass}`}>
-                Grade Forge
-              </span>
-            )}
-          </Link>
-        </div>
-      )}
+          <img
+            src="/favicon.svg"
+            alt="Grade Forge"
+            className="h-8 w-8 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
+          />
+          {!isCollapsedMode && (
+            <span className={`text-[15px] font-semibold text-[#1F2430] whitespace-nowrap ${collapsibleTextClass}`}>
+              Grade Forge
+            </span>
+          )}
+        </Link>
+      </div>
 
       {/* Navigation */}
       {/* FIX: Add top spacing in university mode so the first nav item does not stick to the header divider. */}
@@ -184,12 +173,8 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
                   to={item.to}
                   className={`w-full flex items-center rounded-lg transition-all ${navLinkLayoutClass} ${
                     isItemActive(item)
-                      ? (isUniversityView
-                          ? "bg-[#7A1226] text-white shadow-[0_8px_18px_rgba(122,18,38,0.32)]"
-                          : "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]")
-                      : (isUniversityView
-                          ? "text-[#44506B] hover:text-[#1F2430] hover:bg-[#F1EEF1]"
-                          : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]")
+                      ? "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]"
+                      : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]"
                   }`}
                 >
                   <item.icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />
@@ -215,12 +200,8 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
                     to={item.to}
                     className={`w-full flex items-center rounded-lg transition-all ${navLinkLayoutClass} ${
                       isItemActive(item)
-                        ? (isUniversityView
-                            ? "bg-[#7A1226] text-white shadow-[0_8px_18px_rgba(122,18,38,0.32)]"
-                            : "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]")
-                        : (isUniversityView
-                            ? "text-[#44506B] hover:text-[#1F2430] hover:bg-[#F1EEF1]"
-                            : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]")
+                        ? "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]"
+                        : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]"
                     }`}
                   >
                     <item.icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />
@@ -234,7 +215,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
       </nav>
 
       <SidebarPinnedCollapseFooter
-        variant={isUniversityView ? "university" : "maroon"}
+        variant="maroon"
         rail={isCollapsedMode}
         expandedInset="forge"
       />

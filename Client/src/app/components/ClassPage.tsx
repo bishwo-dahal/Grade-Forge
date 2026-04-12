@@ -28,6 +28,7 @@ import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
 import { GradeForgeSidebar } from "./GradeForgeSidebar";
+import { DEFAULT_COURSE_COVER_IMAGE } from "../../constants/defaultCourseCover";
 
 type SectionType = 'overview' | 'assignments' | 'announcements' | 'grades' | 'resources' | 'people';
 
@@ -62,6 +63,7 @@ export function ClassPage() {
     semester: "",
     instructor: "",
     instructorEmail: "",
+    coverImageUrl: DEFAULT_COURSE_COVER_IMAGE,
   };
   const loggedInUser = getAuthenticatedUser();
   const displayName = loggedInUser?.name ?? "Alex Johnson";
@@ -177,7 +179,9 @@ export function ClassPage() {
               </div>
             </section>
 
-            {activeSection === 'overview' && <OverviewSection />}
+            {activeSection === "overview" && (
+              <OverviewSection coverImageUrl={classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE} />
+            )}
             {activeSection === 'assignments' && <AssignmentsSection />}
             {activeSection === 'announcements' && <AnnouncementsSection />}
             {activeSection === 'grades' && <GradesSection />}
@@ -226,7 +230,7 @@ function SectionTab({
 }
 
 // Placeholder sections - will be implemented next
-function OverviewSection() {
+function OverviewSection({ coverImageUrl }: { coverImageUrl: string }) {
   const { classId } = useParams();
   // NOTE: Overview data now loads from backend-driven service calls.
   const [importantDates, setImportantDates] = useState<ClassImportantDate[]>([]);
@@ -243,67 +247,76 @@ function OverviewSection() {
   const previewAnnouncements = announcements.slice(0, 2);
 
   return (
-    <div className="space-y-6">
-      {/* Important Dates */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-4">Important Dates</h2>
-        <div className="space-y-3">
-          {importantDates.length > 0 ? (
-            importantDates.map((item) => (
-              <DateItem
-                key={item.id}
-                date={item.date}
-                title={item.title}
-                description={item.description}
-                type={item.type}
-              />
-            ))
-          ) : (
-            <p className="text-[13px] text-gray-600">No important dates available yet.</p>
-          )}
-        </div>
-      </div>
-
-      {/* Course Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {overviewStats.map((stat) => (
-          <div key={stat.label} className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="text-[13px] text-gray-600 mb-1">{stat.label}</div>
-            <div className={`text-[28px] font-semibold ${stat.valueColor ?? "text-[#2B2A2A]"}`}>
-              {stat.value}
-            </div>
-            <div className={`text-[12px] ${stat.subtitleColor ?? "text-gray-500"} mt-1`}>
-              {stat.subtitle}
-            </div>
+    <div className="relative overflow-hidden rounded-2xl border border-[#D9DCE5]">
+      <img
+        src={coverImageUrl}
+        alt=""
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+        aria-hidden
+      />
+      <div className="absolute inset-0 bg-[#F5F7FB]/45" aria-hidden />
+      <div className="relative z-10 space-y-6 p-6">
+        {/* Important Dates */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-4">Important Dates</h2>
+          <div className="space-y-3">
+            {importantDates.length > 0 ? (
+              importantDates.map((item) => (
+                <DateItem
+                  key={item.id}
+                  date={item.date}
+                  title={item.title}
+                  description={item.description}
+                  type={item.type}
+                />
+              ))
+            ) : (
+              <p className="text-[13px] text-gray-600">No important dates available yet.</p>
+            )}
           </div>
-        ))}
-      </div>
-
-      {/* Recent Announcements Preview */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Recent Announcements</h2>
-          <Link
-            to="#"
-            className="text-[13px] text-[#5A7ACD] hover:text-[#4a6abd] font-medium"
-          >
-            View All
-          </Link>
         </div>
-        <div className="space-y-4">
-          {previewAnnouncements.length > 0 ? (
-            previewAnnouncements.map((announcement) => (
-              <AnnouncementPreview
-                key={announcement.id}
-                title={announcement.title}
-                date={announcement.date}
-                preview={announcement.content.split("\n")[0]}
-                unread={announcement.unread}
-              />
-            ))
-          ) : (
-            <p className="text-[13px] text-gray-600">No recent announcements available yet.</p>
-          )}
+
+        {/* Course Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {overviewStats.map((stat) => (
+            <div key={stat.label} className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="text-[13px] text-gray-600 mb-1">{stat.label}</div>
+              <div className={`text-[28px] font-semibold ${stat.valueColor ?? "text-[#2B2A2A]"}`}>
+                {stat.value}
+              </div>
+              <div className={`text-[12px] ${stat.subtitleColor ?? "text-gray-500"} mt-1`}>
+                {stat.subtitle}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Recent Announcements Preview */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Recent Announcements</h2>
+            <Link
+              to="#"
+              className="text-[13px] text-[#5A7ACD] hover:text-[#4a6abd] font-medium"
+            >
+              View All
+            </Link>
+          </div>
+          <div className="space-y-4">
+            {previewAnnouncements.length > 0 ? (
+              previewAnnouncements.map((announcement) => (
+                <AnnouncementPreview
+                  key={announcement.id}
+                  title={announcement.title}
+                  date={announcement.date}
+                  preview={announcement.content.split("\n")[0]}
+                  unread={announcement.unread}
+                />
+              ))
+            ) : (
+              <p className="text-[13px] text-gray-600">No recent announcements available yet.</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
