@@ -13,10 +13,16 @@ export default function LandingPage() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
         <span className="text-xl font-bold text-[#2B2A2A]">Grade Forge</span>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-1 sm:gap-2">
+          <a
+            href="/docs/"
+            className="px-3 sm:px-4 py-2 text-[14px] font-medium text-[#2B2A2A] hover:text-[#7A1226] transition-colors"
+          >
+            Documentation
+          </a>
           <Link
             to="/signin"
-            className="px-4 py-2 text-[14px] font-medium text-[#2B2A2A] hover:text-[#7A1226] transition-colors"
+            className="px-3 sm:px-4 py-2 text-[14px] font-medium text-[#2B2A2A] hover:text-[#7A1226] transition-colors"
           >
             Sign in
           </Link>

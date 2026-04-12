@@ -9,7 +9,15 @@ RUN --mount=type=cache,target=/root/.npm npm ci
 COPY Client/ ./
 RUN npm run build
 
-# Stage 2: Build Spring Boot backend
+# Stage 2: Build VitePress documentation (served at /docs/)
+FROM node:24-bullseye-slim AS docs-build
+WORKDIR /app/docs-site
+COPY docs-site/package.json docs-site/package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci
+COPY docs-site/ ./
+RUN npm run docs:build
+
+# Stage 3: Build Spring Boot backend
 FROM maven:3.9.12-eclipse-temurin-21 AS backend-build
 WORKDIR /app/backend
 COPY Server/pom.xml .
@@ -18,9 +26,11 @@ RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests dependency:go-offline
 COPY Server/src ./src
 # Copy frontend build into backend
 COPY --from=frontend-build /app/frontend/dist ./src/main/resources/static
+# Copy VitePress output alongside SPA (see docs-site/.vitepress/config.ts base: /docs/)
+COPY --from=docs-build /app/docs-site/.vitepress/dist ./src/main/resources/static/docs
 RUN --mount=type=cache,target=/root/.m2 mvn -q -DskipTests clean package
 
-# Stage 3: Final runtime image
+# Stage 4: Final runtime image
 FROM eclipse-temurin:21-jdk
 WORKDIR /app
 
