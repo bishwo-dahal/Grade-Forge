@@ -14,6 +14,12 @@ import hashlib
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
+from authorship_ml_inference import (
+    bundle_debug,
+    reset_session_stats,
+    session_stats,
+    trained_authorship_contribution,
+)
 from data_parser import Assignment, Submission
 from llm_ai_signal import get_llm_ai_signals, is_llm_signal_env_enabled
 
@@ -80,6 +86,7 @@ class SubmissionMetrics:
     approx_cyclomatic_markers: int
     template_cluster_size: int
     test_pass_ratio: float
+    authorship_triage_label: str | None = None
 
     @property
     def comment_ratio(self) -> float:
@@ -100,7 +107,19 @@ def _is_comment_line(line: str, language: str) -> bool:
     return stripped.startswith("#") or stripped.startswith("//")
 
 
+def _parse_submission_triage_label(submission: Submission) -> str | None:
+    tri = getattr(submission, "authorship_triage", None)
+    if not isinstance(tri, dict):
+        return None
+    raw = tri.get("label")
+    if raw is None:
+        return None
+    s = str(raw).strip().upper()
+    return s or None
+
+
 def _extract_metrics(submission: Submission, language: str) -> SubmissionMetrics:
+    triage_label = _parse_submission_triage_label(submission)
     code_lines = 0
     comment_lines = 0
     line_lengths: List[int] = []
@@ -171,6 +190,7 @@ def _extract_metrics(submission: Submission, language: str) -> SubmissionMetrics
         approx_cyclomatic_markers=complexity_markers,
         template_cluster_size=0,
         test_pass_ratio=float(max(0, raw_passes)),
+        authorship_triage_label=triage_label,
     )
     setattr(metrics, "_template_hash", submission_hash)
     return metrics
@@ -241,6 +261,25 @@ def _get_llm_min() -> float:
         return 0.6
 
 
+def _faculty_triage_env_enabled() -> bool:
+    v = (os.environ.get("GRADER_FACULTY_TRIAGE_ENABLED", "true") or "").strip().lower()
+    return v not in ("0", "false", "no", "off")
+
+
+def _faculty_triage_deltas() -> tuple[float, float, float]:
+    def f(key: str, default: str) -> float:
+        try:
+            return float(os.environ.get(key, default))
+        except ValueError:
+            return float(default)
+
+    return (
+        f("GRADER_FACULTY_TRIAGE_HUMAN_DELTA", "-0.12"),
+        f("GRADER_FACULTY_TRIAGE_AI_DELTA", "0.12"),
+        f("GRADER_FACULTY_TRIAGE_UNCLEAR_DELTA", "0.03"),
+    )
+
+
 def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, float]) -> Dict[str, object]:
     """
     Returns:
@@ -301,7 +340,10 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
     llm_weight = _get_llm_weight()
     llm_min = _get_llm_min()
 
+    reset_session_stats()
+
     for m in metrics:
+        similarity = float(similarity_by_student.get(m.student_id, 0.0) or 0.0)
         signals: List[Dict[str, object]] = []
         score = 0.0
 
@@ -428,7 +470,6 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
             )
 
         # Cross-signal: high similarity boosts risk slightly, but should not dominate.
-        similarity = float(similarity_by_student.get(m.student_id, 0.0) or 0.0)
         if similarity >= 0.7:
             sim_weight = 0.14
             score += sim_weight
@@ -485,6 +526,38 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
                 }
             )
 
+        tri_label = (m.authorship_triage_label or "").upper()
+        if _faculty_triage_env_enabled() and tri_label:
+            human_d, ai_d, unclear_d = _faculty_triage_deltas()
+            delta = 0.0
+            reason = ""
+            if tri_label == "HUMAN_WRITTEN":
+                delta = human_d
+                reason = "Course instructor labeled this submission as likely human-written (bounded score adjustment)."
+            elif tri_label == "AI_ASSISTED":
+                delta = ai_d
+                reason = "Course instructor labeled this submission as AI-assisted (triage signal; not a finding)."
+            elif tri_label == "UNCLEAR":
+                delta = unclear_d
+                reason = "Course instructor marked authorship as unclear (small bounded nudge)."
+            if delta != 0.0:
+                score += delta
+                signals.append(
+                    {
+                        "kind": "faculty_authorship_triage",
+                        "weight": round(delta, 3),
+                        "value": tri_label,
+                        "reason": reason,
+                    }
+                )
+
+        # Optional university-trained RandomForest (same feature layout as training export).
+        pre_ml_score = score
+        risk_for_features = max(0.0, min(1.0, pre_ml_score))
+        delta_ml, ml_sig = trained_authorship_contribution(risk_for_features, similarity, m, llm)
+        if ml_sig is not None:
+            score += delta_ml
+
         # Clamp and classify.
         score = max(0.0, min(1.0, score))
         level = _level_from_score(score)
@@ -525,6 +598,7 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
         }
 
     total = len(metrics)
+    ml_diag = bundle_debug()
     return {
         "by_student": by_student,
         "summary": {
@@ -535,8 +609,9 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
         },
         "model_info": {
             "name": "heuristic-ai-risk-v1",
-            "type": "deterministic-signals",
-            "uses_training_data": False,
+            "type": "deterministic-signals+optional-rf",
+            "uses_training_data": bool(ml_diag.get("loaded")),
+            "authorship_ml": {**ml_diag, "session": session_stats()},
             "llm_ai_signal_enabled": is_llm_signal_env_enabled(),
             "llm_ai_signal_populated": bool(llm_signals),
             "llm_ai_signal_attempts": llm_attempts,
@@ -552,7 +627,8 @@ def analyze_ai_risk(assignment: Assignment, similarity_by_student: Dict[str, flo
         },
         "disclaimer": (
             "AI authorship score is probabilistic triage support. "
-            "It includes a small similarity-context signal in this version. "
+            "It may include a small similarity-context signal, optional LLM evidence, "
+            "and—when configured—a university-trained model learned from instructor triage labels. "
             "Do not use as sole evidence; require faculty review and student follow-up."
         ),
     }

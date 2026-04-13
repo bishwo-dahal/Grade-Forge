@@ -1,1 +1,5 @@
 copydetect
+# Authorship RF inference (same stack as ml_training/train_authorship.py)
+numpy>=1.24.0
+scikit-learn>=1.3.0
+joblib>=1.3.0

@@ -109,6 +109,7 @@ export interface FacultyAssignmentSubmissionRow {
   /** Numeric id from backend, stringified. Used to map plagiarism results (student_id). */
   studentId?: string;
   studentName: string;
+  studentEmail?: string | null;
   submittedAt: string;
   marks: number | null;
   files: SubmissionFileItem[];
@@ -116,6 +117,10 @@ export interface FacultyAssignmentSubmissionRow {
   subGroupId?: number | null;
   subGroupName?: string | null;
   subGroupMembers?: GroupStudentResponse[] | null;
+  /** Instructor-only authorship triage (Plagiarism & AI); not shown to students. */
+  authorshipTriageLabel?: "AI_ASSISTED" | "HUMAN_WRITTEN" | "UNCLEAR" | null;
+  authorshipTriageNotes?: string | null;
+  authorshipTriageLabeledAt?: string | null;
 }
 
 // NOTE: Faculty editor selector options are flattened from submission rows so view components stay data-agnostic.

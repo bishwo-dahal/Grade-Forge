@@ -10,13 +10,16 @@ import com.grade.forge.group.entity.SubGroup;
 import com.grade.forge.group.repository.SubGroupRepository;
 import com.grade.forge.student.entity.Student;
 import com.grade.forge.student.repository.StudentRepository;
+import com.grade.forge.submission.dto.AuthorshipTriageRequest;
 import com.grade.forge.submission.dto.SubmissionFileResponse;
 import com.grade.forge.submission.dto.SubmissionResponse;
 import com.grade.forge.submission.dto.SubmissionGradeRequest;
 import com.grade.forge.submission.dto.SubmissionSummaryResponse;
 import com.grade.forge.submission.entity.Submission;
+import com.grade.forge.submission.entity.SubmissionAuthorshipTriage;
 import com.grade.forge.submission.entity.SubmissionFile;
 import com.grade.forge.submission.enums.SubmissionStatus;
+import com.grade.forge.submission.repository.SubmissionAuthorshipTriageRepository;
 import com.grade.forge.submission.repository.SubmissionRepository;
 import com.grade.forge.submission.repository.SubmissionFileRepository;
 import com.grade.forge.user.entity.Users;
@@ -34,6 +37,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -53,6 +57,7 @@ public class SubmissionService {
     private final TestRunJobService testRunJobService;
     private final FacultyRepository facultyRepository;
     private final GradingAssistantRepository gradingAssistantRepository;
+    private final SubmissionAuthorshipTriageRepository submissionAuthorshipTriageRepository;
     private final CourseAssistantRepository courseAssistantRepository;
     private final SubGroupRepository subGroupRepository;
     private final EmailService emailService;
@@ -110,7 +115,7 @@ public class SubmissionService {
             log.warn("Failed to enqueue test run for submission {}: {}", saved.getId(), e.getMessage());
         }
 
-        return mapToResponse(saved);
+        return mapToResponse(saved, false);
     }
 
     @Transactional(readOnly = true)
@@ -125,7 +130,7 @@ public class SubmissionService {
         Assignment assignment = submission.getAssignment();
         if (assignment.getMainGroup() == null) {
             ensureStudentCanViewSubmissionForAssignment(student, submission);
-            return mapToResponse(submission);
+            return mapToResponse(submission, false);
         }
 
         List<Long> subGroupStudentIds = getStudentIdsForRequesterSubGroup(assignment.getMainGroup(), student.getId());
@@ -139,7 +144,7 @@ public class SubmissionService {
                 .orElse(submission);
 
         ensureStudentCanViewSubmissionForAssignment(student, latest);
-        return mapToResponse(latest);
+        return mapToResponse(latest, false);
     }
 
     @Transactional(readOnly = true)
@@ -155,7 +160,7 @@ public class SubmissionService {
 
         if (assignment.getMainGroup() == null) {
             List<Submission> submissions = submissionRepository.findByAssignment_IdAndStudent_Id(assignment.getId(), student.getId());
-            return submissions.stream().map(this::mapToResponse).toList();
+            return submissions.stream().map(s -> mapToResponse(s, false)).toList();
         }
 
         List<Long> subGroupStudentIds = getStudentIdsForRequesterSubGroupOrEmpty(assignment.getMainGroup(), student.getId());
@@ -167,7 +172,7 @@ public class SubmissionService {
         return submissionRepository.findByAssignment_Id(assignment.getId()).stream()
                 .filter(s -> subGroupStudentIds.contains(s.getStudent().getId()))
                 .max(this::compareBySubmittedAt)
-                .map(this::mapToResponse)
+                .map(s -> mapToResponse(s, false))
                 .map(List::of)
                 .orElse(List.of());
     }
@@ -232,7 +237,7 @@ public class SubmissionService {
         }
         Assignment assignment = submission.getAssignment();
         Submission latest = latestSubGroupSubmission(assignment, submission.getStudent().getId(), submission);
-        return mapToResponse(latest);
+        return mapToResponse(latest, true);
     }
 
     @Transactional
@@ -263,7 +268,7 @@ public class SubmissionService {
         } catch (Exception e) {
             log.warn("Failed to send grade update email for submission {}: {}", saved.getId(), e.getMessage());
         }
-        return mapToResponse(saved);
+        return mapToResponse(saved, true);
     }
 
     @Transactional(readOnly = true)
@@ -293,7 +298,7 @@ public class SubmissionService {
         validateGradingAssistantCourseAccess(gradingAssistant.getId(), submission.getAssignment().getCourse().getId());
 
         Submission latest = latestSubGroupSubmission(submission.getAssignment(), submission.getStudent().getId(), submission);
-        return mapToResponse(latest);
+        return mapToResponse(latest, false);
     }
 
     @Transactional
@@ -322,7 +327,47 @@ public class SubmissionService {
         } catch (Exception e) {
             log.warn("Failed to send grade update email for submission {}: {}", saved.getId(), e.getMessage());
         }
-        return mapToResponse(saved);
+        return mapToResponse(saved, false);
+    }
+
+    @Transactional
+    public SubmissionResponse upsertAuthorshipTriage(String facultyEmail, Long submissionId, AuthorshipTriageRequest request) {
+        Faculty faculty = facultyRepository.findByEmail(facultyEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with email: " + facultyEmail));
+
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
+
+        if (!submission.getAssignment().getCourse().getFaculty().getId().equals(faculty.getId())) {
+            throw new IllegalArgumentException("You are not allowed to label this submission");
+        }
+
+        Submission target = latestSubGroupSubmission(submission.getAssignment(), submission.getStudent().getId(), submission);
+
+        if (request.getLabel() == null) {
+            submissionAuthorshipTriageRepository.findBySubmission_IdAndFaculty_Id(target.getId(), faculty.getId())
+                    .ifPresent(submissionAuthorshipTriageRepository::delete);
+            return mapToResponse(target, true);
+        }
+
+        SubmissionAuthorshipTriage row = submissionAuthorshipTriageRepository
+                .findBySubmission_IdAndFaculty_Id(target.getId(), faculty.getId())
+                .orElse(null);
+        if (row == null) {
+            row = SubmissionAuthorshipTriage.builder()
+                    .submission(target)
+                    .faculty(faculty)
+                    .label(request.getLabel())
+                    .notes(request.getNotes())
+                    .labeledAt(Instant.now())
+                    .build();
+        } else {
+            row.setLabel(request.getLabel());
+            row.setNotes(request.getNotes());
+            row.setLabeledAt(Instant.now());
+        }
+        submissionAuthorshipTriageRepository.save(row);
+        return mapToResponse(target, true);
     }
 
     private void sendGradeUpdatedEmail(Submission submission) {
@@ -612,7 +657,7 @@ public class SubmissionService {
         });
     }
 
-    private SubmissionResponse mapToResponse(Submission submission) {
+    private SubmissionResponse mapToResponse(Submission submission, boolean includeAuthorshipTriage) {
         SubGroup subGroup = null;
         if (submission.getAssignment().getMainGroup() != null) {
             subGroup = subGroupRepository.findByMainGroup_IdAndStudents_Id(
@@ -620,7 +665,14 @@ public class SubmissionService {
                     .orElse(null);
         }
 
-        return SubmissionResponse.builder()
+        Long courseFacultyId = submission.getAssignment().getCourse().getFaculty().getId();
+        SubmissionAuthorshipTriage triage = null;
+        if (includeAuthorshipTriage) {
+            triage = submissionAuthorshipTriageRepository.findBySubmission_IdAndFaculty_Id(submission.getId(), courseFacultyId)
+                    .orElse(null);
+        }
+
+        SubmissionResponse.SubmissionResponseBuilder b = SubmissionResponse.builder()
                 .id(submission.getId())
                 .assignmentId(submission.getAssignment().getId())
                 .assignmentName(submission.getAssignment().getName())
@@ -645,8 +697,13 @@ public class SubmissionService {
                                 .email(s.getUser() != null ? s.getUser().getEmail() : null)
                                 .cwid(s.getCwid())
                                 .build())
-                        .toList())
-                .build();
+                        .toList());
+        if (triage != null) {
+            b.authorshipTriageLabel(triage.getLabel())
+                    .authorshipTriageNotes(triage.getNotes())
+                    .authorshipTriageLabeledAt(triage.getLabeledAt());
+        }
+        return b.build();
     }
 
     private void ensureStudentCanViewSubmissionForAssignment(Student requester, Submission submission) {

@@ -41,7 +41,7 @@ public class SecurityConfig {
                                 .requestMatchers("/api/v1/faculty/courses/*","/api/v1/faculty/semester/").hasAuthority("FACULTY")
                                 // NOTE: Keep both teammate search endpoint and faculty enrollment endpoints restricted to FACULTY.
                                 .requestMatchers("/api/v1/faculty/rubrics/**", "/api/search/students", "/api/v1/faculty/enrollments/**").hasAuthority("FACULTY")
-                                .requestMatchers("/api/v1/university_admin/*","/api/search/students").hasAuthority("UNIVERSITY_ADMIN")
+                                .requestMatchers("/api/v1/university_admin/**", "/api/search/students").hasAuthority("UNIVERSITY_ADMIN")
                                 .requestMatchers("/api/v1/system_admin/university/*").hasAuthority("SYSTEM_ADMIN")
                                 .anyRequest().authenticated()
                 );
