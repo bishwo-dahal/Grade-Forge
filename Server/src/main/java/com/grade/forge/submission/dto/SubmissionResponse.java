@@ -8,6 +8,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import com.grade.forge.submission.enums.AuthorshipTriageLabel;
+
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -33,4 +36,9 @@ public class SubmissionResponse {
     private Long subGroupId;
     private String subGroupName;
     private List<GroupStudentResponse> subGroupMembers;
+
+    /** Course instructor's authorship triage for Plagiarism & AI (faculty responses only). */
+    private AuthorshipTriageLabel authorshipTriageLabel;
+    private String authorshipTriageNotes;
+    private Instant authorshipTriageLabeledAt;
 }

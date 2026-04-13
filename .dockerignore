@@ -6,6 +6,8 @@
 **/node_modules
 **/dist
 **/.next
+# VitePress dev cache (rebuilt inside image)
+**/.vitepress/cache
 
 # Java / Maven
 **/target
