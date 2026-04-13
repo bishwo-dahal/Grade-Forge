@@ -54,8 +54,6 @@ public class S3Service {
         HttpURLConnection connection = null;
         try {
             String url = s3PresignedUrl.generateDownloadUrl(bucketName, key);
-            log.info("Download URL: {}", url);
-            log.info("key: {} destnation: {}", key,destination);
             URL signedUrl = URI.create(url).toURL();
 
             connection = (HttpURLConnection) signedUrl.openConnection();
