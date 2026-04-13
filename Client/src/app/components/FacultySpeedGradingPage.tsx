@@ -23,6 +23,7 @@ interface RubricScoreField {
   id: string;
   label: string;
   maxPoints: number;
+  weight: number | null;
 }
 
 interface SubmissionFileOption {
@@ -74,27 +75,27 @@ function findNextUngradedSubmissionId(
   return headMatch?.submissionId ?? null;
 }
 
-function distributeMarksAcrossRubrics(rubrics: RubricScoreField[], totalMarks: number): number[] {
-  const maxTotal = rubrics.reduce((sum, rubric) => sum + rubric.maxPoints, 0);
-  if (maxTotal <= 0 || totalMarks <= 0) {
-    return rubrics.map(() => 0);
+function seedRubricScores(fields: RubricScoreField[], totalMarks: number, assignmentTotal: number): number[] {
+  if (fields.length === 0 || totalMarks <= 0) {
+    return fields.map(() => 0);
   }
-
-  const seeded = rubrics.map((rubric) => {
-    const weighted = (rubric.maxPoints / maxTotal) * totalMarks;
-    return Math.min(rubric.maxPoints, Math.floor(weighted));
-  });
-
-  let remainder = totalMarks - seeded.reduce((sum, score) => sum + score, 0);
-  for (let index = 0; remainder > 0 && index < rubrics.length; index += 1) {
-    const remainingCap = rubrics[index].maxPoints - seeded[index];
-    const additional = Math.min(remainder, remainingCap);
-    if (additional > 0) {
-      seeded[index] += additional;
-      remainder -= additional;
-    }
+  const hasWeights = fields.some((f) => f.weight != null && f.weight > 0);
+  if (hasWeights) {
+    // WEIGHTED: back-calculate each criterion score so the weighted sum equals totalMarks.
+    // score[i] = (totalMarks / assignmentTotal) * maxScore[i]
+    const fraction = assignmentTotal > 0 ? Math.min(1, totalMarks / assignmentTotal) : 0;
+    return fields.map((f) => Math.min(f.maxPoints, Math.floor(fraction * f.maxPoints)));
   }
-
+  // UNWEIGHTED: distribute proportionally by maxPoints so sum(seeded) ≈ totalMarks.
+  const maxTotal = fields.reduce((sum, f) => sum + f.maxPoints, 0);
+  if (maxTotal <= 0) return fields.map(() => 0);
+  const seeded = fields.map((f) => Math.min(f.maxPoints, Math.floor((f.maxPoints / maxTotal) * totalMarks)));
+  let remainder = Math.round(totalMarks) - seeded.reduce((s, v) => s + v, 0);
+  for (let i = 0; remainder > 0 && i < fields.length; i++) {
+    const cap = fields[i].maxPoints - seeded[i];
+    const add = Math.min(remainder, cap);
+    if (add > 0) { seeded[i] += add; remainder -= add; }
+  }
   return seeded;
 }
 
@@ -166,31 +167,40 @@ export function FacultySpeedGradingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
 
+  const queueStats = useMemo(() => buildQueueStats(queueRows), [queueRows]);
+
   const rubricScoreFields = useMemo<RubricScoreField[]>(() => {
-    // FIX: Speed grading scores each rubric criterion separately, even when assignment service returns one flattened rubric category.
-    // FIX: For weighted rubrics, sub-criterion maxScore is on its own scale (e.g. 0-10), not the assignment point scale.
-    // Compute each criterion's effective max as Math.round(weight × totalPoints) so rubricMaxPoints == assignment.points.total.
     return rubricCategories.flatMap((category, categoryIndex) =>
       category.criteria.map((criterion, criterionIndex) => ({
         id: `rubric-${categoryIndex}-${criterionIndex}`,
-        label:
-          rubricCategories.length > 1
-            ? `${category.name}: ${criterion.description}`
-            : criterion.description,
-        maxPoints:
-          criterion.weight != null && assignment != null
-            ? Math.round(criterion.weight * assignment.points.total)
-            : criterion.points,
+        label: rubricCategories.length > 1
+          ? `${category.name}: ${criterion.description}`
+          : criterion.description,
+        // Use criterion.points directly — this is sub.maxScore (the professor's own scale, e.g. 0–10).
+        maxPoints: criterion.points,
+        weight: criterion.weight ?? null,
       })),
     );
-  }, [rubricCategories, assignment]);
+  }, [rubricCategories]);
 
-  const rubricMaxPoints = useMemo(
-    () => rubricScoreFields.reduce((sum, rubric) => sum + rubric.maxPoints, 0),
-    [rubricScoreFields],
-  );
-
-  const queueStats = useMemo(() => buildQueueStats(queueRows), [queueRows]);
+  // WEIGHTED: score[i]/maxScore[i] × weight[i] × total → assignment points
+  // UNWEIGHTED: direct sum of scores (already in assignment point units)
+  const computedRubricMarks = useMemo(() => {
+    if (rubricScoreFields.length === 0 || !assignment) return 0;
+    const hasWeights = rubricScoreFields.some((f) => f.weight != null && f.weight > 0);
+    if (hasWeights) {
+      return Math.round(
+        rubricScoreFields.reduce((sum, field, i) => {
+          const score = rubricScores[i] ?? 0;
+          if (field.maxPoints > 0 && field.weight != null) {
+            return sum + (score / field.maxPoints) * field.weight * assignment.points.total;
+          }
+          return sum;
+        }, 0),
+      );
+    }
+    return rubricScores.reduce((sum, score) => sum + score, 0);
+  }, [rubricScores, rubricScoreFields, assignment]);
 
   const selectedSubmission = useMemo(
     () => allSubmissionRows.find((row) => row.submissionId === selectedSubmissionId) ?? null,
@@ -221,11 +231,6 @@ export function FacultySpeedGradingPage() {
       downloadUrl: file.downloadUrl,
     }));
   }, [selectedSubmission]);
-
-  const computedRubricMarks = useMemo(
-    () => rubricScores.reduce((sum, score) => sum + score, 0),
-    [rubricScores],
-  );
 
   const directMarks = useMemo(() => {
     const parsed = Number.parseFloat(directMarksInput);
@@ -290,22 +295,20 @@ export function FacultySpeedGradingPage() {
 
     const marks = selectedSubmission.marks;
     if (rubricScoreFields.length > 0) {
-      if (marks != null && marks > 0) {
-        // NOTE: Existing submission marks are distributed across rubric rows so faculty see an editable starting state.
-        setRubricScores(distributeMarksAcrossRubrics(rubricScoreFields, Math.round(marks)));
-      } else {
-        setRubricScores(rubricScoreFields.map(() => 0));
-      }
+      setRubricScores(
+        marks != null && marks > 0
+          ? seedRubricScores(rubricScoreFields, Math.round(marks), assignment?.points.total ?? 0)
+          : rubricScoreFields.map(() => 0),
+      );
       setDirectMarksInput("");
     } else {
       setRubricScores([]);
       setDirectMarksInput(marks != null ? String(marks) : "");
     }
-
     setFeedbackInput("");
     setGradeError(null);
     setGradeStatusMessage(null);
-  }, [selectedSubmission, rubricScoreFields]);
+  }, [selectedSubmission, rubricScoreFields, assignment?.points.total]);
 
   useEffect(() => {
     if (!selectedSubmissionId) {
@@ -413,7 +416,7 @@ export function FacultySpeedGradingPage() {
     }
 
     const marks = rubricScoreFields.length > 0 ? computedRubricMarks : directMarks;
-    const maxMarks = rubricScoreFields.length > 0 ? rubricMaxPoints : assignment.points.total;
+    const maxMarks = assignment.points.total;
 
     if (!Number.isFinite(marks) || marks < 0) {
       setGradeError("Enter a valid grade (0 or higher).");
@@ -476,7 +479,6 @@ export function FacultySpeedGradingPage() {
     directMarks,
     feedbackInput,
     rubricScoreFields.length,
-    rubricMaxPoints,
     selectedSubmission,
   ]);
 
@@ -681,8 +683,8 @@ export function FacultySpeedGradingPage() {
                     </p>
                     <p className="mt-1 text-[12px] text-gray-600">
                       {rubricScoreFields.length > 0
-                        ? "Score rubric rows, scroll through the full list, and submit once the total looks right."
-                        : "This assignment has no rubric, so enter the final score directly and submit."}
+                        ? "Score each criterion and submit. The total is computed automatically."
+                        : "No rubric — enter the final score directly and submit."}
                     </p>
                   </div>
                 </div>
@@ -706,12 +708,12 @@ export function FacultySpeedGradingPage() {
                             value={rubricScores[index] ?? 0}
                             onChange={(event) => {
                               const parsed = Number.parseInt(event.target.value, 10);
-                              setRubricScores((previousScores) => {
-                                const nextScores = [...previousScores];
-                                nextScores[index] = Number.isFinite(parsed)
+                              setRubricScores((prev) => {
+                                const next = [...prev];
+                                next[index] = Number.isFinite(parsed)
                                   ? Math.max(0, Math.min(rubric.maxPoints, parsed))
                                   : 0;
-                                return nextScores;
+                                return next;
                               });
                             }}
                             className="h-10 w-full rounded-lg border border-gray-300 px-3 text-right text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#DCE5F8]"
@@ -744,14 +746,12 @@ export function FacultySpeedGradingPage() {
                 <div className="border-t border-gray-200 bg-white px-3 py-3">
                   <div className="flex items-end justify-between gap-3">
                     <div className="rounded-xl border border-[#E4E7EC] bg-[#F8FAFC] px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-wide text-gray-500">Auto total</p>
+                      <p className="text-[10px] uppercase tracking-wide text-gray-500">Total</p>
                       <p className="text-[18px] font-semibold text-[#2B2A2A]">
                         {rubricScoreFields.length > 0
                           ? computedRubricMarks
-                          : Number.isFinite(directMarks)
-                            ? directMarks
-                            : 0}{" "}
-                        / {rubricMaxPoints || assignment.points.total}
+                          : Number.isFinite(directMarks) ? directMarks : 0}{" "}
+                        / {assignment.points.total}
                       </p>
                     </div>
                     <button
