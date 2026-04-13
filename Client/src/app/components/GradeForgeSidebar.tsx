@@ -20,6 +20,7 @@ import { useSidebarPinnedCollapsed } from "./layout/useSidebarPinnedCollapsed";
 
 interface GradeForgeSidebarProps {
   viewMode: "student" | "faculty" | "gradingAssistant" | "university";
+  compactOnly?: boolean;
 }
 
 interface SidebarNavItem {
@@ -29,13 +30,13 @@ interface SidebarNavItem {
   matchPrefixes?: string[];
 }
 
-export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
+export function GradeForgeSidebar({ viewMode, compactOnly = false }: GradeForgeSidebarProps) {
   const location = useLocation();
   const { pinnedCollapsed } = useSidebarPinnedCollapsed();
   const isDashboardRoute = location.pathname === "/dashboard" || location.pathname.startsWith("/dashboard/");
   const isUniversityView = viewMode === "university";
   // NOTE: Sidebar stays full-width on dashboard unless the user pins “keep collapsed”; other routes use the icon rail.
-  const isCollapsedMode = pinnedCollapsed || !isDashboardRoute;
+  const isCollapsedMode = compactOnly || pinnedCollapsed || !isDashboardRoute;
 
   // NOTE: Sidebar routes are role-specific so student and faculty can navigate to distinct page shells.
   const studentItems: SidebarNavItem[] = [
@@ -98,30 +99,30 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
 
   const sidebarShellClass = !isCollapsedMode
     ? "w-60"
-    : pinnedCollapsed
+    : compactOnly || pinnedCollapsed
       ? "w-[78px]"
       : "group/sidebar w-[78px] hover:w-60 focus-within:w-60";
   const collapsibleTextClass = !isCollapsedMode
     ? ""
-    : pinnedCollapsed
+    : compactOnly || pinnedCollapsed
       ? "pointer-events-none max-w-0 overflow-hidden opacity-0 translate-x-1.5"
       : // FIX: Animate labels with max-width instead of toggling to w-auto so hover expansion feels smoother and less abrupt.
         "max-w-0 overflow-hidden opacity-0 translate-x-1.5 transition-[max-width,opacity,transform] duration-300 ease-out group-hover/sidebar:max-w-[160px] group-hover/sidebar:translate-x-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:max-w-[160px] group-focus-within/sidebar:translate-x-0 group-focus-within/sidebar:opacity-100";
   const collapsibleHeadingClass = !isCollapsedMode
     ? ""
-    : pinnedCollapsed
+    : compactOnly || pinnedCollapsed
       ? "pointer-events-none max-h-0 overflow-hidden opacity-0 mb-0"
       : // FIX: Keep section headings in flow and fade them in so the collapsed rail expands without a visual pop.
         "max-h-0 overflow-hidden opacity-0 transition-[max-height,opacity] duration-300 ease-out group-hover/sidebar:max-h-8 group-hover/sidebar:opacity-100 group-focus-within/sidebar:max-h-8 group-focus-within/sidebar:opacity-100";
   const navLinkLayoutClass = !isCollapsedMode
     ? "gap-3 px-3 py-2.5"
-    : pinnedCollapsed
+    : compactOnly || pinnedCollapsed
       ? "justify-center gap-0 px-0 py-2.5"
       : // FIX: Restore icon-label spacing during hover expansion while keeping the collapsed icon rail centered.
         "justify-center gap-0 px-0 py-2.5 group-hover/sidebar:justify-start group-hover/sidebar:gap-3 group-hover/sidebar:px-3 group-focus-within/sidebar:justify-start group-focus-within/sidebar:gap-3 group-focus-within/sidebar:px-3";
   const navLabelClass = !isCollapsedMode
     ? ""
-    : pinnedCollapsed
+    : compactOnly || pinnedCollapsed
       ? "pointer-events-none max-w-0 overflow-hidden opacity-0 translate-x-1.5"
       : // FIX: Match nav label motion with the sidebar shell so icon/text spacing stays stable while the rail opens.
         "max-w-0 overflow-hidden opacity-0 translate-x-1.5 transition-[max-width,opacity,transform] duration-300 ease-out group-hover/sidebar:max-w-[160px] group-hover/sidebar:translate-x-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:max-w-[160px] group-focus-within/sidebar:translate-x-0 group-focus-within/sidebar:opacity-100";
