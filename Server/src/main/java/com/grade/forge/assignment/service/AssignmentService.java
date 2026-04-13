@@ -486,7 +486,7 @@ public class AssignmentService {
       }
       .logo-mark svg { width: 26px; height: 26px; fill: #fff; }
       .brand-name {
-        color: rgba(255,255,255,0.9);
+        color: rgba(166, 166, 166, 0.9);
         font-size: 13px; font-weight: 600;
         letter-spacing: 0.12em; text-transform: uppercase;
       }
@@ -617,7 +617,7 @@ public class AssignmentService {
       <div class="cta-section">
         <a href="http://52.14.92.121:8080"    style="display:inline-block;
                                                       background:linear-gradient(135deg,#6b0f1a,#a0243a);
-                                                      color:#ffffff !important;
+                                                      color:#000000 !important;
                                                       text-decoration:none !important;
                                                       font-size:14px;
                                                       font-weight:600;

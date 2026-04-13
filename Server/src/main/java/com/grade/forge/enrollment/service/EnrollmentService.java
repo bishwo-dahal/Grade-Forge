@@ -243,7 +243,7 @@ public class EnrollmentService {
           }
 
           .brand-name {
-            color: rgba(255,255,255,0.9);
+            color: rgba(166, 166, 166, 0.9);
             font-size: 13px;
             font-weight: 600;
             letter-spacing: 0.12em;
@@ -358,7 +358,7 @@ public class EnrollmentService {
           .cta-btn {
             display: inline-block;
             background: linear-gradient(135deg, #6b0f1a 0%%, #a0243a 100%%);
-            color: #fff !important;
+            color: #000 !important;
             text-decoration: none !important;
             font-size: 14px;
             font-weight: 600;
@@ -390,6 +390,7 @@ public class EnrollmentService {
           <div class="course-badge">%s</div>
 
           <h1>New Course <span>Enrollment</span></h1>
+
 
         </div>
 

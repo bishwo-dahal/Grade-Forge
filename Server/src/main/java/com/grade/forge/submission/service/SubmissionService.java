@@ -437,14 +437,14 @@ public class SubmissionService {
                   }
                 
                   .brand-name {
-                    color: rgba(255,255,255,0.9);
+                    color: rgba(166, 166, 166, 0.9);
                     font-size: 13px; font-weight: 600;
                     letter-spacing: 0.12em; text-transform: uppercase;
                   }
                 
                   .course-badge {
                     display: inline-block;
-                    background: rgba(255,255,255,0.12);
+                    background: rgba(166, 166, 166, 0.9);
                     border: 1px solid rgba(255,255,255,0.2);
                     color: rgba(255,255,255,0.75);
                     font-size: 11px; font-weight: 500;
@@ -546,7 +546,7 @@ public class SubmissionService {
                   .cta-btn {
                     display: inline-block;
                     background: linear-gradient(135deg, #6b0f1a 0%%, #a0243a 100%%);
-                    color: #fff;
+                    color: #000;
                     text-decoration: none;
                     font-size: 14px;
                     font-weight: 600;
