@@ -17,6 +17,7 @@ import { UniversityFacultyPage } from "./components/UniversityFacultyPage";
 import { UniversityLanguagesPage } from "./components/UniversityLanguagesPage";
 import { UniversitySemestersPage } from "./components/UniversitySemestersPage";
 import { UniversityMonitorPage } from "./components/UniversityMonitorPage";
+import { UniversityTrainingDataPage } from "./components/UniversityTrainingDataPage";
 import { UniversityManageUsersPage } from "./components/UniversityManageUsersPage";
 import { FacultyCreateClassPage } from "./components/FacultyCreateClassPage";
 import { FacultyCreateAssignmentPage } from "./components/FacultyCreateAssignmentPage";
@@ -291,6 +292,10 @@ export const router = createBrowserRouter([
       {
         path: "monitor",
         Component: UniversityMonitorPage,
+      },
+      {
+        path: "training-data",
+        Component: UniversityTrainingDataPage,
       },
       {
         path: "settings",

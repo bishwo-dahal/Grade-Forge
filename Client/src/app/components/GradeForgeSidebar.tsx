@@ -11,6 +11,8 @@ import {
   ListChecks,
   Monitor,
   UserSearch,
+  Brain,
+  HelpCircle,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { Link, useLocation } from "react-router";
@@ -67,6 +69,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
     // NOTE: Languages management has its own university section route for easier backend ownership boundaries.
     { icon: Code2, label: "Languages", to: "/university-admin/languages" },
     { icon: UserSearch, label: "Manage Users", to: "/university-admin/manage-users" },
+    { icon: Brain, label: "ML training data", to: "/university-admin/training-data" },
     { icon: Monitor, label: "Monitor", to: "/university-admin/monitor" },
   ];
 
@@ -231,6 +234,34 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
             </ul>
           </div>
         )}
+
+        {/* Full page navigation: /docs is served by Spring (VitePress), not the React router. */}
+        <div className="mt-6">
+          <div className={`px-3 mb-2 ${collapsibleHeadingClass}`}>
+            <span
+              className={`text-[11px] font-semibold tracking-wider uppercase ${
+                isUniversityView ? "text-[#8D97AC]" : "text-[#D8B7BE]"
+              }`}
+            >
+              Help
+            </span>
+          </div>
+          <ul className="space-y-1">
+            <li>
+              <a
+                href="/docs/"
+                className={`w-full flex items-center rounded-lg transition-all ${navLinkLayoutClass} ${
+                  isUniversityView
+                    ? "text-[#44506B] hover:text-[#1F2430] hover:bg-[#F1EEF1]"
+                    : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]"
+                }`}
+              >
+                <HelpCircle className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />
+                <span className={`text-[14px] whitespace-nowrap ${navLabelClass}`}>Documentation</span>
+              </a>
+            </li>
+          </ul>
+        </div>
       </nav>
 
       <SidebarPinnedCollapseFooter

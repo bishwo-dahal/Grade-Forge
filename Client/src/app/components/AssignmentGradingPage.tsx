@@ -21,9 +21,11 @@ import type { Rubric } from "../../types/rubric";
 import {
   fetchSubmissionFileText,
   getFacultySubmissionById,
+  patchAuthorshipTriage,
   resolvePreviewLanguage,
   submitFacultySubmissionGrade,
 } from "../../services/submissionService";
+import type { AuthorshipTriageLabel } from "../../services/submissionService";
 import {
   createGradesBatch,
   getSubmissionGrades,
@@ -238,6 +240,12 @@ export function AssignmentGradingPage() {
   const [similarityScore, setSimilarityScore] = useState<number | null>(null);
   const [aiRiskScore, setAiRiskScore] = useState<number | null>(null);
 
+  const [authorshipTriageLabel, setAuthorshipTriageLabel] = useState<AuthorshipTriageLabel | null>(null);
+  const [authorshipTriageNotes, setAuthorshipTriageNotes] = useState("");
+  const [authorshipTriageLabeledAt, setAuthorshipTriageLabeledAt] = useState<string | null>(null);
+  const [authorshipTriageSaving, setAuthorshipTriageSaving] = useState(false);
+  const [authorshipTriageError, setAuthorshipTriageError] = useState<string | null>(null);
+
   const backToAssignmentUrl = isFaculty
     ? `/faculty/class/${classId}/assignment/${assignmentId}`
     : `/grading-assistant/class/${classId}/assignment/${assignmentId}`;
@@ -275,8 +283,8 @@ export function AssignmentGradingPage() {
       return;
     }
     setStudentName(row.studentName);
-    setStudentEmail((row as { studentEmail?: string | null }).studentEmail ?? null);
-    setStudentId((row as any).studentId != null ? String((row as any).studentId) : null);
+    setStudentEmail(row.studentEmail ?? null);
+    setStudentId(row.studentId != null ? String(row.studentId) : null);
     setSubGroupName(row.subGroupName ?? null);
     setSubGroupMembers((row.subGroupMembers ?? []).map((m) => ({
       id: m.id,
@@ -288,6 +296,10 @@ export function AssignmentGradingPage() {
     setSubmissionLanguage(resolvePreviewLanguage(files[0].fileName, assignData.language));
     setSubmissionMarks(row.marks ?? null);
     setSubmissionFeedback(row.feedback ?? "");
+    setAuthorshipTriageLabel(row.authorshipTriageLabel ?? null);
+    setAuthorshipTriageNotes(row.authorshipTriageNotes ?? "");
+    setAuthorshipTriageLabeledAt(row.authorshipTriageLabeledAt ?? null);
+    setAuthorshipTriageError(null);
     // Preload existing rubric grades for this submission (GET .../submission-grades/{submissionId}).
     try {
       const grades = await getSubmissionGrades(sId);
@@ -510,6 +522,28 @@ export function AssignmentGradingPage() {
       ];
     },
     [similarityScore, aiRiskScore]
+  );
+
+  const saveAuthorshipTriage = useCallback(
+    async (label: AuthorshipTriageLabel | null) => {
+      if (!resolvedSubmissionId) return;
+      setAuthorshipTriageSaving(true);
+      setAuthorshipTriageError(null);
+      try {
+        const updated = await patchAuthorshipTriage(resolvedSubmissionId, {
+          label,
+          notes: authorshipTriageNotes.trim() || null,
+        });
+        setAuthorshipTriageLabel(updated.authorshipTriageLabel ?? null);
+        setAuthorshipTriageNotes(updated.authorshipTriageNotes ?? "");
+        setAuthorshipTriageLabeledAt(updated.authorshipTriageLabeledAt ?? null);
+      } catch (e) {
+        setAuthorshipTriageError(e instanceof Error ? e.message : "Failed to save triage.");
+      } finally {
+        setAuthorshipTriageSaving(false);
+      }
+    },
+    [resolvedSubmissionId, authorshipTriageNotes],
   );
 
   const handleRunTests = useCallback(
@@ -937,11 +971,84 @@ export function AssignmentGradingPage() {
                     />
                   )}
                   {activeTab === "plagiarism" && (
-                    <PlagiarismReportPanel
-                      assignmentId={assignmentId ?? ""}
-                      isFaculty={isFaculty}
-                      studentId={studentId}
-                    />
+                    <>
+                      {isFaculty && (
+                        <div className="px-6 py-4 border-b border-amber-100/80 bg-amber-50/40">
+                          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1">
+                            Authorship triage
+                          </h3>
+                          <p className="text-[12px] text-gray-600 leading-relaxed mb-3">
+                            Your label may be used to train models so we can improve future AI authorship predictions for
+                            everyone. It&apos;s optional—leave blank or clear if this submission shouldn&apos;t be used
+                            that way.
+                          </p>
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {(
+                              [
+                                { key: "HUMAN_WRITTEN" as const, label: "Human-written" },
+                                { key: "AI_ASSISTED" as const, label: "AI-assisted" },
+                                { key: "UNCLEAR" as const, label: "Unclear" },
+                              ] as const
+                            ).map(({ key, label }) => (
+                              <button
+                                key={key}
+                                type="button"
+                                disabled={authorshipTriageSaving || !resolvedSubmissionId}
+                                onClick={() => void saveAuthorshipTriage(key)}
+                                className={`rounded-md border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                                  authorshipTriageLabel === key
+                                    ? "border-[#5A7ACD] bg-[#5A7ACD]/10 text-[#3d5a9e]"
+                                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              disabled={authorshipTriageSaving || !resolvedSubmissionId}
+                              onClick={() => void saveAuthorshipTriage(null)}
+                              className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-medium text-gray-600 hover:border-gray-300"
+                            >
+                              Clear label
+                            </button>
+                          </div>
+                          <label className="block text-[11px] font-medium text-gray-500 mb-1">Notes (optional)</label>
+                          <textarea
+                            value={authorshipTriageNotes}
+                            onChange={(e) => setAuthorshipTriageNotes(e.target.value)}
+                            rows={2}
+                            className="w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[13px] text-[#2B2A2A] mb-2"
+                            placeholder="Internal notes only"
+                          />
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              disabled={
+                                authorshipTriageSaving || !resolvedSubmissionId || !authorshipTriageLabel
+                              }
+                              onClick={() =>
+                                authorshipTriageLabel && void saveAuthorshipTriage(authorshipTriageLabel)
+                              }
+                              className="rounded-md bg-[#5A7ACD] px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-40"
+                            >
+                              {authorshipTriageSaving ? "Saving…" : "Save notes"}
+                            </button>
+                            <span className="text-[11px] text-gray-400">
+                              Last saved: {formatDate(authorshipTriageLabeledAt ?? undefined)}
+                            </span>
+                          </div>
+                          {authorshipTriageError ? (
+                            <p className="mt-2 text-[12px] text-red-600">{authorshipTriageError}</p>
+                          ) : null}
+                        </div>
+                      )}
+                      <PlagiarismReportPanel
+                        assignmentId={assignmentId ?? ""}
+                        isFaculty={isFaculty}
+                        studentId={studentId}
+                      />
+                    </>
                   )}
                   {activeTab === "rubric" && <GradingRubricPanel rubricCategories={rubricCategories} />}
                   {activeTab === "group" && isFaculty && (

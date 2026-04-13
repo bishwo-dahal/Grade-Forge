@@ -9,7 +9,9 @@ import com.grade.forge.graderreport.enums.GraderReportStatus;
 import com.grade.forge.graderreport.repository.GraderReportRepository;
 import com.grade.forge.storage.service.FileStorageService;
 import com.grade.forge.submission.entity.Submission;
+import com.grade.forge.submission.entity.SubmissionAuthorshipTriage;
 import com.grade.forge.submission.entity.SubmissionFile;
+import com.grade.forge.submission.repository.SubmissionAuthorshipTriageRepository;
 import com.grade.forge.submission.repository.SubmissionFileRepository;
 import com.grade.forge.submission.repository.SubmissionRepository;
 import com.grade.forge.testsuite.entity.TestCase;
@@ -28,6 +30,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 /**
@@ -84,6 +87,27 @@ public class GraderReportRunnerService {
     @Value("${grader.llm.ai-signal.weight:0.20}")
     private double llmAiSignalWeight;
 
+    @Value("${grader.faculty-triage.enabled:true}")
+    private boolean facultyTriageEnabled;
+
+    @Value("${grader.faculty-triage.human-delta}")
+    private double facultyTriageHumanDelta;
+
+    @Value("${grader.faculty-triage.ai-delta}")
+    private double facultyTriageAiDelta;
+
+    @Value("${grader.faculty-triage.unclear-delta}")
+    private double facultyTriageUnclearDelta;
+
+    @Value("${ml.authorship-model.path:}")
+    private String authorshipModelPath;
+
+    @Value("${grader.authorship-ml.enabled:true}")
+    private boolean authorshipMlEnabled;
+
+    @Value("${grader.authorship-ml.weight:0.12}")
+    private double authorshipMlWeight;
+
     private final GraderReportRepository graderReportRepository;
     private final AssignmentRepository assignmentRepository;
     private final SubmissionRepository submissionRepository;
@@ -92,6 +116,7 @@ public class GraderReportRunnerService {
     private final TestRunJobRepository testRunJobRepository;
     private final TestCaseResultRepository testCaseResultRepository;
     private final TestCaseRepository testCaseRepository;
+    private final SubmissionAuthorshipTriageRepository submissionAuthorshipTriageRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -217,6 +242,20 @@ public class GraderReportRunnerService {
         List<Map<String, Object>> submissionEntries = new ArrayList<>();
         Path submissionsDir = workDir.resolve("submissions");
 
+        Long facultyId = null;
+        if (assignment.getCourse() != null && assignment.getCourse().getFaculty() != null) {
+            facultyId = assignment.getCourse().getFaculty().getId();
+        }
+        Map<Long, SubmissionAuthorshipTriage> triageBySubmissionId = new HashMap<>();
+        if (facultyId != null) {
+            for (SubmissionAuthorshipTriage t : submissionAuthorshipTriageRepository
+                    .findBySubmission_Assignment_IdAndFaculty_Id(assignment.getId(), facultyId)) {
+                if (t.getSubmission() != null && t.getSubmission().getId() != null) {
+                    triageBySubmissionId.put(t.getSubmission().getId(), t);
+                }
+            }
+        }
+
         for (Submission submission : submissions) {
             String studentId = submission.getStudent().getId().toString();
             List<SubmissionFile> files = submissionFileRepository.findBySubmission_IdOrderById(submission.getId());
@@ -253,6 +292,13 @@ public class GraderReportRunnerService {
                 sub.put("file_paths", filePaths);
             }
             sub.put("test_results", Map.of("public_pass", publicPass, "private_pass", privatePass));
+            sub.put("submission_id", submission.getId());
+            SubmissionAuthorshipTriage triage = triageBySubmissionId.get(submission.getId());
+            if (triage != null && triage.getLabel() != null) {
+                Map<String, Object> triMap = new LinkedHashMap<>();
+                triMap.put("label", triage.getLabel().name());
+                sub.put("authorship_triage", triMap);
+            }
             submissionEntries.add(sub);
         }
 
@@ -290,6 +336,23 @@ public class GraderReportRunnerService {
         env.put("GRADER_LLM_AI_SIGNAL_MAX_CHARS_PER_FILE", Integer.toString(llmAiSignalMaxCharsPerFile));
         env.put("GRADER_LLM_AI_SIGNAL_MIN_LIKELINESS", Double.toString(llmAiSignalMinLikeliness));
         env.put("GRADER_LLM_AI_SIGNAL_WEIGHT", Double.toString(llmAiSignalWeight));
+        env.put("GRADER_FACULTY_TRIAGE_ENABLED", Boolean.toString(facultyTriageEnabled));
+        env.put("GRADER_FACULTY_TRIAGE_HUMAN_DELTA", Double.toString(facultyTriageHumanDelta));
+        env.put("GRADER_FACULTY_TRIAGE_AI_DELTA", Double.toString(facultyTriageAiDelta));
+        env.put("GRADER_FACULTY_TRIAGE_UNCLEAR_DELTA", Double.toString(facultyTriageUnclearDelta));
+        env.put("GRADER_AUTHORSHIP_ML_ENABLED", Boolean.toString(authorshipMlEnabled));
+        env.put("GRADER_AUTHORSHIP_ML_WEIGHT", Double.toString(authorshipMlWeight));
+        if (authorshipMlEnabled && authorshipModelPath != null && !authorshipModelPath.isBlank()) {
+            Path modelFile = Paths.get(authorshipModelPath.trim()).toAbsolutePath().normalize();
+            if (Files.isRegularFile(modelFile)) {
+                env.put("GRADER_AUTHORSHIP_MODEL_PATH", modelFile.toString());
+            } else {
+                env.put("GRADER_AUTHORSHIP_MODEL_PATH", "");
+                log.debug("Authorship ML model file not found at {}; inference skipped", modelFile);
+            }
+        } else {
+            env.put("GRADER_AUTHORSHIP_MODEL_PATH", "");
+        }
         pb.redirectErrorStream(false);
         Process process = pb.start();
 
