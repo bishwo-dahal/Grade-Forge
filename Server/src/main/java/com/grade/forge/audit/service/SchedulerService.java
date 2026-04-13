@@ -17,6 +17,7 @@ public class SchedulerService {
 
     private final LogService logService;
     private final S3Service s3Service;
+    private final StartupLoader startupLoader;
 
     @Scheduled(cron = "${app.audit.rotation.cron:0 5 0 * * *}", zone = "America/Chicago")
     public void rotateAndUploadLogs() {
@@ -38,6 +39,8 @@ public class SchedulerService {
             Files.deleteIfExists(archiveFile);
         } catch (Exception ex) {
             log.error("Daily log rotation failed", ex);
+        } finally {
+            startupLoader.syncRecentLogs();
         }
     }
 }
