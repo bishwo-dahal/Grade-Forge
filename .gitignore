@@ -2,7 +2,6 @@
 .npm-cache
 .npm_cache
 node_modules
-package-lock.json
 
 # VitePress (docs-site): dev dependency pre-bundles; not for version control
 docs-site/.vitepress/cache/
