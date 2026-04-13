@@ -156,6 +156,7 @@ export function FacultySpeedGradingPage() {
   const [testSummaryError, setTestSummaryError] = useState<string | null>(null);
 
   const [rubricScores, setRubricScores] = useState<number[]>([]);
+  const [directMarksInput, setDirectMarksInput] = useState<string>("");
   const [feedbackInput, setFeedbackInput] = useState<string>("");
   const [gradeError, setGradeError] = useState<string | null>(null);
   const [gradeStatusMessage, setGradeStatusMessage] = useState<string | null>(null);
@@ -221,6 +222,11 @@ export function FacultySpeedGradingPage() {
     [rubricScores],
   );
 
+  const directMarks = useMemo(() => {
+    const parsed = Number.parseFloat(directMarksInput);
+    return Number.isFinite(parsed) ? parsed : Number.NaN;
+  }, [directMarksInput]);
+
   const nextUngradedSubmissionId = useMemo(
     () => findNextUngradedSubmissionId(queueRows, selectedSubmissionId),
     [queueRows, selectedSubmissionId],
@@ -285,8 +291,10 @@ export function FacultySpeedGradingPage() {
       } else {
         setRubricScores(rubricScoreFields.map(() => 0));
       }
+      setDirectMarksInput("");
     } else {
       setRubricScores([]);
+      setDirectMarksInput(marks != null ? String(marks) : "");
     }
 
     setFeedbackInput("");
@@ -399,13 +407,8 @@ export function FacultySpeedGradingPage() {
       return;
     }
 
-    const marks = rubricScoreFields.length > 0 ? computedRubricMarks : Number.NaN;
+    const marks = rubricScoreFields.length > 0 ? computedRubricMarks : directMarks;
     const maxMarks = rubricScoreFields.length > 0 ? rubricMaxPoints : assignment.points.total;
-
-    if (rubricScoreFields.length === 0) {
-      setGradeError("This assignment has no rubric categories available for speed grading.");
-      return;
-    }
 
     if (!Number.isFinite(marks) || marks < 0) {
       setGradeError("Enter a valid grade (0 or higher).");
@@ -465,6 +468,7 @@ export function FacultySpeedGradingPage() {
   }, [
     assignment,
     computedRubricMarks,
+    directMarks,
     feedbackInput,
     rubricScoreFields.length,
     rubricMaxPoints,
@@ -667,8 +671,14 @@ export function FacultySpeedGradingPage() {
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200">
                 <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-3 py-3">
                   <div>
-                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">Rubric grading</p>
-                    <p className="mt-1 text-[12px] text-gray-600">Score rubric rows, scroll through the full list, and submit once the total looks right.</p>
+                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">
+                      {rubricScoreFields.length > 0 ? "Rubric grading" : "Direct grading"}
+                    </p>
+                    <p className="mt-1 text-[12px] text-gray-600">
+                      {rubricScoreFields.length > 0
+                        ? "Score rubric rows, scroll through the full list, and submit once the total looks right."
+                        : "This assignment has no rubric, so enter the final score directly and submit."}
+                    </p>
                   </div>
                 </div>
 
@@ -706,9 +716,22 @@ export function FacultySpeedGradingPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="px-3 py-3">
-                    <div className="rounded-xl border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-[12px] text-[#C23A42]">
-                      This assignment does not have rubric categories available for speed grading yet.
+                  <div className="flex-1 px-3 py-3">
+                    <div className="rounded-xl border border-gray-100 bg-[#FBFCFE] px-3 py-3">
+                      <label className="block text-[12px] font-medium text-[#2B2A2A]">Grade</label>
+                      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                        <input
+                          type="number"
+                          min={0}
+                          max={assignment.points.total}
+                          step="0.01"
+                          value={directMarksInput}
+                          onChange={(event) => setDirectMarksInput(event.target.value)}
+                          className="h-10 w-full rounded-lg border border-gray-300 px-3 text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#DCE5F8]"
+                          placeholder="Enter grade"
+                        />
+                        <p className="text-[12px] text-gray-500">/ {assignment.points.total}</p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -718,13 +741,18 @@ export function FacultySpeedGradingPage() {
                     <div className="rounded-xl border border-[#E4E7EC] bg-[#F8FAFC] px-3 py-2">
                       <p className="text-[10px] uppercase tracking-wide text-gray-500">Auto total</p>
                       <p className="text-[18px] font-semibold text-[#2B2A2A]">
-                        {computedRubricMarks} / {rubricMaxPoints || assignment.points.total}
+                        {rubricScoreFields.length > 0
+                          ? computedRubricMarks
+                          : Number.isFinite(directMarks)
+                            ? directMarks
+                            : 0}{" "}
+                        / {rubricMaxPoints || assignment.points.total}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => void handleSubmitGrade()}
-                      disabled={!selectedSubmission || isGradeSubmitting || rubricScoreFields.length === 0}
+                      disabled={!selectedSubmission || isGradeSubmitting}
                       className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#2B2A2A] px-5 text-[13px] font-medium text-white hover:bg-[#3a3939] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isGradeSubmitting ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} /> : null}

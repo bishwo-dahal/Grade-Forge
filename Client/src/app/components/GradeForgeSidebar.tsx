@@ -3,8 +3,6 @@ import {
   BookOpen,
   FileText,
   Calendar,
-  FolderOpen,
-  MessageSquare,
   Settings,
   Users,
   UserPlus,
@@ -87,12 +85,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
       ? []
       : viewMode === "gradingAssistant"
         ? []
-        : viewMode === "student"
-          ? [
-              { icon: FolderOpen, label: "Materials", to: "/student/materials" },
-              { icon: MessageSquare, label: "Discussions", to: "/student/discussions" },
-            ]
-          : [];
+        : [];
   const settingsItem: SidebarNavItem | null =
     viewMode === "student" || viewMode === "faculty"
       ? { icon: Settings, label: "Settings", to: "/settings", matchPrefixes: ["/settings"] }
