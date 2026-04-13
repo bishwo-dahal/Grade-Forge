@@ -168,6 +168,8 @@ export function FacultySpeedGradingPage() {
 
   const rubricScoreFields = useMemo<RubricScoreField[]>(() => {
     // FIX: Speed grading scores each rubric criterion separately, even when assignment service returns one flattened rubric category.
+    // FIX: For weighted rubrics, sub-criterion maxScore is on its own scale (e.g. 0-10), not the assignment point scale.
+    // Compute each criterion's effective max as Math.round(weight × totalPoints) so rubricMaxPoints == assignment.points.total.
     return rubricCategories.flatMap((category, categoryIndex) =>
       category.criteria.map((criterion, criterionIndex) => ({
         id: `rubric-${categoryIndex}-${criterionIndex}`,
@@ -175,10 +177,13 @@ export function FacultySpeedGradingPage() {
           rubricCategories.length > 1
             ? `${category.name}: ${criterion.description}`
             : criterion.description,
-        maxPoints: criterion.points,
+        maxPoints:
+          criterion.weight != null && assignment != null
+            ? Math.round(criterion.weight * assignment.points.total)
+            : criterion.points,
       })),
     );
-  }, [rubricCategories]);
+  }, [rubricCategories, assignment]);
 
   const rubricMaxPoints = useMemo(
     () => rubricScoreFields.reduce((sum, rubric) => sum + rubric.maxPoints, 0),
