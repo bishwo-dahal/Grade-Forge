@@ -24,7 +24,6 @@ import java.util.stream.Stream;
 public class ActivityLogController {
 
     private static final Path LOG_DIR      = Path.of("logs");
-    private static final Path TMP_ARCHIVE_DIR = Path.of("/tmp/gradeforge-logs");
     private static final String FILE_PREFIX = "activity-";
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -112,7 +111,6 @@ public class ActivityLogController {
         }
 
         results.addAll(findFiles(LOG_DIR, prefix));
-        results.addAll(findFiles(TMP_ARCHIVE_DIR, prefix));
 
         if (results.isEmpty() && Files.exists(activeToday)) {
             results.add(activeToday);

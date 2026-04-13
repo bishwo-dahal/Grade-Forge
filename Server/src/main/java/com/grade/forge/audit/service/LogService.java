@@ -38,7 +38,7 @@ public class LogService {
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
     private static final Path LOG_DIR = Path.of("logs");
-    private static final Path HISTORICAL_DIR = Path.of("/tmp/gradeforge-logs");
+    private static final Path HISTORICAL_DIR = LOG_DIR;
 
     private final ObjectMapper objectMapper;
 
@@ -158,6 +158,7 @@ public class LogService {
         }
     }
 }
+
 
 
 
