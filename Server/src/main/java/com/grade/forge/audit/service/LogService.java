@@ -18,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
@@ -37,7 +38,6 @@ public class LogService {
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
     private static final Path LOG_DIR = Path.of("logs");
-    private static final Path ACTIVE_LOG_FILE = LOG_DIR.resolve("activity.log");
     private static final Path HISTORICAL_DIR = Path.of("/tmp/gradeforge-logs");
 
     private final ObjectMapper objectMapper;
@@ -47,8 +47,9 @@ public class LogService {
         try {
             Files.createDirectories(LOG_DIR);
             Files.createDirectories(HISTORICAL_DIR);
-            if (!Files.exists(ACTIVE_LOG_FILE)) {
-                Files.writeString(ACTIVE_LOG_FILE, "", StandardOpenOption.CREATE);
+            Path todayFile = activeLogFile();
+            if (!Files.exists(todayFile)) {
+                Files.writeString(todayFile, "", StandardOpenOption.CREATE);
             }
         } catch (IOException ex) {
             log.error("Failed to initialize logging paths", ex);
@@ -77,7 +78,7 @@ public class LogService {
     }
 
     public List<Map<String, Object>> readTodayLogs() {
-        return readJsonLines(ACTIVE_LOG_FILE);
+        return readJsonLines(activeLogFile());
     }
 
     public List<Map<String, Object>> readHistoricalLogs() {
@@ -99,7 +100,11 @@ public class LogService {
     }
 
     public Path activeLogFile() {
-        return ACTIVE_LOG_FILE;
+        return logFileForDate(TimeUtil.currentDateCentral());
+    }
+
+    public Path logFileForDate(LocalDate date) {
+        return LOG_DIR.resolve("activity-" + date + ".log");
     }
 
     public Path historicalDir() {
@@ -153,6 +158,7 @@ public class LogService {
         }
     }
 }
+
 
 
 

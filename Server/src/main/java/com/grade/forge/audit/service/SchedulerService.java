@@ -9,8 +9,6 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
 import java.util.stream.Stream;
 
@@ -24,18 +22,14 @@ public class SchedulerService {
 
     @Scheduled(cron = "${app.audit.rotation.cron:0 5 0 * * *}", zone = "America/Chicago")
     public void rotateAndUploadLogs() {
-        Path activeFile = logService.activeLogFile();
         LocalDate yesterday = TimeUtil.currentDateCentral().minusDays(1);
-        Path archiveFile = activeFile.getParent().resolve("activity-" + yesterday + ".log");
+        Path archiveFile = logService.logFileForDate(yesterday);
 
         try {
-            Files.createDirectories(activeFile.getParent());
-            if (!Files.exists(activeFile)) {
-                Files.writeString(activeFile, "", StandardOpenOption.CREATE);
+            Files.createDirectories(archiveFile.getParent());
+            if (!Files.exists(archiveFile)) {
                 return;
             }
-
-            Files.copy(activeFile, archiveFile, StandardCopyOption.REPLACE_EXISTING);
 
             String key = s3Service.keyForDate(yesterday);
             boolean uploaded = s3Service.uploadLogFile(archiveFile, key);
@@ -44,8 +38,7 @@ public class SchedulerService {
             }
 
             Files.deleteIfExists(archiveFile);
-            Files.writeString(activeFile, "", StandardOpenOption.TRUNCATE_EXISTING);
-            deleteStaleLocalArchiveFiles(activeFile.getParent());
+            deleteStaleLocalArchiveFiles(archiveFile.getParent());
         } catch (Exception ex) {
             log.error("Daily log rotation failed", ex);
         }
@@ -67,4 +60,5 @@ public class SchedulerService {
         }
     }
 }
+
 
