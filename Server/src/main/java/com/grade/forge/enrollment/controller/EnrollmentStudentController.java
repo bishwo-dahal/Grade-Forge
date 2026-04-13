@@ -1,6 +1,6 @@
 package com.grade.forge.enrollment.controller;
 
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.enrollment.dto.EnrollmentResponse;
 import com.grade.forge.enrollment.service.EnrollmentService;

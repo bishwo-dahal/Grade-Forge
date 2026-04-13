@@ -1,8 +1,7 @@
 package com.grade.forge.user.controller;
 
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.configuration.security.CustomUserDetails;
-import com.grade.forge.user.dto.UserProfilePictureResponse;
 import com.grade.forge.user.dto.UserProfileResponse;
 import com.grade.forge.user.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -11,10 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;

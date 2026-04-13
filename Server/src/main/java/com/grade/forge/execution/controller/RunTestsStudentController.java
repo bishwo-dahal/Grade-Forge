@@ -1,6 +1,6 @@
 package com.grade.forge.execution.controller;
 
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.execution.dto.RunTestsResponse;
 import com.grade.forge.execution.dto.TestRunJobStatusResponse;

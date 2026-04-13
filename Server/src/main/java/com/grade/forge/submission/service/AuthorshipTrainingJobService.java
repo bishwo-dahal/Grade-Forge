@@ -1,6 +1,6 @@
 package com.grade.forge.submission.service;
 
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.submission.dto.AuthorshipTrainingRunResponse;
 import com.grade.forge.submission.dto.AuthorshipTrainingStartResponse;
 import com.grade.forge.submission.dto.AuthorshipTrainingStatusResponse;

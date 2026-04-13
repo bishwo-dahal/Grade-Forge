@@ -1,4 +1,4 @@
-package com.grade.forge.audit;
+package com.grade.forge.audit.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -10,7 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -38,8 +39,12 @@ public class ActivityLogService {
     public void log(String role, String user, String action, String details, String status) {
         try {
             Map<String, String> entry = new LinkedHashMap<>();
+            String timestamp = ZonedDateTime.now(ZoneId.of("America/Chicago"))
+                    .truncatedTo(ChronoUnit.MILLIS)
+                    .toString();
+
             // FIX: truncate to millis — removes nanoseconds that break Instant.parse()
-            entry.put("timestamp", Instant.now().truncatedTo(ChronoUnit.MILLIS).toString());
+            entry.put("timestamp", timestamp);
             entry.put("role",      role);
             entry.put("user",      user);
             entry.put("ip",        resolveClientIp());

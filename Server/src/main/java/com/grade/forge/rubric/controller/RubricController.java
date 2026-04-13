@@ -1,6 +1,6 @@
 package com.grade.forge.rubric.controller;
 
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.rubric.dto.RubricRequest;
 import com.grade.forge.rubric.dto.RubricResponse;
