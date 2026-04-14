@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Plus, ListChecks, Trash2 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
@@ -807,11 +807,6 @@ export function FacultyCreateAssignmentPage() {
         return;
       }
     }
-    if (form.starterCodeUrl.trim() && !/^https?:\/\//i.test(form.starterCodeUrl.trim())) {
-      toast.error("Starter Code URL must start with http:// or https://");
-      return;
-    }
-
     setIsSaving(true);
     try {
       let savedAssignmentId: string;

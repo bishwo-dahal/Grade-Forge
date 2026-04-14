@@ -1,6 +1,6 @@
 package com.grade.forge.submission.controller;
 
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.submission.dto.SubmissionGradeRequest;
 import com.grade.forge.submission.dto.SubmissionResponse;

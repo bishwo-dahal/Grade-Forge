@@ -1,6 +1,6 @@
 package com.grade.forge.university.controller;
 
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.university.entity.University;
 import com.grade.forge.university.service.UniversityService;
 import lombok.RequiredArgsConstructor;

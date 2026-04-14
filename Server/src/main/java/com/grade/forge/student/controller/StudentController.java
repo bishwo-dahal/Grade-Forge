@@ -1,6 +1,6 @@
 package com.grade.forge.student.controller;
 
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.student.dto.StudentRequest;
 import com.grade.forge.student.dto.StudentResponse;

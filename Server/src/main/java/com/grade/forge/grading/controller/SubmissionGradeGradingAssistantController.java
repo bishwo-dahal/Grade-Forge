@@ -1,6 +1,6 @@
 package com.grade.forge.grading.controller;
 
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.grading.dto.SubmissionGradeBatchRequest;
 import com.grade.forge.grading.dto.SubmissionGradeBatchResponse;
 import com.grade.forge.grading.service.SubmissionGradeService;

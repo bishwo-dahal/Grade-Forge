@@ -8,7 +8,7 @@ import com.grade.forge.auth.dto.PasswordUpdateRequest;
 import com.grade.forge.auth.dto.SignupRequest;
 import com.grade.forge.auth.dto.response.AuthResponse;
 import com.grade.forge.auth.service.AuthService;
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.user.entity.Users;
 import com.grade.forge.user.enums.Role;

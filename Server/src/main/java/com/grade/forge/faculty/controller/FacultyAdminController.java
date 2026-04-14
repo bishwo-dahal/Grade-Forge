@@ -1,6 +1,6 @@
 package com.grade.forge.faculty.controller;
 
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.faculty.dto.FacultyCreateRequest;
 import com.grade.forge.faculty.dto.FacultyResponse;
 import com.grade.forge.faculty.entity.Faculty;

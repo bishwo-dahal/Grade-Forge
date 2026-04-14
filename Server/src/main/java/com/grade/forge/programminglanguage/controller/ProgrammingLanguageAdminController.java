@@ -1,6 +1,6 @@
 package com.grade.forge.programminglanguage.controller;
 
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.programminglanguage.dto.ProgrammingLanguageRequest;
 import com.grade.forge.programminglanguage.dto.ProgrammingLanguageResponse;
 import com.grade.forge.programminglanguage.service.ProgrammingLanguageService;

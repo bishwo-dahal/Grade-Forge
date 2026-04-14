@@ -1,6 +1,6 @@
 package com.grade.forge.graderreport.controller;
 
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.graderreport.dto.GraderReportResponse;
 import com.grade.forge.graderreport.service.GraderReportService;
