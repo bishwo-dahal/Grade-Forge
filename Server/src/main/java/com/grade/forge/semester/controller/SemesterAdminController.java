@@ -1,6 +1,6 @@
 package com.grade.forge.semester.controller;
 
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.semester.dto.SemesterRequestDto;
 import com.grade.forge.semester.dto.SemesterResponseDto;
 import com.grade.forge.semester.service.SemesterService;

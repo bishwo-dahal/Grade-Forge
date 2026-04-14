@@ -2,7 +2,11 @@ package com.grade.forge.audit.controller;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.grade.forge.audit.service.LogService;
+import com.grade.forge.audit.service.S3Service;
+import com.grade.forge.audit.util.TimeUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,18 +19,31 @@ import java.util.*;
 import java.util.stream.Stream;
 
 @RestController
-@RequestMapping({"/admin", "/api/v1/university_admin"})
+@RequestMapping({"/api/v1/university_admin"})
 @RequiredArgsConstructor
 public class ActivityLogController {
 
     private static final Path LOG_DIR      = Path.of("logs");
-    private static final Path ARCHIVE_DIR  = Path.of("logs/archived");
-    private static final Path LEGACY_ACTIVE = Path.of("logs/activity.log");
     private static final String FILE_PREFIX = "activity-";
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     private final ObjectMapper objectMapper;
+    private final LogService logService;
+    private final S3Service s3Service;
+
+    @PostMapping("/activity/upload")
+    public ResponseEntity<Void> uploadCurrentActivityLogToS3() {
+        Path activeLogFile = logService.activeLogFile();
+        String key = s3Service.keyForDate(TimeUtil.currentDateCentral());
+        boolean uploaded = s3Service.uploadLogFile(activeLogFile, key);
+
+        if (!uploaded) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+
+        return ResponseEntity.ok().build();
+    }
 
     @GetMapping("/activity")
     public ResponseEntity<Map<String, Object>> getActivity(
@@ -42,7 +59,7 @@ public class ActivityLogController {
     ) {
         ZoneId zone = resolveZone(timezone);
         boolean dateProvided = date != null && !date.isBlank();
-        LocalDate effectiveDate = dateProvided ? parseDateOrDateTime(date) : LocalDate.now(zone);
+        LocalDate effectiveDate = dateProvided ? parseDateOrDateTime(date) : TimeUtil.currentDateCentral();
 
         if (dateProvided && effectiveDate == null) {
             return empty(page, size);
@@ -87,18 +104,16 @@ public class ActivityLogController {
     private List<Path> resolveFiles(LocalDate targetDate, boolean dateProvided) {
         String prefix = FILE_PREFIX + DATE_FMT.format(targetDate);
         List<Path> results = new ArrayList<>();
+        Path activeToday = logService.activeLogFile();
 
-        // Include legacy active file only when no date filter applied
-        if (!dateProvided && Files.exists(LEGACY_ACTIVE)) {
-            results.add(LEGACY_ACTIVE);
+        if (!dateProvided && Files.exists(activeToday)) {
+            results.add(activeToday);
         }
 
         results.addAll(findFiles(LOG_DIR, prefix));
-        results.addAll(findFiles(ARCHIVE_DIR, prefix));
 
-        // Fallback to legacy if nothing found
-        if (results.isEmpty() && Files.exists(LEGACY_ACTIVE)) {
-            results.add(LEGACY_ACTIVE);
+        if (results.isEmpty() && Files.exists(activeToday)) {
+            results.add(activeToday);
         }
 
         return results.stream().distinct().sorted().toList();
@@ -178,7 +193,7 @@ public class ActivityLogController {
             try { return LocalDate.parse(raw, fmt); } catch (Exception ignore) {}
         }
         try {
-            return Instant.parse(raw).atZone(ZoneOffset.UTC).toLocalDate();
+            return Instant.parse(raw).atZone(TimeUtil.CENTRAL).toLocalDate();
         } catch (Exception ignore) {
             return null;
         }
@@ -204,19 +219,7 @@ public class ActivityLogController {
     }
 
     private ZoneId resolveZone(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return ZoneId.systemDefault();
-        }
-        try {
-            return ZoneId.of(raw.trim());
-        } catch (Exception ex) {
-            // Fallback to offset like "+05:00" or "-05:00"
-            try {
-                return ZoneId.ofOffset("UTC", ZoneOffset.of(raw.trim()));
-            } catch (Exception ignore) {
-                return ZoneId.systemDefault();
-            }
-        }
+        return TimeUtil.CENTRAL;
     }
 
     private ResponseEntity<Map<String, Object>> empty(int page, int size) {
