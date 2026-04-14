@@ -197,246 +197,128 @@ public class EnrollmentService {
         String courseName = course.getName();
 
         String content = String.format("""
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
 
-        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<body style="margin:0; padding:0; background-color:#ffffff;">
 
-        <style>
-          *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<!-- HEADER -->
+<table role="presentation" width="100%%" cellspacing="0" cellpadding="0"
+       style="background-color:#9A2236;">
+  <tr>
+    <td style="padding:44px 48px 38px;">
 
-          .email-header {
-            background: linear-gradient(135deg, #6b0f1a 0%%, #8b1a2a 40%%, #a0243a 100%%);
-            padding: 44px 48px 38px;
-            position: relative;
-            overflow: hidden;
-          }
+      <table role="presentation" width="100%%">
+        <tr>
 
-          .email-header::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(ellipse 70%% 80%% at 90%% 10%%, rgba(255,255,255,0.08) 0%%, transparent 60%%);
-          }
+          <td width="60" valign="middle">
+            <div style="width:48px;height:48px;background:rgba(255,255,255,0.15);
+                        border-radius:12px; text-align:center; line-height:48px;">
+              <img src="https://grade-forge.s3.us-east-2.amazonaws.com/email_logo/logo.png"
+                   width="45" height="45" />
+            </div>
+          </td>
 
-          .header-top {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 28px;
-            position: relative;
-          }
+          <td style="padding-left:16px;">
+            <div style="color:#ffffff; font-size:13px; font-weight:600;
+                        letter-spacing:0.12em; text-transform:uppercase;">
+              Grade Forge · ULM
+            </div>
+          </td>
 
-          .logo-mark {
-            width: 48px;
-            height: 48px;
-            background: rgba(255,255,255,0.15);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid rgba(255,255,255,0.2);
-            flex-shrink: 0;
-          }
+        </tr>
+      </table>
 
-          .brand-name {
-            color: rgba(166, 166, 166, 0.9);
-            font-size: 13px;
-            font-weight: 600;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-          }
+      <div style="margin-top:20px; display:inline-block;
+                  padding:5px 12px; border-radius:20px;
+                  border:1px solid rgba(255,255,255,0.3);
+                  color:#ffffff; font-size:11px;">
+        %s
+      </div>
 
-          .course-badge {
-            display: inline-block;
-            background: rgba(255,255,255,0.12);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: rgba(255,255,255,0.75);
-            font-size: 11px;
-            font-weight: 500;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            padding: 5px 12px;
-            border-radius: 20px;
-            margin-bottom: 12px;
-            position: relative;
-          }
+      <h1 style="color:#ffffff; font-family:Georgia, serif;
+                 font-size:30px; margin-top:20px;">
+        New Course <span style="color:#ffdcb4;">Enrollment</span>
+      </h1>
 
-          .email-header h1 {
-            font-family: Georgia, serif;
-            font-size: 30px;
-            font-weight: 700;
-            color: #ffffff;
-            line-height: 1.25;
-            position: relative;
-          }
+    </td>
+  </tr>
+</table>
 
-          .email-header h1 span {
-            color: rgba(255,220,180,0.9);
-          }
+<!-- BODY -->
+<table role="presentation" width="100%%">
+  <tr>
+    <td style="padding:44px 48px; font-family:Arial;">
 
-          .email-body {
-            padding: 44px 48px 36px;
-            background: #fff;
-            font-family: Arial, sans-serif;
-          }
+      <p style="font-size:16px; color:#333;">Hello %s,</p>
 
-          .greeting {
-            font-size: 16px;
-            color: #333;
-            margin-bottom: 10px;
-          }
+      <p style="font-size:15px; color:#666; line-height:1.6;">
+        You have been enrolled in <strong>%s</strong>.
+        You can now access your course materials and start learning.
+      </p>
 
-          .intro {
-            font-size: 15px;
-            color: #666;
-            line-height: 1.65;
-            margin-bottom: 32px;
-          }
+      <!-- CARD -->
+      <table role="presentation" width="100%%"
+             style="margin-top:25px; border:1px solid #ddd; border-radius:10px; overflow:hidden;">
 
-          .details-card {
-            background: #fafafa;
-            border: 1px solid #ebebeb;
-            border-radius: 16px;
-            overflow: hidden;
-            margin-bottom: 32px;
-          }
+        <tr style="background-color:#9A2236;">
+          <td style="padding:14px; color:#ffffff; font-size:12px; font-weight:bold;">
+            Enrollment Details
+          </td>
+        </tr>
 
-          .details-card-header {
-            background: linear-gradient(90deg, #8b1a2a, #a0243a);
-            padding: 14px 24px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-          }
+        <tr>
+          <td style="padding:16px;">
+            <div style="font-size:11px; color:#999;">Course</div>
+            <div style="font-size:14px; color:#222;">%s</div>
+          </td>
+        </tr>
 
-          .details-card-header svg {
-            width: 16px;
-            height: 16px;
-            fill: rgba(255,255,255,0.8);
-          }
+        <tr>
+          <td style="padding:16px; border-top:1px solid #eee;">
+            <div style="font-size:11px; color:#999;">Student</div>
+            <div style="font-size:14px; color:#222;">%s</div>
+          </td>
+        </tr>
 
-          .details-card-header span {
-            font-size: 11.5px;
-            font-weight: 600;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: rgba(255,255,255,0.9);
-          }
+      </table>
 
-          .detail-row {
-            padding: 16px 24px;
-            border-bottom: 1px solid #ebebeb;
-          }
+      <!-- BUTTON -->
+      <div style="text-align:center; margin-top:30px;">
 
-          .detail-row:last-child {
-            border-bottom: none;
-          }
+        <a href="https://www.gradeforge.tech"
+           style="display:inline-block;
+                  background-color:#9A2236;
+                  color:#ffffff;
+                  text-decoration:none;
+                  padding:14px 36px;
+                  border-radius:30px;
+                  font-weight:bold;">
+          Open Dashboard →
+        </a>
 
-          .detail-label {
-            font-size: 11px;
-            color: #999;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            margin-bottom: 4px;
-          }
-
-          .detail-value {
-            font-size: 14.5px;
-            color: #222;
-            font-weight: 500;
-          }
-
-          .cta-section {
-            text-align: center;
-            margin-top: 32px;
-          }
-
-          .cta-btn {
-            display: inline-block;
-            background: linear-gradient(135deg, #6b0f1a 0%%, #a0243a 100%%);
-            color: #000 !important;
-            text-decoration: none !important;
-            font-size: 14px;
-            font-weight: 600;
-            padding: 15px 36px;
-            border-radius: 50px;
-            box-shadow: 0 6px 24px rgba(107,15,26,0.30);
-          }
-
-          .cta-sub {
-            margin-top: 10px;
-            font-size: 12.5px;
-            color: #aaa;
-          }
-
-        </style>
-        </head>
-
-        <body>
-
-        <div class="email-header">
-
-          <div class="header-top">
-                    <div class="logo-mark">
-                      <img src="https://grade-forge.s3.us-east-2.amazonaws.com/email_logo/logo.png" width="48" height="44" alt="Grade Forge">
-                    </div>
-                    <div class="brand-name"> &nbsp; Grade Forge · ULM</div>
-                  </div>
-
-          <div class="course-badge">%s</div>
-
-          <h1>New Course <span>Enrollment</span></h1>
-
-
+        <div style="margin-top:10px; font-size:12px; color:#aaa;">
+          Log in to Grade Forge to start learning
         </div>
 
-        <div class="email-body">
+      </div>
 
-          <p class="greeting">Hello %s,</p>
+    </td>
+  </tr>
+</table>
 
-          <p class="intro">
-            You have been enrolled in <strong>%s</strong>.
-            You can now access your course materials and start learning.
-          </p>
-
-          <div class="details-card">
-
-            <div class="details-card-header">
-              <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
-              <span>Enrollment Details</span>
-            </div>
-
-            <div class="detail-row">
-              <div class="detail-label">Course</div>
-              <div class="detail-value">%s</div>
-            </div>
-
-            <div class="detail-row">
-              <div class="detail-label">Student</div>
-              <div class="detail-value">%s</div>
-            </div>
-
-          </div>
-
-          <div class="cta-section">
-            <a class="cta-btn" href="http://52.14.92.121:8080">Open Dashboard →</a>
-            <div class="cta-sub">Log in to Grade Forge to start learning</div>
-          </div>
-
-        </div>
-
-        </body>
-        </html>
-        """,
-                courseName, // badge
-                name,       // greeting
-                courseName, // intro
-                courseName, // course detail
-                name         // student detail
+</body>
+</html>
+""",
+                courseName,
+                name,
+                courseName,
+                courseName,
+                name
         );
 
         emailService.sendEmailsWithHtml(
