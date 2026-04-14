@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { Settings, ChevronLeft, Book, FileText, Megaphone, BarChart3, FolderOpen, Users, CheckCircle2, Clock, AlertCircle, Download, Mail } from "lucide-react";
+import { ChevronLeft, Book, FileText, Megaphone, BarChart3, FolderOpen, Users, CheckCircle2, Clock, AlertCircle, Download, Mail } from "lucide-react";
 import type {
   ClassAnnouncement,
   ClassAssignment,
@@ -100,93 +100,92 @@ export function ClassPage() {
           onLogout={handleLogout}
         />
 
-        {/* Top Header */}
-        <header className="bg-white border-b border-gray-200 px-8 py-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
-                  {classData.code}: {classData.name}
-                </h1>
-              </div>
-              <div className="flex items-center gap-4 text-[13px] text-gray-600">
-                <span>{classData.semester}</span>
-                <span className="text-gray-300">&bull;</span>
-                <span>{classData.section}</span>
-                <span className="text-gray-300">&bull;</span>
-                <span>Instructor: {classData.instructor}</span>
-              </div>
-            </div>
-            {/* Accessibility: icon-only button needs an accessible label. */}
-            <button aria-label="Class settings" className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-              <Settings className="w-5 h-5 text-gray-600" strokeWidth={2} />
-            </button>
-          </div>
-        </header>
-
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-8 py-6">
-            <div className="mb-4">
-              <Link
-                to="/dashboard"
-                className="inline-flex items-center gap-2 text-[13px] text-[#5D667A] hover:text-[#1F2430] transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" strokeWidth={2} />
-                <span>Back to Dashboard</span>
-              </Link>
-            </div>
-
-            <section className="mb-6 rounded-xl border border-[#C9C4C9] bg-white p-2">
-              <div className="flex flex-wrap gap-2">
-                <SectionTab
-                  icon={<Book className="w-4 h-4" strokeWidth={2} />}
-                  label="Overview"
-                  active={activeSection === "overview"}
-                  onClick={() => setActiveSection("overview")}
-                />
-                <SectionTab
-                  icon={<FileText className="w-4 h-4" strokeWidth={2} />}
-                  label="Assignments"
-                  active={activeSection === "assignments"}
-                  onClick={() => setActiveSection("assignments")}
-                />
-                <SectionTab
-                  icon={<Megaphone className="w-4 h-4" strokeWidth={2} />}
-                  label="Announcements"
-                  active={activeSection === "announcements"}
-                  onClick={() => setActiveSection("announcements")}
-                  badge={announcementCount > 0 ? announcementCount : undefined}
-                />
-                <SectionTab
-                  icon={<BarChart3 className="w-4 h-4" strokeWidth={2} />}
-                  label="Grades"
-                  active={activeSection === "grades"}
-                  onClick={() => setActiveSection("grades")}
-                />
-                <SectionTab
-                  icon={<FolderOpen className="w-4 h-4" strokeWidth={2} />}
-                  label="Resources"
-                  active={activeSection === "resources"}
-                  onClick={() => setActiveSection("resources")}
-                />
-                <SectionTab
-                  icon={<Users className="w-4 h-4" strokeWidth={2} />}
-                  label="People"
-                  active={activeSection === "people"}
-                  onClick={() => setActiveSection("people")}
-                />
+        <main
+          className="flex-1 overflow-y-auto bg-fixed bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url("${classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}")` }}
+        >
+          {/* Top Header */}
+          <header className="bg-white border-b border-gray-200 px-8 py-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
+                    {classData.code}: {classData.name}
+                  </h1>
+                </div>
+                <div className="flex items-center gap-4 text-[13px] text-gray-600">
+                  <span>{classData.semester}</span>
+                  <span className="text-gray-300">&bull;</span>
+                  <span>{classData.section}</span>
+                  <span className="text-gray-300">&bull;</span>
+                  <span>Instructor: {classData.instructor}</span>
+                </div>
               </div>
-            </section>
+            </div>
+          </header>
 
-            {activeSection === "overview" && (
-              <OverviewSection coverImageUrl={classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE} />
-            )}
-            {activeSection === 'assignments' && <AssignmentsSection />}
-            {activeSection === 'announcements' && <AnnouncementsSection />}
-            {activeSection === 'grades' && <GradesSection />}
-            {activeSection === 'resources' && <ResourcesSection />}
-            {activeSection === 'people' && <PeopleSection />}
+          <div className="min-h-full bg-white/10 backdrop-blur-[2px]">
+            <div className="max-w-7xl mx-auto px-8 py-6">
+              <div className="mb-4">
+                <Link
+                  to="/dashboard"
+                  className="inline-flex items-center gap-2 rounded-md border border-white/70 bg-white/75 px-3 py-1.5 text-[13px] text-[#1F2430] shadow-sm backdrop-blur-[2px] transition-colors hover:bg-white"
+                >
+                  <ChevronLeft className="w-4 h-4" strokeWidth={2} />
+                  <span>Back to Main Dashboard</span>
+                </Link>
+              </div>
+
+              <section className="mb-6 rounded-xl border border-[#C9C4C9] bg-white p-2">
+                <div className="flex flex-wrap gap-2">
+                  <SectionTab
+                    icon={<Book className="w-4 h-4" strokeWidth={2} />}
+                    label="Home"
+                    active={activeSection === "overview"}
+                    onClick={() => setActiveSection("overview")}
+                  />
+                  <SectionTab
+                    icon={<FileText className="w-4 h-4" strokeWidth={2} />}
+                    label="Assignments"
+                    active={activeSection === "assignments"}
+                    onClick={() => setActiveSection("assignments")}
+                  />
+                  <SectionTab
+                    icon={<Megaphone className="w-4 h-4" strokeWidth={2} />}
+                    label="Announcements"
+                    active={activeSection === "announcements"}
+                    onClick={() => setActiveSection("announcements")}
+                    badge={announcementCount > 0 ? announcementCount : undefined}
+                  />
+                  <SectionTab
+                    icon={<BarChart3 className="w-4 h-4" strokeWidth={2} />}
+                    label="Grades"
+                    active={activeSection === "grades"}
+                    onClick={() => setActiveSection("grades")}
+                  />
+                  <SectionTab
+                    icon={<FolderOpen className="w-4 h-4" strokeWidth={2} />}
+                    label="Resources"
+                    active={activeSection === "resources"}
+                    onClick={() => setActiveSection("resources")}
+                  />
+                  <SectionTab
+                    icon={<Users className="w-4 h-4" strokeWidth={2} />}
+                    label="People"
+                    active={activeSection === "people"}
+                    onClick={() => setActiveSection("people")}
+                  />
+                </div>
+              </section>
+
+              {activeSection === "overview" && <OverviewSection />}
+              {activeSection === 'assignments' && <AssignmentsSection />}
+              {activeSection === 'announcements' && <AnnouncementsSection />}
+              {activeSection === 'grades' && <GradesSection />}
+              {activeSection === 'resources' && <ResourcesSection />}
+              {activeSection === 'people' && <PeopleSection />}
+            </div>
           </div>
         </main>
       </div>
@@ -230,7 +229,7 @@ function SectionTab({
 }
 
 // Placeholder sections - will be implemented next
-function OverviewSection({ coverImageUrl }: { coverImageUrl: string }) {
+function OverviewSection() {
   const { classId } = useParams();
   // NOTE: Overview data now loads from backend-driven service calls.
   const [importantDates, setImportantDates] = useState<ClassImportantDate[]>([]);
@@ -247,15 +246,7 @@ function OverviewSection({ coverImageUrl }: { coverImageUrl: string }) {
   const previewAnnouncements = announcements.slice(0, 2);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#D9DCE5]">
-      <img
-        src={coverImageUrl}
-        alt=""
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-        aria-hidden
-      />
-      <div className="absolute inset-0 bg-[#F5F7FB]/45" aria-hidden />
-      <div className="relative z-10 space-y-6 p-6">
+    <div className="space-y-6">
         {/* Important Dates */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-4">Important Dates</h2>
@@ -318,7 +309,6 @@ function OverviewSection({ coverImageUrl }: { coverImageUrl: string }) {
             )}
           </div>
         </div>
-      </div>
     </div>
   );
 }
@@ -401,13 +391,6 @@ function AssignmentsSection() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Assignments</h2>
-        <p className="text-[13px] text-gray-600">
-          All programming assignments for this course
-        </p>
-      </div>
-
       <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
         <table className="w-full min-w-[1080px]">
           <thead>
@@ -516,13 +499,6 @@ function AnnouncementsSection() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Announcements</h2>
-        <p className="text-[13px] text-gray-600">
-          Important updates and information for this course
-        </p>
-      </div>
-
       <div className="space-y-4">
         {announcements.length > 0 ? (
           announcements.map((announcement) => (
@@ -586,13 +562,6 @@ function GradesSection() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Grades</h2>
-        <p className="text-[13px] text-gray-600">
-          Your performance and grade breakdown for this course
-        </p>
-      </div>
-
       {/* Overall Grade Card */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
         <div className="flex items-center justify-between">
@@ -721,13 +690,6 @@ function ResourcesSection() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Resources</h2>
-        <p className="text-[13px] text-gray-600">
-          Course materials, lecture slides, and reference documents
-        </p>
-      </div>
-
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <table className="w-full">
           <thead>
@@ -815,13 +777,6 @@ function PeopleSection() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">People</h2>
-        <p className="text-[13px] text-gray-600">
-          Instructor, teaching assistants, and enrolled students
-        </p>
-      </div>
-
       {/* Instructor */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
         <h3 className="text-[15px] font-semibold text-[#2B2A2A] mb-4">Instructor</h3>

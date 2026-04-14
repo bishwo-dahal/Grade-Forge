@@ -205,7 +205,7 @@ export function FacultyClassPage() {
               className={`flex items-center transition-opacity hover:opacity-90 ${
                 pinnedCollapsed ? "h-12 w-12 justify-center rounded-[14px]" : "gap-3"
               }`}
-              aria-label="Go to dashboard"
+              aria-label="Go to main dashboard"
             >
               <img
                 src="/favicon.svg"
@@ -217,20 +217,20 @@ export function FacultyClassPage() {
               )}
             </Link>
           </div>
-          {/* Back to Dashboard Link */}
+          {/* Back to Main Dashboard Link */}
           <div
             className={`flex border-b border-[#65101F] py-3 ${pinnedCollapsed ? "justify-center px-0" : "px-4"}`}
           >
             <Link
               to="/dashboard"
-              title="Back to Dashboard"
+              title="Back to Main Dashboard"
               className={`flex items-center text-[13px] text-[#F5E5E8] transition-colors hover:text-white ${
                 pinnedCollapsed ? "justify-center" : "gap-2"
               }`}
-              aria-label="Back to Dashboard"
+              aria-label="Back to Main Dashboard"
             >
               <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} />
-              {!pinnedCollapsed && <span>Back to Dashboard</span>}
+              {!pinnedCollapsed && <span>Back to Main Dashboard</span>}
             </Link>
           </div>
 
@@ -243,7 +243,7 @@ export function FacultyClassPage() {
             <ul className="space-y-1">
               <NavItem
                 icon={<LayoutDashboard className="w-4 h-4" strokeWidth={2} />}
-                label="Dashboard"
+                label="Home"
                 active={activeSection === "dashboard"}
                 to={`/faculty/class/${resolvedClassId}/dashboard`}
                 rail={pinnedCollapsed}
@@ -310,106 +310,78 @@ export function FacultyClassPage() {
           onLogout={handleLogout}
         />
 
-        {/* Top Header */}
-        <header className="bg-white border-b border-gray-200 px-8 py-6">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
-                  {classData.code}: {classData.name}
-                </h1>
-                <span className="px-3 py-1 bg-[#5A7ACD] text-white text-[11px] font-semibold rounded uppercase">
-                  {classData.role}
-                </span>
-              </div>
-              <div className="flex items-center gap-4 text-[13px] text-gray-600">
-                <span>{classData.semester}</span>
-                <span className="text-gray-300">&bull;</span>
-                <span>{classData.section}</span>
-              </div>
-            </div>
-            {/* NOTE: Student-roster actions live in the top header so they align with the page-level action position. */}
-            {activeSection === "students" ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
-                  <Download className="w-4 h-4" strokeWidth={2} />
-                  <span>Import from Canvas</span>
-                </button>
-                <button
-                  onClick={() => setIsAddStudentModalOpen(true)}
-                  className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
-                >
-                  <Plus className="w-4 h-4" strokeWidth={2} />
-                  <span>Add Student</span>
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </header>
-
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-8 py-6">
-            {activeSection === "dashboard" && (
-              <DashboardSection coverImageUrl={classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE} />
-            )}
-            {activeSection === "assignments" && (
-              <FacultySectionBackground coverImageUrl={classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}>
+        <main
+          className="flex-1 overflow-y-auto bg-fixed bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url("${classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}")` }}
+        >
+          {/* Top Header */}
+          <header className="bg-white border-b border-gray-200 px-8 py-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
+                    {classData.code}: {classData.name}
+                  </h1>
+                  <span className="px-3 py-1 bg-[#5A7ACD] text-white text-[11px] font-semibold rounded uppercase">
+                    {classData.role}
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 text-[13px] text-gray-600">
+                  <span>{classData.semester}</span>
+                  <span className="text-gray-300">&bull;</span>
+                  <span>{classData.section}</span>
+                </div>
+              </div>
+              {/* NOTE: Student-roster actions live in the top header so they align with the page-level action position. */}
+              {activeSection === "students" ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
+                    <Download className="w-4 h-4" strokeWidth={2} />
+                    <span>Import from Canvas</span>
+                  </button>
+                  <button
+                    onClick={() => setIsAddStudentModalOpen(true)}
+                    className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
+                  >
+                    <Plus className="w-4 h-4" strokeWidth={2} />
+                    <span>Add Student</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </header>
+
+          <div className="min-h-full bg-white/10 backdrop-blur-[2px]">
+            <div className="max-w-7xl mx-auto px-8 py-6">
+              {activeSection === "dashboard" && (
+                <DashboardSection />
+              )}
+              {activeSection === "assignments" && (
                 <AssignmentsSection />
-              </FacultySectionBackground>
-            )}
-            {activeSection === "grades" && (
-              <FacultySectionBackground coverImageUrl={classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}>
+              )}
+              {activeSection === "grades" && (
                 <GradesSection courseFullName={courseFullName} facultyName={facultyName} />
-              </FacultySectionBackground>
-            )}
-            {activeSection === "students" && (
-              <FacultySectionBackground coverImageUrl={classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}>
+              )}
+              {activeSection === "students" && (
                 <StudentsSection
                   isAddStudentModalOpen={isAddStudentModalOpen}
                   onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
                 />
-              </FacultySectionBackground>
-            )}
-            {activeSection === "assistants" && (
-              <FacultySectionBackground coverImageUrl={classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}>
+              )}
+              {activeSection === "assistants" && (
                 <AssistantsSection />
-              </FacultySectionBackground>
-            )}
-            {activeSection === "groups" && (
-              <FacultySectionBackground coverImageUrl={classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}>
+              )}
+              {activeSection === "groups" && (
                 <GroupsSection />
-              </FacultySectionBackground>
-            )}
-            {activeSection === "settings" && (
-              <FacultySectionBackground coverImageUrl={classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}>
+              )}
+              {activeSection === "settings" && (
                 <SettingsSection classId={resolvedClassId} />
-              </FacultySectionBackground>
-            )}
+              )}
+            </div>
           </div>
         </main>
       </div>
-    </div>
-  );
-}
-
-function FacultySectionBackground({
-  coverImageUrl,
-  children,
-}: {
-  coverImageUrl: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#D9DCE5]">
-      <img
-        src={coverImageUrl}
-        alt=""
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-        aria-hidden
-      />
-      <div className="absolute inset-0 bg-[#F5F7FB]/45" aria-hidden />
-      <div className="relative z-10 p-6">{children}</div>
     </div>
   );
 }
@@ -464,7 +436,7 @@ function NavItem({
 }
 
 // Placeholder sections - will be implemented
-function DashboardSection({ coverImageUrl }: { coverImageUrl: string }) {
+function DashboardSection() {
   const { classId } = useParams();
   // NOTE: Dashboard stats and activity now load from backend-driven service calls.
   const [recentActivity, setRecentActivity] = useState<ClassRecentActivity[]>([]);
@@ -490,7 +462,7 @@ function DashboardSection({ coverImageUrl }: { coverImageUrl: string }) {
   } as const;
 
   return (
-    <FacultySectionBackground coverImageUrl={coverImageUrl}>
+    <div className="space-y-6">
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {stats.map((stat) => {
@@ -539,7 +511,7 @@ function DashboardSection({ coverImageUrl }: { coverImageUrl: string }) {
             )}
           </div>
         </div>
-    </FacultySectionBackground>
+    </div>
   );
 }
 
@@ -559,7 +531,7 @@ function StatCard({
   badge?: boolean;
 }) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-5">
+    <div className="rounded-lg border border-gray-200 bg-white p-5">
       <div className="flex items-start justify-between mb-3">
         <div className={`w-10 h-10 ${iconBg} rounded-lg flex items-center justify-center`}>
           <span className={iconColor}>{icon}</span>
@@ -2739,7 +2711,7 @@ function AssistantsSection() {
             No grading assistants assigned to this course yet.
           </p>
           <p className="text-[13px] text-gray-500 mb-4">
-            Create grading assistants from the dashboard, then assign them here.
+            Create grading assistants from the Home tab, then assign them here.
           </p>
           <Link
             to="/faculty/grading-assistants"
