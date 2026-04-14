@@ -44,7 +44,7 @@ public class SchedulerService {
             Files.deleteIfExists(archiveFile);
             CompletableFuture.runAsync(
                     startupLoader::syncRecentLogs,
-                    CompletableFuture.delayedExecutor(1, TimeUnit.MINUTES)
+                    CompletableFuture.delayedExecutor(15, TimeUnit.SECONDS)
             );
             log.info("Scheduled audit upload completed; queued S3 refresh after 1 minute");
         } catch (Exception ex) {
