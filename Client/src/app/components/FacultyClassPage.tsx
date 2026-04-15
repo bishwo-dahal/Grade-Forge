@@ -3258,7 +3258,7 @@ function SettingsSection({ classId }: { classId: string }) {
     }
     let cancelled = false;
     setLoadingLinkOptions(true);
-    listFacultyCoursesBySemester(course.semester.id)
+    listFacultyCoursesBySemester(course.semester.id, { sectionLinkEligible: true })
       .then((list) => {
         if (cancelled) return;
         const attachedIds = new Set((course.sectionCourses ?? []).map((s) => s.id));

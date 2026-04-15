@@ -64,9 +64,12 @@ public class FacultyCourseController {
     }
 
     @GetMapping("/semester/{semesterId}")
-    public ResponseEntity<List<CourseResponseDto>> getCoursesBySemester(@AuthenticationPrincipal CustomUserDetails customUserDetails,
-                                                                        @PathVariable Long semesterId) {
-        List<CourseResponseDto> courses = courseService.getCoursesBySemesterForFaculty(customUserDetails.getUsername(), semesterId);
+    public ResponseEntity<List<CourseResponseDto>> getCoursesBySemester(
+            @AuthenticationPrincipal CustomUserDetails customUserDetails,
+            @PathVariable Long semesterId,
+            @RequestParam(name = "sectionLinkEligible", defaultValue = "false") boolean sectionLinkEligible) {
+        List<CourseResponseDto> courses = courseService.getCoursesBySemesterForFaculty(
+                customUserDetails.getUsername(), semesterId, sectionLinkEligible);
         return new ResponseEntity<>(courses, HttpStatus.OK);
     }
 

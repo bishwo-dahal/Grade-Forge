@@ -1117,8 +1117,16 @@ export async function listFacultySemesters(): Promise<FacultySemesterOption[]> {
   }));
 }
 
-export async function listFacultyCoursesBySemester(semesterId: number): Promise<CourseApiResponse[]> {
-  const { data } = await api.get<CourseApiResponse[]>(`/api/v1/faculty/courses/semester/${semesterId}`);
+export async function listFacultyCoursesBySemester(
+  semesterId: number,
+  options?: { sectionLinkEligible?: boolean },
+): Promise<CourseApiResponse[]> {
+  const { data } = await api.get<CourseApiResponse[]>(`/api/v1/faculty/courses/semester/${semesterId}`, {
+    params:
+      options?.sectionLinkEligible === true
+        ? { sectionLinkEligible: true }
+        : undefined,
+  });
   return data;
 }
 

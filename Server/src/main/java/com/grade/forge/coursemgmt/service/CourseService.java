@@ -355,6 +355,14 @@ public class CourseService {
     }
 
     public List<CourseResponseDto> getCoursesBySemesterForFaculty(String email, Long semesterId) {
+        return getCoursesBySemesterForFaculty(email, semesterId, false);
+    }
+
+    /**
+     * @param sectionLinkEligible when true, only courses that may be linked as a section (no assignments, not already a
+     *                            section, not a main course that has other sections linked).
+     */
+    public List<CourseResponseDto> getCoursesBySemesterForFaculty(String email, Long semesterId, boolean sectionLinkEligible) {
         Faculty faculty = facultyRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Faculty not found for email: " + email));
 
@@ -363,8 +371,22 @@ public class CourseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Semester not found with id: " + semesterId));
 
         return courseRepository.findByFaculty_IdAndSemester_Id(faculty.getId(), semesterId).stream()
+                .filter(c -> !sectionLinkEligible || canLinkExistingCourseAsSection(c))
                 .map(this::mapToResponseDto)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Matches {@link #linkSectionCourse} preconditions on the child course (except same-semester check — caller filters semester).
+     */
+    private boolean canLinkExistingCourseAsSection(Course child) {
+        if (child.getParentCourse() != null) {
+            return false;
+        }
+        if (assignmentRepository.countByCourse_Id(child.getId()) > 0) {
+            return false;
+        }
+        return !courseRepository.existsByParentCourse_Id(child.getId());
     }
 
     /**
