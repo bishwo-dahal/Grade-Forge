@@ -4,8 +4,12 @@ export default defineConfig({
   title: "Grade-Forge",
   description: "User manual for students, faculty, grading assistants, and university administrators.",
   base: "/docs/",
+  head: [
+    ["link", { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }],
+  ],
 
   themeConfig: {
+    logo: "/favicon.svg",
     nav: [
       { text: "Home", link: "/" },
       { text: "Manual overview", link: "/manual/overview" },
