@@ -424,6 +424,18 @@ Every entry lists **steps**, **Path**, and an **example URL** when it helps. Exa
 **Example URL:** `https://gradeforge.tech/faculty/class/4/assignment/12/submission/99`  
 **More detail:** [Plagiarism and AI reports](../features/plagiarism-and-ai-reports)
 
+### Download all submission files for an assignment (faculty)
+
+**Role:** Faculty
+
+1. Open the assignment (submissions list).
+2. In the **Submissions** header, use the **Download** icon to download a ZIP.
+
+The ZIP contains one folder per student with their submitted files.
+
+**Path:** `/faculty/class/{classId}/assignment/{assignmentId}`  
+**Example URL:** `https://gradeforge.tech/faculty/class/4/assignment/12`
+
 ---
 
 ## Grading assistant

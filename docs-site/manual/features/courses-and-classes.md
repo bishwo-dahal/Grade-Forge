@@ -50,3 +50,7 @@
 
 **Path:** `/university-admin/courses`  
 **Example URL:** `https://gradeforge.tech/university-admin/courses`
+
+## Main course and linked sections (faculty)
+
+For multiple sections with the same assignments, use a **main course** and **linked section** courses. See [Main course and linked sections](./parent-section-courses).
