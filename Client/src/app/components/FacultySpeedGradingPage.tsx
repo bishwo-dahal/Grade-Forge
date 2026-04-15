@@ -53,7 +53,7 @@ function buildLatestSubmissionQueue(rows: FacultyAssignmentSubmissionRow[]): Fac
   });
 }
 
-function findNextUngradedSubmissionId(
+function findNextSubmissionId(
   rows: FacultyAssignmentSubmissionRow[],
   currentSubmissionId: string,
 ): string | null {
@@ -63,16 +63,26 @@ function findNextUngradedSubmissionId(
 
   const currentIndex = rows.findIndex((row) => row.submissionId === currentSubmissionId);
   if (currentIndex === -1) {
-    return rows.find((row) => isUngradedSubmission(row))?.submissionId ?? null;
+    return rows[0]?.submissionId ?? null;
   }
 
-  const tailMatch = rows.slice(currentIndex + 1).find((row) => isUngradedSubmission(row));
-  if (tailMatch) {
-    return tailMatch.submissionId;
+  return rows[(currentIndex + 1) % rows.length]?.submissionId ?? null;
+}
+
+function findPreviousSubmissionId(
+  rows: FacultyAssignmentSubmissionRow[],
+  currentSubmissionId: string,
+): string | null {
+  if (!rows.length) {
+    return null;
   }
 
-  const headMatch = rows.slice(0, currentIndex).find((row) => isUngradedSubmission(row));
-  return headMatch?.submissionId ?? null;
+  const currentIndex = rows.findIndex((row) => row.submissionId === currentSubmissionId);
+  if (currentIndex === -1) {
+    return rows[rows.length - 1]?.submissionId ?? null;
+  }
+
+  return rows[(currentIndex - 1 + rows.length) % rows.length]?.submissionId ?? null;
 }
 
 function seedRubricScores(fields: RubricScoreField[], totalMarks: number, rubricTotal: number): number[] {
@@ -241,11 +251,6 @@ export function FacultySpeedGradingPage() {
     return Number.isFinite(parsed) ? parsed : Number.NaN;
   }, [directMarksInput]);
 
-  const nextUngradedSubmissionId = useMemo(
-    () => findNextUngradedSubmissionId(queueRows, selectedSubmissionId),
-    [queueRows, selectedSubmissionId],
-  );
-
   const loadSpeedGradingData = useCallback(async () => {
     if (!resolvedAssignmentId.trim()) {
       throw new Error("Invalid assignment.");
@@ -405,13 +410,24 @@ export function FacultySpeedGradingPage() {
   }, [assignment?.language, selectedSubmission]);
 
   const handleGoToNextStudent = useCallback(() => {
-    if (!nextUngradedSubmissionId) {
-      setGradeStatusMessage("No ungraded students left in this assignment queue.");
+    const nextSubmissionId = findNextSubmissionId(queueRows, selectedSubmissionId);
+    if (!nextSubmissionId) {
+      setGradeStatusMessage("No students left in this assignment queue.");
       return;
     }
-    setSelectedSubmissionId(nextUngradedSubmissionId);
+    setSelectedSubmissionId(nextSubmissionId);
     setGradeStatusMessage(null);
-  }, [nextUngradedSubmissionId]);
+  }, [queueRows, selectedSubmissionId]);
+
+  const handleGoToPreviousStudent = useCallback(() => {
+    const previousSubmissionId = findPreviousSubmissionId(queueRows, selectedSubmissionId);
+    if (!previousSubmissionId) {
+      setGradeStatusMessage("No students left in this assignment queue.");
+      return;
+    }
+    setSelectedSubmissionId(previousSubmissionId);
+    setGradeStatusMessage(null);
+  }, [queueRows, selectedSubmissionId]);
 
   const persistGrade = useCallback(async () => {
     if (!assignment || !selectedSubmission) {
@@ -452,7 +468,7 @@ export function FacultySpeedGradingPage() {
               }
             : row,
         );
-        nextSubmissionId = findNextUngradedSubmissionId(updatedRows, selectedSubmission.submissionId);
+        nextSubmissionId = findNextSubmissionId(updatedRows, selectedSubmission.submissionId);
         return updatedRows;
       });
       setAllSubmissionRows((previousRows) => {
@@ -485,6 +501,8 @@ export function FacultySpeedGradingPage() {
     rubricTotalPoints,
     rubricScoreFields.length,
     selectedSubmission,
+    queueRows,
+    selectedSubmissionId,
   ]);
 
   const handleSubmitGrade = useCallback(async () => {
@@ -528,7 +546,7 @@ export function FacultySpeedGradingPage() {
   return (
     <div className="flex h-screen flex-col bg-[#F5F2F2]">
       <div className="border-b border-gray-200 bg-white px-6 py-3">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2 text-[13px]">
             <Link
               to={`/faculty/class/${resolvedClassId}/assignment/${resolvedAssignmentId}`}
@@ -540,7 +558,16 @@ export function FacultySpeedGradingPage() {
             <span className="text-gray-300">/</span>
             <span className="font-medium text-[#2B2A2A]">Speed Grading</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2 lg:ml-auto">
+            <button
+              type="button"
+              onClick={handleGoToPreviousStudent}
+              disabled={queueRows.length === 0}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <ArrowRight className="h-3.5 w-3.5 rotate-180" strokeWidth={2} />
+              Previous
+            </button>
             <select
               value={selectedSubmission?.studentName ?? ""}
               onChange={(event) => {
@@ -549,7 +576,7 @@ export function FacultySpeedGradingPage() {
                   setSelectedSubmissionId(nextQueueRow.submissionId);
                 }
               }}
-              className="h-9 min-w-[210px] rounded-lg border border-gray-300 bg-white px-3 text-[12px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]/30"
+              className="h-9 min-w-[210px] w-[210px] rounded-lg border border-gray-300 bg-white px-3 text-[12px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]/30"
             >
               {queueRows.map((row) => (
                 <option key={row.submissionId} value={row.studentName}>
@@ -561,7 +588,7 @@ export function FacultySpeedGradingPage() {
               value={selectedSubmissionId}
               onChange={(event) => setSelectedSubmissionId(event.target.value)}
               disabled={studentAttemptOptions.length === 0}
-              className="h-9 min-w-[130px] rounded-lg border border-gray-300 bg-white px-3 text-[12px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]/30 disabled:cursor-not-allowed disabled:bg-gray-100"
+              className="h-9 min-w-[210px] w-[210px] rounded-lg border border-gray-300 bg-white px-3 text-[12px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]/30 disabled:cursor-not-allowed disabled:bg-gray-100"
             >
               {studentAttemptOptions.length === 0 ? <option value="">No attempts</option> : null}
               {studentAttemptOptions.map((attempt) => (
@@ -572,10 +599,12 @@ export function FacultySpeedGradingPage() {
             </select>
             <button
               type="button"
-              onClick={() => navigate(`/faculty/class/${resolvedClassId}/assignment/${resolvedAssignmentId}`)}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50"
+              onClick={handleGoToNextStudent}
+              disabled={queueRows.length === 0}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Assignment details
+              <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+              Next
             </button>
           </div>
         </div>
@@ -619,39 +648,47 @@ export function FacultySpeedGradingPage() {
 
           <section className="min-h-0 rounded-[22px] border border-gray-200 bg-white p-4 shadow-[0_20px_55px_rgba(15,23,42,0.08)]">
             <div className="flex h-full min-h-0 flex-col gap-4">
-              <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.15fr_0.85fr]">
-                <div className="rounded-xl border border-gray-200 p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">Progress</p>
-                    <button
-                      type="button"
-                      onClick={handleGoToNextStudent}
-                      disabled={!nextUngradedSubmissionId}
-                      className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-[11px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
-                      Next
-                    </button>
-                  </div>
-
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    <div className="rounded-lg bg-[#F8FAFC] px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-wide text-gray-500">Total</p>
-                      <p className="mt-1 text-[14px] font-semibold text-[#2B2A2A]">{queueStats.total}</p>
-                    </div>
-                    <div className="rounded-lg bg-[#F4FBF6] px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-wide text-gray-500">Graded</p>
-                      <p className="mt-1 text-[14px] font-semibold text-[#1E7A3F]">{queueStats.graded}</p>
-                    </div>
-                    <div className="rounded-lg bg-[#FFF8ED] px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-wide text-gray-500">Left</p>
-                      <p className="mt-1 text-[14px] font-semibold text-[#B26A00]">{queueStats.ungraded}</p>
+              <div className="grid grid-cols-1 gap-3">
+                <div className="h-full min-w-0 rounded-xl border border-gray-200 p-3">
+                  <div className="flex items-center gap-3">
+                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500 leading-none">Progress</p>
+                    <div className="grid min-w-0 flex-1 grid-cols-3 gap-2">
+                      <div className="flex min-w-0 items-center justify-between gap-2 overflow-hidden rounded-lg bg-[#F8FAFC] px-3 py-2">
+                        <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-gray-500 leading-none">Total</p>
+                        <p className="whitespace-nowrap text-[14px] font-semibold leading-none text-[#2B2A2A]">{queueStats.total}</p>
+                      </div>
+                      <div className="flex min-w-0 items-center justify-between gap-2 overflow-hidden rounded-lg bg-[#F4FBF6] px-3 py-2">
+                        <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-gray-500 leading-none">Graded</p>
+                        <p className="whitespace-nowrap text-[14px] font-semibold leading-none text-[#1E7A3F]">{queueStats.graded}</p>
+                      </div>
+                      <div className="flex min-w-0 items-center justify-between gap-2 overflow-hidden rounded-lg bg-[#FFF8ED] px-3 py-2">
+                        <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-gray-500 leading-none">Left</p>
+                        <p className="whitespace-nowrap text-[14px] font-semibold leading-none text-[#B26A00]">{queueStats.ungraded}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-gray-200 p-3">
-                  <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">Test results</p>
+                <div className="h-full min-w-0 rounded-xl border border-gray-200 p-3">
+                  <div className="flex items-center gap-3">
+                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500 leading-none">Test results</p>
+                    {testSummary.hasRun ? (
+                      <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+                        <div className="flex min-w-0 items-center justify-between gap-2 overflow-hidden rounded-lg bg-[#EEF3FF] px-3 py-2">
+                          <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-gray-600 leading-none">Public</p>
+                          <p className="whitespace-nowrap text-[13px] font-semibold leading-none text-[#2B2A2A]">
+                            {testSummary.publicPassed}/{testSummary.publicTotal}
+                          </p>
+                        </div>
+                        <div className="flex min-w-0 items-center justify-between gap-2 overflow-hidden rounded-lg bg-[#FFF3E3] px-3 py-2">
+                          <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-gray-600 leading-none">Private</p>
+                          <p className="whitespace-nowrap text-[13px] font-semibold leading-none text-[#2B2A2A]">
+                            {testSummary.privatePassed}/{testSummary.privateTotal}
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                   {isTestSummaryLoading ? (
                     <div className="mt-2 flex h-10 items-center text-[12px] text-gray-600">
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={2} />
@@ -660,20 +697,7 @@ export function FacultySpeedGradingPage() {
                   ) : testSummaryError ? (
                     <p className="mt-2 text-[12px] text-[#C23A42]">{testSummaryError}</p>
                   ) : testSummary.hasRun ? (
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      <div className="rounded-lg bg-[#EEF3FF] px-3 py-2">
-                        <p className="text-[10px] uppercase tracking-wide text-gray-600">Public</p>
-                        <p className="text-[13px] font-semibold text-[#2B2A2A]">
-                          {testSummary.publicPassed}/{testSummary.publicTotal}
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-[#FFF3E3] px-3 py-2">
-                        <p className="text-[10px] uppercase tracking-wide text-gray-600">Private</p>
-                        <p className="text-[13px] font-semibold text-[#2B2A2A]">
-                          {testSummary.privatePassed}/{testSummary.privateTotal}
-                        </p>
-                      </div>
-                    </div>
+                    null
                   ) : (
                     <p className="mt-2 text-[12px] text-gray-600">No test run available yet.</p>
                   )}
@@ -750,14 +774,14 @@ export function FacultySpeedGradingPage() {
 
                 <div className="border-t border-gray-200 bg-white px-3 py-3">
                   <div className="flex items-end justify-between gap-3">
-                    <div className="rounded-xl border border-[#E4E7EC] bg-[#F8FAFC] px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-wide text-gray-500">Total</p>
-                      <p className="text-[18px] font-semibold text-[#2B2A2A]">
+                    <div className="inline-flex h-10 min-w-[120px] items-center justify-center gap-1.5 rounded-lg border border-[#E4E7EC] bg-[#F8FAFC] px-3">
+                      <span className="text-[10px] uppercase tracking-wide text-gray-500 leading-none">Total:</span>
+                      <span className="text-[16px] font-semibold leading-none text-[#2B2A2A]">
                         {rubricScoreFields.length > 0
                           ? computedRubricMarks
-                          : Number.isFinite(directMarks) ? directMarks : 0}{" "}
-                        / {rubricScoreFields.length > 0 ? rubricTotalPoints : assignment.points.total}
-                      </p>
+                          : Number.isFinite(directMarks) ? directMarks : 0}
+                        /{rubricScoreFields.length > 0 ? rubricTotalPoints : assignment.points.total}
+                      </span>
                     </div>
                     <button
                       type="button"
