@@ -48,6 +48,9 @@ interface FacultyCreateAssignmentViewProps {
   onGoBackToClass: () => void;
   onSubmit: () => void;
   mode: "create" | "edit";
+  /** Synced section copy: only schedule fields are editable. */
+  scheduleOnlyEdit?: boolean;
+  canSubmit: boolean;
 }
 
 interface TestCaseRow {
@@ -89,8 +92,11 @@ function FacultyCreateAssignmentView({
   onSubmit,
   testCasesAdded = false,
   mode,
+  scheduleOnlyEdit = false,
+  canSubmit,
 }: FacultyCreateAssignmentViewProps) {
   const courseCode = pageData?.header.courseCode ?? "CS 2400";
+  const contentLocked = scheduleOnlyEdit;
 
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-8 py-7">
@@ -110,6 +116,14 @@ function FacultyCreateAssignmentView({
         <h1 className="text-[34px] font-semibold leading-tight text-[#1F2430]">
           {mode === "edit" ? "Edit Assignment" : "Create New Assignment"}
         </h1>
+
+        {scheduleOnlyEdit ? (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-950">
+            This assignment is synced from your <strong>main course</strong>. Here you can only change{" "}
+            <strong>open, due, and late dates</strong>. Edit title, description, language, rubric, points, starter files, and
+            tests on the main course, or use <strong>Detach from main</strong> on the class assignments list.
+          </div>
+        ) : null}
 
         <section className="mt-10 rounded-3xl border border-gray-200 bg-white p-6">
           <h2 className="text-[24px] font-semibold text-[#1F2430]">Assignment Setup</h2>
@@ -137,7 +151,8 @@ function FacultyCreateAssignmentView({
                     value={form.title}
                     onChange={(event) => onFieldChange("title", event.target.value)}
                     placeholder="e.g., Binary Search Tree Implementation"
-                    className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    disabled={contentLocked}
+                    className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-600"
                   />
                 </div>
                 <div className="mt-4">
@@ -150,7 +165,8 @@ function FacultyCreateAssignmentView({
                     onChange={(event) => onFieldChange("description", event.target.value)}
                     rows={5}
                     placeholder="Describe the assignment requirements and expected outcomes..."
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                    disabled={contentLocked}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-600"
                   />
                 </div>
                 <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -162,7 +178,8 @@ function FacultyCreateAssignmentView({
                       id="assignment-language"
                       value={form.languageId}
                       onChange={(event) => onFieldChange("languageId", event.target.value)}
-                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                      disabled={contentLocked}
+                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-600"
                     >
                       <option value="">Select language</option>
                       {pageData.languageOptions.map((language) => (
@@ -180,7 +197,8 @@ function FacultyCreateAssignmentView({
                       id="assignment-submission-type"
                       value={form.submissionType}
                       onChange={(event) => onFieldChange("submissionType", event.target.value as AssignmentCreateFormData["submissionType"])}
-                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                      disabled={contentLocked}
+                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-600"
                     >
                       <option value="INDIVIDUAL">Individual</option>
                       <option value="GROUP">Group</option>
@@ -195,7 +213,8 @@ function FacultyCreateAssignmentView({
                           id="assignment-main-group"
                           value={form.mainGroupId}
                           onChange={(event) => onFieldChange("mainGroupId", event.target.value)}
-                          className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                          disabled={contentLocked ? form.submissionType !== "GROUP" : false}
+                          className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-600"
                         >
                           <option value="">Select main group</option>
                           {pageData.mainGroupOptions.map((group) => (
@@ -289,7 +308,7 @@ function FacultyCreateAssignmentView({
                       min={1}
                       value={form.totalPoints}
                       onChange={(event) => onFieldChange("totalPoints", Number(event.target.value))}
-                      disabled={totalPointsLockedByRubric}
+                      disabled={contentLocked || totalPointsLockedByRubric}
                       className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-600"
                     />
                     {totalPointsLockedByRubric ? (
@@ -307,7 +326,8 @@ function FacultyCreateAssignmentView({
                       <button
                         type="button"
                         onClick={onCreateRubric}
-                        className="inline-flex items-center gap-1 rounded-lg border border-[#D8DFEC] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[#30415F] hover:bg-[#F3F6FB]"
+                        disabled={contentLocked}
+                        className="inline-flex items-center gap-1 rounded-lg border border-[#D8DFEC] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[#30415F] hover:bg-[#F3F6FB] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <Plus className="h-3.5 w-3.5" strokeWidth={2} />
                         Add Rubric
@@ -317,7 +337,8 @@ function FacultyCreateAssignmentView({
                       id="assignment-rubric"
                       value={form.rubricId}
                       onChange={(event) => onRubricChange(event.target.value)}
-                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]"
+                      disabled={contentLocked}
+                      className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-[14px] text-[#1F2430] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-600"
                     >
                       <option value="">No rubric</option>
                       {pageData.rubricOptions.map((rubric) => (
@@ -339,10 +360,16 @@ function FacultyCreateAssignmentView({
                       Starter files
                     </label>
                     <p className="mb-2 text-[12px] text-[#6D7B91]">
-                      Optional. Any file type is allowed (source, data, zip, images, etc.).{" "}
-                      {mode === "edit"
-                        ? "Remove files you no longer need, add new ones below, then save. Saving applies the full starter set."
-                        : "Upload one or more files, or leave empty."}
+                      {contentLocked ? (
+                        <>Starter files are managed on the main course for synced assignments.</>
+                      ) : (
+                        <>
+                          Optional. Any file type is allowed (source, data, zip, images, etc.).{" "}
+                          {mode === "edit"
+                            ? "Remove files you no longer need, add new ones below, then save. Saving applies the full starter set."
+                            : "Upload one or more files, or leave empty."}
+                        </>
+                      )}
                     </p>
                     {mode === "edit" && retainedStarterFiles.length > 0 ? (
                       <div className="mb-3">
@@ -365,7 +392,8 @@ function FacultyCreateAssignmentView({
                                 <button
                                   type="button"
                                   onClick={() => onRemoveRetainedStarter(f.id)}
-                                  className="text-[12px] text-[#C23A42] hover:underline"
+                                  disabled={contentLocked}
+                                  className="text-[12px] text-[#C23A42] hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
                                 >
                                   Remove
                                 </button>
@@ -375,7 +403,7 @@ function FacultyCreateAssignmentView({
                         </ul>
                       </div>
                     ) : null}
-                    {mode === "edit" ? (
+                    {mode === "edit" && !contentLocked ? (
                       <p className="mb-2 text-[12px] text-[#6D7B91]">Add new starter files</p>
                     ) : null}
                     <input
@@ -383,8 +411,12 @@ function FacultyCreateAssignmentView({
                       type="file"
                       multiple
                       accept="*/*"
-                      className="block w-full text-[13px] text-[#30415F] file:mr-3 file:rounded-lg file:border file:border-[#D8DFEC] file:bg-white file:px-3 file:py-1.5 file:text-[13px] file:font-medium file:text-[#30415F] hover:file:bg-[#F3F6FB]"
+                      disabled={contentLocked}
+                      className="block w-full text-[13px] text-[#30415F] file:mr-3 file:rounded-lg file:border file:border-[#D8DFEC] file:bg-white file:px-3 file:py-1.5 file:text-[13px] file:font-medium file:text-[#30415F] hover:file:bg-[#F3F6FB] disabled:cursor-not-allowed disabled:opacity-60"
                       onChange={(event) => {
+                        if (contentLocked) {
+                          return;
+                        }
                         const list = event.target.files ? Array.from(event.target.files) : [];
                         onFieldChange("starterFiles", [...form.starterFiles, ...list]);
                         event.target.value = "";
@@ -410,7 +442,8 @@ function FacultyCreateAssignmentView({
                                     form.starterFiles.filter((_, i) => i !== index),
                                   )
                                 }
-                                className="shrink-0 text-[12px] text-[#C23A42] hover:underline"
+                                disabled={contentLocked}
+                                className="shrink-0 text-[12px] text-[#C23A42] hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
                               >
                                 Remove
                               </button>
@@ -423,8 +456,8 @@ function FacultyCreateAssignmentView({
                 </div>
               </section>
 
-              {/* Test cases (optional) */}
-              {testSuiteDraft && (
+              {/* Test cases (optional); hidden for synced section copies (tests come from main). */}
+              {testSuiteDraft && !scheduleOnlyEdit ? (
                 <section className="mt-5 rounded-2xl border border-[#E5E9F2] bg-[#FAFBFD] p-5">
                   <div className="flex items-center gap-2">
                     <ListChecks className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
@@ -566,7 +599,7 @@ function FacultyCreateAssignmentView({
                     </div>
                   </div>
                 </section>
-              )}
+              ) : null}
 
               <div className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 pt-5">
                 <Link
@@ -578,7 +611,7 @@ function FacultyCreateAssignmentView({
                 <button
                   type="button"
                   onClick={onSubmit}
-                  disabled={isSaving}
+                  disabled={isSaving || !canSubmit}
                   className="rounded-xl bg-[#2B2A2A] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#3a3939] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? (mode === "edit" ? "Saving..." : "Creating...") : mode === "edit" ? "Save Changes" : "Create Assignment"}
@@ -694,10 +727,15 @@ export function FacultyCreateAssignmentPage() {
   }, [pageData, mode, assignmentId]);
 
   const handleRemoveRetainedStarter = (id: number) => {
+    if (pageData?.scheduleOnlyEdit) {
+      return;
+    }
     setRetainedStarterFiles((previous) =>
       previous.filter((f) => Number(f.id) !== Number(id)),
     );
   };
+
+  const scheduleOnlyEdit = Boolean(pageData?.scheduleOnlyEdit);
 
   const canSubmit = useMemo(() => {
     if (!form) {
@@ -707,6 +745,14 @@ export function FacultyCreateAssignmentPage() {
     const hasLateDueDateOnly = form.lateDueDate.trim().length > 0 && form.lateDueTime.trim().length === 0;
     if (hasAvailableFromDateOnly || hasLateDueDateOnly) {
       return false;
+    }
+    if (scheduleOnlyEdit) {
+      return (
+        form.dueDate.trim().length > 0 &&
+        form.dueTime.trim().length > 0 &&
+        (form.submissionType === "INDIVIDUAL" ||
+          (form.submissionType === "GROUP" && form.mainGroupId.trim().length > 0))
+      );
     }
     return (
       form.title.trim().length > 0 &&
@@ -719,7 +765,7 @@ export function FacultyCreateAssignmentPage() {
       Number.isFinite(form.totalPoints) &&
       form.totalPoints > 0
     );
-  }, [form]);
+  }, [form, scheduleOnlyEdit]);
 
   const onFieldChange = <K extends keyof AssignmentCreateFormData>(field: K, value: AssignmentCreateFormData[K]) => {
     setForm((previous) => {
@@ -767,7 +813,11 @@ export function FacultyCreateAssignmentPage() {
 
   const handleSubmit = async () => {
     if (!form || !canSubmit) {
-      toast.error("Fill all required fields before creating the assignment.");
+      toast.error(
+        scheduleOnlyEdit
+          ? "Set a valid due date and time (and optional open/late schedule)."
+          : "Fill all required fields before creating the assignment.",
+      );
       return;
     }
     if (form.availableFromDate.trim() && !form.availableFromTime.trim()) {
@@ -941,6 +991,8 @@ export function FacultyCreateAssignmentPage() {
           onGoBackToClass={handleGoBackToClass}
           onSubmit={handleSubmit}
           mode={mode}
+          scheduleOnlyEdit={scheduleOnlyEdit}
+          canSubmit={canSubmit}
         />
       }
     />

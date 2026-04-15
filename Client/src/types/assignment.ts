@@ -176,4 +176,9 @@ export interface FacultyAssignmentCreatePageData {
   initialForm: AssignmentCreateFormData;
   /** Populated in edit mode so faculty can see current starter files before replacing. */
   existingStarterFiles?: AssignmentExistingStarterFile[];
+  /**
+   * When true (edit mode, synced section copy), the form only allows changing schedule fields;
+   * title, description, language, rubric, points, groups, starter files, and tests stay from the main course.
+   */
+  scheduleOnlyEdit?: boolean;
 }

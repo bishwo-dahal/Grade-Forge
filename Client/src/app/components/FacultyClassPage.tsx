@@ -322,7 +322,7 @@ export function FacultyClassPage() {
               <strong>
                 {classHeader.parentCourse.courseCode}: {classHeader.parentCourse.name}
               </strong>
-              . Create or edit <strong>assignments and tests</strong> on the main course to update all linked sections.
+              . Edit <strong>due dates</strong> here per section; create or change <strong>assignments and tests</strong> on the main course to update all linked sections.
             </p>
             <div className="mt-2">
               <Link
@@ -629,7 +629,6 @@ function AssignmentsSection() {
     setIsDeletingAssignment(true);
     try {
       await deleteFacultyAssignment(deletingAssignment.id);
-      setSelectedAssignments((prev) => prev.filter((id) => id !== deletingAssignment.id));
       toast.success("Assignment deleted successfully.");
       await loadAssignments();
     } catch (error) {
@@ -646,7 +645,7 @@ function AssignmentsSection() {
           <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Assignments</h2>
           <p className="text-[13px] text-gray-600">
             {isSectionCourse
-              ? "Assignments here are synced from your main course. Use the banner above to open the main course to edit."
+              ? "Content and tests sync from your main course. You can still adjust due dates per section here; use the banner to open the main course for other edits."
               : "Create, publish, and manage course assignments"}
           </p>
         </div>
@@ -818,12 +817,10 @@ function AssignmentsSection() {
                             aria-label="Edit assignment"
                             title={
                               assignment.inheritedFromMain
-                                ? "Synced copies are edited on the main course"
+                                ? "Edit dates for this section; description and tests still follow the main course while linked."
                                 : "Edit assignment"
                             }
-                            className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50 ${
-                              assignment.inheritedFromMain ? "pointer-events-none opacity-40" : ""
-                            }`}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50"
                           >
                             <Edit className="h-4 w-4 shrink-0" strokeWidth={2} />
                             Edit

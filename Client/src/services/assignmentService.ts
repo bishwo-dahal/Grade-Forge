@@ -136,6 +136,8 @@ interface AssignmentApiResponse {
   mainGroupName?: string | null;
   rubricId?: number | null;
   rubricName?: string | null;
+  sourceAssignmentId?: number | null;
+  inheritSyncEnabled?: boolean | null;
 }
 
 interface AssignmentBasicApiResponse {
@@ -942,9 +944,14 @@ export async function getFacultyAssignmentEditPageData(
   const availableFrom = splitDateTimeForForm(assignment.availableFrom);
   const dueDate = splitDateTimeForForm(assignment.dueDate);
   const lateDueDate = splitDateTimeForForm(assignment.lateDueDate);
+  const scheduleOnlyEdit =
+    typeof assignment.sourceAssignmentId === "number" &&
+    assignment.sourceAssignmentId > 0 &&
+    assignment.inheritSyncEnabled !== false;
 
   return {
     ...baseData,
+    scheduleOnlyEdit,
     existingStarterFiles:
       assignment.starterCodeFiles?.map((f) => ({
         id: f.id,
