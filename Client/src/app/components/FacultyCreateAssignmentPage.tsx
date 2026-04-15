@@ -211,7 +211,7 @@ function FacultyCreateAssignmentView({
               </section>
 
               <section className="mt-5 rounded-2xl border border-[#E5E9F2] bg-[#FAFBFD] p-5">
-                <h3 className="text-[16px] font-semibold text-[#1F2430]">Schedule</h3>
+                <h3 className="text-[16px] font-semibold text-[#1F2430]">Calendar</h3>
                 <p className="mt-1 text-[12px] text-[#6D7B91]">Set opening, due, and optional late window.</p>
                 {/* REFACTOR: Keep all schedule date/time controls in one aligned row on desktop for faster scanning. */}
                 <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">

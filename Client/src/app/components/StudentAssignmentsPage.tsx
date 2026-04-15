@@ -246,7 +246,8 @@ export function StudentAssignmentsPage() {
         <AuthTopBar
           roleView="student"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search calendar, assignments..."
+          showSearch={false}
+          pageTitle="Assignments"
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />

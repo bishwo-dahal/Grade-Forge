@@ -185,7 +185,8 @@ export function StudentMyCoursesPage() {
         <AuthTopBar
           roleView="student"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search calendar, assignments..."
+          showSearch={false}
+          pageTitle="My Courses"
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />

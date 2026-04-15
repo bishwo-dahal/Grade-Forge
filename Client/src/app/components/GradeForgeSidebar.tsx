@@ -52,8 +52,7 @@ export function GradeForgeSidebar({ viewMode, compactOnly = false }: GradeForgeS
     // CLEANUP: Standalone faculty grading hub was removed so grading stays scoped to each class/assignment workflow.
     { icon: ListChecks, label: "Rubrics", to: "/faculty/rubrics" },
     { icon: UserPlus, label: "Grading Assistants", to: "/faculty/grading-assistants" },
-    { icon: Users, label: "Students", to: "/faculty/students" },
-    { icon: Calendar, label: "Schedule", to: "/faculty/schedule" },
+    { icon: Calendar, label: "Calendar", to: "/faculty/schedule" },
   ];
 
   const gradingAssistantItems: SidebarNavItem[] = [
@@ -143,7 +142,7 @@ export function GradeForgeSidebar({ viewMode, compactOnly = false }: GradeForgeS
       ) : (
         /* REFACTOR: Keep existing logo header for student/faculty while university mode uses title-style sidebar header. */
         <div
-          className={`h-[76px] border-b border-[#C9C4C9] bg-white ${isCollapsedMode ? "px-0 flex items-center justify-center" : "px-6 flex items-center"}`}
+          className={`h-[64px] border-b border-[#C9C4C9] bg-white ${isCollapsedMode ? "px-0 flex items-center justify-center" : "px-5 flex items-center"}`}
         >
           <Link
             to="/dashboard"
@@ -153,10 +152,10 @@ export function GradeForgeSidebar({ viewMode, compactOnly = false }: GradeForgeS
             <img
               src="/favicon.svg"
               alt="Grade Forge"
-              className="h-8 w-8 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
+              className="h-7 w-7 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
             />
             {!isCollapsedMode && (
-              <span className={`text-[15px] font-semibold text-[#1F2430] whitespace-nowrap ${collapsibleTextClass}`}>
+              <span className={`text-[14px] font-semibold text-[#1F2430] whitespace-nowrap ${collapsibleTextClass}`}>
                 Grade Forge
               </span>
             )}

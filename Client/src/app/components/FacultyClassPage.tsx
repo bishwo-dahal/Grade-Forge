@@ -303,7 +303,8 @@ export function FacultyClassPage() {
         <AuthTopBar
           roleView="faculty"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search calendar, assignments..."
+          showSearch={false}
+          pageTitle="Class Dashboard"
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />

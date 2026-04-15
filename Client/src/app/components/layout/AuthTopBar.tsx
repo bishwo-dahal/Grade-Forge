@@ -35,6 +35,7 @@ export interface AuthTopBarProps {
   onSettingsSectionSelect?: (section: SettingsSection) => void;
   showSearch?: boolean;
   searchPlaceholder?: string;
+  pageTitle?: string;
   primaryActionLabel?: string;
   onPrimaryAction?: () => void;
   isSettingsActive?: boolean;
@@ -47,6 +48,7 @@ export function AuthTopBar({
   onSettingsSectionSelect: _onSettingsSectionSelect,
   showSearch = true,
   searchPlaceholder = "Search...",
+  pageTitle,
   primaryActionLabel,
   onPrimaryAction,
   isSettingsActive: _isSettingsActive = false,
@@ -75,8 +77,8 @@ export function AuthTopBar({
     roleView === "faculty" || roleView === "gradingAssistant" || roleView === "university"
       ? "from-[#7A1226] to-[#65101F]"
       : "from-[#5A606B] to-[#474D56]";
-  // FIX: University mode needs a taller search/topbar block so its divider aligns with the sidebar section break.
-  const topBarHeightClass = roleView === "university" ? "py-5" : "h-[76px]";
+  // FIX: Keep the shared top bar compact across roles while preserving the university divider alignment.
+  const topBarHeightClass = roleView === "university" ? "py-3" : "h-[64px]";
 
   const handleConfirmLogout = () => {
     queueAuthNotification(buildLogoutConfirmationMessage(roleView));
@@ -89,23 +91,29 @@ export function AuthTopBar({
     <>
       <div className={`bg-white border-b border-[#C9C4C9] px-6 ${topBarHeightClass} flex items-center`}>
         <div className="flex flex-1 items-center justify-between gap-4">
-        {showSearch ? (
-          <div className="flex-1 max-w-[480px]">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={2} />
-              {/* NOTE: Search input moved into shared top bar so student/faculty/settings pages stop duplicating markup. */}
-              <input
-                type="text"
-                placeholder={searchPlaceholder}
-                aria-label={searchPlaceholder}
-                // NOTE: Search field matches dashboard surface color so top-nav controls stay visually consistent.
-                className="w-full pl-10 pr-4 py-2.5 bg-[#F7F6F8] border border-[#C9C4C9] rounded-md text-[13px] text-[#1F2430] placeholder:text-[#747D90] focus:outline-none focus:ring-2 focus:ring-[#9F3549] focus:border-transparent"
-              />
-            </div>
+          <div className="flex-1">
+            {showSearch ? (
+              <div className="max-w-[480px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={2} />
+                  {/* NOTE: Search input moved into shared top bar so student/faculty/settings pages stop duplicating markup. */}
+                  <input
+                    type="text"
+                    placeholder={searchPlaceholder}
+                    aria-label={searchPlaceholder}
+                    // NOTE: Search field matches dashboard surface color so top-nav controls stay visually consistent.
+                    className="w-full pl-10 pr-4 py-2.5 bg-[#F7F6F8] border border-[#C9C4C9] rounded-md text-[13px] text-[#1F2430] placeholder:text-[#747D90] focus:outline-none focus:ring-2 focus:ring-[#9F3549] focus:border-transparent"
+                  />
+                </div>
+              </div>
+            ) : pageTitle ? (
+              <div className="flex items-center">
+                <h1 className="text-[22px] font-semibold tracking-tight text-[#1F2430]">{pageTitle}</h1>
+              </div>
+            ) : (
+              <div className="flex-1" />
+            )}
           </div>
-        ) : (
-          <div className="flex-1" />
-        )}
 
         <div className="flex items-center gap-3">
           {primaryActionLabel && (

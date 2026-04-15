@@ -313,7 +313,8 @@ export function FacultyGradingAssistantsPage() {
             email: displayEmail,
             initials: displayInitials,
           }}
-          searchPlaceholder="Search calendar, assignments..."
+          showSearch={false}
+          pageTitle="Grading Assistants"
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />
@@ -322,10 +323,7 @@ export function FacultyGradingAssistantsPage() {
         <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-6 py-5">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h1 className="text-[18px] font-semibold text-[#2B2A2A]">
-                Grading Assistants
-              </h1>
-              <p className="text-[13px] text-gray-600">
+              <p className="text-[15px] text-gray-600">
                 Create and manage grading assistants who can help grade submissions.
               </p>
             </div>
