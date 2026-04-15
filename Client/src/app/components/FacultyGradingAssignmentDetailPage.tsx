@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   BarChart3,
+  ChevronLeft,
   Download,
   FileText,
   LayoutDashboard,
@@ -300,6 +301,7 @@ export function FacultyGradingAssignmentDetailPage() {
         }`}
       >
         <div className="flex min-h-0 flex-1 flex-col">
+          {/* Logo Header */}
           <div
             className={`flex h-[76px] items-center border-b border-[#65101F] bg-white ${
               pinnedCollapsed ? "justify-center px-0" : "px-6"
@@ -317,12 +319,26 @@ export function FacultyGradingAssignmentDetailPage() {
                 alt={pinnedCollapsed ? "" : "Grade Forge"}
                 className="h-8 w-8 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
               />
-              {!pinnedCollapsed ? (
-                <div className="leading-tight">
-                  <div className="text-[15px] font-semibold text-[#2B2A2A]">Grade Forge</div>
-                  <div className="text-[11px] font-medium text-[#6D7B91]">Faculty</div>
-                </div>
-              ) : null}
+              {!pinnedCollapsed && (
+                <span className="whitespace-nowrap text-[15px] font-semibold text-[#1F2430]">Grade Forge</span>
+              )}
+            </Link>
+          </div>
+
+          {/* Back to Dashboard Link */}
+          <div
+            className={`flex border-b border-[#65101F] py-3 ${pinnedCollapsed ? "justify-center px-0" : "px-4"}`}
+          >
+            <Link
+              to="/dashboard"
+              title="Back to Dashboard"
+              className={`flex items-center text-[13px] text-[#F5E5E8] transition-colors hover:text-white ${
+                pinnedCollapsed ? "justify-center" : "gap-2"
+              }`}
+              aria-label="Back to Dashboard"
+            >
+              <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} />
+              {!pinnedCollapsed && <span>Back to Dashboard</span>}
             </Link>
           </div>
 
