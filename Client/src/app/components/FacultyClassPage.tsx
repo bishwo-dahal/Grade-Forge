@@ -1819,6 +1819,9 @@ function StudentsSection({
   const [canvasStudentsError, setCanvasStudentsError] = useState<string | null>(null);
   const [isCanvasStudentsLoading, setIsCanvasStudentsLoading] = useState(false);
   const [canvasSearchValue, setCanvasSearchValue] = useState("");
+  const [isEnrollAllCanvasLoading, setIsEnrollAllCanvasLoading] = useState(false);
+  const [canvasEnrollLoadingById, setCanvasEnrollLoadingById] = useState<Record<string, boolean>>({});
+  const [enrolledCanvasStudentIds, setEnrolledCanvasStudentIds] = useState<Record<string, boolean>>({});
 
   const courseId = useMemo(() => Number(resolvedId) || 0, [resolvedId]);
 
@@ -1871,6 +1874,9 @@ function StudentsSection({
     setCanvasStudentsError(null);
     setCanvasSearchValue("");
     setIsCanvasStudentsLoading(false);
+    setIsEnrollAllCanvasLoading(false);
+    setCanvasEnrollLoadingById({});
+    setEnrolledCanvasStudentIds({});
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -2144,6 +2150,64 @@ function StudentsSection({
     }
   };
 
+  const handleCanvasEnrollOne = async (student: CanvasCourseStudent) => {
+    const loginId = student.loginId.trim();
+    if (!loginId) {
+      toast.error(`Cannot enroll ${student.name}: missing login ID.`);
+      return;
+    }
+
+    setCanvasEnrollLoadingById((previous) => ({ ...previous, [student.id]: true }));
+    try {
+      await enrollStudentByEmail(resolvedId, loginId);
+      setEnrolledCanvasStudentIds((previous) => ({ ...previous, [student.id]: true }));
+      toast.success(`${student.name} enrolled successfully.`);
+      await loadRoster();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setCanvasEnrollLoadingById((previous) => ({ ...previous, [student.id]: false }));
+    }
+  };
+
+  const handleCanvasEnrollAll = async () => {
+    if (canvasStudents.length < 1) {
+      return;
+    }
+
+    setIsEnrollAllCanvasLoading(true);
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (const student of canvasStudents) {
+      const loginId = student.loginId.trim();
+      if (!loginId || enrolledCanvasStudentIds[student.id]) {
+        continue;
+      }
+
+      try {
+        await enrollStudentByEmail(resolvedId, loginId);
+        successCount += 1;
+        setEnrolledCanvasStudentIds((previous) => ({ ...previous, [student.id]: true }));
+      } catch {
+        failedCount += 1;
+      }
+    }
+
+    if (successCount > 0) {
+      toast.success(`${successCount} student${successCount === 1 ? "" : "s"} enrolled successfully.`);
+      await loadRoster();
+    }
+    if (failedCount > 0) {
+      toast.error(`${failedCount} student${failedCount === 1 ? "" : "s"} failed to enroll.`);
+    }
+    if (successCount === 0 && failedCount === 0) {
+      toast.info("No eligible Canvas students to enroll.");
+    }
+
+    setIsEnrollAllCanvasLoading(false);
+  };
+
   return (
     <div>
       <div className="mb-6">
@@ -2399,17 +2463,6 @@ function StudentsSection({
                     <h4 className="text-[15px] font-semibold text-[#2B2A2A]">Add from CSV file</h4>
                     <p className="text-[13px] text-gray-600">Upload a CSV with student information to add multiple students</p>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setAddMode("canvas")}
-                    className="flex-1 flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left"
-                  >
-                    <div className="p-2.5 rounded-lg bg-[#5A7ACD]/10">
-                      <Download className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
-                    </div>
-                    <h4 className="text-[15px] font-semibold text-[#2B2A2A]">Import from Canvas</h4>
-                    <p className="text-[13px] text-gray-600">Fetch students from the connected Canvas course</p>
-                  </button>
                 </div>
               ) : addMode === "manual" ? (
                 <>
@@ -2612,15 +2665,25 @@ function StudentsSection({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="relative">
-                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={2} />
-                    <input
-                      value={canvasSearchValue}
-                      onChange={(event) => setCanvasSearchValue(event.target.value)}
-                      type="text"
-                      placeholder="Search Canvas students by name, login ID, or state..."
-                      className="w-full h-11 rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/25"
-                    />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative flex-1 min-w-[260px]">
+                      <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={2} />
+                      <input
+                        value={canvasSearchValue}
+                        onChange={(event) => setCanvasSearchValue(event.target.value)}
+                        type="text"
+                        placeholder="Search Canvas students by name, login ID, or state..."
+                        className="w-full h-11 rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/25"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleCanvasEnrollAll()}
+                      disabled={isCanvasStudentsLoading || isEnrollAllCanvasLoading || canvasStudents.length < 1}
+                      className="h-11 px-4 rounded-xl bg-[#5A7ACD] text-white text-[13px] font-medium hover:bg-[#4e6fbd] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {isEnrollAllCanvasLoading ? "Enrolling all..." : "Add all students"}
+                    </button>
                   </div>
                   {canvasStudentsError ? (
                     <p className="rounded-xl border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-[13px] text-[#C23A42]">
@@ -2633,12 +2696,31 @@ function StudentsSection({
                     ) : filteredCanvasStudents.length > 0 ? (
                       <ul className="divide-y divide-gray-100">
                         {filteredCanvasStudents.map((student) => (
-                          <li key={student.id} className="px-4 py-3">
-                            <p className="text-[14px] font-medium text-[#2B2A2A]">{student.name}</p>
-                            <p className="mt-0.5 text-[12px] text-[#5D6A80]">
-                              Login ID: {student.loginId || "N/A"} • State: {student.state || "N/A"} • Created:{" "}
-                              {student.createdAt || "N/A"}
-                            </p>
+                          <li key={student.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[14px] font-medium text-[#2B2A2A]">{student.name}</p>
+                              <p className="mt-0.5 text-[12px] text-[#5D6A80]">
+                                Login ID: {student.loginId || "N/A"} • State: {student.state || "N/A"} • Created:{" "}
+                                {student.createdAt || "N/A"}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void handleCanvasEnrollOne(student)}
+                              disabled={
+                                isEnrollAllCanvasLoading ||
+                                Boolean(canvasEnrollLoadingById[student.id]) ||
+                                Boolean(enrolledCanvasStudentIds[student.id]) ||
+                                student.loginId.trim().length < 1
+                              }
+                              className="shrink-0 h-9 px-3 rounded-lg bg-[#2B2A2A] text-white text-[12px] font-medium hover:bg-[#3a3939] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              {canvasEnrollLoadingById[student.id]
+                                ? "Enrolling..."
+                                : enrolledCanvasStudentIds[student.id]
+                                  ? "Enrolled"
+                                  : "Enroll"}
+                            </button>
                           </li>
                         ))}
                       </ul>
