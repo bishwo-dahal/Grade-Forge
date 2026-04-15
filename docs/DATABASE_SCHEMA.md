@@ -102,6 +102,7 @@ Class section (e.g. CS101-A).
 | image_url       | String  |                           | Course card image        |
 | canvas_course_id| String  |                           | External roster sync     |
 | is_published    | Boolean | Default: false           | If false, hidden from students |
+| parent_course_id | Long   | FK → courses.id, nullable | When set, this row is a **section course** linked to the main (parent) course |
 
 ---
 
@@ -172,6 +173,8 @@ Work units created by faculty.
 |---------------|--------------|----------------|------------|---------------------------|
 | **Semester**  | One-to-Many  | Course         | semester_id | `List<Course> courses`    |
 | **Faculty**   | One-to-Many  | Course         | faculty_id  | `List<Course> courses`    |
+| **Course**    | One-to-Many  | Course         | parent_course_id | `List<Course> childCourses` (self; section rows) |
+| **Course**    | Many-to-One  | Course         | parent_course_id | `Course parentCourse` (main course) |
 | **Course**    | Many-to-One  | Semester       | semester_id | `Semester semester`       |
 | **Course**    | Many-to-One  | Faculty        | faculty_id  | `Faculty faculty`         |
 | **Course**    | One-to-Many  | Enrollment     | course_id   | `List<Enrollment> enrollments` |
