@@ -114,7 +114,7 @@ public class CourseSectionSyncService {
             return;
         }
 
-        applyParentMetadataToChild(parent, child);
+        applyParentMetadataToChild(parent, child, isNew);
         child.setMainGroup(null);
         child = assignmentRepository.save(child);
 
@@ -133,14 +133,20 @@ public class CourseSectionSyncService {
         }
     }
 
-    private void applyParentMetadataToChild(Assignment parent, Assignment child) {
+    /**
+     * @param copyTimeline when {@code true} (new section copy), copy availability/due dates from the parent.
+     *        When {@code false} (parent was updated), leave the child's timeline unchanged so each section can set its own dates.
+     */
+    private void applyParentMetadataToChild(Assignment parent, Assignment child, boolean copyTimeline) {
         child.setName(parent.getName());
         child.setDescription(parent.getDescription());
         child.setTotalPoints(parent.getTotalPoints());
         child.setSubmissionType(parent.getSubmissionType());
-        child.setAvailableFrom(parent.getAvailableFrom());
-        child.setDueDate(parent.getDueDate());
-        child.setLateDueDate(parent.getLateDueDate());
+        if (copyTimeline) {
+            child.setAvailableFrom(parent.getAvailableFrom());
+            child.setDueDate(parent.getDueDate());
+            child.setLateDueDate(parent.getLateDueDate());
+        }
         child.setProgrammingLanguage(parent.getProgrammingLanguage());
         child.setRubric(parent.getRubric());
     }

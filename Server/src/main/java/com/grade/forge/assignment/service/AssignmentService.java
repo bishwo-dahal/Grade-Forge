@@ -6,6 +6,7 @@ import com.grade.forge.assignment.dto.AssignmentResponse;
 import com.grade.forge.assignment.dto.AssignmentStarterFileResponse;
 import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.assignment.entity.AssignmentStarterFile;
+import com.grade.forge.assignment.enums.SubmissionType;
 import com.grade.forge.assignment.repository.AssignmentRepository;
 import com.grade.forge.assignment.repository.AssignmentStarterFileRepository;
 import com.grade.forge.coursemgmt.entity.Course;
@@ -129,36 +130,62 @@ public class AssignmentService {
         if (!Objects.equals(assignment.getCourse().getFaculty().getEmail(), facultyEmail)) {
             throw new IllegalArgumentException("You are not authorized to update this assignment");
         }
-        if (assignment.getSourceAssignment() != null && Boolean.TRUE.equals(assignment.getInheritSyncEnabled())) {
-            throw new IllegalArgumentException(
-                    "This assignment is synced from the main course. Edit it on the main course, or detach sync on this copy first.");
-        }
 
-        if (request.getCourseId() != null) {
-            Course course = courseRepository.findById(request.getCourseId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + request.getCourseId()));
-            assignment.setCourse(course);
+        boolean sectionInheritActive = assignment.getSourceAssignment() != null
+                && Boolean.TRUE.equals(assignment.getInheritSyncEnabled());
+
+        if (!sectionInheritActive) {
+            if (request.getCourseId() != null) {
+                Course course = courseRepository.findById(request.getCourseId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + request.getCourseId()));
+                assignment.setCourse(course);
+            }
         }
         // ensure we have the latest course reference for rubric validation
         Course currentCourse = assignment.getCourse();
 
-        if (request.getLanguageId() != null) {
-            ProgrammingLanguage language = programmingLanguageRepository.findById(request.getLanguageId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Programming language not found with id: " + request.getLanguageId()));
-            assignment.setProgrammingLanguage(language);
+        if (!sectionInheritActive) {
+            if (request.getLanguageId() != null) {
+                ProgrammingLanguage language = programmingLanguageRepository.findById(request.getLanguageId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Programming language not found with id: " + request.getLanguageId()));
+                assignment.setProgrammingLanguage(language);
+            }
+            if (request.getName() != null) {
+                assignment.setName(request.getName());
+            }
+            if (request.getDescription() != null) {
+                assignment.setDescription(request.getDescription());
+            }
+            if (request.getTotalPoints() != null) {
+                assignment.setTotalPoints(request.getTotalPoints());
+            }
+            if (request.getSubmissionType() != null) {
+                assignment.setSubmissionType(request.getSubmissionType());
+            }
+            if (request.getRubricId() != null) {
+                Rubric rubric = rubricRepository.findById(request.getRubricId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Rubric not found with id: " + request.getRubricId()));
+                if (!Objects.equals(rubric.getFaculty().getId(), currentCourse.getFaculty().getId())) {
+                    throw new IllegalArgumentException("Rubric does not belong to the course faculty");
+                }
+                assignment.setRubric(rubric);
+            }
         }
-        if (request.getName() != null) {
-            assignment.setName(request.getName());
+
+        // Section copies can set their own main group (roster differs per section),
+        // but still cannot change submission type while sync is enabled.
+        if (request.getMainGroupId() != null) {
+            if (assignment.getSubmissionType() != SubmissionType.GROUP) {
+                throw new IllegalArgumentException("Main group can only be set for group assignments");
+            }
+            MainGroup mainGroup = mainGroupRepository.findById(request.getMainGroupId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Main group not found with id: " + request.getMainGroupId()));
+            if (!Objects.equals(mainGroup.getCourse().getId(), currentCourse.getId())) {
+                throw new IllegalArgumentException("Main group does not belong to the assignment's course");
+            }
+            assignment.setMainGroup(mainGroup);
         }
-        if (request.getDescription() != null) {
-            assignment.setDescription(request.getDescription());
-        }
-        if (request.getTotalPoints() != null) {
-            assignment.setTotalPoints(request.getTotalPoints());
-        }
-        if (request.getSubmissionType() != null) {
-            assignment.setSubmissionType(request.getSubmissionType());
-        }
+
         if (request.getAvailableFrom() != null) {
             assignment.setAvailableFrom(request.getAvailableFrom());
         }
@@ -167,22 +194,6 @@ public class AssignmentService {
         }
         if (request.getLateDueDate() != null) {
             assignment.setLateDueDate(request.getLateDueDate());
-        }
-        if (request.getRubricId() != null) {
-            Rubric rubric = rubricRepository.findById(request.getRubricId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Rubric not found with id: " + request.getRubricId()));
-            if (!Objects.equals(rubric.getFaculty().getId(), currentCourse.getFaculty().getId())) {
-                throw new IllegalArgumentException("Rubric does not belong to the course faculty");
-            }
-            assignment.setRubric(rubric);
-        }
-        if (request.getMainGroupId() != null) {
-            MainGroup mainGroup = mainGroupRepository.findById(request.getMainGroupId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Main group not found with id: " + request.getMainGroupId()));
-            if (!Objects.equals(mainGroup.getCourse().getId(), currentCourse.getId())) {
-                throw new IllegalArgumentException("Main group does not belong to the assignment's course");
-            }
-            assignment.setMainGroup(mainGroup);
         }
 
         validateTimeline(assignment.getAvailableFrom(), assignment.getDueDate(), assignment.getLateDueDate());
@@ -233,6 +244,9 @@ public class AssignmentService {
      * If both are absent (keepFileIds null and no new files), existing starter files are unchanged.
      */
     private void handleStarterFilesUpdate(Assignment saved, AssignmentRequest request, List<MultipartFile> newFiles) {
+        if (saved.getSourceAssignment() != null && Boolean.TRUE.equals(saved.getInheritSyncEnabled())) {
+            return;
+        }
         if (request.getKeepFileIds() == null && (newFiles == null || newFiles.isEmpty())) {
             return;
         }
