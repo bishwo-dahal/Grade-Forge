@@ -56,6 +56,12 @@ function FacultyMainView({
   );
 }
 
+/** Readable on busy covers: solid fill + light shadow; hairline border only (avoid heavy white rim). */
+const DASHBOARD_COVER_CODE_PILL =
+  "rounded-md border border-white/30 bg-gray-950/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-[0_1px_6px_rgba(0,0,0,0.42)] backdrop-blur-[2px]";
+const DASHBOARD_COVER_MAIN_PILL =
+  "rounded-md border border-white/30 bg-[#1e3a5f]/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-[0_1px_6px_rgba(0,0,0,0.42)] backdrop-blur-[2px]";
+
 function TeachingCourses({
   courses,
   isLoading = false,
@@ -114,10 +120,13 @@ function TeachingCourses({
               coverImageUrl={course.coverImageUrl}
               className="min-h-[220px] border-0 shadow-none"
               imageOverlay={
-                <div className="flex h-full min-h-[72px] items-start justify-end p-2">
-                  <span className="rounded-md bg-black/35 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white ring-1 ring-white/30">
-                    {course.code}
-                  </span>
+                <div className="flex h-full min-h-[72px] flex-col items-end gap-1.5 p-2">
+                  {(course.linkedSectionCount ?? 0) > 0 ? (
+                    <span className={DASHBOARD_COVER_MAIN_PILL} title="Main course with linked sections">
+                      Main · {course.linkedSectionCount}
+                    </span>
+                  ) : null}
+                  <span className={DASHBOARD_COVER_CODE_PILL}>{course.code}</span>
                 </div>
               }
             >

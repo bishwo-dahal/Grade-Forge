@@ -151,7 +151,8 @@ export function FacultyClassPage() {
     getFacultyClassHeaderById(resolvedId)
       .then(setClassHeader)
       .catch(() => setClassHeader(null));
-  }, [classId]);
+    // Refetch when switching sections so counts (e.g. linked sections) stay fresh after Settings changes.
+  }, [classId, activeSection]);
 
   const courseFullName =
     classHeader?.code && classHeader?.name
@@ -338,13 +339,23 @@ export function FacultyClassPage() {
         <header className="bg-white border-b border-gray-200 px-8 py-6">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex flex-wrap items-center gap-3 mb-2">
                 <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
                   {classData.code}: {classData.name}
                 </h1>
                 <span className="px-3 py-1 bg-[#5A7ACD] text-white text-[11px] font-semibold rounded uppercase">
                   {classData.role}
                 </span>
+                {(classHeader?.linkedSectionCount ?? 0) > 0 && !classHeader?.parentCourseId ? (
+                  <Link
+                    to={`/faculty/class/${resolvedClassId}/settings`}
+                    className="rounded-full border border-[#5A7ACD]/45 bg-[#EEF2FA] px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#345079] hover:bg-[#E2E9F7]"
+                    title="Manage linked section courses"
+                  >
+                    Main · {classHeader?.linkedSectionCount} section
+                    {(classHeader?.linkedSectionCount ?? 0) === 1 ? "" : "s"}
+                  </Link>
+                ) : null}
               </div>
               <div className="flex items-center gap-4 text-[13px] text-gray-600">
                 <span>{classData.semester}</span>

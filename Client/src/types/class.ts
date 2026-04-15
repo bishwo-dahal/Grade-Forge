@@ -17,6 +17,8 @@ export interface ClassHeader {
     courseCode: string;
     section: string | null;
   } | null;
+  /** When this course is a main (non-section) row, how many section courses are linked under it. */
+  linkedSectionCount?: number;
 }
 
 export interface ClassOverviewItem {
@@ -55,6 +57,8 @@ export interface FacultyCourseCard {
   icon: string;
   iconBg: string;
   coverImageUrl?: string | null;
+  /** Main course with at least one linked section course (>0). */
+  linkedSectionCount?: number;
 }
 
 // NOTE: UI-driven model for Faculty My Classes workspace cards; keep fields aligned to what the page renders.
@@ -66,6 +70,8 @@ export interface FacultyMyClassItem {
   semester: string;
   /** True when this course row is linked as a section under a main course. */
   isLinkedSection?: boolean;
+  /** Number of section courses under this main row; 0 or omitted when this row is itself a section. */
+  linkedSectionCount?: number;
   isActive: boolean;
   students: number;
   assignments: number;

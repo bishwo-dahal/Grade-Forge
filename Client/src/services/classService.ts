@@ -974,6 +974,7 @@ async function getFacultyCourseMetrics(courseId: number): Promise<{
 
 function mapFacultyCourseToCard(course: CourseApiResponse, metrics: Awaited<ReturnType<typeof getFacultyCourseMetrics>>): FacultyCourseCard {
   const iconData = buildCourseIcon(course.courseCode || course.name);
+  const sectionChildren = !course.parentCourseId ? (course.sectionCourses?.length ?? 0) : 0;
   return {
     id: String(course.id),
     title: course.name,
@@ -985,6 +986,7 @@ function mapFacultyCourseToCard(course: CourseApiResponse, metrics: Awaited<Retu
     icon: iconData.icon,
     iconBg: iconData.iconBg,
     coverImageUrl: getCourseCoverImageUrl(course),
+    ...(sectionChildren > 0 ? { linkedSectionCount: sectionChildren } : {}),
   };
 }
 
@@ -998,6 +1000,7 @@ function mapFacultyCourseToWorkspaceItem(
     course.semester?.name ??
     (typeof course.semesterId === "number" ? semesterNameById.get(course.semesterId) : undefined) ??
     "TBD";
+  const sectionChildren = !course.parentCourseId ? (course.sectionCourses?.length ?? 0) : 0;
   return {
     id: String(course.id),
     title: course.name,
@@ -1005,6 +1008,7 @@ function mapFacultyCourseToWorkspaceItem(
     section: course.section ?? "TBD",
     semester: resolvedSemesterName,
     isLinkedSection: Boolean(course.parentCourseId),
+    ...(sectionChildren > 0 ? { linkedSectionCount: sectionChildren } : {}),
     isActive: Boolean(course.active),
     // NOTE: Faculty My Classes cards now show backend-derived metrics; non-modeled fields keep explicit placeholders.
     students: metrics.students,
@@ -1306,6 +1310,7 @@ export async function getClassHeaderById(classId: string): Promise<ClassHeader> 
 export async function getFacultyClassHeaderById(classId: string): Promise<ClassHeader> {
   const courseId = toCourseId(classId);
   const course = await getFacultyCourseById(courseId);
+  const sectionChildren = !course.parentCourseId ? (course.sectionCourses?.length ?? 0) : 0;
   return {
     id: String(course.id),
     code: course.courseCode,
@@ -1316,6 +1321,7 @@ export async function getFacultyClassHeaderById(classId: string): Promise<ClassH
     role: "Instructor",
     parentCourseId: course.parentCourseId ?? null,
     parentCourse: course.parentCourse ?? null,
+    ...(sectionChildren > 0 ? { linkedSectionCount: sectionChildren } : {}),
   };
 }
 
