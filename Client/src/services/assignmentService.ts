@@ -1092,3 +1092,9 @@ export async function updateFacultyAssignmentDraft(
   const { data } = await api.put<AssignmentApiResponse>(`/api/v1/faculty/assignments/${parsedAssignmentId}`, formData);
   return { assignmentId: String(data.id), assignment: data };
 }
+
+export async function publishFacultyAssignmentToCanvas(courseId: string, assignmentId: string): Promise<void> {
+  const parsedCourseId = parseClassId(courseId || defaultCreateAssignmentHeader.classId);
+  const parsedAssignmentId = parseAssignmentId(assignmentId);
+  await api.post(`/api/v1/faculty/canvas/${parsedCourseId}/${parsedAssignmentId}/publish`);
+}

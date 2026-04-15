@@ -6,6 +6,7 @@ import {
   createFacultyAssignmentDraft,
   getFacultyAssignmentEditPageData,
   getFacultyAssignmentCreatePageData,
+  publishFacultyAssignmentToCanvas,
   updateFacultyAssignmentDraft,
 } from "../../services/assignmentService";
 import { getRubric, getUnweightedRubricTotalPoints } from "../../services/rubricService";
@@ -47,7 +48,10 @@ interface FacultyCreateAssignmentViewProps {
   onCloseSuccessModal: () => void;
   onGoBackToClass: () => void;
   onSubmit: () => void;
+  onPublishToCanvas: () => void;
   mode: "create" | "edit";
+  canPublishToCanvas: boolean;
+  isPublishingToCanvas: boolean;
 }
 
 interface TestCaseRow {
@@ -87,8 +91,11 @@ function FacultyCreateAssignmentView({
   onCloseSuccessModal,
   onGoBackToClass,
   onSubmit,
+  onPublishToCanvas,
   testCasesAdded = false,
   mode,
+  canPublishToCanvas,
+  isPublishingToCanvas,
 }: FacultyCreateAssignmentViewProps) {
   const courseCode = pageData?.header.courseCode ?? "CS 2400";
 
@@ -569,6 +576,16 @@ function FacultyCreateAssignmentView({
               )}
 
               <div className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 pt-5">
+                {mode === "edit" ? (
+                  <button
+                    type="button"
+                    onClick={onPublishToCanvas}
+                    disabled={!canPublishToCanvas || isPublishingToCanvas || isSaving}
+                    className="rounded-xl border border-[#5A7ACD] bg-white px-5 py-2.5 text-[14px] font-medium text-[#3E5FAF] transition-colors hover:bg-[#F3F6FB] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isPublishingToCanvas ? "Publishing..." : "Publish to Canvas"}
+                  </button>
+                ) : null}
                 <Link
                   to={`/faculty/class/${classId}`}
                   className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50"
@@ -658,6 +675,7 @@ export function FacultyCreateAssignmentPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [testCasesAdded, setTestCasesAdded] = useState(false);
   const [totalPointsLockedByRubric, setTotalPointsLockedByRubric] = useState(false);
+  const [isPublishingToCanvas, setIsPublishingToCanvas] = useState(false);
   /** Snapshot of server starter files when edit page loaded (for dirty detection). */
   const [initialStarterSnapshot, setInitialStarterSnapshot] = useState<AssignmentExistingStarterFile[]>([]);
   /** Edit mode: starter files still included on save; user can remove before save. */
@@ -859,6 +877,23 @@ export function FacultyCreateAssignmentPage() {
     }
   };
 
+  const handlePublishToCanvas = async () => {
+    if (mode !== "edit" || !assignmentId) {
+      toast.error("Save the assignment first before publishing to Canvas.");
+      return;
+    }
+
+    setIsPublishingToCanvas(true);
+    try {
+      await publishFacultyAssignmentToCanvas(resolvedClassId, assignmentId);
+      toast.success("Assignment published to Canvas.");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Unable to publish assignment to Canvas right now. Please try again."));
+    } finally {
+      setIsPublishingToCanvas(false);
+    }
+  };
+
   const goToSettingsSection = (section: SettingsSection) => {
     navigate(`/settings?section=${section}`);
   };
@@ -940,7 +975,10 @@ export function FacultyCreateAssignmentPage() {
           onCloseSuccessModal={handleCloseSuccessModal}
           onGoBackToClass={handleGoBackToClass}
           onSubmit={handleSubmit}
+          onPublishToCanvas={handlePublishToCanvas}
           mode={mode}
+          canPublishToCanvas={Boolean(assignmentId)}
+          isPublishingToCanvas={isPublishingToCanvas}
         />
       }
     />

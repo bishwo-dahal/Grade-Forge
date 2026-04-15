@@ -61,6 +61,7 @@ import {
   deleteFacultyAssignment,
   getCourseCoverImageUrl,
 } from "../../services/classService";
+import { publishFacultyAssignmentToCanvas } from "../../services/assignmentService";
 
 import type { CourseApiResponse } from "../../services/classService";
 import { createFacultyMainGroup, listFacultyCourseGroups } from "../../services/courseGroupService";
@@ -547,6 +548,7 @@ function AssignmentsSection() {
   const [openAssignmentActionsId, setOpenAssignmentActionsId] = useState<string | null>(null);
   const [assignmentDeleteTarget, setAssignmentDeleteTarget] = useState<FacultyAssignment | null>(null);
   const [isDeletingAssignment, setIsDeletingAssignment] = useState(false);
+  const [publishingAssignmentId, setPublishingAssignmentId] = useState<string | null>(null);
 
   const loadAssignments = useCallback(async () => {
     // FIX: Centralize assignment reload so header/footer actions reuse the same backend-driven refresh path.
@@ -581,6 +583,20 @@ function AssignmentsSection() {
       toast.error(getErrorMessage(error));
     } finally {
       setIsDeletingAssignment(false);
+    }
+  }
+
+  async function handlePublishAssignment(assignment: FacultyAssignment) {
+    setOpenAssignmentActionsId(null);
+    setPublishingAssignmentId(assignment.id);
+    try {
+      await publishFacultyAssignmentToCanvas(resolvedClassId, assignment.id);
+      toast.success("Assignment published to Canvas.");
+      await loadAssignments();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Unable to publish assignment to Canvas right now. Please try again."));
+    } finally {
+      setPublishingAssignmentId(null);
     }
   }
 
@@ -755,6 +771,16 @@ function AssignmentsSection() {
                           >
                             <Edit className="h-4 w-4" strokeWidth={2} />
                           </Link>
+                          <button
+                            type="button"
+                            onClick={() => void handlePublishAssignment(assignment)}
+                            disabled={publishingAssignmentId === assignment.id}
+                            aria-label="Publish assignment to Canvas"
+                            title="Publish assignment to Canvas"
+                            className="flex w-full items-center justify-center border-t border-gray-200 px-1 py-2 text-[#3E5FAF] hover:bg-[#F3F6FB] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <Send className="h-4 w-4" strokeWidth={2} />
+                          </button>
                           <button
                             type="button"
                             onClick={() => {
