@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import JSZip from "jszip";
 import {
   ChevronLeft,
   Download,
@@ -177,6 +178,7 @@ export function AssignmentDetailPage({
     "idle" | "requesting" | "running" | "completed" | "failed"
   >("idle");
   const [plagRunMessage, setPlagRunMessage] = useState<string | null>(null);
+  const [downloadAllInProgress, setDownloadAllInProgress] = useState(false);
 
   useEffect(() => {
     if (!assignment?.id) {
@@ -249,6 +251,57 @@ export function AssignmentDetailPage({
     () => submissions.some((row) => Boolean(row.subGroupName && row.subGroupName.trim())),
     [submissions],
   );
+
+  const handleDownloadAllSubmissionsZip = useCallback(async () => {
+    if (downloadAllInProgress) {
+      return;
+    }
+    const rowsWithFiles = submissions.filter((row) => {
+      const files = row.files ?? (row.primaryDownloadUrl ? [{ fileName: row.primaryFileName ?? "file", downloadUrl: row.primaryDownloadUrl }] : []);
+      return files.some((f) => Boolean(f.downloadUrl));
+    });
+    if (rowsWithFiles.length === 0) {
+      return;
+    }
+    setDownloadAllInProgress(true);
+    try {
+      const zip = new JSZip();
+      for (const row of rowsWithFiles) {
+        const studentFolderNameBase = (row.studentName || "student").replace(/[\\/:*?"<>|]/g, "_").trim() || "student";
+        const studentIdSuffix = row.studentId ? `_${row.studentId}` : "";
+        const folder = zip.folder(`${studentFolderNameBase}${studentIdSuffix}`) ?? zip;
+
+        const files =
+          row.files ??
+          (row.primaryDownloadUrl
+            ? [{ fileName: row.primaryFileName ?? "file", downloadUrl: row.primaryDownloadUrl }]
+            : []);
+
+        for (const file of files) {
+          if (!file.downloadUrl) continue;
+          try {
+            const response = await fetch(file.downloadUrl);
+            if (!response.ok) continue;
+            const blob = await response.blob();
+            const safeName = (file.fileName || "file").replace(/[\\/:*?"<>|]/g, "_");
+            folder.file(safeName, blob);
+          } catch {
+            // Ignore individual file failures; continue building zip.
+          }
+        }
+      }
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      const safeAssignmentTitle = (assignment?.title || "submissions").replace(/[\\/:*?"<>|]/g, "_");
+      a.href = url;
+      a.download = `${safeAssignmentTitle}-submissions.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloadAllInProgress(false);
+    }
+  }, [assignment?.title, downloadAllInProgress, submissions]);
   if (loading) {
     return (
       <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
@@ -552,16 +605,28 @@ export function AssignmentDetailPage({
             <div className="flex items-center gap-2">
               <Inbox className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
               <div>
-                <h2 className="text-[16px] font-semibold text-[#2B2A2A]">Submissions</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-[16px] font-semibold text-[#2B2A2A]">Submissions</h2>
+                  {submissionsCountLabel ? (
+                    <span className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-[12px] font-medium text-[#2B2A2A]">
+                      {submissionsCountLabel}
+                    </span>
+                  ) : null}
+                </div>
                 <p className="text-[13px] text-gray-600">{submissionsSectionSubtitle}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {submissionsCountLabel ? (
-                <span className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-medium text-[#2B2A2A]">
-                  {submissionsCountLabel}
-                </span>
-              ) : null}
+              <button
+                type="button"
+                disabled={downloadAllInProgress || submissions.length === 0}
+                onClick={() => void handleDownloadAllSubmissionsZip()}
+                className="flex items-center justify-center h-8 w-8 bg-white border border-gray-300 rounded-lg text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
+                title={downloadAllInProgress ? "Zipping…" : "Download all"}
+                aria-label={downloadAllInProgress ? "Zipping…" : "Download all"}
+              >
+                <Download className={`w-4 h-4 ${downloadAllInProgress ? "opacity-60" : ""}`} strokeWidth={2} />
+              </button>
               {speedGradingLink ? (
                 <Link
                   to={speedGradingLink.to}
