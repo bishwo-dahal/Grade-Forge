@@ -59,6 +59,7 @@ import {
   toggleFacultyCourseActive,
   updateFacultyCourse,
   deleteFacultyAssignment,
+  detachFacultyAssignmentInherit,
   getCourseCoverImageUrl,
 } from "../../services/classService";
 
@@ -308,6 +309,26 @@ export function FacultyClassPage() {
           onLogout={handleLogout}
         />
 
+        {classHeader?.parentCourseId != null && classHeader.parentCourse ? (
+          <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-8 py-3">
+            <p className="text-[13px] text-amber-950">
+              This is a <strong>section course</strong> linked to{" "}
+              <strong>
+                {classHeader.parentCourse.courseCode}: {classHeader.parentCourse.name}
+              </strong>
+              . Create or edit <strong>assignments and tests</strong> on the main course to update all linked sections.
+            </p>
+            <div className="mt-2">
+              <Link
+                to={`/faculty/class/${classHeader.parentCourse.id}/assignments`}
+                className="inline-flex items-center rounded-lg bg-[#2B2A2A] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#3a3939]"
+              >
+                Open main course
+              </Link>
+            </div>
+          </div>
+        ) : null}
+
         {/* Top Header */}
         <header className="bg-white border-b border-gray-200 px-8 py-6">
           <div className="flex items-start justify-between gap-3">
@@ -544,9 +565,27 @@ function AssignmentsSection() {
   // NOTE: Assignments now load from backend-driven class service mapping.
   const [assignments, setAssignments] = useState<FacultyAssignment[]>([]);
   const [isAssignmentsLoading, setIsAssignmentsLoading] = useState(true);
+  const [isSectionCourse, setIsSectionCourse] = useState(false);
   const [openAssignmentActionsId, setOpenAssignmentActionsId] = useState<string | null>(null);
   const [assignmentDeleteTarget, setAssignmentDeleteTarget] = useState<FacultyAssignment | null>(null);
   const [isDeletingAssignment, setIsDeletingAssignment] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const detail = await getFacultyCourseDetailsById(resolvedClassId);
+        if (!cancelled) {
+          setIsSectionCourse(Boolean(detail.parentCourseId));
+        }
+      } catch {
+        if (!cancelled) setIsSectionCourse(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedClassId]);
 
   const loadAssignments = useCallback(async () => {
     // FIX: Centralize assignment reload so header/footer actions reuse the same backend-driven refresh path.
@@ -590,7 +629,9 @@ function AssignmentsSection() {
         <div>
           <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Assignments</h2>
           <p className="text-[13px] text-gray-600">
-            Create, publish, and manage course assignments
+            {isSectionCourse
+              ? "Assignments here are synced from your main course. Use the banner above to open the main course to edit."
+              : "Create, publish, and manage course assignments"}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -608,14 +649,16 @@ function AssignmentsSection() {
             <RefreshCcw className={`w-4 h-4 ${isAssignmentsLoading ? "animate-spin" : ""}`} strokeWidth={2} />
             <span>{isAssignmentsLoading ? "Refreshing..." : "Refresh"}</span>
           </button>
-          <Link
-            to={`/faculty/class/${resolvedClassId}/assignments/create`}
-            // NOTE: Assignment creation now uses a standalone page route so faculty can manage the full form flow.
-            className="flex items-center gap-2 px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
-          >
-            <Plus className="w-4 h-4" strokeWidth={2} />
-            <span>Create Assignment</span>
-          </Link>
+          {!isSectionCourse ? (
+            <Link
+              to={`/faculty/class/${resolvedClassId}/assignments/create`}
+              // NOTE: Assignment creation now uses a standalone page route so faculty can manage the full form flow.
+              className="flex items-center gap-2 px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
+            >
+              <Plus className="w-4 h-4" strokeWidth={2} />
+              <span>Create Assignment</span>
+            </Link>
+          ) : null}
         </div>
       </div>
 
@@ -691,12 +734,19 @@ function AssignmentsSection() {
                   className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === assignments.length - 1 ? 'border-b-0' : ''}`}
                 >
                   <td className="px-6 py-4 text-center">
-                    <Link
-                      to={`/faculty/class/${resolvedClassId}/assignment/${assignment.id}`}
-                      className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
-                    >
-                      {assignment.name}
-                    </Link>
+                    <div className="flex flex-col items-center gap-1">
+                      <Link
+                        to={`/faculty/class/${resolvedClassId}/assignment/${assignment.id}`}
+                        className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
+                      >
+                        {assignment.name}
+                      </Link>
+                      {assignment.inheritedFromMain ? (
+                        <span className="rounded-full border border-amber-300/60 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+                          From main course
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-center">
                     <span className="inline-flex items-center text-[12px] font-medium text-gray-700">
@@ -743,18 +793,43 @@ function AssignmentsSection() {
                       </button>
                       {openAssignmentActionsId === assignment.id ? (
                         <div
-                          className="absolute right-0 top-9 z-20 w-12 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                          className="absolute right-0 top-9 z-20 min-w-[11rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
                           onClick={(event) => event.stopPropagation()}
                         >
                           <Link
                             to={`/faculty/class/${resolvedClassId}/assignments/${assignment.id}/edit`}
                             onClick={() => setOpenAssignmentActionsId(null)}
                             aria-label="Edit assignment"
-                            title="Edit assignment"
-                            className="flex w-full items-center justify-center px-1 py-2 text-[#2B2A2A] hover:bg-gray-50"
+                            title={
+                              assignment.inheritedFromMain
+                                ? "Synced copies are edited on the main course"
+                                : "Edit assignment"
+                            }
+                            className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50 ${
+                              assignment.inheritedFromMain ? "pointer-events-none opacity-40" : ""
+                            }`}
                           >
-                            <Edit className="h-4 w-4" strokeWidth={2} />
+                            <Edit className="h-4 w-4 shrink-0" strokeWidth={2} />
+                            Edit
                           </Link>
+                          {assignment.inheritedFromMain ? (
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 border-t border-gray-200 px-3 py-2 text-left text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50"
+                              onClick={async () => {
+                                setOpenAssignmentActionsId(null);
+                                try {
+                                  await detachFacultyAssignmentInherit(assignment.id);
+                                  toast.success("This assignment is no longer synced from the main course.");
+                                  await loadAssignments();
+                                } catch (error) {
+                                  toast.error(getErrorMessage(error));
+                                }
+                              }}
+                            >
+                              Detach from main
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             onClick={() => {
@@ -763,9 +838,13 @@ function AssignmentsSection() {
                             }}
                             aria-label="Delete assignment"
                             title="Delete assignment"
-                            className="flex w-full items-center justify-center border-t border-gray-200 px-1 py-2 text-[#C23A42] hover:bg-[#FFF5F5]"
+                            disabled={assignment.inheritedFromMain}
+                            className={`flex w-full items-center gap-2 border-t border-gray-200 px-3 py-2 text-left text-[12px] font-medium text-[#C23A42] hover:bg-[#FFF5F5] ${
+                              assignment.inheritedFromMain ? "cursor-not-allowed opacity-40" : ""
+                            }`}
                           >
-                            <Trash2 className="h-4 w-4" strokeWidth={2} />
+                            <Trash2 className="h-4 w-4 shrink-0" strokeWidth={2} />
+                            Delete
                           </button>
                         </div>
                       ) : null}

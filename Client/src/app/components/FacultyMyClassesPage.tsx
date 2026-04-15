@@ -162,9 +162,16 @@ function FacultyMyClassesView({
                     <article key={course.id}>
                       <CourseCoverCardShell compact coverImageUrl={course.coverImageUrl}>
                         <div className="flex flex-1 flex-col gap-1 p-2">
-                          <h2 className="line-clamp-2 text-[12px] font-semibold leading-snug text-[#1F2430]">
-                            {course.title}
-                          </h2>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <h2 className="line-clamp-2 text-[12px] font-semibold leading-snug text-[#1F2430]">
+                              {course.title}
+                            </h2>
+                            {course.isLinkedSection ? (
+                              <span className="shrink-0 rounded-full border border-amber-300/70 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-900">
+                                Section
+                              </span>
+                            ) : null}
+                          </div>
                           <p className="text-[11px] leading-tight text-[#3E4E67]">
                             {course.code} · Sec {course.section}
                           </p>
@@ -240,9 +247,16 @@ function FacultyMyClassesView({
               <article key={course.id}>
                 <CourseCoverCardShell compact coverImageUrl={course.coverImageUrl}>
                   <div className="flex flex-1 flex-col gap-1 p-2">
-                    <h2 className="line-clamp-2 text-[12px] font-semibold leading-snug text-[#1F2430]">
-                      {course.title}
-                    </h2>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <h2 className="line-clamp-2 text-[12px] font-semibold leading-snug text-[#1F2430]">
+                        {course.title}
+                      </h2>
+                      {course.isLinkedSection ? (
+                        <span className="shrink-0 rounded-full border border-amber-300/70 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-900">
+                          Section
+                        </span>
+                      ) : null}
+                    </div>
                     <p className="text-[11px] leading-tight text-[#3E4E67]">
                       {course.code} · Sec {course.section}
                     </p>
@@ -362,6 +376,7 @@ export function FacultyMyClassesPage() {
           code: course.courseCode,
           section: course.section ?? "TBD",
           semester: course.semester?.name ?? "TBD",
+          isLinkedSection: Boolean(course.parentCourseId),
           isActive: Boolean(course.active),
           students: 0,
           assignments: 0,

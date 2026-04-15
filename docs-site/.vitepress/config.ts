@@ -41,6 +41,7 @@ export default defineConfig({
           items: [
             { text: "Sign-in and account", link: "/manual/features/sign-in-and-account" },
             { text: "Courses and classes", link: "/manual/features/courses-and-classes" },
+            { text: "Parent and section courses", link: "/manual/features/parent-section-courses" },
             { text: "Assignments and editor", link: "/manual/features/assignments-and-editor" },
             { text: "Tests and submissions", link: "/manual/features/tests-and-submissions" },
             { text: "Grading and feedback", link: "/manual/features/grading-and-feedback" },
@@ -94,6 +95,7 @@ export default defineConfig({
           items: [
             { text: "Sign-in and account", link: "/manual/features/sign-in-and-account" },
             { text: "Courses and classes", link: "/manual/features/courses-and-classes" },
+            { text: "Parent and section courses", link: "/manual/features/parent-section-courses" },
             { text: "Assignments and editor", link: "/manual/features/assignments-and-editor" },
             { text: "Tests and submissions", link: "/manual/features/tests-and-submissions" },
             { text: "Grading and feedback", link: "/manual/features/grading-and-feedback" },

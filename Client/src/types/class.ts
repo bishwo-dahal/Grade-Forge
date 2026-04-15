@@ -9,6 +9,14 @@ export interface ClassHeader {
   instructor: string;
   instructorEmail?: string;
   role?: string;
+  /** When set, this class workspace is a linked section of a main course. */
+  parentCourseId?: number | null;
+  parentCourse?: {
+    id: number;
+    name: string;
+    courseCode: string;
+    section: string | null;
+  } | null;
 }
 
 export interface ClassOverviewItem {
@@ -56,6 +64,8 @@ export interface FacultyMyClassItem {
   code: string;
   section: string;
   semester: string;
+  /** True when this course row is linked as a section under a main course. */
+  isLinkedSection?: boolean;
   isActive: boolean;
   students: number;
   assignments: number;
@@ -161,6 +171,8 @@ export interface FacultyAssignment {
   submissions: number;
   totalStudents: number;
   status: "published" | "closed" | "draft";
+  /** Synced copy from the main course (still receiving updates when true). */
+  inheritedFromMain?: boolean;
 }
 
 export interface ClassAnnouncement {
