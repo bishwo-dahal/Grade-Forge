@@ -22,12 +22,14 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -82,6 +84,39 @@ public class FileStorageService {
         return files.stream()
                 .map(file -> uploadStarterFile(assignment, file))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Deep-copies starter files in S3 for a new assignment (new keys under {@code target}'s id).
+     */
+    public List<AssignmentStarterFile> copyStarterFilesToAssignment(Assignment target,
+                                                                      List<AssignmentStarterFile> sourceFiles) {
+        if (sourceFiles == null || sourceFiles.isEmpty()) {
+            return List.of();
+        }
+        List<AssignmentStarterFile> created = new ArrayList<>();
+        for (AssignmentStarterFile src : sourceFiles) {
+            if (src.getFileKey() == null || src.getFileKey().isBlank()) {
+                continue;
+            }
+            String newKey = String.format("uploads/assignment/startercodefiles/%d/%s-%s",
+                    target.getId(), UUID.randomUUID(), src.getFileName());
+            CopyObjectRequest copy = CopyObjectRequest.builder()
+                    .sourceBucket(bucketName)
+                    .sourceKey(src.getFileKey())
+                    .destinationBucket(bucketName)
+                    .destinationKey(newKey)
+                    .build();
+            getClient().copyObject(copy);
+            AssignmentStarterFile nf = new AssignmentStarterFile();
+            nf.setAssignment(target);
+            nf.setFileName(src.getFileName());
+            nf.setFileKey(newKey);
+            nf.setFileType(src.getFileType());
+            nf.setFileSize(src.getFileSize());
+            created.add(nf);
+        }
+        return created;
     }
 
     private SubmissionFile uploadSingleFile(Submission submission,

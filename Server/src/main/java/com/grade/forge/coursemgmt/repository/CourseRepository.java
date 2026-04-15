@@ -10,19 +10,23 @@ import java.util.Optional;
 
 @Repository
 public interface CourseRepository extends JpaRepository<Course, Long> {
-    @EntityGraph(attributePaths = "courseImage")
+    @EntityGraph(attributePaths = {"courseImage", "parentCourse"})
     List<Course> findAll();
 
-    @EntityGraph(attributePaths = "courseImage")
+    @EntityGraph(attributePaths = {"courseImage", "parentCourse"})
     List<Course> findByFaculty_Id(Long facultyId);
 
-    @EntityGraph(attributePaths = "courseImage")
+    @EntityGraph(attributePaths = {"courseImage", "parentCourse"})
     List<Course> findByFaculty_IdAndSemester_Id(Long facultyId, Long semesterId);
 
     Optional<Course> findByCourseCodeIgnoreCase(String courseCode);
 
     List<Course> findByNameContainingIgnoreCaseOrCourseCodeContainingIgnoreCase(String nameKeyword, String codeKeyword);
 
-    @EntityGraph(attributePaths = "courseImage")
+    @EntityGraph(attributePaths = {"courseImage", "parentCourse"})
     Optional<Course> findWithCourseImageById(Long id);
+
+    List<Course> findByParentCourse_Id(Long parentCourseId);
+
+    boolean existsByParentCourse_Id(Long parentCourseId);
 }

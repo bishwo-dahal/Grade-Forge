@@ -22,4 +22,8 @@ public class AssignmentBasicResponse {
     private LocalDateTime lateDueDate;
     private String languageName;
 
+    private Long sourceAssignmentId;
+    private Boolean inheritSyncEnabled;
+    private LocalDateTime lastInheritedAt;
+
 }

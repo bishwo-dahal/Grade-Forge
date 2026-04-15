@@ -57,6 +57,14 @@ public class Course {
     @JoinColumn(name = "faculty_id", nullable = false)
     private Faculty faculty;
 
+    /** Main course when this row is a section; null for root / non-linked courses. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_course_id")
+    private Course parentCourse;
+
+    @OneToMany(mappedBy = "parentCourse", fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<Course> childCourses = new ArrayList<>();
 
 //    One Course will have many Assignments
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -65,6 +73,7 @@ public class Course {
 
 //    For Students, we will have a separate entity Enrollment that links a Student to a Course. This allows us to manage the many-to-many relationship between courses and students, as a course can have multiple students enrolled and a student can enroll in multiple courses.
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<Enrollment> enrollments = new ArrayList<>();
 
 

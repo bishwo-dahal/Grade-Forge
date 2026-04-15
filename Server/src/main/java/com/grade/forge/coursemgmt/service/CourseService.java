@@ -6,6 +6,8 @@ import com.grade.forge.assignment.service.AssignmentService;
 import com.grade.forge.coursemgmt.dto.CourseImageResponse;
 import com.grade.forge.coursemgmt.dto.CourseRequestDto;
 import com.grade.forge.coursemgmt.dto.CourseResponseDto;
+import com.grade.forge.coursemgmt.dto.LinkSectionCourseRequest;
+import com.grade.forge.coursemgmt.dto.SectionCourseCreateRequest;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.entity.CourseImage;
 import com.grade.forge.coursemgmt.repository.CourseImageRepository;
@@ -29,7 +31,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -50,6 +54,7 @@ public class CourseService {
     private final EnrollmentRepository enrollmentRepository;
     private final FileStorageService fileStorageService;
     private final CourseImageRepository courseImageRepository;
+    private final CourseSectionSyncService courseSectionSyncService;
 
     /**
 
@@ -176,6 +181,7 @@ public class CourseService {
         if (course.getFaculty() == null || course.getFaculty().getEmail() == null || !course.getFaculty().getEmail().equalsIgnoreCase(email)) {
             throw new IllegalArgumentException("You are not authorized to delete this course");
         }
+        unlinkChildCoursesForDeletedParent(course.getId());
         deleteAssignmentsForCourse(course.getId());
         courseRepository.delete(course);
     }
@@ -187,13 +193,22 @@ public class CourseService {
     public void deleteCourse(Long id) {
         Course course = courseRepository.findWithCourseImageById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+        unlinkChildCoursesForDeletedParent(course.getId());
         deleteAssignmentsForCourse(course.getId());
         courseRepository.delete(course);
     }
 
+    private void unlinkChildCoursesForDeletedParent(Long parentCourseId) {
+        List<Course> children = courseRepository.findByParentCourse_Id(parentCourseId);
+        for (Course child : children) {
+            child.setParentCourse(null);
+            courseRepository.save(child);
+        }
+    }
+
     private void deleteAssignmentsForCourse(Long courseId) {
         List<Assignment> assignments = assignmentRepository.findByCourse_Id(courseId);
-        assignments.forEach(a -> assignmentService.deleteAssignment(a.getId()));
+        assignments.forEach(a -> assignmentService.deleteAssignmentAsCourseCleanup(a.getId()));
     }
 
     /**
@@ -374,6 +389,98 @@ public class CourseService {
                 .collect(Collectors.toList());
     }
 
+    public List<CourseResponseDto> listSectionCoursesForParent(String facultyEmail, Long parentCourseId) {
+        Course parent = requireOwnedRootCourse(facultyEmail, parentCourseId);
+        return courseRepository.findByParentCourse_Id(parent.getId()).stream()
+                .map(this::mapToResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    public CourseResponseDto createSectionCourse(String facultyEmail, Long parentCourseId, SectionCourseCreateRequest request) {
+        Course parent = requireOwnedRootCourse(facultyEmail, parentCourseId);
+        if (request.getSection() == null || request.getSection().isBlank()) {
+            throw new IllegalArgumentException("section is required");
+        }
+        Course child = new Course();
+        child.setFaculty(parent.getFaculty());
+        child.setSemester(parent.getSemester());
+        child.setParentCourse(parent);
+        child.setName(request.getName() != null && !request.getName().isBlank() ? request.getName() : parent.getName());
+        child.setCourseCode(request.getCourseCode() != null && !request.getCourseCode().isBlank()
+                ? request.getCourseCode() : parent.getCourseCode());
+        child.setSection(request.getSection().trim());
+        child.setDescription(parent.getDescription());
+        child.setCanvasCourseId(parent.getCanvasCourseId());
+        child.setActive(parent.getActive() != null ? parent.getActive() : true);
+        child.setIsPublished(parent.getIsPublished() != null ? parent.getIsPublished() : false);
+        Course saved = courseRepository.save(child);
+        courseSectionSyncService.backfillParentAssignmentsToSectionCourse(parent, saved);
+        return mapToResponseDto(courseRepository.findWithCourseImageById(saved.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + saved.getId())));
+    }
+
+    public CourseResponseDto linkSectionCourse(String facultyEmail, Long parentCourseId, LinkSectionCourseRequest request) {
+        if (request.getChildCourseId() == null) {
+            throw new IllegalArgumentException("childCourseId is required");
+        }
+        Course parent = requireOwnedRootCourse(facultyEmail, parentCourseId);
+        Course child = courseRepository.findWithCourseImageById(request.getChildCourseId())
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + request.getChildCourseId()));
+        if (!Objects.equals(child.getFaculty().getId(), parent.getFaculty().getId())) {
+            throw new IllegalArgumentException("The section course must belong to the same faculty as the main course");
+        }
+        if (!Objects.equals(child.getFaculty().getEmail(), facultyEmail)) {
+            throw new IllegalArgumentException("You are not authorized to link this course");
+        }
+        if (child.getParentCourse() != null) {
+            throw new IllegalArgumentException("This course is already linked to a main course");
+        }
+        if (assignmentRepository.countByCourse_Id(child.getId()) > 0) {
+            throw new IllegalArgumentException(
+                    "Remove or delete all assignments from this course before linking it as a section.");
+        }
+        if (courseRepository.existsByParentCourse_Id(child.getId())) {
+            throw new IllegalArgumentException("This course is a main course for other sections; unlink those first.");
+        }
+        if (!Objects.equals(child.getSemester().getId(), parent.getSemester().getId())) {
+            throw new IllegalArgumentException("The section course must be in the same semester as the main course");
+        }
+        child.setParentCourse(parent);
+        courseRepository.save(child);
+        courseSectionSyncService.backfillParentAssignmentsToSectionCourse(parent, child);
+        return mapToResponseDto(courseRepository.findWithCourseImageById(child.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + child.getId())));
+    }
+
+    public CourseResponseDto unlinkSectionCourse(String facultyEmail, Long sectionCourseId) {
+        Course child = courseRepository.findWithCourseImageById(sectionCourseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + sectionCourseId));
+        if (child.getFaculty() == null || child.getFaculty().getEmail() == null
+                || !child.getFaculty().getEmail().equalsIgnoreCase(facultyEmail)) {
+            throw new IllegalArgumentException("You are not authorized to update this course");
+        }
+        if (child.getParentCourse() == null) {
+            throw new IllegalArgumentException("This course is not linked as a section");
+        }
+        child.setParentCourse(null);
+        courseRepository.save(child);
+        return mapToResponseDto(courseRepository.findWithCourseImageById(sectionCourseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + sectionCourseId)));
+    }
+
+    private Course requireOwnedRootCourse(String facultyEmail, Long parentCourseId) {
+        Course parent = courseRepository.findWithCourseImageById(parentCourseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + parentCourseId));
+        if (parent.getFaculty() == null || parent.getFaculty().getEmail() == null
+                || !parent.getFaculty().getEmail().equalsIgnoreCase(facultyEmail)) {
+            throw new IllegalArgumentException("You are not authorized to manage this course");
+        }
+        if (parent.getParentCourse() != null) {
+            throw new IllegalArgumentException("A section course cannot be used as a main course for other sections");
+        }
+        return parent;
+    }
+
     /**
      * Map Course entity to CourseResponseDto
      * @param course the course entity
@@ -404,6 +511,31 @@ public class CourseService {
              courseImageResponse = mapToImageResponse(image);
           }
 
+         Long parentCourseId = null;
+         CourseResponseDto.ParentCourseSummaryDto parentSummary = null;
+         if (course.getParentCourse() != null) {
+             Course parent = course.getParentCourse();
+             parentCourseId = parent.getId();
+             parentSummary = CourseResponseDto.ParentCourseSummaryDto.builder()
+                     .id(parent.getId())
+                     .name(parent.getName())
+                     .courseCode(parent.getCourseCode())
+                     .section(parent.getSection())
+                     .build();
+         }
+
+         List<CourseResponseDto.SectionCourseSummaryDto> sectionCourses = new ArrayList<>();
+         if (course.getParentCourse() == null) {
+             for (Course sec : courseRepository.findByParentCourse_Id(course.getId())) {
+                 sectionCourses.add(CourseResponseDto.SectionCourseSummaryDto.builder()
+                         .id(sec.getId())
+                         .name(sec.getName())
+                         .courseCode(sec.getCourseCode())
+                         .section(sec.getSection())
+                         .build());
+             }
+         }
+
          return CourseResponseDto.builder()
                  .id(course.getId())
                  .name(course.getName())
@@ -416,6 +548,9 @@ public class CourseService {
                  .isPublished(course.getIsPublished())
                  .semester(semesterDto)
                  .faculty(facultyDto)
+                 .parentCourseId(parentCourseId)
+                 .parentCourse(parentSummary)
+                 .sectionCourses(sectionCourses)
                  .build();
      }
 
