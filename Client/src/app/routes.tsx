@@ -48,6 +48,7 @@ const CoursePage = lazyNamed(() => import("./components/CoursePage"), "CoursePag
 const ClassPage = lazyNamed(() => import("./components/ClassPage"), "ClassPage");
 const FacultyClassPage = lazyNamed(() => import("./components/FacultyClassPage"), "FacultyClassPage");
 const FacultyGradingPage = lazyDefault(() => import("./components/FacultyGradingPage"));
+const NotFoundPage = lazyDefault(() => import("./components/NotFoundPage"));
 const SettingsPage = lazyNamed(() => import("./components/SettingsPage"), "SettingsPage");
 const UniversityAdminWorkspace = lazyNamed(
   () => import("./components/UniversityAdminWorkspace"),
@@ -492,5 +493,9 @@ export const router = createBrowserRouter([
   {
     path: "/signin",
     Component: SignInPage,
+  },
+  {
+    path: "*",
+    element: <NotFoundPage />,
   },
 ]);
