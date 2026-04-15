@@ -27,7 +27,8 @@ import {
   X,
   RefreshCcw,
   ChevronRight,
-  FileUp
+  FileUp,
+  Link2,
 } from "lucide-react";
 import type {
   ClassHeader,
@@ -61,6 +62,10 @@ import {
   deleteFacultyAssignment,
   detachFacultyAssignmentInherit,
   getCourseCoverImageUrl,
+  createSectionCourse,
+  linkSectionCourse,
+  unlinkSectionCourse,
+  listFacultyCoursesBySemester,
 } from "../../services/classService";
 
 import type { CourseApiResponse } from "../../services/classService";
@@ -3164,6 +3169,17 @@ function SettingsSection({ classId }: { classId: string }) {
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
 
+  const [newSectionLabel, setNewSectionLabel] = useState("");
+  const [newSectionName, setNewSectionName] = useState("");
+  const [newSectionCode, setNewSectionCode] = useState("");
+  const [creatingSection, setCreatingSection] = useState(false);
+  const [selectedLinkCourseId, setSelectedLinkCourseId] = useState("");
+  const [linkOptions, setLinkOptions] = useState<CourseApiResponse[]>([]);
+  const [loadingLinkOptions, setLoadingLinkOptions] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
+  const [isUnlinkConfirmOpen, setIsUnlinkConfirmOpen] = useState(false);
+  const [linkingSection, setLinkingSection] = useState(false);
+
   useEffect(() => {
     if (!coverImageFile) {
       setCoverPreviewUrl(null);
@@ -3224,6 +3240,98 @@ function SettingsSection({ classId }: { classId: string }) {
       isCancelled = true;
     };
   }, [classId]);
+
+  useEffect(() => {
+    if (!course || course.parentCourseId != null || course.semester?.id == null) {
+      setLinkOptions([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingLinkOptions(true);
+    listFacultyCoursesBySemester(course.semester.id)
+      .then((list) => {
+        if (cancelled) return;
+        const attachedIds = new Set((course.sectionCourses ?? []).map((s) => s.id));
+        setLinkOptions(
+          list.filter(
+            (c) => c.id !== course.id && !c.parentCourseId && !attachedIds.has(c.id),
+          ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setLinkOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingLinkOptions(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [course?.id, course?.parentCourseId, course?.semester?.id, course?.sectionCourses]);
+
+  async function refreshCourseDetail() {
+    const refreshed = await getFacultyCourseDetailsById(classId);
+    setCourse(refreshed);
+    return refreshed;
+  }
+
+  async function handleCreateSection() {
+    const label = newSectionLabel.trim();
+    if (!label) {
+      toast.error("Section label is required (for example A or 02).");
+      return;
+    }
+    setCreatingSection(true);
+    try {
+      await createSectionCourse(classId, {
+        section: label,
+        name: newSectionName.trim() || undefined,
+        courseCode: newSectionCode.trim() || undefined,
+      });
+      toast.success("Section course created.");
+      setNewSectionLabel("");
+      setNewSectionName("");
+      setNewSectionCode("");
+      await refreshCourseDetail();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setCreatingSection(false);
+    }
+  }
+
+  async function handleLinkExistingSection() {
+    const childId = Number(selectedLinkCourseId);
+    if (!Number.isFinite(childId) || childId <= 0) {
+      toast.error("Select a course to link.");
+      return;
+    }
+    setLinkingSection(true);
+    try {
+      await linkSectionCourse(classId, childId);
+      toast.success("Course linked as a section.");
+      setSelectedLinkCourseId("");
+      await refreshCourseDetail();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setLinkingSection(false);
+    }
+  }
+
+  async function handleUnlinkFromMain() {
+    setUnlinking(true);
+    try {
+      await unlinkSectionCourse(classId);
+      toast.success("This course is no longer linked to a main course.");
+      setIsUnlinkConfirmOpen(false);
+      await refreshCourseDetail();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setUnlinking(false);
+    }
+  }
 
   async function handleSave() {
     setIsSaving(true);
@@ -3295,6 +3403,34 @@ function SettingsSection({ classId }: { classId: string }) {
       {error ? (
         <div className="mb-4 rounded-xl border border-[#F3CDD1] bg-[#FDEBEC] px-3 py-2 text-[13px] text-[#C23A42]">
           {error}
+        </div>
+      ) : null}
+
+      {!isLoading && course?.parentCourseId ? (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-950">
+          <p className="font-semibold text-amber-950">Section course</p>
+          <p className="mt-1 text-amber-900/90">
+            This class is linked to main course{" "}
+            {course.parentCourse ? (
+              <Link
+                to={`/faculty/class/${course.parentCourse.id}/settings`}
+                className="font-medium text-[#5A7ACD] underline-offset-2 hover:underline"
+              >
+                {course.parentCourse.courseCode}: {course.parentCourse.name}
+              </Link>
+            ) : (
+              `#${course.parentCourseId}`
+            )}
+            . Assignments and tests are authored there unless you detach.
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsUnlinkConfirmOpen(true)}
+            disabled={unlinking || isSaving || isDeleting}
+            className="mt-3 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-[12px] font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-60"
+          >
+            Unlink from main course
+          </button>
         </div>
       ) : null}
 
@@ -3467,6 +3603,148 @@ function SettingsSection({ classId }: { classId: string }) {
                 )}
               </div>
             </div>
+
+            {!course.parentCourseId ? (
+              <div className="mt-8 rounded-xl border border-gray-200 bg-gray-50/80 p-6">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Section courses</h3>
+                    <p className="mt-1 max-w-2xl text-[13px] text-gray-600">
+                      Add sections for this main course. New sections copy course metadata; assignments and tests sync from here.
+                      To link an existing course, it must have no assignments and the same semester.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div className="rounded-xl border border-gray-200 bg-white p-4">
+                    <p className="text-[13px] font-semibold text-[#2B2A2A]">Linked sections</p>
+                    {(course.sectionCourses?.length ?? 0) === 0 ? (
+                      <p className="mt-3 text-[13px] text-gray-600">No section courses yet.</p>
+                    ) : (
+                      <ul className="mt-3 space-y-2">
+                        {(course.sectionCourses ?? []).map((sec) => (
+                          <li key={sec.id}>
+                            <Link
+                              to={`/faculty/class/${sec.id}/settings`}
+                              className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-[13px] text-[#2B2A2A] transition-colors hover:border-[#5A7ACD]/40 hover:bg-[#FAFBFF]"
+                            >
+                              <span className="min-w-0 truncate font-medium">
+                                {sec.courseCode}: {sec.name}
+                                <span className="font-normal text-gray-500">
+                                  {sec.section ? ` · ${sec.section}` : ""}
+                                </span>
+                              </span>
+                              <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400" strokeWidth={2} aria-hidden />
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <p className="flex items-center gap-2 text-[13px] font-semibold text-[#2B2A2A]">
+                        <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
+                        Create new section
+                      </p>
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div className="sm:col-span-1">
+                          <label htmlFor="gf-new-section-label" className="mb-1 block text-[12px] font-medium text-gray-600">
+                            Section label <span className="text-[#C23A42]">*</span>
+                          </label>
+                          <input
+                            id="gf-new-section-label"
+                            value={newSectionLabel}
+                            onChange={(e) => setNewSectionLabel(e.target.value)}
+                            placeholder="e.g. A"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] outline-none ring-[#5A7ACD] focus:ring-2"
+                            disabled={creatingSection}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="gf-new-section-name" className="mb-1 block text-[12px] font-medium text-gray-600">
+                            Name (optional)
+                          </label>
+                          <input
+                            id="gf-new-section-name"
+                            value={newSectionName}
+                            onChange={(e) => setNewSectionName(e.target.value)}
+                            placeholder="Defaults to main name"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] outline-none ring-[#5A7ACD] focus:ring-2"
+                            disabled={creatingSection}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="gf-new-section-code" className="mb-1 block text-[12px] font-medium text-gray-600">
+                            Course code (optional)
+                          </label>
+                          <input
+                            id="gf-new-section-code"
+                            value={newSectionCode}
+                            onChange={(e) => setNewSectionCode(e.target.value)}
+                            placeholder="Defaults to main code"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] outline-none ring-[#5A7ACD] focus:ring-2"
+                            disabled={creatingSection}
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void handleCreateSection()}
+                        disabled={creatingSection || !newSectionLabel.trim()}
+                        className="mt-4 rounded-lg bg-[#5A7ACD] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#4a6abd] disabled:opacity-60"
+                      >
+                        {creatingSection ? "Creating…" : "Create section course"}
+                      </button>
+                    </div>
+
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <p className="flex items-center gap-2 text-[13px] font-semibold text-[#2B2A2A]">
+                        <Link2 className="h-4 w-4" strokeWidth={2} aria-hidden />
+                        Link existing course
+                      </p>
+                      <p className="mt-1 text-[12px] text-gray-600">
+                        Only courses with zero assignments in the same semester appear here.
+                      </p>
+                      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <div className="min-w-0 flex-1">
+                          <label htmlFor="gf-link-section-select" className="mb-1 block text-[12px] font-medium text-gray-600">
+                            Course
+                          </label>
+                          <select
+                            id="gf-link-section-select"
+                            value={selectedLinkCourseId}
+                            onChange={(e) => setSelectedLinkCourseId(e.target.value)}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] outline-none ring-[#5A7ACD] focus:ring-2"
+                            disabled={linkingSection || loadingLinkOptions}
+                          >
+                            <option value="">
+                              {loadingLinkOptions ? "Loading courses…" : "Select a course…"}
+                            </option>
+                            {linkOptions.map((c) => (
+                              <option key={c.id} value={String(c.id)}>
+                                {c.courseCode}: {c.name}
+                                {c.section ? ` (${c.section})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleLinkExistingSection()}
+                          disabled={linkingSection || !selectedLinkCourseId}
+                          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-[13px] font-semibold text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
+                        >
+                          {linkingSection ? "Linking…" : "Link as section"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </>
         )}
       </div>
@@ -3726,6 +4004,52 @@ function SettingsSection({ classId }: { classId: string }) {
                   className="rounded-xl bg-[#C23A42] px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-[#a92f36] disabled:opacity-60"
                 >
                   {isDeleting ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isUnlinkConfirmOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white shadow-xl">
+            <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-6 py-4">
+              <div className="pt-1">
+                <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Unlink from main course</h3>
+                <p className="mt-1 text-[13px] text-gray-600">
+                  This class stays as its own course with its current assignments. It will no longer receive updates from the main
+                  course.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => !unlinking && setIsUnlinkConfirmOpen(false)}
+                disabled={unlinking}
+                className="rounded-xl border border-gray-200 bg-white p-2 hover:bg-gray-50 disabled:opacity-60"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="px-6 py-5">
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => !unlinking && setIsUnlinkConfirmOpen(false)}
+                  disabled={unlinking}
+                  className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleUnlinkFromMain()}
+                  disabled={unlinking}
+                  className="rounded-xl bg-[#5A7ACD] px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-[#4a6abd] disabled:opacity-60"
+                >
+                  {unlinking ? "Unlinking…" : "Unlink"}
                 </button>
               </div>
             </div>
