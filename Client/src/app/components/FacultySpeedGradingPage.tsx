@@ -75,15 +75,15 @@ function findNextUngradedSubmissionId(
   return headMatch?.submissionId ?? null;
 }
 
-function seedRubricScores(fields: RubricScoreField[], totalMarks: number, assignmentTotal: number): number[] {
+function seedRubricScores(fields: RubricScoreField[], totalMarks: number, rubricTotal: number): number[] {
   if (fields.length === 0 || totalMarks <= 0) {
     return fields.map(() => 0);
   }
   const hasWeights = fields.some((f) => f.weight != null && f.weight > 0);
   if (hasWeights) {
-    // WEIGHTED: back-calculate each criterion score so the weighted sum equals totalMarks.
-    // score[i] = (totalMarks / assignmentTotal) * maxScore[i]
-    const fraction = assignmentTotal > 0 ? Math.min(1, totalMarks / assignmentTotal) : 0;
+    // WEIGHTED: back-calculate each criterion score so the weighted sum scales to the rubric total.
+    // score[i] = (totalMarks / rubricTotal) * maxScore[i]
+    const fraction = rubricTotal > 0 ? Math.min(1, totalMarks / rubricTotal) : 0;
     return fields.map((f) => Math.min(f.maxPoints, Math.floor(fraction * f.maxPoints)));
   }
   // UNWEIGHTED: distribute proportionally by maxPoints so sum(seeded) ≈ totalMarks.
@@ -183,7 +183,11 @@ export function FacultySpeedGradingPage() {
     );
   }, [rubricCategories]);
 
-  // WEIGHTED: score[i]/maxScore[i] × weight[i] × total → assignment points
+  const rubricTotalPoints = useMemo(() => {
+    return rubricScoreFields.reduce((sum, field) => sum + field.maxPoints, 0);
+  }, [rubricScoreFields]);
+
+  // WEIGHTED: score[i]/maxScore[i] × weight[i] × rubric total → rubric points
   // UNWEIGHTED: direct sum of scores (already in assignment point units)
   const computedRubricMarks = useMemo(() => {
     if (rubricScoreFields.length === 0 || !assignment) return 0;
@@ -193,14 +197,14 @@ export function FacultySpeedGradingPage() {
         rubricScoreFields.reduce((sum, field, i) => {
           const score = rubricScores[i] ?? 0;
           if (field.maxPoints > 0 && field.weight != null) {
-            return sum + (score / field.maxPoints) * field.weight * assignment.points.total;
+            return sum + (score / field.maxPoints) * field.weight * rubricTotalPoints;
           }
           return sum;
         }, 0),
       );
     }
     return rubricScores.reduce((sum, score) => sum + score, 0);
-  }, [rubricScores, rubricScoreFields, assignment]);
+  }, [rubricScores, rubricScoreFields, rubricTotalPoints]);
 
   const selectedSubmission = useMemo(
     () => allSubmissionRows.find((row) => row.submissionId === selectedSubmissionId) ?? null,
@@ -297,7 +301,7 @@ export function FacultySpeedGradingPage() {
     if (rubricScoreFields.length > 0) {
       setRubricScores(
         marks != null && marks > 0
-          ? seedRubricScores(rubricScoreFields, Math.round(marks), assignment?.points.total ?? 0)
+          ? seedRubricScores(rubricScoreFields, Math.round(marks), rubricTotalPoints)
           : rubricScoreFields.map(() => 0),
       );
       setDirectMarksInput("");
@@ -308,7 +312,7 @@ export function FacultySpeedGradingPage() {
     setFeedbackInput("");
     setGradeError(null);
     setGradeStatusMessage(null);
-  }, [selectedSubmission, rubricScoreFields, assignment?.points.total]);
+  }, [selectedSubmission, rubricScoreFields, rubricTotalPoints]);
 
   useEffect(() => {
     if (!selectedSubmissionId) {
@@ -416,7 +420,7 @@ export function FacultySpeedGradingPage() {
     }
 
     const marks = rubricScoreFields.length > 0 ? computedRubricMarks : directMarks;
-    const maxMarks = assignment.points.total;
+    const maxMarks = rubricScoreFields.length > 0 ? rubricTotalPoints : assignment.points.total;
 
     if (!Number.isFinite(marks) || marks < 0) {
       setGradeError("Enter a valid grade (0 or higher).");
@@ -478,6 +482,7 @@ export function FacultySpeedGradingPage() {
     computedRubricMarks,
     directMarks,
     feedbackInput,
+    rubricTotalPoints,
     rubricScoreFields.length,
     selectedSubmission,
   ]);
@@ -751,7 +756,7 @@ export function FacultySpeedGradingPage() {
                         {rubricScoreFields.length > 0
                           ? computedRubricMarks
                           : Number.isFinite(directMarks) ? directMarks : 0}{" "}
-                        / {assignment.points.total}
+                        / {rubricScoreFields.length > 0 ? rubricTotalPoints : assignment.points.total}
                       </p>
                     </div>
                     <button
