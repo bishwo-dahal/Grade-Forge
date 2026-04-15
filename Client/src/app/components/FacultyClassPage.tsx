@@ -35,6 +35,7 @@ import type {
   ClassRecentActivity,
   FacultyAssignment,
   FacultyDashboardStat,
+  CanvasCourseStudent,
   FacultyStudentEmailSuggestion,
   FacultyRosterStats,
   FacultyRosterStudentRow,
@@ -53,6 +54,7 @@ import {
   listFacultyAssignments,
   listFacultySemesters,
   listFacultyStudentEmailSuggestions,
+  listCanvasCourseStudents,
   listFacultyRosterRows,
   listFacultyDashboardStats,
   searchFacultyStudentByEmail,
@@ -125,6 +127,7 @@ export function FacultyClassPage() {
   const resolvedClassId = classId ?? "1";
   const activeSection: SectionType = isValidSection(sectionParam) ? sectionParam : "dashboard";
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [initialAddStudentMode, setInitialAddStudentMode] = useState<AddStudentMode>("choice");
   const [classHeader, setClassHeader] = useState<ClassHeader | null>(null);
 
   // Redirect invalid section to dashboard
@@ -330,12 +333,21 @@ export function FacultyClassPage() {
             {/* NOTE: Student-roster actions live in the top header so they align with the page-level action position. */}
             {activeSection === "students" ? (
               <div className="flex flex-wrap items-center gap-2">
-                <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
+                <button
+                  onClick={() => {
+                    setInitialAddStudentMode("canvas");
+                    setIsAddStudentModalOpen(true);
+                  }}
+                  className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors"
+                >
                   <Download className="w-4 h-4" strokeWidth={2} />
                   <span>Import from Canvas</span>
                 </button>
                 <button
-                  onClick={() => setIsAddStudentModalOpen(true)}
+                  onClick={() => {
+                    setInitialAddStudentMode("choice");
+                    setIsAddStudentModalOpen(true);
+                  }}
                   className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
                 >
                   <Plus className="w-4 h-4" strokeWidth={2} />
@@ -357,7 +369,11 @@ export function FacultyClassPage() {
             {activeSection === "students" && (
               <StudentsSection
                 isAddStudentModalOpen={isAddStudentModalOpen}
-                onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
+                initialAddStudentMode={initialAddStudentMode}
+                onCloseAddStudentModal={() => {
+                  setIsAddStudentModalOpen(false);
+                  setInitialAddStudentMode("choice");
+                }}
               />
             )}
             {activeSection === "assistants" && <AssistantsSection />}
@@ -576,7 +592,6 @@ function AssignmentsSection() {
     setIsDeletingAssignment(true);
     try {
       await deleteFacultyAssignment(deletingAssignment.id);
-      setSelectedAssignments((prev) => prev.filter((id) => id !== deletingAssignment.id));
       toast.success("Assignment deleted successfully.");
       await loadAssignments();
     } catch (error) {
@@ -1651,7 +1666,7 @@ function downloadSampleStudentCsv(): void {
   URL.revokeObjectURL(url);
 }
 
-type AddStudentMode = "choice" | "manual" | "csv";
+type AddStudentMode = "choice" | "manual" | "csv" | "canvas";
 
 function StudentGradesModal({
   student,
@@ -1757,9 +1772,11 @@ function StudentGradesModal({
 
 function StudentsSection({
   isAddStudentModalOpen,
+  initialAddStudentMode,
   onCloseAddStudentModal,
 }: {
   isAddStudentModalOpen: boolean;
+  initialAddStudentMode: AddStudentMode;
   onCloseAddStudentModal: () => void;
 }) {
   const { classId } = useParams();
@@ -1798,6 +1815,10 @@ function StudentsSection({
   const [parsedFileRows, setParsedFileRows] = useState<{ name: string; email: string }[] | null>(null);
   const [fileImportResults, setFileImportResults] = useState<{ email: string; name: string; status: "success" | "error"; message?: string }[]>([]);
   const [isFileImporting, setIsFileImporting] = useState(false);
+  const [canvasStudents, setCanvasStudents] = useState<CanvasCourseStudent[]>([]);
+  const [canvasStudentsError, setCanvasStudentsError] = useState<string | null>(null);
+  const [isCanvasStudentsLoading, setIsCanvasStudentsLoading] = useState(false);
+  const [canvasSearchValue, setCanvasSearchValue] = useState("");
 
   const courseId = useMemo(() => Number(resolvedId) || 0, [resolvedId]);
 
@@ -1846,6 +1867,10 @@ function StudentsSection({
     setIsEnrollLoading(false);
     setParsedFileRows(null);
     setFileImportResults([]);
+    setCanvasStudents([]);
+    setCanvasStudentsError(null);
+    setCanvasSearchValue("");
+    setIsCanvasStudentsLoading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -1853,6 +1878,13 @@ function StudentsSection({
     resetAddStudentState();
     onCloseAddStudentModal();
   };
+
+  useEffect(() => {
+    if (!isAddStudentModalOpen) {
+      return;
+    }
+    setAddMode(initialAddStudentMode);
+  }, [isAddStudentModalOpen, initialAddStudentMode]);
 
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -1947,6 +1979,26 @@ function StudentsSection({
     };
   }, [isAddStudentModalOpen, addMode, lookupEmail, resolvedId]);
 
+  useEffect(() => {
+    if (!isAddStudentModalOpen || addMode !== "canvas") {
+      return;
+    }
+
+    setIsCanvasStudentsLoading(true);
+    setCanvasStudentsError(null);
+    listCanvasCourseStudents(resolvedId)
+      .then((rows) => {
+        setCanvasStudents(rows);
+      })
+      .catch((error) => {
+        setCanvasStudents([]);
+        setCanvasStudentsError(getErrorMessage(error));
+      })
+      .finally(() => {
+        setIsCanvasStudentsLoading(false);
+      });
+  }, [isAddStudentModalOpen, addMode, resolvedId]);
+
   const getDisplayedAvgScore = useCallback(
     (row: FacultyRosterStudentRow): number => {
       if (avgMode === "includeMissing") {
@@ -2013,6 +2065,20 @@ function StudentsSection({
       null
     );
   }, [selectedGradeStudent, studentGradeReport]);
+
+  const filteredCanvasStudents = useMemo(() => {
+    const normalizedQuery = canvasSearchValue.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return canvasStudents;
+    }
+    return canvasStudents.filter((student) => {
+      return (
+        student.name.toLowerCase().includes(normalizedQuery) ||
+        student.sortableName.toLowerCase().includes(normalizedQuery) ||
+        student.loginId.toLowerCase().includes(normalizedQuery)
+      );
+    });
+  }, [canvasStudents, canvasSearchValue]);
 
   useEffect(() => {
     if (!selectedGradeStudent) {
@@ -2333,6 +2399,17 @@ function StudentsSection({
                     <h4 className="text-[15px] font-semibold text-[#2B2A2A]">Add from CSV file</h4>
                     <p className="text-[13px] text-gray-600">Upload a CSV with student information to add multiple students</p>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddMode("canvas")}
+                    className="flex-1 flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left"
+                  >
+                    <div className="p-2.5 rounded-lg bg-[#5A7ACD]/10">
+                      <Download className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
+                    </div>
+                    <h4 className="text-[15px] font-semibold text-[#2B2A2A]">Import from Canvas</h4>
+                    <p className="text-[13px] text-gray-600">Fetch students from the connected Canvas course</p>
+                  </button>
                 </div>
               ) : addMode === "manual" ? (
                 <>
@@ -2456,7 +2533,7 @@ function StudentsSection({
                 </p>
               ) : null}
                 </>
-              ) : (
+              ) : addMode === "csv" ? (
                 <div className="overflow-y-auto max-h-[70vh]">
                   <p className="text-[13px] text-gray-600 mb-3">
                     Upload a CSV or text file with one student per line. Use <strong>name, email</strong> or <strong>email</strong> only. Header row (e.g. &quot;name,email&quot;) is ignored.
@@ -2532,6 +2609,44 @@ function StudentsSection({
                       )}
                     </>
                   )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={2} />
+                    <input
+                      value={canvasSearchValue}
+                      onChange={(event) => setCanvasSearchValue(event.target.value)}
+                      type="text"
+                      placeholder="Search Canvas students by name or login ID..."
+                      className="w-full h-11 rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/25"
+                    />
+                  </div>
+                  {canvasStudentsError ? (
+                    <p className="rounded-xl border border-[#F2C9CC] bg-[#FFF5F5] px-3 py-2 text-[13px] text-[#C23A42]">
+                      {canvasStudentsError}
+                    </p>
+                  ) : null}
+                  <div className="max-h-[52vh] overflow-y-auto rounded-xl border border-gray-200">
+                    {isCanvasStudentsLoading ? (
+                      <div className="p-5 text-[13px] text-gray-600">Loading Canvas students...</div>
+                    ) : filteredCanvasStudents.length > 0 ? (
+                      <ul className="divide-y divide-gray-100">
+                        {filteredCanvasStudents.map((student) => (
+                          <li key={student.id} className="px-4 py-3">
+                            <p className="text-[14px] font-medium text-[#2B2A2A]">{student.name}</p>
+                            <p className="mt-0.5 text-[12px] text-[#5D6A80]">
+                              Sortable: {student.sortableName || "N/A"} • Login ID: {student.loginId || "N/A"}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="p-5 text-[13px] text-gray-600">
+                        No Canvas students found.
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

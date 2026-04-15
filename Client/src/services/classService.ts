@@ -15,6 +15,7 @@ import type {
   FacultyRosterStats,
   FacultyStudentEmailSuggestion,
   FacultyStudentSearchResult,
+  CanvasCourseStudent,
   FacultyCourseCreatePayload,
   FacultySemesterOption,
   FacultyDashboardStat,
@@ -655,6 +656,13 @@ interface FacultyStudentSearchApiResponse {
   name: string | null;
   email: string | null;
   enrolledStatus: string | null;
+}
+
+interface CanvasCourseStudentApiResponse {
+  id: number;
+  name: string | null;
+  sortable_name?: string | null;
+  login_id?: string | null;
 }
 
 function buildCourseIcon(courseCode: string): { icon: string; iconBg: string } {
@@ -1522,6 +1530,19 @@ export async function enrollStudentByEmail(classId: string, email: string): Prom
     studentId: matchedStudent.studentId,
     courseId,
   });
+}
+
+export async function listCanvasCourseStudents(classId: string): Promise<CanvasCourseStudent[]> {
+  const courseId = toCourseId(classId);
+  const { data } = await api.get<CanvasCourseStudentApiResponse[]>(
+    `/api/v1/faculty/canvas/courses/${courseId}/students`,
+  );
+  return data.map((student) => ({
+    id: Number(student.id),
+    name: student.name?.trim() || "Unknown student",
+    sortableName: student.sortable_name?.trim() || "",
+    loginId: student.login_id?.trim() || "",
+  }));
 }
 
 export function summarizeFacultyRosterStats(rows: FacultyRosterStudentRow[]): FacultyRosterStats {
