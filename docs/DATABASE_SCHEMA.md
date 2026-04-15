@@ -153,6 +153,9 @@ Work units created by faculty.
 | available_from   | Timestamp|                                  | When submissions open    |
 | due_date         | Timestamp|                                  | Soft deadline            |
 | late_due_date    | Timestamp|                                  | Hard deadline (cutoff)   |
+| source_assignment_id | Long | FK → assignments.id, nullable | Parent assignment when this row is a synced **section** copy |
+| inherit_sync_enabled | Boolean | Default true | When false, section copy no longer receives parent updates |
+| last_inherited_at | Timestamp | nullable | Last time section copy was updated from parent |
 
 ---
 
