@@ -14,6 +14,8 @@ public interface SubmissionAuthorshipTriageRepository extends JpaRepository<Subm
 
     List<SubmissionAuthorshipTriage> findBySubmission_Assignment_IdAndFaculty_Id(Long assignmentId, Long facultyId);
 
+    List<SubmissionAuthorshipTriage> findBySubmission_Assignment_IdInAndFaculty_Id(List<Long> assignmentIds, Long facultyId);
+
     @Query("""
             select new com.grade.forge.submission.dto.AuthorshipTriageUniversityAdminItem(
                 s.id,
