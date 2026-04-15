@@ -659,10 +659,10 @@ interface FacultyStudentSearchApiResponse {
 }
 
 interface CanvasCourseStudentApiResponse {
-  id: number;
   name: string | null;
-  sortable_name?: string | null;
-  login_id?: string | null;
+  loginId?: string | null;
+  state?: string | null;
+  createdAt?: string | null;
 }
 
 function buildCourseIcon(courseCode: string): { icon: string; iconBg: string } {
@@ -1537,11 +1537,13 @@ export async function listCanvasCourseStudents(classId: string): Promise<CanvasC
   const { data } = await api.get<CanvasCourseStudentApiResponse[]>(
     `/api/v1/faculty/canvas/courses/${courseId}/students`,
   );
-  return data.map((student) => ({
-    id: Number(student.id),
+  return data.map((student, index) => ({
+    // Backend Canvas student DTO no longer returns numeric ids, so generate a stable UI key.
+    id: `${student.loginId?.trim() || "canvas-student"}-${index}`,
     name: student.name?.trim() || "Unknown student",
-    sortableName: student.sortable_name?.trim() || "",
-    loginId: student.login_id?.trim() || "",
+    loginId: student.loginId?.trim() || "",
+    state: student.state?.trim() || "",
+    createdAt: student.createdAt?.trim() || "",
   }));
 }
 

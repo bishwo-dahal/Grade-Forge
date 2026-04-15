@@ -230,10 +230,11 @@ export interface FacultyStudentEmailSuggestion {
 }
 
 export interface CanvasCourseStudent {
-  id: number;
+  id: string;
   name: string;
-  sortableName: string;
   loginId: string;
+  state: string;
+  createdAt: string;
 }
 
 // NOTE: UI-driven roster row shape for faculty student table; keep aligned to rendered columns only.
