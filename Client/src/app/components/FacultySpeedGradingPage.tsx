@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { AlertCircle, ArrowRight, CheckCircle2, ChevronLeft, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, ChevronLeft, Loader2, X } from "lucide-react";
 import { CodeWorkspace } from "./assignment/CodeWorkspace";
 import { getAssignmentDetailById, listRubricCategories } from "../../services/assignmentService";
 import {
@@ -9,7 +9,7 @@ import {
   resolvePreviewLanguage,
   submitFacultySubmissionGrade,
 } from "../../services/submissionService";
-import { getRunTestsLatest } from "../../services/runTestsService";
+import { getRunTestsLatest, runTestsWithFiles } from "../../services/runTestsService";
 import type { AssignmentDetail } from "../../types/assignment";
 import type { RubricCategory } from "../../types/grade";
 import type {
@@ -17,6 +17,7 @@ import type {
   FacultyAssignmentSubmissionRow,
   SpeedGradingTestSummary,
 } from "../../types/submission";
+import type { TestRunJobStatusResponse } from "../../types/runTests";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 interface RubricScoreField {
@@ -146,6 +147,7 @@ export function FacultySpeedGradingPage() {
   const navigate = useNavigate();
   const resolvedClassId = classId ?? "1";
   const resolvedAssignmentId = assignmentId ?? "";
+  const gradeSuccessTimerRef = useRef<number | null>(null);
 
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [rubricCategories, setRubricCategories] = useState<RubricCategory[]>([]);
@@ -165,12 +167,16 @@ export function FacultySpeedGradingPage() {
   });
   const [isTestSummaryLoading, setIsTestSummaryLoading] = useState(false);
   const [testSummaryError, setTestSummaryError] = useState<string | null>(null);
+  const [runLoading, setRunLoading] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [runResult, setRunResult] = useState<TestRunJobStatusResponse | null>(null);
 
   const [rubricScores, setRubricScores] = useState<number[]>([]);
   const [directMarksInput, setDirectMarksInput] = useState<string>("");
   const [feedbackInput, setFeedbackInput] = useState<string>("");
   const [gradeError, setGradeError] = useState<string | null>(null);
   const [gradeStatusMessage, setGradeStatusMessage] = useState<string | null>(null);
+  const [isGradeSuccessOpen, setIsGradeSuccessOpen] = useState(false);
   const [isGradeSubmitting, setIsGradeSubmitting] = useState(false);
   const [isRegradeConfirmOpen, setIsRegradeConfirmOpen] = useState(false);
 
@@ -178,6 +184,14 @@ export function FacultySpeedGradingPage() {
   const [pageError, setPageError] = useState<string | null>(null);
 
   const queueStats = useMemo(() => buildQueueStats(queueRows), [queueRows]);
+
+  useEffect(() => {
+    return () => {
+      if (gradeSuccessTimerRef.current != null) {
+        window.clearTimeout(gradeSuccessTimerRef.current);
+      }
+    };
+  }, []);
 
   const rubricScoreFields = useMemo<RubricScoreField[]>(() => {
     return rubricCategories.flatMap((category, categoryIndex) =>
@@ -322,6 +336,9 @@ export function FacultySpeedGradingPage() {
   useEffect(() => {
     if (!selectedSubmissionId) {
       setTestSummaryError(null);
+      setRunLoading(false);
+      setRunError(null);
+      setRunResult(null);
       setTestSummary({
         hasRun: false,
         publicPassed: 0,
@@ -334,13 +351,16 @@ export function FacultySpeedGradingPage() {
 
     setIsTestSummaryLoading(true);
     setTestSummaryError(null);
+    setRunError(null);
     // NOTE: Latest run lookup provides fast public/private pass counters without adding backend endpoints.
     getRunTestsLatest(selectedSubmissionId)
       .then((latestRun) => {
         setTestSummary(buildTestSummaryFromRun(latestRun));
+        setRunResult(latestRun ?? null);
       })
       .catch((error) => {
         setTestSummaryError(getErrorMessage(error));
+        setRunResult(null);
         setTestSummary({
           hasRun: false,
           publicPassed: 0,
@@ -429,6 +449,45 @@ export function FacultySpeedGradingPage() {
     setGradeStatusMessage(null);
   }, [queueRows, selectedSubmissionId]);
 
+  const handleOpenAssignmentDetails = useCallback(() => {
+    if (!selectedSubmissionId) {
+      return;
+    }
+    navigate(`/faculty/class/${resolvedClassId}/assignment/${resolvedAssignmentId}/submission/${selectedSubmissionId}`);
+  }, [navigate, resolvedAssignmentId, resolvedClassId, selectedSubmissionId]);
+
+  const handleRunTests = useCallback(async (files?: File[], _customStdin?: string) => {
+    const hasFiles = files != null && files.length > 0;
+    if (!selectedSubmissionId) {
+      return;
+    }
+
+    setRunLoading(true);
+    setRunError(null);
+
+    try {
+      if (hasFiles) {
+        const result = await runTestsWithFiles(resolvedAssignmentId, files);
+        setRunResult(result);
+        return;
+      }
+
+      const latestRun = await getRunTestsLatest(selectedSubmissionId);
+      if (latestRun) {
+        setRunResult(latestRun);
+        return;
+      }
+
+      setRunError("No test run is available yet for this submission.");
+      setRunResult(null);
+    } catch (error) {
+      setRunError(getErrorMessage(error));
+      setRunResult(null);
+    } finally {
+      setRunLoading(false);
+    }
+  }, [resolvedAssignmentId, selectedSubmissionId]);
+
   const persistGrade = useCallback(async () => {
     if (!assignment || !selectedSubmission) {
       setGradeError("Select a submission before grading.");
@@ -483,7 +542,15 @@ export function FacultySpeedGradingPage() {
         return nextAllRows;
       });
 
-      setGradeStatusMessage("Grade saved successfully.");
+      setGradeStatusMessage(null);
+      setIsGradeSuccessOpen(true);
+      if (gradeSuccessTimerRef.current != null) {
+        window.clearTimeout(gradeSuccessTimerRef.current);
+      }
+      gradeSuccessTimerRef.current = window.setTimeout(() => {
+        setIsGradeSuccessOpen(false);
+        gradeSuccessTimerRef.current = null;
+      }, 2000);
       // NOTE: Auto-advance keeps grading momentum and avoids extra clicks for instructors.
       if (nextSubmissionId) {
         setSelectedSubmissionId(nextSubmissionId);
@@ -635,9 +702,13 @@ export function FacultySpeedGradingPage() {
                 }}
                 codeExamples={{}}
                 // NOTE: Speed grading reuses the same workspace shell as the assignment page, but grading actions stay in the right-hand review panel.
-                onRunTests={() => {}}
+                onRunTests={(files, customStdin) => void handleRunTests(files, customStdin)}
+                onAssignmentDetails={handleOpenAssignmentDetails}
                 onSubmit={async () => {}}
                 facultyEditorPreviewPayload={workspacePreviewPayload}
+                runLoading={runLoading}
+                runError={runError}
+                runResult={runResult}
               />
             ) : (
               <div className="flex h-full items-center justify-center text-[13px] text-gray-300">
@@ -854,6 +925,47 @@ export function FacultySpeedGradingPage() {
                 className="rounded-lg bg-[#2B2A2A] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#3A3939]"
               >
                 Update grade
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isGradeSuccessOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/35 px-4"
+          onClick={() => {
+            if (gradeSuccessTimerRef.current != null) {
+              window.clearTimeout(gradeSuccessTimerRef.current);
+              gradeSuccessTimerRef.current = null;
+            }
+            setIsGradeSuccessOpen(false);
+          }}
+        >
+          <div
+            className="w-full max-w-[360px] rounded-[18px] bg-white shadow-[0_30px_80px_rgba(17,24,39,0.22)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 px-5 py-4">
+              <div>
+                <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Grade saved</h3>
+                <p className="mt-1 text-[13px] text-[#6B7280]">
+                  The submission was updated successfully.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (gradeSuccessTimerRef.current != null) {
+                    window.clearTimeout(gradeSuccessTimerRef.current);
+                    gradeSuccessTimerRef.current = null;
+                  }
+                  setIsGradeSuccessOpen(false);
+                }}
+                className="rounded-full p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                aria-label="Close confirmation"
+              >
+                <X className="h-4 w-4" strokeWidth={2} />
               </button>
             </div>
           </div>
