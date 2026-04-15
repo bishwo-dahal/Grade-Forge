@@ -118,10 +118,9 @@ function FacultyCreateAssignmentView({
         </h1>
 
         {scheduleOnlyEdit ? (
-          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-950">
-            This assignment is synced from your <strong>main course</strong>. Here you can only change{" "}
-            <strong>open, due, and late dates</strong>. Edit title, description, language, rubric, points, starter files, and
-            tests on the main course, or use <strong>Detach from main</strong> on the class assignments list.
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-snug text-amber-950">
+            <strong>Synced from main</strong> — edit <strong>schedule</strong> (and <strong>main group</strong> if this is a group
+            assignment). Other fields: main course, or <strong>Detach</strong> from the list.
           </div>
         ) : null}
 

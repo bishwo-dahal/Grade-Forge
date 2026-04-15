@@ -315,30 +315,10 @@ export function FacultyClassPage() {
           onLogout={handleLogout}
         />
 
-        {classHeader?.parentCourseId != null && classHeader.parentCourse ? (
-          <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-8 py-3">
-            <p className="text-[13px] text-amber-950">
-              This is a <strong>section course</strong> linked to{" "}
-              <strong>
-                {classHeader.parentCourse.courseCode}: {classHeader.parentCourse.name}
-              </strong>
-              . Edit <strong>due dates</strong> here per section; create or change <strong>assignments and tests</strong> on the main course to update all linked sections.
-            </p>
-            <div className="mt-2">
-              <Link
-                to={`/faculty/class/${classHeader.parentCourse.id}/assignments`}
-                className="inline-flex items-center rounded-lg bg-[#2B2A2A] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#3a3939]"
-              >
-                Open main course
-              </Link>
-            </div>
-          </div>
-        ) : null}
-
         {/* Top Header */}
         <header className="bg-white border-b border-gray-200 px-8 py-6">
-          <div className="flex items-start justify-between gap-3">
-            <div>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-3 mb-2">
                 <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
                   {classData.code}: {classData.name}
@@ -363,20 +343,42 @@ export function FacultyClassPage() {
                 <span>{classData.section}</span>
               </div>
             </div>
-            {/* NOTE: Student-roster actions live in the top header so they align with the page-level action position. */}
-            {activeSection === "students" ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
-                  <Download className="w-4 h-4" strokeWidth={2} />
-                  <span>Import from Canvas</span>
-                </button>
-                <button
-                  onClick={() => setIsAddStudentModalOpen(true)}
-                  className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
-                >
-                  <Plus className="w-4 h-4" strokeWidth={2} />
-                  <span>Add Student</span>
-                </button>
+            {(classHeader?.parentCourseId != null && classHeader.parentCourse) || activeSection === "students" ? (
+              <div className="flex shrink-0 flex-col items-end gap-3">
+                {classHeader?.parentCourseId != null && classHeader.parentCourse ? (
+                  <div className="flex max-w-sm flex-col gap-2 border-r-2 border-amber-400 pr-2.5">
+                    <p className="text-right text-[12px] leading-snug text-amber-950">
+                      <strong>Linked section</strong> of{" "}
+                      <strong>
+                        {classHeader.parentCourse.courseCode}: {classHeader.parentCourse.name}
+                      </strong>
+                    </p>
+                    <div className="flex w-full justify-end pt-0.5">
+                      <Link
+                        to={`/faculty/class/${classHeader.parentCourse.id}/assignments`}
+                        className="inline-flex items-center rounded-lg bg-[#2B2A2A] px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#3a3939]"
+                      >
+                        Open main course
+                      </Link>
+                    </div>
+                  </div>
+                ) : null}
+                {/* NOTE: Student-roster actions live in the top header so they align with the page-level action position. */}
+                {activeSection === "students" ? (
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
+                      <Download className="w-4 h-4" strokeWidth={2} />
+                      <span>Import from Canvas</span>
+                    </button>
+                    <button
+                      onClick={() => setIsAddStudentModalOpen(true)}
+                      className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
+                    >
+                      <Plus className="w-4 h-4" strokeWidth={2} />
+                      <span>Add Student</span>
+                    </button>
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
