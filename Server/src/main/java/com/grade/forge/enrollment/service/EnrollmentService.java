@@ -155,7 +155,7 @@ public class EnrollmentService {
                 .build();
     }
 
-    public EnrollmentResponse enrollStudentInCourse(Long studentId, Long courseId) {
+    public EnrollmentResponse enrollStudentInCourse(Long studentId, Long courseId,Long canvasId) {
         if (studentId == null || courseId == null) {
             throw new IllegalArgumentException("studentId and courseId are required");
         }
@@ -175,6 +175,12 @@ public class EnrollmentService {
         enrollment.setEnrolledAt(LocalDateTime.now());
 
         Enrollment saved = enrollmentRepository.save(enrollment);
+
+        Student canvasStudent = studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
+        canvasStudent.setCanvasUserId(canvasId.toString());
+        studentRepository.save(canvasStudent);
+
 
         // Send emails to all enrolled students (non-blocking)
         try {

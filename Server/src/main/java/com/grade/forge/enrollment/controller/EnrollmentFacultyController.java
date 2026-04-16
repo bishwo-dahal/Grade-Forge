@@ -24,7 +24,7 @@ public class EnrollmentFacultyController {
     @PostMapping
     public ResponseEntity<EnrollmentResponse> enrollStudent(Authentication authentication, @RequestBody EnrollmentRequest request) {
         try {
-            EnrollmentResponse response = enrollmentService.enrollStudentInCourse(request.getStudentId(), request.getCourseId());
+            EnrollmentResponse response = enrollmentService.enrollStudentInCourse(request.getStudentId(), request.getCourseId(), request.getCanvasId());
             activityLogService.log(authentication, "Enrolled student", "Student: " + response.getStudentName() + " in Course: " + response.getCourseName(), "success");
             return new ResponseEntity<>(response, HttpStatus.CREATED);
         } catch (Exception ex) {

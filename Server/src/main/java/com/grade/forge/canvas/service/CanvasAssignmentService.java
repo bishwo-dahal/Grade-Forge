@@ -2,6 +2,7 @@ package com.grade.forge.canvas.service;
 
 import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.assignment.repository.AssignmentRepository;
+import com.grade.forge.canvas.dto.CanvasAssignmentResponseDto;
 import com.grade.forge.canvas.dto.CanvasStudentDto;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
@@ -54,11 +55,15 @@ public class CanvasAssignmentService {
                 )
         );
 
-        canvasRestClient.post()
+        CanvasAssignmentResponseDto assignmentResponse =canvasRestClient.post()
                 .uri("/api/v1/courses/{courseId}/assignments", course.getCanvasCourseId())
                 .body(assignment)
                 .retrieve()
-                .body(String.class);
+                .body(CanvasAssignmentResponseDto.class);
+
+        Long canvasAssignmentId = assignmentResponse.getId();
+        assignmentEntity.setCanvasAssignmentId(canvasAssignmentId);
+        assignmentRepository.save(assignmentEntity);
     }
 
 
@@ -92,6 +97,7 @@ public class CanvasAssignmentService {
             for (JsonNode node : root) {
                 JsonNode studentEnrollment = findStudentEnrollment(node.path("enrollments"));
                 students.add(CanvasStudentDto.builder()
+                        .id(node.path("id").asLong())
                         .name(node.path("name").asText(null))
                         .loginId(node.path("login_id").asText(null))
                         .state(studentEnrollment.path("enrollment_state").asText(null))

@@ -13,6 +13,7 @@ import lombok.Setter;
 @Builder
 public class CanvasStudentDto {
 
+    private Long id;
     private String name;
     private String loginId;
     private String state;

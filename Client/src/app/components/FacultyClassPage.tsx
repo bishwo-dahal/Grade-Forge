@@ -2078,7 +2078,11 @@ function StudentsSection({
       return canvasStudents;
     }
     return canvasStudents.filter((student) => {
+      const idMatch =
+        student.canvasUserId != null &&
+        String(student.canvasUserId).includes(normalizedQuery);
       return (
+        idMatch ||
         student.name.toLowerCase().includes(normalizedQuery) ||
         student.loginId.toLowerCase().includes(normalizedQuery) ||
         student.state.toLowerCase().includes(normalizedQuery)
@@ -2672,7 +2676,7 @@ function StudentsSection({
                         value={canvasSearchValue}
                         onChange={(event) => setCanvasSearchValue(event.target.value)}
                         type="text"
-                        placeholder="Search Canvas students by name, login ID, or state..."
+                        placeholder="Search by Canvas user ID, name, login ID, or state..."
                         className="w-full h-11 rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/25"
                       />
                     </div>
@@ -2700,7 +2704,8 @@ function StudentsSection({
                             <div className="min-w-0">
                               <p className="text-[14px] font-medium text-[#2B2A2A]">{student.name}</p>
                               <p className="mt-0.5 text-[12px] text-[#5D6A80]">
-                                Login ID: {student.loginId || "N/A"} • State: {student.state || "N/A"} • Created:{" "}
+                                ID: {student.canvasUserId != null ? student.canvasUserId : "N/A"} • Login ID:{" "}
+                                {student.loginId || "N/A"} • State: {student.state || "N/A"} • Created:{" "}
                                 {student.createdAt || "N/A"}
                               </p>
                             </div>
