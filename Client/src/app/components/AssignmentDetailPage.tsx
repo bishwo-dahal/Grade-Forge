@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   Download,
   FileText,
-  Filter,
   Inbox,
   ListChecks,
   MoreVertical,
@@ -620,24 +619,9 @@ export function AssignmentDetailPage({
               <Inbox className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
               <div>
                 <h2 className="text-[16px] font-semibold text-[#2B2A2A]">Submissions</h2>
-                <p className="text-[13px] text-gray-600">{submissionsSectionSubtitle}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {submissionsCountLabel ? (
-                <span className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-medium text-[#2B2A2A]">
-                  {submissionsCountLabel}
-                </span>
-              ) : null}
-              {speedGradingLink ? (
-                <Link
-                  to={speedGradingLink.to}
-                  // NOTE: Faculty launches speed grading from the assignment detail page so the queue is anchored to the current assignment.
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2B2A2A] rounded-lg text-[12px] font-medium text-white transition-colors hover:bg-[#3A3939]"
-                >
-                  <span>{speedGradingLink.label}</span>
-                </Link>
-              ) : null}
               <button
                 type="button"
                 onClick={onRefreshSubmissions}
@@ -650,13 +634,15 @@ export function AssignmentDetailPage({
                 />
                 <span>{submissionsLoading ? "Refreshing…" : "Refresh"}</span>
               </button>
-              <button
-                type="button"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50"
-              >
-                <Filter className="w-4 h-4" strokeWidth={2} />
-                <span>Filter</span>
-              </button>
+              {speedGradingLink ? (
+                <Link
+                  to={speedGradingLink.to}
+                  // NOTE: Faculty launches speed grading from the assignment detail page so the queue is anchored to the current assignment.
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#7A1226] rounded-lg text-[12px] font-medium text-white transition-colors hover:bg-[#65101F]"
+                >
+                  <span>{speedGradingLink.label}</span>
+                </Link>
+              ) : null}
               <button
                 type="button"
                 disabled={!assignment?.id}
