@@ -57,16 +57,14 @@ function assignmentsOnDay(assignments: CalendarAssignment[], day: Date): Calenda
   return assignments.filter((a) => a.dueDate.slice(0, 10) === key);
 }
 
-/** Returns [start, end] for the current calendar week (Sun 00:00 – Sat 23:59). */
-function currentWeekRange(): [Date, Date] {
+/** Returns [startKey, endKey] ("YYYY-MM-DD") for the current calendar week (Sun–Sat). */
+function currentWeekRange(): [string, string] {
   const today = new Date();
   const start = new Date(today);
   start.setDate(today.getDate() - today.getDay());
-  start.setHours(0, 0, 0, 0);
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
-  end.setHours(23, 59, 59, 999);
-  return [start, end];
+  return [toDateKey(start), toDateKey(end)];
 }
 
 /** Builds a Map<courseId, hexColor> in order of first appearance. */
@@ -156,14 +154,33 @@ export function CalendarPage({ roleView, pageTitle }: CalendarPageProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [assignments, setAssignments] = useState<CalendarAssignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     setIsLoading(true);
+    setLoadError(false);
     const loader = roleView === "student" ? loadStudentAssignments() : loadFacultyAssignments();
-    loader.then(setAssignments).finally(() => setIsLoading(false));
+    loader
+      .then(setAssignments)
+      .catch(() => setLoadError(true))
+      .finally(() => setIsLoading(false));
   }, [roleView]);
 
   const courseColorMap = useMemo(() => buildCourseColorMap(assignments), [assignments]);
+
+  const assignmentsByDateKey = useMemo(() => {
+    const map = new Map<string, CalendarAssignment[]>();
+    for (const a of assignments) {
+      const key = a.dueDate.slice(0, 10);
+      const existing = map.get(key);
+      if (existing) {
+        existing.push(a);
+      } else {
+        map.set(key, [a]);
+      }
+    }
+    return map;
+  }, [assignments]);
 
   const calendarCells = useMemo(
     () => buildCalendarGrid(currentMonth.getFullYear(), currentMonth.getMonth()),
@@ -171,8 +188,8 @@ export function CalendarPage({ roleView, pageTitle }: CalendarPageProps) {
   );
 
   const selectedDayAssignments = useMemo(
-    () => assignmentsOnDay(assignments, selectedDate),
-    [assignments, selectedDate],
+    () => assignmentsByDateKey.get(toDateKey(selectedDate)) ?? [],
+    [assignmentsByDateKey, selectedDate],
   );
 
   const [weekStart, weekEnd] = useMemo(() => currentWeekRange(), []);
@@ -180,8 +197,8 @@ export function CalendarPage({ roleView, pageTitle }: CalendarPageProps) {
     () =>
       assignments
         .filter((a) => {
-          const d = new Date(a.dueDate);
-          return d >= weekStart && d <= weekEnd;
+          const key = a.dueDate.slice(0, 10);
+          return key >= weekStart && key <= weekEnd;
         })
         .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()),
     [assignments, weekStart, weekEnd],
@@ -227,10 +244,14 @@ export function CalendarPage({ roleView, pageTitle }: CalendarPageProps) {
             <div className="flex h-64 items-center justify-center text-[14px] text-[#5d667a]">
               Loading calendar…
             </div>
+          ) : loadError ? (
+            <div className="flex h-64 items-center justify-center text-[14px] text-[#DC2626]">
+              Failed to load assignments. Please refresh the page.
+            </div>
           ) : (
             <>
               {/* ── Calendar grid + Day detail ─────────────────── */}
-              <div className="flex gap-4">
+              <div className="flex flex-wrap gap-4">
                 {/* Calendar grid */}
                 <div className="flex-1 rounded-xl border border-[#c9c4c9] bg-white p-5 shadow-sm">
                   {/* Month navigation */}
@@ -271,7 +292,7 @@ export function CalendarPage({ roleView, pageTitle }: CalendarPageProps) {
                       const inMonth = date.getMonth() === currentMonth.getMonth();
                       const isToday = isSameDay(date, today);
                       const isSelected = isSameDay(date, selectedDate);
-                      const dayAssignments = assignmentsOnDay(assignments, date);
+                      const dayAssignments = assignmentsByDateKey.get(toDateKey(date)) ?? [];
 
                       return (
                         <button
