@@ -277,10 +277,14 @@ export function FacultyGradingAssignmentDetailPage() {
             label: "Speed Grading",
           }}
           testCasesLink={{
-            to: `/faculty/assignment/${resolvedAssignmentId}?tab=tests`,
+            to: `/faculty/class/${resolvedClassId}/assignments/${resolvedAssignmentId}/edit`,
             label: "Edit test cases",
           }}
           testSuiteSection={pageTestSuiteSection}
+          editAssignmentLink={{
+            to: `/faculty/class/${resolvedClassId}/assignments/${resolvedAssignmentId}/edit`,
+            label: "Edit assignment",
+          }}
         />
       }
     />

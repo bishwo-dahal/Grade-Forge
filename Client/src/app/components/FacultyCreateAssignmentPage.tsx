@@ -9,7 +9,7 @@ import {
   updateFacultyAssignmentDraft,
 } from "../../services/assignmentService";
 import { getRubric, getUnweightedRubricTotalPoints } from "../../services/rubricService";
-import { createTestSuite } from "../../services/testSuiteService";
+import { createTestSuite, getTestSuiteByAssignment, updateTestSuite } from "../../services/testSuiteService";
 import type {
   AssignmentCreateFormData,
   AssignmentExistingStarterFile,
@@ -431,7 +431,7 @@ function FacultyCreateAssignmentView({
                     <h3 className="text-[16px] font-semibold text-[#1F2430]">Test cases (optional)</h3>
                   </div>
                   <p className="mt-1 text-[12px] text-[#6D7B91]">
-                    Add test cases now or later from the assignment page. Mark as private to hide from students until grading.
+                    Create or update this assignment&apos;s test cases here. Mark a case as private to hide it from students until grading.
                   </p>
                   <div className="mt-4">
                     <label className="mb-2 block text-[13px] font-medium text-[#1F2430]">Suite title</label>
@@ -658,6 +658,7 @@ export function FacultyCreateAssignmentPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [testCasesAdded, setTestCasesAdded] = useState(false);
   const [totalPointsLockedByRubric, setTotalPointsLockedByRubric] = useState(false);
+  const [hasExistingTestSuite, setHasExistingTestSuite] = useState(false);
   /** Snapshot of server starter files when edit page loaded (for dirty detection). */
   const [initialStarterSnapshot, setInitialStarterSnapshot] = useState<AssignmentExistingStarterFile[]>([]);
   /** Edit mode: starter files still included on save; user can remove before save. */
@@ -692,6 +693,51 @@ export function FacultyCreateAssignmentPage() {
       setRetainedStarterFiles([]);
     }
   }, [pageData, mode, assignmentId]);
+
+  useEffect(() => {
+    if (mode !== "edit" || !assignmentId) {
+      setHasExistingTestSuite(false);
+      setTestSuiteDraft({
+        title: "Test Suite",
+        description: "",
+        testCases: [{ id: "tc-1", title: "", isPrivate: false, input: "", fileName: "", output: "" }],
+      });
+      return;
+    }
+
+    getTestSuiteByAssignment(assignmentId)
+      .then((suite) => {
+        if (!suite) {
+          setHasExistingTestSuite(false);
+          setTestSuiteDraft({
+            title: "Test Suite",
+            description: "",
+            testCases: [{ id: "tc-1", title: "", isPrivate: false, input: "", fileName: "", output: "" }],
+          });
+          return;
+        }
+
+        setHasExistingTestSuite(true);
+        setTestSuiteDraft({
+          title: suite.title?.trim() ? suite.title : "Test Suite",
+          description: suite.description ?? "",
+          testCases:
+            suite.testCases?.length > 0
+              ? suite.testCases.map((testCase, index) => ({
+                  id: String(testCase.id ?? `tc-${index + 1}`),
+                  title: testCase.title ?? "",
+                  isPrivate: Boolean(testCase.isPrivate),
+                  input: testCase.input ?? "",
+                  fileName: testCase.fileName ?? "",
+                  output: testCase.output ?? "",
+                }))
+              : [{ id: "tc-1", title: "", isPrivate: false, input: "", fileName: "", output: "" }],
+        });
+      })
+      .catch(() => {
+        setHasExistingTestSuite(false);
+      });
+  }, [assignmentId, mode]);
 
   const handleRemoveRetainedStarter = (id: number) => {
     setRetainedStarterFiles((previous) =>
@@ -832,7 +878,7 @@ export function FacultyCreateAssignmentPage() {
       }
       const hasTestCases = testSuiteDraft.testCases.some((c) => c.output.trim().length > 0);
       setTestCasesAdded(false);
-      if (mode === "create" && hasTestCases) {
+      if (hasTestCases) {
         const payload: TestSuitePayload = {
           title: testSuiteDraft.title.trim() || "Test Suite",
           description: testSuiteDraft.description.trim(),
@@ -847,7 +893,14 @@ export function FacultyCreateAssignmentPage() {
             })),
         };
         if (payload.testCases.length > 0) {
-          await createTestSuite(savedAssignmentId, payload);
+          if (mode === "edit" && hasExistingTestSuite) {
+            await updateTestSuite(savedAssignmentId, payload);
+          } else {
+            await createTestSuite(savedAssignmentId, payload);
+            if (mode === "edit") {
+              setHasExistingTestSuite(true);
+            }
+          }
           setTestCasesAdded(true);
         }
       }
