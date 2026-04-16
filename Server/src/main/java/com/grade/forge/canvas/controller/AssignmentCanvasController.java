@@ -1,11 +1,13 @@
 package com.grade.forge.canvas.controller;
 
 import com.grade.forge.canvas.dto.CanvasStudentDto;
+import com.grade.forge.canvas.dto.CanvasStudentGradeRequest;
 import com.grade.forge.canvas.service.CanvasAssignmentService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -35,7 +37,19 @@ public class AssignmentCanvasController {
     }
 
 
-
+    @PostMapping("/courses/{courseId}/assignments/{assignmentId}/students/{studentId}/grade")
+    public String postStudentGrade(@PathVariable Long courseId,
+                                   @PathVariable Long assignmentId,
+                                   @PathVariable Long studentId,
+                                   @RequestBody CanvasStudentGradeRequest request) {
+        return canvasAssignmentService.postStudentGrade(
+                courseId,
+                assignmentId,
+                studentId,
+                request.getPoints(),
+                request.getFeedback()
+        );
+    }
 
 
 }

@@ -1098,3 +1098,31 @@ export async function publishFacultyAssignmentToCanvas(courseId: string, assignm
   const parsedAssignmentId = parseAssignmentId(assignmentId);
   await api.post(`/api/v1/faculty/canvas/${parsedCourseId}/${parsedAssignmentId}/publish`);
 }
+
+export async function postFacultyStudentGradeToCanvas(
+  courseId: string,
+  assignmentId: string,
+  studentId: string,
+  payload: { points: number; feedback: string },
+): Promise<string> {
+  const parsedCourseId = parseClassId(courseId || defaultCreateAssignmentHeader.classId);
+  const parsedAssignmentId = parseAssignmentId(assignmentId);
+  const parsedStudentId = Number(studentId.trim());
+  if (!Number.isFinite(parsedStudentId) || parsedStudentId <= 0) {
+    throw new Error("Invalid student id.");
+  }
+  const points =
+    typeof payload.points === "number" && Number.isFinite(payload.points) ? payload.points : NaN;
+  if (!Number.isFinite(points) || points < 0) {
+    throw new Error("Points must be zero or higher.");
+  }
+
+  const { data } = await api.post<string>(
+    `/api/v1/faculty/canvas/courses/${parsedCourseId}/assignments/${parsedAssignmentId}/students/${parsedStudentId}/grade`,
+    {
+      points,
+      feedback: payload.feedback ?? "",
+    },
+  );
+  return data;
+}

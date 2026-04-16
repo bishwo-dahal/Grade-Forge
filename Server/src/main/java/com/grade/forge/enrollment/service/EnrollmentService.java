@@ -182,10 +182,9 @@ public class EnrollmentService {
 
             if(canvasStudent != null && !canvasId.toString().equals(canvasStudent.getCanvasUserId())) {
                 canvasStudent.setCanvasUserId(canvasId.toString());
-               Student s = studentRepository.save(canvasStudent);
-                System.out.println(s.getCanvasUserId());
-            }
+                studentRepository.save(canvasStudent);
 
+            }
 
 
 

@@ -132,6 +132,8 @@ export interface AssignmentDetailPageProps {
   testCasesLink?: { to: string; label: string };
   /** Optional test suite to display (like rubric section). */
   testSuiteSection?: AssignmentDetailPageTestSuiteSection | null;
+  /** Optional action for faculty rows to post one student's grade to Canvas. */
+  onPostSubmissionGradeToCanvas?: (row: AssignmentDetailPageSubmissionRow) => Promise<void>;
 }
 
 /** Per-student slice of the latest grader report (similarity + AI authorship risk). */
@@ -165,6 +167,7 @@ export function AssignmentDetailPage({
   submissionsCountLabel,
   testCasesLink,
   testSuiteSection,
+  onPostSubmissionGradeToCanvas,
 }: AssignmentDetailPageProps) {
   const [plagSummary, setPlagSummary] = useState<{
     byStudent: Record<string, GraderReportStudentSummary>;
@@ -177,6 +180,9 @@ export function AssignmentDetailPage({
     "idle" | "requesting" | "running" | "completed" | "failed"
   >("idle");
   const [plagRunMessage, setPlagRunMessage] = useState<string | null>(null);
+  const [openActionMenuSubmissionId, setOpenActionMenuSubmissionId] = useState<string | null>(null);
+  const [postingCanvasBySubmissionId, setPostingCanvasBySubmissionId] = useState<Record<string, boolean>>({});
+  const [canvasActionMessage, setCanvasActionMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!assignment?.id) {
@@ -788,7 +794,7 @@ export function AssignmentDetailPage({
                           {row.submittedAt ?? "—"}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="relative flex items-center justify-end gap-2">
                             {row.primaryDownloadUrl ? (
                               <a
                                 href={row.primaryDownloadUrl}
@@ -828,10 +834,60 @@ export function AssignmentDetailPage({
                             <button
                               type="button"
                               aria-label="More submission actions"
+                              onClick={() =>
+                                setOpenActionMenuSubmissionId((previous) =>
+                                  previous === row.submissionId ? null : row.submissionId,
+                                )
+                              }
                               className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
                             >
                               <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
                             </button>
+                            {openActionMenuSubmissionId === row.submissionId ? (
+                              <div className="absolute right-0 bottom-full mb-2 z-20 w-48 rounded-xl border border-gray-200 bg-white shadow-lg py-1">
+                                <button
+                                  type="button"
+                                  disabled={
+                                    !onPostSubmissionGradeToCanvas ||
+                                    row.marks == null ||
+                                    Boolean(postingCanvasBySubmissionId[row.submissionId])
+                                  }
+                                  onClick={async () => {
+                                    if (!onPostSubmissionGradeToCanvas || row.marks == null) {
+                                      return;
+                                    }
+                                    setPostingCanvasBySubmissionId((previous) => ({
+                                      ...previous,
+                                      [row.submissionId]: true,
+                                    }));
+                                    setCanvasActionMessage(null);
+                                    try {
+                                      await onPostSubmissionGradeToCanvas(row);
+                                      setCanvasActionMessage(
+                                        `Posted ${row.studentName}'s grade to Canvas.`,
+                                      );
+                                    } catch (error) {
+                                      setCanvasActionMessage(
+                                        error instanceof Error
+                                          ? error.message
+                                          : "Failed to post grade to Canvas.",
+                                      );
+                                    } finally {
+                                      setPostingCanvasBySubmissionId((previous) => ({
+                                        ...previous,
+                                        [row.submissionId]: false,
+                                      }));
+                                      setOpenActionMenuSubmissionId(null);
+                                    }
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-[12px] text-[#2B2A2A] hover:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                >
+                                  {postingCanvasBySubmissionId[row.submissionId]
+                                    ? "Posting to Canvas..."
+                                    : "Post to Canvas"}
+                                </button>
+                              </div>
+                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -850,6 +906,11 @@ export function AssignmentDetailPage({
               </tbody>
             </table>
           </div>
+          {canvasActionMessage ? (
+            <div className="px-6 py-2 text-[12px] text-gray-700 bg-gray-50 border-t border-gray-200">
+              {canvasActionMessage}
+            </div>
+          ) : null}
         </div>
       </div>
     </main>

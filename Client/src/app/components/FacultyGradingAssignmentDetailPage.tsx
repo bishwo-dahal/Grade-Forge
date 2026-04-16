@@ -6,8 +6,12 @@ import type { Rubric } from "../../types/rubric";
 import {
   getAssignmentDescription,
   getAssignmentDetailById,
+  postFacultyStudentGradeToCanvas,
 } from "../../services/assignmentService";
-import { listFacultyAssignmentSubmissionFiles } from "../../services/submissionService";
+import {
+  getFacultySubmissionById,
+  listFacultyAssignmentSubmissionFiles,
+} from "../../services/submissionService";
 import { getRubric } from "../../services/rubricService";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthShell } from "./layout/AuthShell";
@@ -243,6 +247,31 @@ export function FacultyGradingAssignmentDetailPage() {
     }
     return mapToTestSuiteSection(testSuite);
   }, [testSuite, testSuiteLoading]);
+  const handlePostSubmissionGradeToCanvas = useCallback(
+    async (row: AssignmentDetailPageSubmissionRow) => {
+      if (!resolvedClassId.trim() || !resolvedAssignmentId.trim()) {
+        throw new Error("Invalid course or assignment.");
+      }
+      if (!row.studentId || row.studentId.trim().length < 1) {
+        throw new Error("Missing student id for this submission.");
+      }
+      if (row.marks == null) {
+        throw new Error("Grade this submission before posting to Canvas.");
+      }
+
+      const detail = await getFacultySubmissionById(row.submissionId);
+      await postFacultyStudentGradeToCanvas(
+        resolvedClassId,
+        resolvedAssignmentId,
+        row.studentId,
+        {
+          points: row.marks,
+          feedback: detail.feedback ?? "",
+        },
+      );
+    },
+    [resolvedAssignmentId, resolvedClassId],
+  );
 
   return (
     <AuthShell
@@ -281,6 +310,7 @@ export function FacultyGradingAssignmentDetailPage() {
             label: "Edit test cases",
           }}
           testSuiteSection={pageTestSuiteSection}
+          onPostSubmissionGradeToCanvas={handlePostSubmissionGradeToCanvas}
         />
       }
     />

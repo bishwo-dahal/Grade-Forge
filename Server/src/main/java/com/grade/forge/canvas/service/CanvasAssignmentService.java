@@ -4,6 +4,7 @@ import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.assignment.repository.AssignmentRepository;
 import com.grade.forge.canvas.dto.CanvasAssignmentResponseDto;
 import com.grade.forge.canvas.dto.CanvasStudentDto;
+import com.grade.forge.canvas.dto.GradeRequest;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
@@ -15,9 +16,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import com.grade.forge.student.entity.Student;
+import com.grade.forge.student.repository.StudentRepository;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +34,7 @@ public class CanvasAssignmentService {
 
     private final CourseRepository courseRepository;
     private final AssignmentRepository assignmentRepository;
+    private final StudentRepository studentRepository;
 
 
 
@@ -61,7 +67,14 @@ public class CanvasAssignmentService {
                 .retrieve()
                 .body(CanvasAssignmentResponseDto.class);
 
-        Long canvasAssignmentId = assignmentResponse.getId();
+        if (assignmentResponse == null) {
+            throw new IllegalStateException("Canvas did not return an assignment response");
+        }
+
+        Long canvasAssignmentId = Objects.requireNonNull(
+                assignmentResponse.getId(),
+                "Canvas did not return an assignment id"
+        );
         assignmentEntity.setCanvasAssignmentId(canvasAssignmentId);
         assignmentRepository.save(assignmentEntity);
     }
@@ -109,6 +122,53 @@ public class CanvasAssignmentService {
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Failed to parse Canvas student response", exception);
         }
+    }
+
+    public String postStudentGrade(Long courseId, Long assignmentId, Long studentId, Double points, String feedback) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
+
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId));
+
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
+
+        if (course.getCanvasCourseId() == null || course.getCanvasCourseId().isBlank()) {
+            throw new ResourceNotFoundException("Canvas course id is not configured for course: " + courseId);
+        }
+
+        if (assignment.getCanvasAssignmentId() == null) {
+            throw new ResourceNotFoundException("Canvas assignment id is not configured for assignment: " + assignmentId);
+        }
+
+        if (student.getCanvasUserId() == null || student.getCanvasUserId().isBlank()) {
+            throw new ResourceNotFoundException("Canvas user id is not configured for student: " + studentId);
+        }
+
+        if (points == null) {
+            throw new IllegalArgumentException("Points are required");
+        }
+
+        GradeRequest requestBody = new GradeRequest();
+        GradeRequest.Submission submission = new GradeRequest.Submission();
+        submission.setPosted_grade(points);
+        requestBody.setSubmission(submission);
+
+        if (feedback != null && !feedback.isBlank()) {
+            GradeRequest.Comment comment = new GradeRequest.Comment();
+            comment.setText_comment(feedback);
+            requestBody.setComment(comment);
+        }
+
+        String response = canvasRestClient.put()
+                .uri("/api/v1/courses/{courseId}/assignments/{assignmentId}/submissions/{userId}",
+                        course.getCanvasCourseId(), assignment.getCanvasAssignmentId(), student.getCanvasUserId())
+                .body(requestBody)
+                .retrieve()
+                .body(String.class);
+
+        return response != null ? response : "success";
     }
 
     private JsonNode findStudentEnrollment(JsonNode enrollments) {
