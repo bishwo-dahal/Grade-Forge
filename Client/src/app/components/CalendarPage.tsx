@@ -151,13 +151,15 @@ export function CalendarPage({ roleView, pageTitle }: CalendarPageProps) {
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     setIsLoading(true);
     setLoadError(false);
     const loader = roleView === "student" ? loadStudentAssignments() : loadFacultyAssignments();
     loader
-      .then(setAssignments)
-      .catch(() => setLoadError(true))
-      .finally(() => setIsLoading(false));
+      .then((data) => { if (!cancelled) setAssignments(data); })
+      .catch(() => { if (!cancelled) setLoadError(true); })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
   }, [roleView]);
 
   const courseColorMap = useMemo(() => buildCourseColorMap(assignments), [assignments]);
