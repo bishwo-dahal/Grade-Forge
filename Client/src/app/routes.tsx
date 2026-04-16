@@ -391,7 +391,7 @@ export const router = createBrowserRouter([
     path: "/faculty/class/:classId",
     element: (
       <ProtectedRoute allowedRoles={["FACULTY"]}>
-        <Navigate to="./dashboard" replace />
+        <Navigate to="./assignments" replace />
       </ProtectedRoute>
     ),
   },
