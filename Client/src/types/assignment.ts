@@ -93,9 +93,8 @@ export interface CalendarAssignment {
   id: number;
   name: string;
   courseId: number;
-  courseName: string;
   courseCode: string;
-  /** ISO datetime string, e.g. "2026-02-10T23:59:00". */
+  /** ISO datetime string, e.g. "2026-02-10T23:59:00". Assignments without a due date must be excluded before constructing this type. */
   dueDate: string;
   totalPoints: number;
 }
