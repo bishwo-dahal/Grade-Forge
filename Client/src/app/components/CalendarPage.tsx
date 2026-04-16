@@ -51,12 +51,6 @@ function buildCalendarGrid(year: number, month: number): Date[] {
   return cells;
 }
 
-/** Returns assignments whose dueDate falls on the given calendar day. */
-function assignmentsOnDay(assignments: CalendarAssignment[], day: Date): CalendarAssignment[] {
-  const key = toDateKey(day);
-  return assignments.filter((a) => a.dueDate.slice(0, 10) === key);
-}
-
 /** Returns [startKey, endKey] ("YYYY-MM-DD") for the current calendar week (Sun–Sat). */
 function currentWeekRange(): [string, string] {
   const today = new Date();
