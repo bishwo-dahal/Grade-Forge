@@ -6,6 +6,7 @@ import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { StudentMyCoursesPage as StudentMyCoursesWorkspacePage } from "./StudentMyCoursesPage";
 import { StudentAssignmentsPage as StudentAssignmentsWorkspacePage } from "./StudentAssignmentsPage";
 import { FacultyMyClassesPage as FacultyMyClassesWorkspacePage } from "./FacultyMyClassesPage";
+import { CalendarPage } from "./CalendarPage";
 
 interface RoleWorkspacePageProps {
   roleView: "student" | "faculty";
@@ -78,7 +79,7 @@ export function StudentAssignmentsPage() {
 }
 
 export function StudentCalendarPage() {
-  return <RoleWorkspacePage roleView="student" title="Calendar" description="View your class and assignment schedule." />;
+  return <CalendarPage roleView="student" pageTitle="Calendar" />;
 }
 
 export function StudentMaterialsPage() {
@@ -104,5 +105,5 @@ export function FacultyStudentsPage() {
 }
 
 export function FacultySchedulePage() {
-  return <RoleWorkspacePage roleView="faculty" title="Calendar" description="Plan deadlines, classes, and grading windows." />;
+  return <CalendarPage roleView="faculty" pageTitle="Calendar" />;
 }
