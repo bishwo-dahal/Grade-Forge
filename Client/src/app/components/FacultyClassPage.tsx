@@ -2143,7 +2143,8 @@ function StudentsSection({
     setIsEnrollLoading(true);
     setFeedbackMessage(null);
     try {
-      await enrollStudentByEmail(resolvedId, lookupResult.studentEmail);
+      // Manual enroll by email does not come from Canvas, so send a null canvas id.
+      await enrollStudentByEmail(resolvedId, lookupResult.studentEmail, null);
       setFeedbackMessage({ tone: "success", text: `${lookupResult.studentName} was enrolled successfully.` });
       await loadRoster();
       closeAddStudentModal();
@@ -2163,7 +2164,7 @@ function StudentsSection({
 
     setCanvasEnrollLoadingById((previous) => ({ ...previous, [student.id]: true }));
     try {
-      await enrollStudentByEmail(resolvedId, loginId);
+      await enrollStudentByEmail(resolvedId, loginId, student.canvasUserId ?? null);
       setEnrolledCanvasStudentIds((previous) => ({ ...previous, [student.id]: true }));
       toast.success(`${student.name} enrolled successfully.`);
       await loadRoster();
@@ -2190,7 +2191,7 @@ function StudentsSection({
       }
 
       try {
-        await enrollStudentByEmail(resolvedId, loginId);
+        await enrollStudentByEmail(resolvedId, loginId, student.canvasUserId ?? null);
         successCount += 1;
         setEnrolledCanvasStudentIds((previous) => ({ ...previous, [student.id]: true }));
       } catch {

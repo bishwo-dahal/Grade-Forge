@@ -176,10 +176,17 @@ public class EnrollmentService {
 
         Enrollment saved = enrollmentRepository.save(enrollment);
 
-        Student canvasStudent = studentRepository.findById(studentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
-        canvasStudent.setCanvasUserId(canvasId.toString());
-        studentRepository.save(canvasStudent);
+
+            Student canvasStudent = studentRepository.findById(studentId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
+
+            if(canvasStudent != null && !canvasId.toString().equals(canvasStudent.getCanvasUserId())) {
+                canvasStudent.setCanvasUserId(canvasId.toString());
+               Student s = studentRepository.save(canvasStudent);
+                System.out.println(s.getCanvasUserId());
+            }
+
+
 
 
         // Send emails to all enrolled students (non-blocking)

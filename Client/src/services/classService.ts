@@ -1529,7 +1529,11 @@ export async function listFacultyStudentEmailSuggestions(
   return Array.from(dedupedByEmail.values()).slice(0, 8);
 }
 
-export async function enrollStudentByEmail(classId: string, email: string): Promise<void> {
+export async function enrollStudentByEmail(
+  classId: string,
+  email: string,
+  canvasUserId?: number | null,
+): Promise<void> {
   const courseId = toCourseId(classId);
   const trimmedEmail = email.trim();
   if (!trimmedEmail) {
@@ -1548,6 +1552,7 @@ export async function enrollStudentByEmail(classId: string, email: string): Prom
   await api.post("/api/v1/faculty/enrollments", {
     studentId: matchedStudent.studentId,
     courseId,
+    canvasId: canvasUserId ?? null,
   });
 }
 
