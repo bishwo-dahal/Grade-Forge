@@ -3,8 +3,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { 
   Settings, 
   ChevronLeft, 
-  LayoutDashboard, 
-  FileText, 
+  FileText,
   Send, 
   BarChart3, 
   Plus,
@@ -93,11 +92,9 @@ import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection as TopBarSettingsSection } from "./layout/AuthTopBar";
-import { SidebarPinnedCollapseFooter } from "./layout/SidebarPinnedCollapseFooter";
-import { useSidebarPinnedCollapsed } from "./layout/useSidebarPinnedCollapsed";
+import { FacultyClassSidebar } from "./layout/FacultyClassSidebar";
 
 const SECTION_PATH_SEGMENTS = [
-  "dashboard",
   "assignments",
   "grades",
   "students",
@@ -122,14 +119,14 @@ export function FacultyClassPage() {
   const { classId, section: sectionParam } = useParams();
   const navigate = useNavigate();
   const resolvedClassId = classId ?? "1";
-  const activeSection: SectionType = isValidSection(sectionParam) ? sectionParam : "dashboard";
+  const activeSection: SectionType = isValidSection(sectionParam) ? sectionParam : "assignments";
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
   const [classHeader, setClassHeader] = useState<ClassHeader | null>(null);
 
   // Redirect invalid section to dashboard
   useEffect(() => {
     if (sectionParam != null && !isValidSection(sectionParam)) {
-      navigate(`/faculty/class/${resolvedClassId}/dashboard`, { replace: true });
+      navigate(`/faculty/class/${resolvedClassId}/assignments`, { replace: true });
     }
   }, [sectionParam, resolvedClassId, navigate]);
 
@@ -181,175 +178,27 @@ export function FacultyClassPage() {
     navigate("/signin", { replace: true });
   };
 
-  const { pinnedCollapsed } = useSidebarPinnedCollapsed();
 
   return (
     <div className="flex h-screen bg-[#F5F4F6]">
-      {/* Left Sidebar Navigation */}
-      <aside
-        className={`flex flex-shrink-0 flex-col border-r border-[#65101F] bg-[#7A1226] transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          pinnedCollapsed ? "w-[78px]" : "w-64"
-        }`}
-      >
-        <div className="flex min-h-0 flex-1 flex-col">
-          {/* Logo Header */}
-          <div
-            className={`flex h-[76px] items-center border-b border-[#65101F] bg-white ${
-              pinnedCollapsed ? "justify-center px-0" : "px-6"
-            }`}
-          >
-            <Link
-              to="/dashboard"
-              className={`flex items-center transition-opacity hover:opacity-90 ${
-                pinnedCollapsed ? "h-12 w-12 justify-center rounded-[14px]" : "gap-3"
-              }`}
-              aria-label="Go to dashboard"
-            >
-              <img
-                src="/favicon.svg"
-                alt={pinnedCollapsed ? "" : "Grade Forge"}
-                className="h-8 w-8 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
-              />
-              {!pinnedCollapsed && (
-                <span className="whitespace-nowrap text-[15px] font-semibold text-[#1F2430]">Grade Forge</span>
-              )}
-            </Link>
-          </div>
-          {/* Back to Dashboard Link */}
-          <div
-            className={`flex border-b border-[#65101F] py-3 ${pinnedCollapsed ? "justify-center px-0" : "px-4"}`}
-          >
-            <Link
-              to="/dashboard"
-              title="Back to Dashboard"
-              className={`flex items-center text-[13px] text-[#F5E5E8] transition-colors hover:text-white ${
-                pinnedCollapsed ? "justify-center" : "gap-2"
-              }`}
-              aria-label="Back to Dashboard"
-            >
-              <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} />
-              {!pinnedCollapsed && <span>Back to Dashboard</span>}
-            </Link>
-          </div>
-
-          {/* Navigation Menu - each item has its own route */}
-          <nav
-            className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-4 ${
-              pinnedCollapsed ? "px-1" : "px-3"
-            }`}
-          >
-            <ul className="space-y-1">
-              <NavItem
-                icon={<LayoutDashboard className="w-4 h-4" strokeWidth={2} />}
-                label="Dashboard"
-                active={activeSection === "dashboard"}
-                to={`/faculty/class/${resolvedClassId}/dashboard`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<FileText className="w-4 h-4" strokeWidth={2} />}
-                label="Assignments"
-                active={activeSection === "assignments"}
-                to={`/faculty/class/${resolvedClassId}/assignments`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<BarChart3 className="w-4 h-4" strokeWidth={2} />}
-                label="Grades"
-                active={activeSection === "grades"}
-                to={`/faculty/class/${resolvedClassId}/grades`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<Users className="w-4 h-4" strokeWidth={2} />}
-                label="Students"
-                active={activeSection === "students"}
-                to={`/faculty/class/${resolvedClassId}/students`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<UserPlus className="w-4 h-4" strokeWidth={2} />}
-                label="Grading Assistants"
-                active={activeSection === "assistants"}
-                to={`/faculty/class/${resolvedClassId}/assistants`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<UsersRound className="w-4 h-4" strokeWidth={2} />}
-                label="Groups"
-                active={activeSection === "groups"}
-                to={`/faculty/class/${resolvedClassId}/groups`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<Settings className="w-4 h-4" strokeWidth={2} />}
-                label="Settings"
-                active={activeSection === "settings"}
-                to={`/faculty/class/${resolvedClassId}/settings`}
-                rail={pinnedCollapsed}
-              />
-            </ul>
-          </nav>
-          <SidebarPinnedCollapseFooter
-            variant="maroon"
-            rail={pinnedCollapsed}
-            expandedInset="flush"
-          />
-        </div>
-      </aside>
+      <FacultyClassSidebar classId={resolvedClassId} activeSection={activeSection} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <AuthTopBar
           roleView="faculty"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search calendar, assignments..."
+          showSearch={false}
+          pageTitle={courseFullName || "Class Dashboard"}
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />
 
-        {/* Top Header */}
-        <header className="bg-white border-b border-gray-200 px-8 py-6">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
-                  {classData.code}: {classData.name}
-                </h1>
-                <span className="px-3 py-1 bg-[#5A7ACD] text-white text-[11px] font-semibold rounded uppercase">
-                  {classData.role}
-                </span>
-              </div>
-              <div className="flex items-center gap-4 text-[13px] text-gray-600">
-                <span>{classData.semester}</span>
-                <span className="text-gray-300">&bull;</span>
-                <span>{classData.section}</span>
-              </div>
-            </div>
-            {/* NOTE: Student-roster actions live in the top header so they align with the page-level action position. */}
-            {activeSection === "students" ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
-                  <Download className="w-4 h-4" strokeWidth={2} />
-                  <span>Import from Canvas</span>
-                </button>
-                <button
-                  onClick={() => setIsAddStudentModalOpen(true)}
-                  className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
-                >
-                  <Plus className="w-4 h-4" strokeWidth={2} />
-                  <span>Add Student</span>
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </header>
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto px-8 py-6">
-            {activeSection === "dashboard" && <DashboardSection />}
-            {activeSection === "assignments" && <AssignmentsSection />}
+{activeSection === "assignments" && <AssignmentsSection />}
             {activeSection === "grades" && (
               <GradesSection courseFullName={courseFullName} facultyName={facultyName} />
             )}
@@ -357,6 +206,7 @@ export function FacultyClassPage() {
               <StudentsSection
                 isAddStudentModalOpen={isAddStudentModalOpen}
                 onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
+                onOpenAddStudentModal={() => setIsAddStudentModalOpen(true)}
               />
             )}
             {activeSection === "assistants" && <AssistantsSection />}
@@ -419,7 +269,7 @@ function NavItem({
 }
 
 // Placeholder sections - will be implemented
-function DashboardSection() {
+function DashboardSection({ courseFullName }: { courseFullName: string }) {
   const { classId } = useParams();
   // NOTE: Dashboard stats and activity now load from backend-driven service calls.
   const [recentActivity, setRecentActivity] = useState<ClassRecentActivity[]>([]);
@@ -447,7 +297,7 @@ function DashboardSection() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Class Dashboard</h2>
+        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">{courseFullName || "Class Dashboard"}</h2>
         <p className="text-[13px] text-gray-600">
           Overview of your class activity and statistics
         </p>
@@ -1732,9 +1582,11 @@ function StudentGradesModal({
 function StudentsSection({
   isAddStudentModalOpen,
   onCloseAddStudentModal,
+  onOpenAddStudentModal,
 }: {
   isAddStudentModalOpen: boolean;
   onCloseAddStudentModal: () => void;
+  onOpenAddStudentModal: () => void;
 }) {
   const { classId } = useParams();
   const resolvedId = classId || "1";
@@ -2054,9 +1906,21 @@ function StudentsSection({
 
   return (
     <div>
-      <div className="mb-6">
+      <div className="mb-6 flex items-center justify-between gap-3">
         <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Student Roster</h2>
-        {/* CLEANUP: Removed extra helper sentence under Student Roster heading per current UI copy direction. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
+            <Download className="w-4 h-4" strokeWidth={2} />
+            <span>Import from Canvas</span>
+          </button>
+          <button
+            onClick={onOpenAddStudentModal}
+            className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" strokeWidth={2} />
+            <span>Add Student</span>
+          </button>
+        </div>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5">

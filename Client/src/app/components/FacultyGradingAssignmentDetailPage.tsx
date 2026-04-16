@@ -10,9 +10,9 @@ import {
 import { listFacultyAssignmentSubmissionFiles } from "../../services/submissionService";
 import { getRubric } from "../../services/rubricService";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
-import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
+import { FacultyClassSidebar } from "./layout/FacultyClassSidebar";
 import {
   AssignmentDetailPage,
   formatSubmissionDisplayDate,
@@ -245,18 +245,17 @@ export function FacultyGradingAssignmentDetailPage() {
   }, [testSuite, testSuiteLoading]);
 
   return (
-    <AuthShell
-      roleView="faculty"
-      topBar={
+    <div className="flex h-screen bg-[#F5F4F6]">
+      <FacultyClassSidebar classId={resolvedClassId} activeSection="assignments" />
+      <div className="flex flex-1 flex-col overflow-hidden">
         <AuthTopBar
           roleView="faculty"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search classes, assignments..."
+          showSearch={false}
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />
-      }
-      mainContent={
+        <div className="flex-1 overflow-y-auto">
         <AssignmentDetailPage
           assignment={pageAssignment}
           rubricSection={pageRubric}
@@ -277,12 +276,17 @@ export function FacultyGradingAssignmentDetailPage() {
             label: "Speed Grading",
           }}
           testCasesLink={{
-            to: `/faculty/assignment/${resolvedAssignmentId}?tab=tests`,
+            to: `/faculty/class/${resolvedClassId}/assignments/${resolvedAssignmentId}/edit`,
             label: "Edit test cases",
           }}
           testSuiteSection={pageTestSuiteSection}
+          editAssignmentLink={{
+            to: `/faculty/class/${resolvedClassId}/assignments/${resolvedAssignmentId}/edit`,
+            label: "Edit assignment",
+          }}
         />
-      }
-    />
+        </div>
+      </div>
+    </div>
   );
 }

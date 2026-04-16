@@ -10,21 +10,21 @@ export function AuthSplitLayout({ activeDotIndex = 1, children }: AuthSplitLayou
   const dots = [0, 1, 2] as const;
 
   return (
-    <div className="h-screen flex bg-white">
+    <div className="min-h-screen flex flex-col bg-white lg:h-screen lg:flex-row">
       {/* Left Side - Image & Text (shared for sign-in/sign-up) */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-[#7A1226] to-[#65101F] overflow-hidden">
+      <div className="relative flex min-h-[240px] w-full overflow-hidden bg-[linear-gradient(135deg,rgba(122,18,38,0.68),rgba(101,16,31,0.68))] lg:min-h-0 lg:w-1/2">
         {/* Background Image */}
-        <div className="absolute inset-0 opacity-30">
+        <div className="absolute inset-0 opacity-60">
           <ImageWithFallback
-            src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&auto=format&fit=crop"
-            alt="Students coding"
+            src="/ulm.jpg"
+            alt="Library study space"
             className="w-full h-full object-cover"
           />
         </div>
 
         {/* Overlay Content */}
-        <div className="relative z-10 flex flex-col justify-end p-12 text-white w-full">
-          <h2 className="text-4xl font-bold mb-2">
+        <div className="relative z-10 flex w-full flex-col justify-end p-6 text-white sm:p-8 lg:p-12">
+          <h2 className="mb-2 text-3xl font-bold sm:text-4xl">
             Master Coding,
             <br />
             Build Your Future
@@ -42,13 +42,13 @@ export function AuthSplitLayout({ activeDotIndex = 1, children }: AuthSplitLayou
         </div>
 
         {/* Logo */}
-        <div className="absolute top-8 left-8">
-          <div className="text-white text-2xl font-bold">Grade Forge</div>
+        <div className="absolute left-6 top-6 sm:left-8 sm:top-8">
+          <div className="text-xl font-bold text-white sm:text-2xl">Grade Forge</div>
         </div>
       </div>
 
       {/* Right Side - Form Container */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
+      <div className="flex w-full items-center justify-center bg-white p-8 lg:w-1/2">
         <div className="w-full max-w-md">
           {children}
         </div>

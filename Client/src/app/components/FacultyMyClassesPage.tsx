@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, ArrowRight, Calendar, Clock3, Plus } from "lucide-react";
+import { AlertCircle, ArrowRight, Calendar, Plus } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import {
@@ -78,13 +78,6 @@ function FacultyMyClassesView({
         <SegmentedFilter items={filterPills} value={selectedFilter} onValueChange={onFilterChange} />
 
         <div className="flex items-center gap-2.5">
-          {/* CLEANUP: Removed large top statistics cards and kept only compact pending grading summary near class creation action. */}
-          <div className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 text-[12px] font-medium text-[#3E4E67]">
-            <Clock3 className="h-4 w-4 text-[#F5A54A]" strokeWidth={2} />
-            <span>Pending Grading:</span>
-            <span className="text-[13px] font-semibold text-[#1F2430]">{pendingGrading}</span>
-          </div>
-
           <button
             type="button"
             onClick={onCreateNewClass}
@@ -401,7 +394,8 @@ export function FacultyMyClassesPage() {
         <AuthTopBar
           roleView="faculty"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search calendar, assignments..."
+          showSearch={false}
+          pageTitle="My Classes"
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />

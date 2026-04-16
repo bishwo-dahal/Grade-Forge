@@ -41,9 +41,9 @@ export interface FacultyCourseCard {
   id: string;
   title: string;
   code: string;
-  students: number;
-  pendingSubmissions: number;
-  activeAssignments: number;
+  students: number | null;
+  pendingSubmissions: number | null;
+  activeAssignments: number | null;
   icon: string;
   iconBg: string;
   coverImageUrl?: string | null;

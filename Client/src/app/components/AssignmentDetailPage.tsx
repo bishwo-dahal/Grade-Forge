@@ -4,10 +4,10 @@ import {
   ChevronLeft,
   Download,
   FileText,
-  Filter,
   Inbox,
   ListChecks,
   MoreVertical,
+  Pencil,
   RefreshCcw,
   Zap,
 } from "lucide-react";
@@ -132,7 +132,16 @@ export interface AssignmentDetailPageProps {
   testCasesLink?: { to: string; label: string };
   /** Optional test suite to display (like rubric section). */
   testSuiteSection?: AssignmentDetailPageTestSuiteSection | null;
+  /** Optional edit entry for faculty assignment detail pages. */
+  editAssignmentLink?: { to: string; label?: string };
 }
+
+type AssignmentDetailSection =
+  | "description"
+  | "details"
+  | "rubric"
+  | "tests"
+  | "submissions";
 
 /** Per-student slice of the latest grader report (similarity + AI authorship risk). */
 type GraderReportStudentSummary = {
@@ -165,7 +174,9 @@ export function AssignmentDetailPage({
   submissionsCountLabel,
   testCasesLink,
   testSuiteSection,
+  editAssignmentLink,
 }: AssignmentDetailPageProps) {
+  const [activeSection, setActiveSection] = useState<AssignmentDetailSection>("description");
   const [plagSummary, setPlagSummary] = useState<{
     byStudent: Record<string, GraderReportStudentSummary>;
     loading: boolean;
@@ -249,6 +260,13 @@ export function AssignmentDetailPage({
     () => submissions.some((row) => Boolean(row.subGroupName && row.subGroupName.trim())),
     [submissions],
   );
+  const sectionTabs: Array<{ id: AssignmentDetailSection; label: string }> = [
+    { id: "description", label: "Description" },
+    { id: "details", label: "Assignment Details" },
+    { id: "rubric", label: "Rubric" },
+    { id: "tests", label: "Test Cases" },
+    { id: "submissions", label: "Submissions" },
+  ];
   if (loading) {
     return (
       <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
@@ -294,31 +312,68 @@ export function AssignmentDetailPage({
         {assignment ? (
           <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-200">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#EEF3FF] flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-[#EEF3FF] flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0">
+                    <h1 className="text-[22px] font-semibold text-[#2B2A2A] truncate">
+                      {assignment.title}
+                    </h1>
+                    <p className="text-[13px] text-gray-600 mt-0.5">{assignment.courseName}</p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <h1 className="text-[22px] font-semibold text-[#2B2A2A] truncate">
-                    {assignment.title}
-                  </h1>
-                  <p className="text-[13px] text-gray-600 mt-0.5">{assignment.courseName}</p>
-                </div>
+                {editAssignmentLink ? (
+                  <Link
+                    to={editAssignmentLink.to}
+                    aria-label={editAssignmentLink.label ?? "Edit assignment"}
+                    title={editAssignmentLink.label ?? "Edit assignment"}
+                    className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-[#2B2A2A]"
+                  >
+                    <Pencil className="h-4 w-4" strokeWidth={2} />
+                  </Link>
+                ) : null}
               </div>
             </div>
 
+            <div className="border-b border-gray-200 px-6 py-3">
+              <div className="flex flex-wrap gap-2">
+                {sectionTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveSection(tab.id)}
+                    className={`rounded-full px-4 py-2 text-[13px] font-medium transition-colors ${
+                      activeSection === tab.id
+                        ? "bg-[#2B2A2A] text-white"
+                        : "border border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-[#2B2A2A]"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {activeSection !== "submissions" ? (
             <div className="px-6 py-5 space-y-5">
-              {assignment.description ? (
+              {activeSection === "description" ? (
                 <div>
                   <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
                     Description
                   </h3>
-                  <p className="text-[14px] text-[#2B2A2A] whitespace-pre-wrap">
-                    {assignment.description}
-                  </p>
+                  {assignment.description ? (
+                    <p className="text-[14px] text-[#2B2A2A] whitespace-pre-wrap">
+                      {assignment.description}
+                    </p>
+                  ) : (
+                    <p className="text-[14px] text-gray-500">No description was provided for this assignment.</p>
+                  )}
                 </div>
               ) : null}
 
+              {activeSection === "details" ? (
               <div className="pt-2 border-t border-gray-100">
                 <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-3">
                   Assignment details
@@ -413,13 +468,16 @@ export function AssignmentDetailPage({
                   </div>
                 </div>
               </div>
+              ) : null}
 
-              {rubricSection ? (
+              {activeSection === "rubric" ? (
                 <div className="pt-2 border-t border-gray-100">
                   <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
                     Rubric
                   </h3>
-                  {rubricSection.loading ? (
+                  {!rubricSection ? (
+                    <p className="text-[14px] text-gray-500">No rubric is attached to this assignment.</p>
+                  ) : rubricSection.loading ? (
                     <p className="text-[14px] text-gray-500">Loading rubric…</p>
                   ) : (rubricSection.criteriaNested?.length ?? 0) > 0 ? (
                     <div className="space-y-4">
@@ -494,16 +552,20 @@ export function AssignmentDetailPage({
                     </div>
                   ) : rubricSection.name ? (
                     <p className="text-[14px] text-[#2B2A2A]">{rubricSection.name}</p>
-                  ) : null}
+                  ) : (
+                    <p className="text-[14px] text-gray-500">No rubric details are available yet.</p>
+                  )}
                 </div>
               ) : null}
 
-              {testSuiteSection ? (
+              {activeSection === "tests" ? (
                 <div className="pt-2 border-t border-gray-100">
                   <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
                     Test cases
                   </h3>
-                  {testSuiteSection.loading ? (
+                  {!testSuiteSection ? (
+                    <p className="text-[14px] text-gray-500">No test cases are attached to this assignment.</p>
+                  ) : testSuiteSection.loading ? (
                     <p className="text-[14px] text-gray-500">Loading test cases…</p>
                   ) : testSuiteSection.testCases.length > 0 ? (
                     <div className="space-y-3">
@@ -540,37 +602,26 @@ export function AssignmentDetailPage({
                     </div>
                   ) : testSuiteSection.title ? (
                     <p className="text-[14px] text-[#2B2A2A]">{testSuiteSection.title} — no cases yet.</p>
-                  ) : null}
+                  ) : (
+                    <p className="text-[14px] text-gray-500">No test cases are available yet.</p>
+                  )}
                 </div>
               ) : null}
             </div>
+            ) : null}
           </div>
         ) : null}
 
+        {activeSection === "submissions" ? (
         <div className="mt-6 bg-white rounded-2xl border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Inbox className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
               <div>
                 <h2 className="text-[16px] font-semibold text-[#2B2A2A]">Submissions</h2>
-                <p className="text-[13px] text-gray-600">{submissionsSectionSubtitle}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {submissionsCountLabel ? (
-                <span className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-medium text-[#2B2A2A]">
-                  {submissionsCountLabel}
-                </span>
-              ) : null}
-              {speedGradingLink ? (
-                <Link
-                  to={speedGradingLink.to}
-                  // NOTE: Faculty launches speed grading from the assignment detail page so the queue is anchored to the current assignment.
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2B2A2A] rounded-lg text-[12px] font-medium text-white transition-colors hover:bg-[#3A3939]"
-                >
-                  <span>{speedGradingLink.label}</span>
-                </Link>
-              ) : null}
               <button
                 type="button"
                 onClick={onRefreshSubmissions}
@@ -583,13 +634,15 @@ export function AssignmentDetailPage({
                 />
                 <span>{submissionsLoading ? "Refreshing…" : "Refresh"}</span>
               </button>
-              <button
-                type="button"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50"
-              >
-                <Filter className="w-4 h-4" strokeWidth={2} />
-                <span>Filter</span>
-              </button>
+              {speedGradingLink ? (
+                <Link
+                  to={speedGradingLink.to}
+                  // NOTE: Faculty launches speed grading from the assignment detail page so the queue is anchored to the current assignment.
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#7A1226] rounded-lg text-[12px] font-medium text-white transition-colors hover:bg-[#65101F]"
+                >
+                  <span>{speedGradingLink.label}</span>
+                </Link>
+              ) : null}
               <button
                 type="button"
                 disabled={!assignment?.id}
@@ -851,6 +904,7 @@ export function AssignmentDetailPage({
             </table>
           </div>
         </div>
+        ) : null}
       </div>
     </main>
   );
