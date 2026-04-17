@@ -16,6 +16,7 @@ import { AuthTopBar } from "../../layout/AuthTopBar";
 import type { SettingsSection } from "../../layout/AuthTopBar";
 import { AlertCircle, Pencil, Trash2, UserPlus, X } from "lucide-react";
 import { getApiErrorMessage } from "../../../../utils/apiErrorMessage";
+import { TimedSuccessModal } from "../../ui/ActionFeedbackModal";
 
 function getErrorMessage(err: unknown, fallback: string): string {
   const friendly = getApiErrorMessage(err, fallback);
@@ -37,10 +38,12 @@ function GradingAssistantFormModal({
   assistant,
   onClose,
   onSuccess,
+  onSuccessMessage,
 }: {
   assistant: GradingAssistantResponse | null;
   onClose: () => void;
   onSuccess: () => void;
+  onSuccessMessage: (message: string) => void;
 }) {
   const isEdit = !!assistant;
   const [form, setForm] = useState<GradingAssistantRequest>(() =>
@@ -79,8 +82,10 @@ function GradingAssistantFormModal({
       if (form.password?.trim()) payload.password = form.password.trim();
       if (isEdit && assistant) {
         await updateGradingAssistant(assistant.id, payload);
+        onSuccessMessage("Grading assistant updated successfully.");
       } else {
         await createGradingAssistant(payload);
+        onSuccessMessage("Grading assistant created successfully.");
       }
       onSuccess();
       onClose();
@@ -253,6 +258,7 @@ export function FacultyGradingAssistantsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [errorDialog, setErrorDialog] = useState<string | null>(null);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const loadAssistants = useCallback(() => {
     setLoading(true);
@@ -321,6 +327,7 @@ export function FacultyGradingAssistantsPage() {
       }
       mainContent={
         <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-6 py-5">
+          <div className="2xl:max-w-7xl 2xl:mx-auto">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-[15px] text-gray-600">
@@ -421,6 +428,7 @@ export function FacultyGradingAssistantsPage() {
               assistant={modalAssistant === "create" ? null : modalAssistant}
               onClose={() => setModalAssistant(null)}
               onSuccess={loadAssistants}
+              onSuccessMessage={setSuccessModalMessage}
             />
           )}
 
@@ -483,6 +491,13 @@ export function FacultyGradingAssistantsPage() {
               </div>
             </div>
           )}
+          <TimedSuccessModal
+            open={successModalMessage !== null}
+            title="Success"
+            description={successModalMessage ?? ""}
+            onClose={() => setSuccessModalMessage(null)}
+          />
+          </div>
         </main>
       }
     />

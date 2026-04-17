@@ -36,6 +36,7 @@ import type { MainGroupResponse, SubGroupResponse } from "../../../types/courseG
 import { getApiErrorMessage } from "../../../utils/apiErrorMessage";
 import { SidebarPinnedCollapseFooter } from "../layout/SidebarPinnedCollapseFooter";
 import { useSidebarPinnedCollapsed } from "../layout/useSidebarPinnedCollapsed";
+import { TimedSuccessModal } from "../ui/ActionFeedbackModal";
 
 const STUDENT_DRAG_TYPE = "FACULTY_COURSE_GROUP_STUDENT";
 
@@ -369,6 +370,7 @@ export function FacultyMainGroupDetailPage() {
   const [randomCount, setRandomCount] = useState("4");
   const [randomCapacity, setRandomCapacity] = useState("1");
   const [randomBusy, setRandomBusy] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
     if (!Number.isFinite(parsedMainId) || parsedMainId <= 0) {
@@ -537,6 +539,7 @@ export function FacultyMainGroupDetailPage() {
       await updateFacultyMainGroupName(resolvedClassId, mainGroup.id, trimmed);
       setMainEditModalOpen(false);
       await loadAll();
+      setSuccessModalMessage(`Main group renamed to "${trimmed}".`);
     } catch (err) {
       setBanner(getErrorMessage(err));
     } finally {
@@ -568,6 +571,7 @@ export function FacultyMainGroupDetailPage() {
       await updateFacultySubGroupName(resolvedClassId, mainGroup.id, subEditModalOpen, trimmed);
       setSubEditModalOpen(null);
       await loadAll();
+      setSuccessModalMessage(`Subgroup renamed to "${trimmed}".`);
     } catch (err) {
       setBanner(getErrorMessage(err));
     } finally {
@@ -605,6 +609,7 @@ export function FacultyMainGroupDetailPage() {
       setSubName("");
       setSubModalOpen(false);
       await loadAll();
+      setSuccessModalMessage(`Subgroup "${trimmed}" was created successfully.`);
     } catch (err) {
       setBanner(getErrorMessage(err));
     } finally {
@@ -675,6 +680,11 @@ export function FacultyMainGroupDetailPage() {
       setRandomModalOpen(false);
       await loadAll();
       const leftUnassigned = activeStudentIds.length - assignedCount;
+      setSuccessModalMessage(
+        leftUnassigned > 0
+          ? `Created ${createdSubs.length} subgroups and assigned ${assignedCount} students.`
+          : `Created ${createdSubs.length} subgroups and assigned ${assignedCount} students.`,
+      );
       setBanner(
         leftUnassigned > 0
           ? `Created ${createdSubs.length} subgroups and randomly assigned ${assignedCount} students. ${leftUnassigned} students remain unassigned due to capacity limits.`
@@ -1211,6 +1221,12 @@ export function FacultyMainGroupDetailPage() {
             </div>
           </div>
         ) : null}
+        <TimedSuccessModal
+          open={successModalMessage !== null}
+          title="Success"
+          description={successModalMessage ?? ""}
+          onClose={() => setSuccessModalMessage(null)}
+        />
       </div>
     </DndProvider>
   );

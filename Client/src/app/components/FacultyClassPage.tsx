@@ -82,6 +82,7 @@ import type {
 import type { GradingAssistantResponse } from "../../types/gradingAssistant";
 import type { CourseAssistantResponse } from "../../types/courseAssistant";
 import { SegmentedFilter, type SegmentedFilterItem } from "./ui/SegmentedFilter";
+import { ConfirmationModal, TimedSuccessModal } from "./ui/ActionFeedbackModal";
 import {
   Tooltip,
   TooltipContent,
@@ -1624,6 +1625,7 @@ function StudentsSection({
   const [parsedFileRows, setParsedFileRows] = useState<{ name: string; email: string }[] | null>(null);
   const [fileImportResults, setFileImportResults] = useState<{ email: string; name: string; status: "success" | "error"; message?: string }[]>([]);
   const [isFileImporting, setIsFileImporting] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const courseId = useMemo(() => Number(resolvedId) || 0, [resolvedId]);
 
@@ -1710,6 +1712,12 @@ function StudentsSection({
     setFileImportResults(results);
     setIsFileImporting(false);
     await loadRoster();
+    const successCount = results.filter((item) => item.status === "success").length;
+    if (successCount > 0) {
+      setSuccessModalMessage(
+        successCount === 1 ? "1 student was enrolled successfully." : `${successCount} students were enrolled successfully.`,
+      );
+    }
   }, [parsedFileRows, resolvedId]);
 
   useEffect(() => {
@@ -1897,6 +1905,7 @@ function StudentsSection({
       setFeedbackMessage({ tone: "success", text: `${lookupResult.studentName} was enrolled successfully.` });
       await loadRoster();
       closeAddStudentModal();
+      setSuccessModalMessage(`${lookupResult.studentName} was enrolled successfully.`);
     } catch (error) {
       setFeedbackMessage({ tone: "error", text: getErrorMessage(error) });
     } finally {
@@ -2408,6 +2417,12 @@ function StudentsSection({
           </div>
         </div>
       )}
+      <TimedSuccessModal
+        open={successModalMessage !== null}
+        title="Success"
+        description={successModalMessage ?? ""}
+        onClose={() => setSuccessModalMessage(null)}
+      />
     </div>
   );
 }
@@ -2446,6 +2461,7 @@ function AssistantsSection() {
   const [removeConfirm, setRemoveConfirm] = useState<CourseAssistantResponse | null>(null);
   const [removing, setRemoving] = useState(false);
   const [errorDialog, setErrorDialog] = useState<string | null>(null);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const loadData = useCallback(() => {
     if (!courseId) return;
@@ -2490,6 +2506,12 @@ function AssistantsSection() {
       setAssignModalOpen(false);
       setSelectedGradingAssistantId("");
       loadData();
+      const assignedAssistant = gradingAssistants.find((assistant) => assistant.id === selectedGradingAssistantId);
+      setSuccessModalMessage(
+        assignedAssistant != null
+          ? `${assignedAssistant.name} was assigned successfully.`
+          : "Grading assistant assigned successfully.",
+      );
     } catch (err: unknown) {
       setAssignError(getApiErrorMessage(err, "Failed to assign assistant."));
     } finally {
@@ -2741,6 +2763,12 @@ function AssistantsSection() {
           </div>
         </div>
       )}
+      <TimedSuccessModal
+        open={successModalMessage !== null}
+        title="Success"
+        description={successModalMessage ?? ""}
+        onClose={() => setSuccessModalMessage(null)}
+      />
     </div>
   );
 }
@@ -2754,6 +2782,7 @@ function GroupsSection() {
   const [mainModalOpen, setMainModalOpen] = useState(false);
   const [mainName, setMainName] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const loadGroups = useCallback(async () => {
     setLoading(true);
@@ -2785,6 +2814,7 @@ function GroupsSection() {
       setMainName("");
       setMainModalOpen(false);
       await loadGroups();
+      setSuccessModalMessage(`Main group "${trimmed}" was created successfully.`);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -2916,6 +2946,12 @@ function GroupsSection() {
           </div>
         </div>
       ) : null}
+      <TimedSuccessModal
+        open={successModalMessage !== null}
+        title="Success"
+        description={successModalMessage ?? ""}
+        onClose={() => setSuccessModalMessage(null)}
+      />
     </div>
   );
 }
@@ -2944,6 +2980,8 @@ function SettingsSection({ classId }: { classId: string }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
+  const [showToggleConfirm, setShowToggleConfirm] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const [form, setForm] = useState<ClassCreateFormData>(EMPTY_CLASS_FORM);
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
@@ -3017,6 +3055,7 @@ function SettingsSection({ classId }: { classId: string }) {
       const updated = await updateFacultyCourse(classId, form, coverImageFile);
       setCourse(updated);
       toast.success("Course updated successfully.");
+      setSuccessModalMessage("Course changes were saved successfully.");
     } catch (err) {
       const message = getErrorMessage(err);
       setError(message);
@@ -3045,6 +3084,7 @@ function SettingsSection({ classId }: { classId: string }) {
         ...prev,
         active: Boolean(refreshed.active),
       }));
+      setSuccessModalMessage(`Course is now ${refreshed.active ? "active" : "disabled"}.`);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -3125,7 +3165,7 @@ function SettingsSection({ classId }: { classId: string }) {
               <div className="flex flex-wrap gap-2 justify-end">
                 <button
                   type="button"
-                  onClick={() => void handleToggleActive()}
+                  onClick={() => setShowToggleConfirm(true)}
                   disabled={isSaving || isDeleting || isTogglingActive}
                   className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
                   aria-label="Toggle course active status"
@@ -3517,6 +3557,28 @@ function SettingsSection({ classId }: { classId: string }) {
           </div>
         </div>
       ) : null}
+      <ConfirmationModal
+        open={showToggleConfirm}
+        title={course?.active ? "Disable course?" : "Activate course?"}
+        description={
+          course?.active
+            ? "Students will no longer have access to this course while it is disabled."
+            : "This course will become active and available again."
+        }
+        confirmLabel={course?.active ? "Disable" : "Activate"}
+        onCancel={() => setShowToggleConfirm(false)}
+        onConfirm={() => {
+          setShowToggleConfirm(false);
+          void handleToggleActive();
+        }}
+        busy={isTogglingActive}
+      />
+      <TimedSuccessModal
+        open={successModalMessage !== null}
+        title="Success"
+        description={successModalMessage ?? ""}
+        onClose={() => setSuccessModalMessage(null)}
+      />
     </div>
   );
 }
