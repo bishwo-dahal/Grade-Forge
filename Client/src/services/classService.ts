@@ -1155,30 +1155,34 @@ export async function listEnrolledCourses(): Promise<CourseCard[]> {
   // NOTE: Dashboard/My Courses share one cached coursework snapshot so they do not duplicate
   // NOTE: enrolled-course, assignment-list, and submission-list requests on initial load.
   const snapshot = await getStudentCourseworkSnapshot();
-  return snapshot.courses.map((course) => {
-    const assignments = snapshot.assignmentsByCourseId.get(course.id) ?? [];
-    const completed = assignments.filter((assignment) => {
-      const submissions = snapshot.submissionsByAssignmentId.get(assignment.id) ?? [];
-      return submissions.length > 0;
-    }).length;
-    const total = assignments.length;
-    const iconData = buildCourseIcon(course.courseCode || course.name);
-    return {
-      id: String(course.id),
-      courseCode: course.courseCode,
-      // NOTE: Backend does not expose credits yet; keep deterministic fallback until schema expands.
-      credits: 3,
-      title: course.name,
-      instructor: course.faculty?.name ?? "TBD",
-      semester: course.semester?.name ?? "TBD",
-      completed,
-      total,
-      icon: iconData.icon,
-      iconBg: iconData.iconBg,
-      progressColor: iconData.iconBg.includes("FEB05D") ? "bg-[#FEB05D]" : "bg-[#5A7ACD]",
-      coverImageUrl: getCourseCoverImageUrl(course),
-    };
-  });
+  return snapshot.courses
+    .filter((course) => course.isPublished)
+    .map((course) => {
+      const assignments = snapshot.assignmentsByCourseId.get(course.id) ?? [];
+      const completed = assignments.filter((assignment) => {
+        const submissions = snapshot.submissionsByAssignmentId.get(assignment.id) ?? [];
+        return submissions.length > 0;
+      }).length;
+      const total = assignments.length;
+      const iconData = buildCourseIcon(course.courseCode || course.name);
+      return {
+        id: String(course.id),
+        courseCode: course.courseCode,
+        // NOTE: Backend does not expose credits yet; keep deterministic fallback until schema expands.
+        credits: 3,
+        title: course.name,
+        instructor: course.faculty?.name ?? "TBD",
+        semester: course.semester?.name ?? "TBD",
+        completed,
+        total,
+        icon: iconData.icon,
+        iconBg: iconData.iconBg,
+        progressColor: iconData.iconBg.includes("FEB05D") ? "bg-[#FEB05D]" : "bg-[#5A7ACD]",
+        coverImageUrl: getCourseCoverImageUrl(course),
+        isActive: Boolean(course.active),
+        isPublished: Boolean(course.isPublished),
+      };
+    });
 }
 
 export async function getCourseDetailById(id: string): Promise<CourseDetail> {

@@ -79,12 +79,20 @@ function StudentMyCoursesView({ courses, isLoading, layoutMode, onLayoutModeChan
           courses.map((course) => {
             const assignmentsLeft = course.total - course.completed;
             const progress = course.total > 0 ? (course.completed / course.total) * 100 : 0;
+            const isInactive = !course.isActive;
 
             const cardContent = (
               <div className="flex flex-1 flex-col gap-1 p-3 pt-2">
-                <p className="text-[10px] uppercase tracking-wide text-[#738099]">
-                  {course.courseCode} · {course.credits} cr
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] uppercase tracking-wide text-[#738099]">
+                    {course.courseCode} · {course.credits} cr
+                  </p>
+                  {isInactive && (
+                    <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-gray-500">
+                      Inactive
+                    </span>
+                  )}
+                </div>
                 <h2 className="text-[13px] font-semibold leading-tight text-[#2B2A2A]">{course.title}</h2>
                 <p className="text-[11px] text-[#5D667A]">{course.instructor}</p>
                 <p className="text-[11px] text-[#7A849A]">{course.semester}</p>
@@ -95,24 +103,33 @@ function StudentMyCoursesView({ courses, isLoading, layoutMode, onLayoutModeChan
                     <p className="text-[11px] font-semibold text-[#111827]">{assignmentsLeft} left</p>
                   </div>
                   <div className="mt-1 h-1.5 w-full rounded-full bg-[#E5E7EB]">
-                    <div className="h-1.5 rounded-full bg-[#FEB05D]" style={{ width: `${progress}%` }} />
+                    <div
+                      className={`h-1.5 rounded-full ${isInactive ? "bg-gray-300" : "bg-[#FEB05D]"}`}
+                      style={{ width: `${progress}%` }}
+                    />
                   </div>
                   <p className="mt-1 text-[10px] text-[#97A0B4]">
                     {course.completed} / {course.total} done
                   </p>
                 </div>
 
-                <Link
-                  to={`/class/${course.id}`}
-                  className="mt-auto flex h-8 items-center justify-center rounded-lg bg-[#F2F3F5] text-[12px] font-medium text-[#111827] hover:bg-[#E9EBEF]"
-                >
-                  View Class
-                </Link>
+                {isInactive ? (
+                  <div className="mt-auto flex h-8 items-center justify-center rounded-lg bg-gray-100 text-[12px] font-medium text-gray-400 cursor-not-allowed select-none">
+                    Class Inactive
+                  </div>
+                ) : (
+                  <Link
+                    to={`/class/${course.id}`}
+                    className="mt-auto flex h-8 items-center justify-center rounded-lg bg-[#F2F3F5] text-[12px] font-medium text-[#111827] hover:bg-[#E9EBEF]"
+                  >
+                    View Class
+                  </Link>
+                )}
               </div>
             );
 
             return (
-              <article key={course.id} className="overflow-hidden rounded-2xl shadow-sm">
+              <article key={course.id} className={`overflow-hidden rounded-2xl shadow-sm${isInactive ? " opacity-70" : ""}`}>
                 {isGrid ? (
                   <CourseCoverCardShell coverImageUrl={course.coverImageUrl} className="min-h-[220px] border-0 shadow-none">
                     {cardContent}

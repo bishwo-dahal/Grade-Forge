@@ -47,36 +47,55 @@ export function EnrolledCourses({ courses, isLoading = false }: EnrolledCoursesP
         {courses.map((course) => {
           const assignmentsLeft = course.total - course.completed;
           const progress = course.total > 0 ? (course.completed / course.total) * 100 : 0;
+          const isInactive = !course.isActive;
 
-          return (
+          const cardInner = (
+            <CourseCoverCardShell coverImageUrl={course.coverImageUrl} className="min-h-[220px] border-0 shadow-none">
+              <div className="flex flex-1 flex-col gap-1 p-3 pt-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-[#5D6A80]">{course.courseCode}</p>
+                  {isInactive && (
+                    <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-gray-500">
+                      Inactive
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-[13px] font-semibold leading-tight text-[#2B2A2A]">{course.title}</h3>
+                <p className="text-[11px] text-gray-500">{course.instructor}</p>
+
+                <div className="mt-2">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-[10px] uppercase tracking-wide text-gray-500">Assignments</span>
+                    <span className="text-[11px] font-semibold text-[#2B2A2A]">{assignmentsLeft} left</span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-gray-100">
+                    <div
+                      className={`${isInactive ? "bg-gray-300" : course.progressColor} h-1.5 rounded-full transition-all`}
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-[10px] text-gray-400">
+                    {course.completed} / {course.total} completed
+                  </p>
+                </div>
+              </div>
+            </CourseCoverCardShell>
+          );
+
+          return isInactive ? (
+            <div
+              key={course.id}
+              className="block overflow-hidden rounded-2xl shadow-sm opacity-70 cursor-not-allowed"
+            >
+              {cardInner}
+            </div>
+          ) : (
             <Link
               key={course.id}
               to={`/class/${course.id}`}
               className="block overflow-hidden rounded-2xl shadow-sm transition-all hover:shadow-md"
             >
-              <CourseCoverCardShell coverImageUrl={course.coverImageUrl} className="min-h-[220px] border-0 shadow-none">
-                <div className="flex flex-1 flex-col gap-1 p-3 pt-2">
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-[#5D6A80]">{course.courseCode}</p>
-                  <h3 className="text-[13px] font-semibold leading-tight text-[#2B2A2A]">{course.title}</h3>
-                  <p className="text-[11px] text-gray-500">{course.instructor}</p>
-
-                  <div className="mt-2">
-                    <div className="mb-1 flex items-center justify-between">
-                      <span className="text-[10px] uppercase tracking-wide text-gray-500">Assignments</span>
-                      <span className="text-[11px] font-semibold text-[#2B2A2A]">{assignmentsLeft} left</span>
-                    </div>
-                    <div className="h-1.5 w-full rounded-full bg-gray-100">
-                      <div
-                        className={`${course.progressColor} h-1.5 rounded-full transition-all`}
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                    <p className="mt-1 text-[10px] text-gray-400">
-                      {course.completed} / {course.total} completed
-                    </p>
-                  </div>
-                </div>
-              </CourseCoverCardShell>
+              {cardInner}
             </Link>
           );
         })}
