@@ -6,6 +6,7 @@ import { ConsoleDrawer } from "./ConsoleDrawer";
 import { SubmitConfirmModal } from "./SubmitConfirmModal";
 import { EditorTabBar } from "./EditorTabBar";
 import { UnsavedCloseModal } from "./UnsavedCloseModal";
+import { TimedSuccessModal } from "../ui/ActionFeedbackModal";
 import { FileTree, buildEmptyFileTree, buildInitialFileTree, buildFileTreeFromFiles, nextNodeId, nextUntitledFileName, uniqueFileName, getDefaultExtension } from "./filetree";
 import {
   getWorkspaceState,
@@ -144,6 +145,7 @@ export function CodeWorkspace({
   const [facultyGradeFeedback, setFacultyGradeFeedback] = useState<string>("");
   const [facultyGradeError, setFacultyGradeError] = useState<string | null>(null);
   const [facultyGradeStatusMessage, setFacultyGradeStatusMessage] = useState<string | null>(null);
+  const [showFacultyGradeSuccessModal, setShowFacultyGradeSuccessModal] = useState(false);
   const [isFacultyGradeSubmitting, setIsFacultyGradeSubmitting] = useState(false);
   const [facultyPreviewLanguage, setFacultyPreviewLanguage] = useState<string | null>(null);
   const [isFacultyEditorReadOnly, setIsFacultyEditorReadOnly] = useState(false);
@@ -801,6 +803,7 @@ export function CodeWorkspace({
       // FIX: Show explicit success after backend grade update so faculty knows save completed.
       setFacultyGradeStatusMessage("Grade submitted successfully.");
       setShowFacultyGradeModal(false);
+      setShowFacultyGradeSuccessModal(true);
     } catch (error) {
       setFacultyGradeError(getErrorMessage(error));
     } finally {
@@ -1189,6 +1192,12 @@ export function CodeWorkspace({
           </div>
         </div>
       ) : null}
+      <TimedSuccessModal
+        open={showFacultyGradeSuccessModal}
+        title="Grade saved"
+        description="The submission was graded successfully."
+        onClose={() => setShowFacultyGradeSuccessModal(false)}
+      />
 
       {/* Submit Confirmation Modal */}
       {showSubmitModal && (

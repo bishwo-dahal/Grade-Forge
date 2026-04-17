@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, ArrowRight, Calendar, Plus } from "lucide-react";
+import { AlertCircle, ArrowRight, Plus } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import {
@@ -73,6 +73,7 @@ function FacultyMyClassesView({
 
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-4 py-4 sm:px-6">
+      <div className="2xl:max-w-7xl 2xl:mx-auto">
       <section className="mt-1 flex flex-wrap items-center justify-between gap-3">
         {/* REFACTOR: Use shared segmented filter component so this control style can be reused across pages. */}
         <SegmentedFilter items={filterPills} value={selectedFilter} onValueChange={onFilterChange} />
@@ -241,13 +242,6 @@ function FacultyMyClassesView({
                     </p>
                     <p className="text-[10px] text-[#5D6A80]">{course.semester}</p>
 
-                    <div className="rounded-md bg-[#F6F7F9] px-2 py-1.5">
-                      <div className="flex items-center gap-1 text-[11px] text-[#3F4F67]">
-                        <Calendar className="h-3 w-3 shrink-0 text-[#5D6A80]" strokeWidth={2} />
-                        <span className="truncate">{course.schedule}</span>
-                      </div>
-                      <p className="mt-0.5 truncate text-[10px] text-[#5D6A80]">{course.location}</p>
-                    </div>
 
                     <div className="grid grid-cols-3 gap-1">
                       <div>
@@ -292,6 +286,7 @@ function FacultyMyClassesView({
             ))}
         </section>
       )}
+      </div>
     </main>
   );
 }

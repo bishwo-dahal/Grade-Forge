@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import JSZip from "jszip";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   ChevronLeft,
@@ -6,7 +7,6 @@ import {
   FileText,
   Inbox,
   ListChecks,
-  MoreVertical,
   Pencil,
   RefreshCcw,
   Zap,
@@ -188,6 +188,58 @@ export function AssignmentDetailPage({
     "idle" | "requesting" | "running" | "completed" | "failed"
   >("idle");
   const [plagRunMessage, setPlagRunMessage] = useState<string | null>(null);
+  const [downloadingAll, setDownloadingAll] = useState(false);
+
+  const handleDownloadAll = useCallback(async () => {
+    const rowsWithFiles = submissions.filter(
+      (r) => (r.files && r.files.length > 0) || r.primaryDownloadUrl,
+    );
+    if (!rowsWithFiles.length) return;
+    setDownloadingAll(true);
+    try {
+      const zip = new JSZip();
+      await Promise.all(
+        rowsWithFiles.map(async (row) => {
+          const safeStudentName = (row.studentName || `submission-${row.submissionId}`).replace(
+            /[\\/:*?"<>|]/g,
+            "_",
+          );
+          const folder = zip.folder(safeStudentName);
+          if (!folder) return;
+          const files =
+            row.files && row.files.length > 0
+              ? row.files
+              : row.primaryDownloadUrl && row.primaryFileName
+                ? [{ fileName: row.primaryFileName, downloadUrl: row.primaryDownloadUrl }]
+                : [];
+          await Promise.all(
+            files.map(async (f) => {
+              try {
+                const res = await fetch(f.downloadUrl);
+                if (!res.ok) return;
+                const blob = await res.blob();
+                folder.file(f.fileName, blob);
+              } catch {
+                // Skip files that fail to fetch.
+              }
+            }),
+          );
+        }),
+      );
+      const safeTitle = (assignment?.title || "submissions").replace(/[\\/:*?"<>|]/g, "_");
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${safeTitle}-all-submissions.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Silent failure; download is a convenience action.
+    } finally {
+      setDownloadingAll(false);
+    }
+  }, [submissions, assignment?.title]);
 
   useEffect(() => {
     if (!assignment?.id) {
@@ -270,7 +322,7 @@ export function AssignmentDetailPage({
   if (loading) {
     return (
       <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
-        <div className="max-w-7xl mx-auto px-8 py-6">
+        <div className="2xl:max-w-7xl 2xl:mx-auto px-8 py-6">
           <div className="h-7 w-60 rounded bg-gray-200 animate-pulse mb-4" />
           <div className="bg-white rounded-2xl border border-gray-200 p-6 animate-pulse space-y-4">
             <div className="h-6 w-72 rounded bg-gray-200" />
@@ -285,7 +337,7 @@ export function AssignmentDetailPage({
 
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
-      <div className="max-w-7xl mx-auto px-8 py-6">
+      <div className="2xl:max-w-7xl 2xl:mx-auto px-8 py-6">
         <Link
           to={backLink.to}
           className="inline-flex items-center gap-1.5 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors mb-4"
@@ -634,6 +686,18 @@ export function AssignmentDetailPage({
                 />
                 <span>{submissionsLoading ? "Refreshing…" : "Refresh"}</span>
               </button>
+              <button
+                type="button"
+                onClick={() => void handleDownloadAll()}
+                disabled={downloadingAll || submissions.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
+              >
+                <Download
+                  className={`w-4 h-4 ${downloadingAll ? "animate-pulse" : ""}`}
+                  strokeWidth={2}
+                />
+                <span>{downloadingAll ? "Preparing…" : "Download All"}</span>
+              </button>
               {speedGradingLink ? (
                 <Link
                   to={speedGradingLink.to}
@@ -862,13 +926,6 @@ export function AssignmentDetailPage({
                                 <Download className="w-4 h-4" strokeWidth={2} />
                               </button>
                             )}
-                            <Link
-                              to={openHref}
-                              aria-label="Open submission"
-                              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                              <FileText className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                            </Link>
                             {row.subGroupName ? (
                               <Link
                                 to={`${openHref}?tab=group`}
@@ -878,13 +935,6 @@ export function AssignmentDetailPage({
                                 Group
                               </Link>
                             ) : null}
-                            <button
-                              type="button"
-                              aria-label="More submission actions"
-                              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                              <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                            </button>
                           </div>
                         </td>
                       </tr>

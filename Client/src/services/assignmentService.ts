@@ -739,30 +739,19 @@ export async function listStudentAssignments(): Promise<StudentAssignmentListIte
 export async function getAssignmentDescription(assignmentId: string): Promise<AssignmentDescription> {
   const workspaceSource = await loadStudentAssignmentWorkspaceSource(assignmentId);
 
-  // NOTE: Backend currently returns only one description string; all detailed sections are explicit placeholders for future APIs.
+  // NOTE: Backend currently returns only one description string; all detailed sections are empty until future APIs expose them.
   return {
-    problemDescription: [
-      workspaceSource.assignment.description?.trim() || "placeholder text",
-    ],
-    requiredMethods: [
-      {
-        name: "placeholder text",
-        description: "placeholder text",
-      },
-    ],
-    exampleCode: "placeholder text",
+    problemDescription: workspaceSource.assignment.description?.trim()
+      ? [workspaceSource.assignment.description.trim()]
+      : [],
+    requiredMethods: [],
+    exampleCode: "",
     inputOutput: {
-      input: "placeholder text",
-      output: "placeholder text",
+      input: "",
+      output: "",
     },
-    rubric: [
-      {
-        category: "placeholder text",
-        description: "placeholder text",
-        points: "placeholder text",
-      },
-    ],
-    constraints: ["placeholder text"],
+    rubric: [],
+    constraints: [],
   };
 }
 
@@ -848,7 +837,7 @@ export async function getEditorCodeExamples(assignmentId: string): Promise<Edito
   if (!primaryFile || !primaryFileUrl) {
     // TODO(backend): Replace placeholder code when starter/template endpoint is available.
     return {
-      [fallbackLanguage]: "placeholder text",
+      [fallbackLanguage]: "",
     };
   }
 
@@ -861,7 +850,7 @@ export async function getEditorCodeExamples(assignmentId: string): Promise<Edito
     };
   } catch {
     return {
-      [fallbackLanguage]: "placeholder text",
+      [fallbackLanguage]: "",
     };
   }
 }

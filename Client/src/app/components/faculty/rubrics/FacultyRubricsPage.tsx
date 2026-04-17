@@ -40,6 +40,7 @@ function FacultyRubricsView({
 }) {
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-6 py-5">
+      <div className="2xl:max-w-7xl 2xl:mx-auto">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <p className="text-[15px] text-gray-600">
@@ -191,6 +192,7 @@ function FacultyRubricsView({
             })}
           </div>
         )}
+      </div>
       </div>
     </main>
   );

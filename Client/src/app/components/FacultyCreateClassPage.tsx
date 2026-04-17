@@ -7,6 +7,7 @@ import type { ClassCreateFormData, FacultySemesterOption } from "../../types/cla
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
+import { TimedSuccessModal } from "./ui/ActionFeedbackModal";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 import { toast } from "sonner";
 
@@ -49,6 +50,7 @@ function FacultyCreateClassView({
 }: FacultyCreateClassViewProps) {
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-8 py-6">
+      <div className="2xl:max-w-7xl 2xl:mx-auto">
       <div className="mb-5">
         <Link
           to="/faculty/my-classes"
@@ -224,6 +226,7 @@ function FacultyCreateClassView({
           </button>
         </div>
       </section>
+      </div>
     </main>
   );
 }
@@ -248,6 +251,7 @@ export function FacultyCreateClassPage() {
   const [isLoadingSemesters, setIsLoadingSemesters] = useState(true);
   const [isCreatingClass, setIsCreatingClass] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
     if (!coverImageFile) {
@@ -283,7 +287,10 @@ export function FacultyCreateClassPage() {
       // IMPORTANT: Create call persists the new class in DB through /api/v1/faculty/courses/create.
       await createFacultyCourse(classForm);
       toast.success("Class created successfully.");
-      navigate("/faculty/my-classes", { replace: true });
+      setShowSuccessModal(true);
+      window.setTimeout(() => {
+        navigate("/faculty/my-classes", { replace: true });
+      }, 1000);
     } catch (createError) {
       const message = getApiErrorMessage(createError, "Unable to create class. Please verify the fields and try again.");
       setError(message);
@@ -315,18 +322,26 @@ export function FacultyCreateClassPage() {
         />
       }
       mainContent={
-        <FacultyCreateClassView
-          classForm={classForm}
-          coverImageFile={coverImageFile}
-          coverPreviewUrl={coverPreviewUrl}
-          semesters={semesters}
-          isLoadingSemesters={isLoadingSemesters}
-          isCreatingClass={isCreatingClass}
-          error={error}
-          onFormChange={setClassForm}
-          onCoverImageChange={setCoverImageFile}
-          onSubmit={handleSubmit}
-        />
+        <>
+          <FacultyCreateClassView
+            classForm={classForm}
+            coverImageFile={coverImageFile}
+            coverPreviewUrl={coverPreviewUrl}
+            semesters={semesters}
+            isLoadingSemesters={isLoadingSemesters}
+            isCreatingClass={isCreatingClass}
+            error={error}
+            onFormChange={setClassForm}
+            onCoverImageChange={setCoverImageFile}
+            onSubmit={handleSubmit}
+          />
+          <TimedSuccessModal
+            open={showSuccessModal}
+            title="Class created"
+            description="The class was created successfully."
+            onClose={() => setShowSuccessModal(false)}
+          />
+        </>
       }
     />
   );

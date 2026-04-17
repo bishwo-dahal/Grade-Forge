@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { 
-  Settings, 
-  ChevronLeft, 
+  Settings,
+  ChevronLeft,
   FileText,
-  Send, 
-  BarChart3, 
+  Send,
+  BarChart3,
   Plus,
   Upload,
   Users,
@@ -26,7 +26,8 @@ import {
   X,
   RefreshCcw,
   ChevronRight,
-  FileUp
+  FileUp,
+  Zap,
 } from "lucide-react";
 import type {
   ClassHeader,
@@ -82,6 +83,7 @@ import type {
 import type { GradingAssistantResponse } from "../../types/gradingAssistant";
 import type { CourseAssistantResponse } from "../../types/courseAssistant";
 import { SegmentedFilter, type SegmentedFilterItem } from "./ui/SegmentedFilter";
+import { ConfirmationModal, TimedSuccessModal } from "./ui/ActionFeedbackModal";
 import {
   Tooltip,
   TooltipContent,
@@ -1013,6 +1015,7 @@ function GradesSection({
   facultyName: string;
 }) {
   const { classId } = useParams();
+  const navigate = useNavigate();
   const courseId = useMemo(() => Number(classId || "0") || 0, [classId]);
 
   const [courseReport, setCourseReport] = useState<CourseGradeReportResponse | null>(null);
@@ -1025,6 +1028,9 @@ function GradesSection({
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<number | null>(null);
   const [assignmentReportLoading, setAssignmentReportLoading] = useState(false);
+
+  const [isSpeedGraderOpen, setIsSpeedGraderOpen] = useState(false);
+  const [speedGraderSelectedId, setSpeedGraderSelectedId] = useState<number | null>(null);
 
   // Load course grade report only when Grades section is shown (component mounted).
   useEffect(() => {
@@ -1060,6 +1066,26 @@ function GradesSection({
     const first = courseReport.students[0];
     return first.assignments ?? [];
   }, [courseReport]);
+
+  const speedGradingOptions = useMemo(() => {
+    if (!courseReport?.students?.length) return [];
+    const byId = new Map<number, { assignmentId: number; assignmentName: string; ungraded: number; total: number }>();
+    for (const student of courseReport.students) {
+      for (const a of student.assignments) {
+        if (!byId.has(a.assignmentId)) {
+          byId.set(a.assignmentId, { assignmentId: a.assignmentId, assignmentName: a.assignmentName, ungraded: 0, total: 0 });
+        }
+        const entry = byId.get(a.assignmentId)!;
+        entry.total += 1;
+        if (a.status === "SUBMITTED") entry.ungraded += 1;
+      }
+    }
+    return Array.from(byId.values()).sort((a, b) => b.ungraded - a.ungraded);
+  }, [courseReport]);
+
+  const suggestedAssignmentId = useMemo(() => {
+    return speedGradingOptions[0]?.assignmentId ?? null;
+  }, [speedGradingOptions]);
 
   const filteredStudentsCourse = useMemo(() => {
     if (!courseReport?.students) return [];
@@ -1169,15 +1195,29 @@ function GradesSection({
             View and manage student grades for this course
           </p>
         </div>
-        <button
-          type="button"
-          onClick={exportGradesCsv}
-          disabled={!courseReport || (viewMode === "assignment" && !assignmentReport)}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Download className="w-4 h-4" strokeWidth={2} />
-          <span>Export Grades</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setSpeedGraderSelectedId(suggestedAssignmentId);
+              setIsSpeedGraderOpen(true);
+            }}
+            disabled={speedGradingOptions.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-[#7A1226] hover:bg-[#65101F] rounded-lg text-[13px] font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Zap className="w-4 h-4" strokeWidth={2} />
+            <span>Speed Grader</span>
+          </button>
+          <button
+            type="button"
+            onClick={exportGradesCsv}
+            disabled={!courseReport || (viewMode === "assignment" && !assignmentReport)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download className="w-4 h-4" strokeWidth={2} />
+            <span>Export Grades</span>
+          </button>
+        </div>
       </div>
 
       {loadError && (
@@ -1387,6 +1427,84 @@ function GradesSection({
             </div>
           )}
         </>
+      ) : null}
+
+      {isSpeedGraderOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white shadow-xl">
+            <div className="border-b border-gray-200 px-5 py-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Zap className="w-4 h-4 text-[#7A1226]" strokeWidth={2} />
+                <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Speed Grading</h3>
+              </div>
+              <p className="text-[12px] text-gray-600">
+                Select an assignment to grade. The queue opens in read-only grading mode, one submission at a time.
+              </p>
+            </div>
+
+            <div className="px-5 py-4 space-y-4">
+              {speedGradingOptions.length > 0 ? (
+                <>
+                  {suggestedAssignmentId != null && speedGradingOptions[0]?.ungraded > 0 ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700 mb-0.5">
+                        Suggested
+                      </p>
+                      <p className="text-[13px] font-medium text-[#2B2A2A]">
+                        {speedGradingOptions[0].assignmentName}
+                      </p>
+                      <p className="text-[12px] text-amber-700 mt-0.5">
+                        {speedGradingOptions[0].ungraded} ungraded submission{speedGradingOptions[0].ungraded !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                  ) : null}
+                  <div className="space-y-1.5">
+                    <label className="block text-[12px] font-medium text-[#2B2A2A]">Assignment</label>
+                    <select
+                      value={speedGraderSelectedId ?? ""}
+                      onChange={(e) => setSpeedGraderSelectedId(Number(e.target.value))}
+                      className="h-10 w-full rounded-lg border border-gray-300 px-3 text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]/30"
+                    >
+                      {speedGradingOptions.map((opt) => (
+                        <option key={opt.assignmentId} value={opt.assignmentId}>
+                          {opt.assignmentName}
+                          {opt.ungraded > 0 ? ` — ${opt.ungraded} ungraded` : " — all graded"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <p className="text-[13px] text-gray-600">
+                  No assignment submissions available for speed grading yet.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-gray-200 bg-gray-50 px-5 py-4 rounded-b-xl">
+              <button
+                type="button"
+                onClick={() => setIsSpeedGraderOpen(false)}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-[#2B2A2A] hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!speedGraderSelectedId}
+                onClick={() => {
+                  if (!speedGraderSelectedId || !classId) return;
+                  navigate(`/faculty/class/${classId}/speed-grading/${speedGraderSelectedId}`);
+                  setIsSpeedGraderOpen(false);
+                }}
+                className="flex items-center gap-1.5 rounded-lg bg-[#7A1226] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#65101F] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Zap className="w-3.5 h-3.5" strokeWidth={2} />
+                Start Grading
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );
@@ -1624,6 +1742,7 @@ function StudentsSection({
   const [parsedFileRows, setParsedFileRows] = useState<{ name: string; email: string }[] | null>(null);
   const [fileImportResults, setFileImportResults] = useState<{ email: string; name: string; status: "success" | "error"; message?: string }[]>([]);
   const [isFileImporting, setIsFileImporting] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const courseId = useMemo(() => Number(resolvedId) || 0, [resolvedId]);
 
@@ -1710,6 +1829,12 @@ function StudentsSection({
     setFileImportResults(results);
     setIsFileImporting(false);
     await loadRoster();
+    const successCount = results.filter((item) => item.status === "success").length;
+    if (successCount > 0) {
+      setSuccessModalMessage(
+        successCount === 1 ? "1 student was enrolled successfully." : `${successCount} students were enrolled successfully.`,
+      );
+    }
   }, [parsedFileRows, resolvedId]);
 
   useEffect(() => {
@@ -1897,6 +2022,7 @@ function StudentsSection({
       setFeedbackMessage({ tone: "success", text: `${lookupResult.studentName} was enrolled successfully.` });
       await loadRoster();
       closeAddStudentModal();
+      setSuccessModalMessage(`${lookupResult.studentName} was enrolled successfully.`);
     } catch (error) {
       setFeedbackMessage({ tone: "error", text: getErrorMessage(error) });
     } finally {
@@ -2408,6 +2534,12 @@ function StudentsSection({
           </div>
         </div>
       )}
+      <TimedSuccessModal
+        open={successModalMessage !== null}
+        title="Success"
+        description={successModalMessage ?? ""}
+        onClose={() => setSuccessModalMessage(null)}
+      />
     </div>
   );
 }
@@ -2446,6 +2578,7 @@ function AssistantsSection() {
   const [removeConfirm, setRemoveConfirm] = useState<CourseAssistantResponse | null>(null);
   const [removing, setRemoving] = useState(false);
   const [errorDialog, setErrorDialog] = useState<string | null>(null);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const loadData = useCallback(() => {
     if (!courseId) return;
@@ -2490,6 +2623,12 @@ function AssistantsSection() {
       setAssignModalOpen(false);
       setSelectedGradingAssistantId("");
       loadData();
+      const assignedAssistant = gradingAssistants.find((assistant) => assistant.id === selectedGradingAssistantId);
+      setSuccessModalMessage(
+        assignedAssistant != null
+          ? `${assignedAssistant.name} was assigned successfully.`
+          : "Grading assistant assigned successfully.",
+      );
     } catch (err: unknown) {
       setAssignError(getApiErrorMessage(err, "Failed to assign assistant."));
     } finally {
@@ -2741,6 +2880,12 @@ function AssistantsSection() {
           </div>
         </div>
       )}
+      <TimedSuccessModal
+        open={successModalMessage !== null}
+        title="Success"
+        description={successModalMessage ?? ""}
+        onClose={() => setSuccessModalMessage(null)}
+      />
     </div>
   );
 }
@@ -2754,6 +2899,7 @@ function GroupsSection() {
   const [mainModalOpen, setMainModalOpen] = useState(false);
   const [mainName, setMainName] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const loadGroups = useCallback(async () => {
     setLoading(true);
@@ -2785,6 +2931,7 @@ function GroupsSection() {
       setMainName("");
       setMainModalOpen(false);
       await loadGroups();
+      setSuccessModalMessage(`Main group "${trimmed}" was created successfully.`);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -2916,6 +3063,12 @@ function GroupsSection() {
           </div>
         </div>
       ) : null}
+      <TimedSuccessModal
+        open={successModalMessage !== null}
+        title="Success"
+        description={successModalMessage ?? ""}
+        onClose={() => setSuccessModalMessage(null)}
+      />
     </div>
   );
 }
@@ -2944,6 +3097,8 @@ function SettingsSection({ classId }: { classId: string }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
+  const [showToggleConfirm, setShowToggleConfirm] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const [form, setForm] = useState<ClassCreateFormData>(EMPTY_CLASS_FORM);
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
@@ -3017,6 +3172,7 @@ function SettingsSection({ classId }: { classId: string }) {
       const updated = await updateFacultyCourse(classId, form, coverImageFile);
       setCourse(updated);
       toast.success("Course updated successfully.");
+      setSuccessModalMessage("Course changes were saved successfully.");
     } catch (err) {
       const message = getErrorMessage(err);
       setError(message);
@@ -3045,6 +3201,7 @@ function SettingsSection({ classId }: { classId: string }) {
         ...prev,
         active: Boolean(refreshed.active),
       }));
+      setSuccessModalMessage(`Course is now ${refreshed.active ? "active" : "disabled"}.`);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -3125,7 +3282,7 @@ function SettingsSection({ classId }: { classId: string }) {
               <div className="flex flex-wrap gap-2 justify-end">
                 <button
                   type="button"
-                  onClick={() => void handleToggleActive()}
+                  onClick={() => setShowToggleConfirm(true)}
                   disabled={isSaving || isDeleting || isTogglingActive}
                   className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
                   aria-label="Toggle course active status"
@@ -3517,6 +3674,28 @@ function SettingsSection({ classId }: { classId: string }) {
           </div>
         </div>
       ) : null}
+      <ConfirmationModal
+        open={showToggleConfirm}
+        title={course?.active ? "Disable course?" : "Activate course?"}
+        description={
+          course?.active
+            ? "Students will no longer have access to this course while it is disabled."
+            : "This course will become active and available again."
+        }
+        confirmLabel={course?.active ? "Disable" : "Activate"}
+        onCancel={() => setShowToggleConfirm(false)}
+        onConfirm={() => {
+          setShowToggleConfirm(false);
+          void handleToggleActive();
+        }}
+        busy={isTogglingActive}
+      />
+      <TimedSuccessModal
+        open={successModalMessage !== null}
+        title="Success"
+        description={successModalMessage ?? ""}
+        onClose={() => setSuccessModalMessage(null)}
+      />
     </div>
   );
 }
