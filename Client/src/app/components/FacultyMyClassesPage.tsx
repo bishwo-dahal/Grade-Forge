@@ -73,6 +73,7 @@ function FacultyMyClassesView({
 
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-4 py-4 sm:px-6">
+      <div className="2xl:max-w-7xl 2xl:mx-auto">
       <section className="mt-1 flex flex-wrap items-center justify-between gap-3">
         {/* REFACTOR: Use shared segmented filter component so this control style can be reused across pages. */}
         <SegmentedFilter items={filterPills} value={selectedFilter} onValueChange={onFilterChange} />
@@ -292,6 +293,7 @@ function FacultyMyClassesView({
             ))}
         </section>
       )}
+      </div>
     </main>
   );
 }

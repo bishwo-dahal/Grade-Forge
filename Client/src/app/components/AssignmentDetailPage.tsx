@@ -270,7 +270,7 @@ export function AssignmentDetailPage({
   if (loading) {
     return (
       <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
-        <div className="max-w-7xl mx-auto px-8 py-6">
+        <div className="2xl:max-w-7xl 2xl:mx-auto px-8 py-6">
           <div className="h-7 w-60 rounded bg-gray-200 animate-pulse mb-4" />
           <div className="bg-white rounded-2xl border border-gray-200 p-6 animate-pulse space-y-4">
             <div className="h-6 w-72 rounded bg-gray-200" />
@@ -285,7 +285,7 @@ export function AssignmentDetailPage({
 
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
-      <div className="max-w-7xl mx-auto px-8 py-6">
+      <div className="2xl:max-w-7xl 2xl:mx-auto px-8 py-6">
         <Link
           to={backLink.to}
           className="inline-flex items-center gap-1.5 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors mb-4"

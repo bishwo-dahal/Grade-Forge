@@ -94,7 +94,7 @@ function FacultyCreateAssignmentView({
 
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-8 py-7">
-      <div className="mx-auto w-full max-w-[1160px]">
+      <div className="2xl:mx-auto 2xl:max-w-[1160px]">
         <div className="mb-5 text-[15px] text-[#6D7B91]">
           <Link to="/faculty/my-classes" className="hover:text-[#2B2A2A]">
             My Classes
