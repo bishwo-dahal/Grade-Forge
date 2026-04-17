@@ -31,56 +31,6 @@ export function DescriptionPanel({
         </div>
       )}
 
-      {/* Requirements */}
-      {description.requiredMethods.length > 0 && (
-        <div className="mb-8">
-          <h3 className="text-[15px] font-semibold text-[#2B2A2A] mb-3">Required Methods</h3>
-          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-            <div className="space-y-3 text-[13px]">
-              {description.requiredMethods.map((method) => (
-                <div key={method.name} className="flex items-start gap-3">
-                  <code className="text-[#5A7ACD] font-mono bg-white px-2 py-0.5 rounded">{method.name}</code>
-                  <span className="text-gray-600">{method.description}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Example */}
-      {description.exampleCode.trim() && (
-        <div className="mb-8">
-          <h3 className="text-[15px] font-semibold text-[#2B2A2A] mb-3">Example Usage</h3>
-          <div className="bg-[#2B2A2A] rounded-xl p-4 overflow-x-auto">
-            <pre className="text-[13px] text-gray-100 font-mono leading-relaxed">
-{description.exampleCode}
-            </pre>
-          </div>
-        </div>
-      )}
-
-      {/* Input/Output Specifications */}
-      {(description.inputOutput.input.trim() || description.inputOutput.output.trim()) && (
-        <div className="mb-8">
-          <h3 className="text-[15px] font-semibold text-[#2B2A2A] mb-3">Input/Output Format</h3>
-          <div className="text-[14px] text-gray-700 space-y-3">
-            {description.inputOutput.input.trim() && (
-              <div>
-                <strong className="text-[#2B2A2A]">Input:</strong>
-                <p className="mt-1">{description.inputOutput.input}</p>
-              </div>
-            )}
-            {description.inputOutput.output.trim() && (
-              <div>
-                <strong className="text-[#2B2A2A]">Output:</strong>
-                <p className="mt-1">{description.inputOutput.output}</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Starter Code — links come from API (presigned URLs). */}
       {(starterCodeFiles?.length ?? 0) > 0 || starterCodeUrl ? (
         <div className="mb-8">
@@ -115,20 +65,6 @@ export function DescriptionPanel({
           </div>
         </div>
       ) : null}
-
-      {/* CLEANUP: Rubric details live in dedicated Grading Rubric tab to avoid duplicate sections in Description. */}
-
-      {/* Constraints */}
-      {description.constraints.length > 0 && (
-        <div className="mb-8">
-          <h3 className="text-[15px] font-semibold text-[#2B2A2A] mb-3">Constraints</h3>
-          <ul className="list-disc pl-5 space-y-2 text-[14px] text-gray-700">
-            {description.constraints.map((constraint, index) => (
-              <li key={index}>{constraint}</li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }
