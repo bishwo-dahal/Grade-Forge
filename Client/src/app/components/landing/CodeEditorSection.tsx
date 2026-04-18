@@ -109,7 +109,7 @@ export function CodeEditorSection() {
 
   return (
     <section
-      id="features"
+      id="code-editor"
       className="bg-white py-20 md:py-28"
       style={{ fontFamily: "Montserrat, 'Segoe UI', Helvetica Neue, Arial, sans-serif" }}
     >

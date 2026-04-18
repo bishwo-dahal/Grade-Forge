@@ -90,6 +90,7 @@ export function FeaturesGrid() {
 
   return (
     <section
+      id="features"
       className="bg-white py-20 md:py-28"
       style={{ fontFamily: "Montserrat, 'Segoe UI', Helvetica Neue, Arial, sans-serif" }}
     >
