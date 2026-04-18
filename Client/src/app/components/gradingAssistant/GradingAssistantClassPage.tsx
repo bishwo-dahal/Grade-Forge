@@ -86,7 +86,8 @@ export function GradingAssistantClassPage() {
         <AuthTopBar
           roleView="gradingAssistant"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search..."
+          showSearch={false}
+          pageTitle="Class"
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />
@@ -259,7 +260,7 @@ export function GradingAssistantClassPage() {
                                 <td className="px-6 py-4 text-right">
                                   <Link
                                     to={`/grading-assistant/class/${classId}/assignment/${a.id}`}
-                                    className="inline-flex h-8 items-center justify-center rounded-lg bg-[#7A1226] px-3 text-[12px] font-semibold text-white hover:bg-[#65101F] transition-colors"
+                                    className="inline-flex h-7 shrink-0 items-center justify-center whitespace-nowrap rounded-md bg-[#7A1226] px-2 text-[11px] font-semibold leading-none text-white transition-colors hover:bg-[#65101F]"
                                   >
                                     View details
                                   </Link>

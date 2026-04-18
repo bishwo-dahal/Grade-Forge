@@ -49,7 +49,8 @@ export function GradeForgeDashboard() {
     <AuthTopBar
       roleView={viewMode}
       profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-      searchPlaceholder={viewMode === "gradingAssistant" ? "Search courses..." : "Search calendar, assignments..."}
+      showSearch={false}
+      pageTitle="Dashboard"
       onSettingsSectionSelect={goToSettingsSection}
       onLogout={handleLogout}
     />

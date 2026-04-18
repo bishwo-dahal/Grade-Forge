@@ -1,50 +1,143 @@
-import React from "react";
+import React, { Suspense, lazy, type ComponentProps, type ComponentType } from "react";
 import { createBrowserRouter, Navigate } from "react-router";
 import { GradeForgeDashboard } from "./components/GradeForgeDashboard";
-import { AssignmentPage } from "./components/AssignmentPage";
-import { CoursePage } from "./components/CoursePage";
-import { ClassPage } from "./components/ClassPage";
-import { FacultyClassPage } from "./components/FacultyClassPage";
-import FacultyGradingPage from "./components/FacultyGradingPage";
+import { ProtectedRoute } from "./ProtectedRoute";
 import SignUpPage from "./components/SignUpPage";
 import SignInPage from "./components/SignInPage";
 import LandingPage from "./components/LandingPage";
-import { ProtectedRoute } from "./ProtectedRoute";
-import { SettingsPage } from "./components/SettingsPage";
-import { UniversityAdminWorkspace } from "./components/UniversityAdminWorkspace";
-import { UniversityCoursesPage } from "./components/UniversityCoursesPage";
-import { UniversityFacultyPage } from "./components/UniversityFacultyPage";
-import { UniversityLanguagesPage } from "./components/UniversityLanguagesPage";
-import { UniversitySemestersPage } from "./components/UniversitySemestersPage";
-import { UniversityMonitorPage } from "./components/UniversityMonitorPage";
-import { UniversityManageUsersPage } from "./components/UniversityManageUsersPage";
-import { FacultyCreateClassPage } from "./components/FacultyCreateClassPage";
-import { FacultyCreateAssignmentPage } from "./components/FacultyCreateAssignmentPage";
-import { FacultyGradingAssignmentDetailPage } from "./components/FacultyGradingAssignmentDetailPage";
-import { FacultyClassStudentDetailPage } from "./components/faculty/FacultyClassStudentDetailPage.tsx";
-import { FacultyMainGroupDetailPage } from "./components/faculty/FacultyMainGroupDetailPage";
-import CompleteStudentRegistrationPage from "./components/CompleteStudentRegistrationPage";
-import {
-  FacultyDiscussionsPage,
-  FacultyMaterialsPage,
-  FacultyMyClassesPage,
-  FacultySchedulePage,
-  FacultyStudentsPage,
-  StudentAssignmentsPage,
-  StudentCalendarPage,
-  StudentDiscussionsPage,
-  StudentMaterialsPage,
-  StudentMyCoursesPage,
-} from "./components/RoleWorkspacePages";
-import { FacultyRubricsPage } from "./components/faculty/rubrics/FacultyRubricsPage";
-import { FacultyRubricCreatePage } from "./components/faculty/rubrics/FacultyRubricCreatePage";
-import { FacultyRubricDetailPage } from "./components/faculty/rubrics/FacultyRubricDetailPage";
-import { FacultyGradingAssistantsPage } from "./components/faculty/gradingAssistants/FacultyGradingAssistantsPage";
-import { GradingAssistantCoursesPage } from "./components/gradingAssistant/GradingAssistantCoursesPage";
-import { GradingAssistantClassPage } from "./components/gradingAssistant/GradingAssistantClassPage";
-import { GradingAssistantAssignmentDetailPage } from "./components/AssignmentDetailPage";
-import { AssignmentGradingPage } from "./components/AssignmentGradingPage";
-import { FacultySpeedGradingPage } from "./components/FacultySpeedGradingPage";
+
+function RouteLoadingFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#F5F2F2] text-[14px] text-gray-600">
+      Loading...
+    </div>
+  );
+}
+
+function lazyDefault<T extends ComponentType<any>>(loader: () => Promise<{ default: T }>) {
+  const LazyComponent = lazy(loader);
+  return function LazyDefaultRoute(props: ComponentProps<T>) {
+    return (
+      <Suspense fallback={<RouteLoadingFallback />}>
+        <LazyComponent {...props} />
+      </Suspense>
+    );
+  };
+}
+
+function lazyNamed<T extends ComponentType<any>>(
+  loader: () => Promise<Record<string, T>>,
+  exportName: string,
+) {
+  const LazyComponent = lazy(async () => {
+    const mod = await loader();
+    return { default: mod[exportName] };
+  });
+
+  return function LazyNamedRoute(props: ComponentProps<T>) {
+    return (
+      <Suspense fallback={<RouteLoadingFallback />}>
+        <LazyComponent {...props} />
+      </Suspense>
+    );
+  };
+}
+
+const AssignmentPage = lazyNamed(() => import("./components/AssignmentPage"), "AssignmentPage");
+const CoursePage = lazyNamed(() => import("./components/CoursePage"), "CoursePage");
+const ClassPage = lazyNamed(() => import("./components/ClassPage"), "ClassPage");
+const FacultyClassPage = lazyNamed(() => import("./components/FacultyClassPage"), "FacultyClassPage");
+const FacultyGradingPage = lazyDefault(() => import("./components/FacultyGradingPage"));
+const NotFoundPage = lazyDefault(() => import("./components/NotFoundPage"));
+const SettingsPage = lazyNamed(() => import("./components/SettingsPage"), "SettingsPage");
+const UniversityAdminWorkspace = lazyNamed(
+  () => import("./components/UniversityAdminWorkspace"),
+  "UniversityAdminWorkspace",
+);
+const UniversityCoursesPage = lazyNamed(() => import("./components/UniversityCoursesPage"), "UniversityCoursesPage");
+const UniversityFacultyPage = lazyNamed(() => import("./components/UniversityFacultyPage"), "UniversityFacultyPage");
+const UniversityLanguagesPage = lazyNamed(
+  () => import("./components/UniversityLanguagesPage"),
+  "UniversityLanguagesPage",
+);
+const UniversitySemestersPage = lazyNamed(
+  () => import("./components/UniversitySemestersPage"),
+  "UniversitySemestersPage",
+);
+const UniversityMonitorPage = lazyNamed(() => import("./components/UniversityMonitorPage"), "UniversityMonitorPage");
+const UniversityTrainingDataPage = lazyNamed(
+  () => import("./components/UniversityTrainingDataPage"),
+  "UniversityTrainingDataPage",
+);
+const UniversityManageUsersPage = lazyNamed(
+  () => import("./components/UniversityManageUsersPage"),
+  "UniversityManageUsersPage",
+);
+const FacultyCreateClassPage = lazyNamed(
+  () => import("./components/FacultyCreateClassPage"),
+  "FacultyCreateClassPage",
+);
+const FacultyCreateAssignmentPage = lazyNamed(
+  () => import("./components/FacultyCreateAssignmentPage"),
+  "FacultyCreateAssignmentPage",
+);
+const FacultyGradingAssignmentDetailPage = lazyNamed(
+  () => import("./components/FacultyGradingAssignmentDetailPage"),
+  "FacultyGradingAssignmentDetailPage",
+);
+const FacultyClassStudentDetailPage = lazyNamed(
+  () => import("./components/faculty/FacultyClassStudentDetailPage"),
+  "FacultyClassStudentDetailPage",
+);
+const FacultyMainGroupDetailPage = lazyNamed(
+  () => import("./components/faculty/FacultyMainGroupDetailPage"),
+  "FacultyMainGroupDetailPage",
+);
+const CompleteStudentRegistrationPage = lazyDefault(() => import("./components/CompleteStudentRegistrationPage"));
+const FacultyMyClassesPage = lazyNamed(() => import("./components/RoleWorkspacePages"), "FacultyMyClassesPage");
+const FacultySchedulePage = lazyNamed(() => import("./components/RoleWorkspacePages"), "FacultySchedulePage");
+const FacultyStudentsPage = lazyNamed(() => import("./components/RoleWorkspacePages"), "FacultyStudentsPage");
+const StudentAssignmentsPage = lazyNamed(() => import("./components/RoleWorkspacePages"), "StudentAssignmentsPage");
+const StudentCalendarPage = lazyNamed(() => import("./components/RoleWorkspacePages"), "StudentCalendarPage");
+const StudentDiscussionsPage = lazyNamed(() => import("./components/RoleWorkspacePages"), "StudentDiscussionsPage");
+const StudentMaterialsPage = lazyNamed(() => import("./components/RoleWorkspacePages"), "StudentMaterialsPage");
+const StudentMyCoursesPage = lazyNamed(() => import("./components/RoleWorkspacePages"), "StudentMyCoursesPage");
+const FacultyRubricsPage = lazyNamed(
+  () => import("./components/faculty/rubrics/FacultyRubricsPage"),
+  "FacultyRubricsPage",
+);
+const FacultyRubricCreatePage = lazyNamed(
+  () => import("./components/faculty/rubrics/FacultyRubricCreatePage"),
+  "FacultyRubricCreatePage",
+);
+const FacultyRubricDetailPage = lazyNamed(
+  () => import("./components/faculty/rubrics/FacultyRubricDetailPage"),
+  "FacultyRubricDetailPage",
+);
+const FacultyGradingAssistantsPage = lazyNamed(
+  () => import("./components/faculty/gradingAssistants/FacultyGradingAssistantsPage"),
+  "FacultyGradingAssistantsPage",
+);
+const GradingAssistantCoursesPage = lazyNamed(
+  () => import("./components/gradingAssistant/GradingAssistantCoursesPage"),
+  "GradingAssistantCoursesPage",
+);
+const GradingAssistantClassPage = lazyNamed(
+  () => import("./components/gradingAssistant/GradingAssistantClassPage"),
+  "GradingAssistantClassPage",
+);
+const GradingAssistantAssignmentDetailPage = lazyNamed(
+  () => import("./components/AssignmentDetailPage"),
+  "GradingAssistantAssignmentDetailPage",
+);
+const AssignmentGradingPage = lazyNamed(
+  () => import("./components/AssignmentGradingPage"),
+  "AssignmentGradingPage",
+);
+const FacultySpeedGradingPage = lazyNamed(
+  () => import("./components/FacultySpeedGradingPage"),
+  "FacultySpeedGradingPage",
+);
 
 export const router = createBrowserRouter([
   {
@@ -239,22 +332,6 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: "/faculty/materials",
-    element: (
-      <ProtectedRoute allowedRoles={["FACULTY"]}>
-        <FacultyMaterialsPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/faculty/discussions",
-    element: (
-      <ProtectedRoute allowedRoles={["FACULTY"]}>
-        <FacultyDiscussionsPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
     path: "/university-admin",
     element: (
       // REFACTOR: University admin now uses nested section routes under one shared shell.
@@ -293,6 +370,10 @@ export const router = createBrowserRouter([
         Component: UniversityMonitorPage,
       },
       {
+        path: "training-data",
+        Component: UniversityTrainingDataPage,
+      },
+      {
         path: "settings",
         Component: SettingsPage,
       },
@@ -310,7 +391,7 @@ export const router = createBrowserRouter([
     path: "/faculty/class/:classId",
     element: (
       <ProtectedRoute allowedRoles={["FACULTY"]}>
-        <Navigate to="./dashboard" replace />
+        <Navigate to="./assignments" replace />
       </ProtectedRoute>
     ),
   },
@@ -412,5 +493,9 @@ export const router = createBrowserRouter([
   {
     path: "/signin",
     Component: SignInPage,
+  },
+  {
+    path: "*",
+    element: <NotFoundPage />,
   },
 ]);

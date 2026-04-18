@@ -1,8 +1,7 @@
 package com.grade.forge.auth.controller;
 
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.auth.dto.PasswordResetRequest;
-import com.grade.forge.auth.dto.response.AuthResponse;
 import com.grade.forge.auth.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

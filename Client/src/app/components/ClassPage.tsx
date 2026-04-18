@@ -1,6 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ChevronLeft, Book, FileText, Megaphone, BarChart3, FolderOpen, Users, CheckCircle2, Clock, AlertCircle, Download, Mail } from "lucide-react";
+import {
+  ChevronLeft,
+  Book,
+  FileText,
+  Megaphone,
+  BarChart3,
+  FolderOpen,
+  Users,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  Download,
+  Mail,
+} from "lucide-react";
 import type {
   ClassAnnouncement,
   ClassAssignment,
@@ -30,14 +43,13 @@ import type { SettingsSection } from "./layout/AuthTopBar";
 import { GradeForgeSidebar } from "./GradeForgeSidebar";
 import { DEFAULT_COURSE_COVER_IMAGE } from "../../constants/defaultCourseCover";
 
-type SectionType = 'overview' | 'assignments' | 'announcements' | 'grades' | 'resources' | 'people';
+type SectionType = "overview" | "assignments" | "announcements" | "grades" | "resources" | "people";
 
 export function ClassPage() {
   const { classId } = useParams();
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState<SectionType>('overview');
-  const [announcementCount, setAnnouncementCount] = useState(0);
-
+  const [activeSection, setActiveSection] = useState<SectionType>("overview");
+  const [announcementUnreadCount, setAnnouncementUnreadCount] = useState(0);
   // NOTE: Class header data now comes from backend-driven service mapping.
   const [classHeader, setClassHeader] = useState<ClassHeader | null>(null);
 
@@ -48,9 +60,8 @@ export function ClassPage() {
 
   useEffect(() => {
     const resolvedId = classId || "1";
-    // NOTE: Sidebar announcement badge is now data-driven instead of hardcoded.
-    listClassAnnouncements(resolvedId).then((announcements) => {
-      setAnnouncementCount(announcements.filter((announcement) => announcement.unread).length);
+    listClassAnnouncements(resolvedId).then((rows) => {
+      setAnnouncementUnreadCount(rows.filter((a) => a.unread).length);
     });
   }, [classId]);
 
@@ -156,7 +167,7 @@ export function ClassPage() {
                     label="Announcements"
                     active={activeSection === "announcements"}
                     onClick={() => setActiveSection("announcements")}
-                    badge={announcementCount > 0 ? announcementCount : undefined}
+                    badge={announcementUnreadCount > 0 ? announcementUnreadCount : undefined}
                   />
                   <SectionTab
                     icon={<BarChart3 className="w-4 h-4" strokeWidth={2} />}
@@ -180,11 +191,11 @@ export function ClassPage() {
               </section>
 
               {activeSection === "overview" && <OverviewSection />}
-              {activeSection === 'assignments' && <AssignmentsSection />}
-              {activeSection === 'announcements' && <AnnouncementsSection />}
-              {activeSection === 'grades' && <GradesSection />}
-              {activeSection === 'resources' && <ResourcesSection />}
-              {activeSection === 'people' && <PeopleSection />}
+              {activeSection === "assignments" && <AssignmentsSection />}
+              {activeSection === "announcements" && <AnnouncementsSection />}
+              {activeSection === "grades" && <GradesSection />}
+              {activeSection === "resources" && <ResourcesSection />}
+              {activeSection === "people" && <PeopleSection />}
             </div>
           </div>
         </main>

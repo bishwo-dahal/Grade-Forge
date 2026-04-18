@@ -1,6 +1,6 @@
 package com.grade.forge.gradingassistant.controller;
 
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.gradingassistant.dto.GradingAssistantRequest;
 import com.grade.forge.gradingassistant.dto.GradingAssistantResponse;

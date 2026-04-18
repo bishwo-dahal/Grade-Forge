@@ -75,4 +75,7 @@ public class Assignment {
     @OneToOne(mappedBy = "assignment", cascade = CascadeType.ALL, orphanRemoval = true)
     private TestSuite testSuite;
 
+    @Column(name = "canvas_assignment_id")
+    private Long canvasAssignmentId;
+
 }

@@ -10,13 +10,16 @@ import com.grade.forge.group.entity.SubGroup;
 import com.grade.forge.group.repository.SubGroupRepository;
 import com.grade.forge.student.entity.Student;
 import com.grade.forge.student.repository.StudentRepository;
+import com.grade.forge.submission.dto.AuthorshipTriageRequest;
 import com.grade.forge.submission.dto.SubmissionFileResponse;
 import com.grade.forge.submission.dto.SubmissionResponse;
 import com.grade.forge.submission.dto.SubmissionGradeRequest;
 import com.grade.forge.submission.dto.SubmissionSummaryResponse;
 import com.grade.forge.submission.entity.Submission;
+import com.grade.forge.submission.entity.SubmissionAuthorshipTriage;
 import com.grade.forge.submission.entity.SubmissionFile;
 import com.grade.forge.submission.enums.SubmissionStatus;
+import com.grade.forge.submission.repository.SubmissionAuthorshipTriageRepository;
 import com.grade.forge.submission.repository.SubmissionRepository;
 import com.grade.forge.submission.repository.SubmissionFileRepository;
 import com.grade.forge.user.entity.Users;
@@ -34,6 +37,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -53,6 +57,7 @@ public class SubmissionService {
     private final TestRunJobService testRunJobService;
     private final FacultyRepository facultyRepository;
     private final GradingAssistantRepository gradingAssistantRepository;
+    private final SubmissionAuthorshipTriageRepository submissionAuthorshipTriageRepository;
     private final CourseAssistantRepository courseAssistantRepository;
     private final SubGroupRepository subGroupRepository;
     private final EmailService emailService;
@@ -110,7 +115,7 @@ public class SubmissionService {
             log.warn("Failed to enqueue test run for submission {}: {}", saved.getId(), e.getMessage());
         }
 
-        return mapToResponse(saved);
+        return mapToResponse(saved, false);
     }
 
     @Transactional(readOnly = true)
@@ -125,7 +130,7 @@ public class SubmissionService {
         Assignment assignment = submission.getAssignment();
         if (assignment.getMainGroup() == null) {
             ensureStudentCanViewSubmissionForAssignment(student, submission);
-            return mapToResponse(submission);
+            return mapToResponse(submission, false);
         }
 
         List<Long> subGroupStudentIds = getStudentIdsForRequesterSubGroup(assignment.getMainGroup(), student.getId());
@@ -139,7 +144,7 @@ public class SubmissionService {
                 .orElse(submission);
 
         ensureStudentCanViewSubmissionForAssignment(student, latest);
-        return mapToResponse(latest);
+        return mapToResponse(latest, false);
     }
 
     @Transactional(readOnly = true)
@@ -155,7 +160,7 @@ public class SubmissionService {
 
         if (assignment.getMainGroup() == null) {
             List<Submission> submissions = submissionRepository.findByAssignment_IdAndStudent_Id(assignment.getId(), student.getId());
-            return submissions.stream().map(this::mapToResponse).toList();
+            return submissions.stream().map(s -> mapToResponse(s, false)).toList();
         }
 
         List<Long> subGroupStudentIds = getStudentIdsForRequesterSubGroupOrEmpty(assignment.getMainGroup(), student.getId());
@@ -167,7 +172,7 @@ public class SubmissionService {
         return submissionRepository.findByAssignment_Id(assignment.getId()).stream()
                 .filter(s -> subGroupStudentIds.contains(s.getStudent().getId()))
                 .max(this::compareBySubmittedAt)
-                .map(this::mapToResponse)
+                .map(s -> mapToResponse(s, false))
                 .map(List::of)
                 .orElse(List.of());
     }
@@ -232,7 +237,7 @@ public class SubmissionService {
         }
         Assignment assignment = submission.getAssignment();
         Submission latest = latestSubGroupSubmission(assignment, submission.getStudent().getId(), submission);
-        return mapToResponse(latest);
+        return mapToResponse(latest, true);
     }
 
     @Transactional
@@ -263,7 +268,7 @@ public class SubmissionService {
         } catch (Exception e) {
             log.warn("Failed to send grade update email for submission {}: {}", saved.getId(), e.getMessage());
         }
-        return mapToResponse(saved);
+        return mapToResponse(saved, true);
     }
 
     @Transactional(readOnly = true)
@@ -293,7 +298,7 @@ public class SubmissionService {
         validateGradingAssistantCourseAccess(gradingAssistant.getId(), submission.getAssignment().getCourse().getId());
 
         Submission latest = latestSubGroupSubmission(submission.getAssignment(), submission.getStudent().getId(), submission);
-        return mapToResponse(latest);
+        return mapToResponse(latest, false);
     }
 
     @Transactional
@@ -322,7 +327,47 @@ public class SubmissionService {
         } catch (Exception e) {
             log.warn("Failed to send grade update email for submission {}: {}", saved.getId(), e.getMessage());
         }
-        return mapToResponse(saved);
+        return mapToResponse(saved, false);
+    }
+
+    @Transactional
+    public SubmissionResponse upsertAuthorshipTriage(String facultyEmail, Long submissionId, AuthorshipTriageRequest request) {
+        Faculty faculty = facultyRepository.findByEmail(facultyEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with email: " + facultyEmail));
+
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
+
+        if (!submission.getAssignment().getCourse().getFaculty().getId().equals(faculty.getId())) {
+            throw new IllegalArgumentException("You are not allowed to label this submission");
+        }
+
+        Submission target = latestSubGroupSubmission(submission.getAssignment(), submission.getStudent().getId(), submission);
+
+        if (request.getLabel() == null) {
+            submissionAuthorshipTriageRepository.findBySubmission_IdAndFaculty_Id(target.getId(), faculty.getId())
+                    .ifPresent(submissionAuthorshipTriageRepository::delete);
+            return mapToResponse(target, true);
+        }
+
+        SubmissionAuthorshipTriage row = submissionAuthorshipTriageRepository
+                .findBySubmission_IdAndFaculty_Id(target.getId(), faculty.getId())
+                .orElse(null);
+        if (row == null) {
+            row = SubmissionAuthorshipTriage.builder()
+                    .submission(target)
+                    .faculty(faculty)
+                    .label(request.getLabel())
+                    .notes(request.getNotes())
+                    .labeledAt(Instant.now())
+                    .build();
+        } else {
+            row.setLabel(request.getLabel());
+            row.setNotes(request.getNotes());
+            row.setLabeledAt(Instant.now());
+        }
+        submissionAuthorshipTriageRepository.save(row);
+        return mapToResponse(target, true);
     }
 
     private void sendGradeUpdatedEmail(Submission submission) {
@@ -357,240 +402,165 @@ public class SubmissionService {
         }
 
         String content = String.format("""
-                <!DOCTYPE html>
-                <html>
-                <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-                
-                <style>
-                  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-                
-                  .email-header {
-                    background: linear-gradient(135deg, #6b0f1a 0%%, #8b1a2a 40%%, #a0243a 100%%);
-                    padding: 44px 48px 38px;
-                    position: relative;
-                    overflow: hidden;
-                  }
-                
-                  .email-header::before {
-                    content: '';
-                    position: absolute; inset: 0;
-                    background: radial-gradient(ellipse 70%% 80%% at 90%% 10%%, rgba(255,255,255,0.08) 0%%, transparent 60%%);
-                  }
-                
-                  .header-top { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; position: relative; }
-                
-                  .logo-mark {
-                    width: 48px; height: 48px;
-                    background: rgba(255,255,255,0.15);
-                    border-radius: 12px;
-                    display: flex; align-items: center; justify-content: center;
-                    border: 1px solid rgba(255,255,255,0.2);
-                    flex-shrink: 0;
-                  }
-                
-                  .brand-name {
-                    color: rgba(255,255,255,0.9);
-                    font-size: 13px; font-weight: 600;
-                    letter-spacing: 0.12em; text-transform: uppercase;
-                  }
-                
-                  .course-badge {
-                    display: inline-block;
-                    background: rgba(255,255,255,0.12);
-                    border: 1px solid rgba(255,255,255,0.2);
-                    color: rgba(255,255,255,0.75);
-                    font-size: 11px; font-weight: 500;
-                    letter-spacing: 0.1em; text-transform: uppercase;
-                    padding: 5px 12px; border-radius: 20px;
-                    margin-bottom: 12px;
-                  }
-                
-                  .email-header h1 {
-                    font-family: Georgia, serif;
-                    font-size: 30px; font-weight: 700;
-                    color: #ffffff; line-height: 1.25;
-                  }
-                
-                  .email-header h1 span { color: rgba(255,220,180,0.9); }
-                
-                  .email-body {
-                    padding: 44px 48px 36px;
-                    background: #fff;
-                    font-family: Arial, sans-serif;
-                  }
-                
-                  .greeting { font-size: 16px; color: #333; margin-bottom: 8px; }
-                
-                  .intro { font-size: 15px; color: #666; line-height: 1.65; margin-bottom: 36px; }
-                
-                  .details-card {
-                    background: #fafafa;
-                    border: 1px solid #ebebeb;
-                    border-radius: 16px;
-                    overflow: hidden;
-                    margin-bottom: 32px;
-                  }
-                
-                  .details-card-header {
-                    background: linear-gradient(90deg, #8b1a2a, #a0243a);
-                    padding: 14px 24px;
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                  }
-                
-                  .details-card-header span {
-                    font-size: 11.5px;
-                    font-weight: 600;
-                    letter-spacing: 0.12em;
-                    text-transform: uppercase;
-                    color: rgba(255,255,255,0.9);
-                  }
-                
-                  .detail-row {
-                    padding: 16px 24px;
-                    border-bottom: 1px solid #ebebeb;
-                  }
-                
-                  .detail-row:last-child { border-bottom: none; }
-                
-                  .detail-label {
-                    font-size: 11px;
-                    font-weight: 600;
-                    letter-spacing: 0.08em;
-                    text-transform: uppercase;
-                    color: #999;
-                    margin-bottom: 4px;
-                  }
-                
-                  .detail-value {
-                    font-size: 14.5px;
-                    color: #222;
-                    font-weight: 500;
-                  }
-                
-                  .feedback-box {
-                    background: #f7f9ff;
-                    border: 1px solid #dde6f7;
-                    border-left: 4px solid #1a52a0;
-                    border-radius: 10px;
-                    padding: 18px 20px;
-                    margin-bottom: 32px;
-                  }
-                
-                  .feedback-label {
-                    font-size: 11px;
-                    font-weight: 600;
-                    letter-spacing: 0.1em;
-                    text-transform: uppercase;
-                    color: #1a52a0;
-                    margin-bottom: 8px;
-                  }
-                
-                  .feedback-text {
-                    font-size: 14px;
-                    color: #444;
-                    line-height: 1.7;
-                  }
-                
-                  .cta-section { text-align: center; margin-bottom: 32px; }
-                
-                  .cta-btn {
-                    display: inline-block;
-                    background: linear-gradient(135deg, #6b0f1a 0%%, #a0243a 100%%);
-                    color: #fff;
-                    text-decoration: none;
-                    font-size: 14px;
-                    font-weight: 600;
-                    padding: 15px 36px;
-                    border-radius: 50px;
-                  }
-                
-                  .cta-sub { margin-top: 10px; font-size: 12.5px; color: #aaa; }
-                </style>
-                </head>
-                
-                <body>
-                
-                <div class="email-header">
-                  <div class="header-top">
-                    <div class="logo-mark">
-                      <img src="https://grade-forge.s3.us-east-2.amazonaws.com/email_logo/logo.png" width="48" height="44" alt="Grade Forge">
-                    </div>
-                    <div class="brand-name"> &nbsp; Grade Forge · ULM</div>
-                  </div>
-                
-                  <div class="course-badge">%s</div>
-                  <h1>Grade <span>Updated</span></h1>
-                </div>
-                
-                <div class="email-body">
-                
-                  <p class="greeting">Hello %s,</p>
-                
-                  <p class="intro">
-                    Your submission has been graded for <strong>%s</strong>. Review your results and feedback below.
-                  </p>
-                
-                  <div class="details-card">
-                
-                    <div class="details-card-header">
-                      <span>Grading Details</span>
-                    </div>
-                
-                    <div class="detail-row">
-                      <div class="detail-label">Assignment</div>
-                      <div class="detail-value">%s</div>
-                    </div>
-                
-                    <div class="detail-row">
-                      <div class="detail-label">Marks</div>
-                      <div class="detail-value">%s</div>
-                    </div>
-                
-                    <div class="detail-row">
-                      <div class="detail-label">Status</div>
-                      <div class="detail-value">%s</div>
-                    </div>
-                
-                  </div>
-                
-                  <div class="feedback-box">
-                    <div class="feedback-label">Instructor Feedback</div>
-                    <div class="feedback-text">%s</div>
-                  </div>
-                
-                  <div class="cta-section">
-                    <a href="http://52.14.92.121:8080"  style="display:inline-block;
-                                                      background:linear-gradient(135deg,#6b0f1a,#a0243a);
-                                                      color:#ffffff !important;
-                                                      text-decoration:none !important;
-                                                      font-size:14px;
-                                                      font-weight:600;
-                                                      letter-spacing:0.04em;
-                                                      padding:15px 36px;
-                                                      border-radius:50px;
-                                                      box-shadow:0 6px 24px rgba(107,15,26,0.30);
-                                                      mso-style-priority:100;">View Full Submission →</a>
-                    <p class="cta-sub">Log in to Grade Forge to see full details</p>
-                  </div>
-                
-                </div>
-                
-                </body>
-                </html>
-                """,
-                                courseName,
-                                studentName,
-                                assignmentName,
-                                assignmentName,
-                                marks,
-                                status,
-                                feedback
-                        );
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body style="margin:0;padding:0;background-color:#ffffff;font-family:Arial,Helvetica,sans-serif;">
+
+<!-- HEADER -->
+<table role="presentation" width="100%%" cellspacing="0" cellpadding="0"
+       style="background-color:#9A2236;">
+  <tr>
+    <td style="padding:44px 48px 38px;">
+
+      <table role="presentation" width="100%%">
+        <tr>
+          <td width="60">
+            <div style="width:48px;height:48px;background:rgba(255,255,255,0.15);
+                        border-radius:12px;text-align:center;line-height:48px;">
+              <img src="https://grade-forge.s3.us-east-2.amazonaws.com/email_logo/logo.png"
+                   width="45" height="45" style="display:block;border:0;" />
+            </div>
+          </td>
+
+          <td style="padding-left:16px;
+                     color:#ffffff;
+                     font-size:13px;
+                     font-weight:600;
+                     text-transform:uppercase;">
+            Grade Forge · ULM
+          </td>
+        </tr>
+      </table>
+
+      <div style="margin-top:20px;
+                  display:inline-block;
+                  padding:5px 12px;
+                  border-radius:20px;
+                  border:1px solid rgba(255,255,255,0.3);
+                  color:#ffffff;
+                  font-size:11px;">
+        %s
+      </div>
+
+      <h1 style="color:#ffffff;font-family:Georgia,serif;font-size:30px;margin-top:20px;">
+        Grade <span style="color:#ffdcb4;">Updated</span>
+      </h1>
+
+    </td>
+  </tr>
+</table>
+
+<!-- BODY -->
+<table role="presentation" width="100%%">
+  <tr>
+    <td style="padding:44px 48px;">
+
+      <p style="font-size:16px;color:#333;">Hello %s,</p>
+
+      <p style="font-size:15px;color:#666;line-height:1.6;">
+        Your submission for <strong>%s</strong> has been graded.
+      </p>
+
+      <!-- CARD -->
+      <table role="presentation" width="100%%"
+             style="margin-top:25px;border:1px solid #ddd;border-radius:10px;overflow:hidden;">
+
+        <tr style="background-color:#9A2236;">
+          <td style="padding:14px;color:#ffffff;font-size:12px;font-weight:bold;">
+            Grading Details
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:16px;">
+            <div style="font-size:11px;color:#999;">Assignment</div>
+            <div style="font-size:14px;color:#222;">%s</div>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:16px;border-top:1px solid #eee;">
+            <div style="font-size:11px;color:#999;">Marks</div>
+            <div style="font-size:14px;color:#222;">%s</div>
+          </td>
+        </tr>
+
+        <!-- STATUS -->
+        <tr>
+          <td style="padding:16px;border-top:1px solid #eee;">
+            <div style="font-size:11px;color:#999;">Status</div>
+
+            <div style="display:inline-block;
+                        margin-top:6px;
+                        padding:6px 12px;
+                        border-radius:20px;
+                        font-size:12px;
+                        font-weight:bold;
+                        color:%s;
+                        background:%s;
+                        border:1px solid %s;">
+              %s
+            </div>
+
+          </td>
+        </tr>
+
+      </table>
+
+      <!-- FEEDBACK -->
+      <table role="presentation" width="100%%" style="margin-top:25px;">
+        <tr>
+          <td style="padding:16px;
+                     background:#f7f9ff;
+                     border:1px solid #dde6f7;
+                     border-left:4px solid #1a52a0;
+                     border-radius:10px;
+                     color:#444;
+                     font-size:14px;
+                     line-height:1.6;">
+            <strong style="color:#1a52a0;">Instructor Feedback:</strong><br/>
+            %s
+          </td>
+        </tr>
+      </table>
+
+      <!-- BUTTON -->
+      <div style="text-align:center;margin-top:30px;">
+        <a href="https://www.gradeforge.tech"
+           style="display:inline-block;
+                  background-color:#9A2236;
+                  color:#ffffff;
+                  text-decoration:none;
+                  padding:14px 36px;
+                  border-radius:30px;
+                  font-weight:bold;">
+          View Submission →
+        </a>
+      </div>
+
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>
+""",
+                courseName,
+                studentName,
+                assignmentName,
+                assignmentName,
+                marks,
+                statusColor,
+                statusBg,
+                statusColor,
+                status,
+                feedback
+        );
 
         emailService.sendEmailsWithHtml(new String[]{email}, subject, content);
     }
@@ -612,7 +582,7 @@ public class SubmissionService {
         });
     }
 
-    private SubmissionResponse mapToResponse(Submission submission) {
+    private SubmissionResponse mapToResponse(Submission submission, boolean includeAuthorshipTriage) {
         SubGroup subGroup = null;
         if (submission.getAssignment().getMainGroup() != null) {
             subGroup = subGroupRepository.findByMainGroup_IdAndStudents_Id(
@@ -620,7 +590,14 @@ public class SubmissionService {
                     .orElse(null);
         }
 
-        return SubmissionResponse.builder()
+        Long courseFacultyId = submission.getAssignment().getCourse().getFaculty().getId();
+        SubmissionAuthorshipTriage triage = null;
+        if (includeAuthorshipTriage) {
+            triage = submissionAuthorshipTriageRepository.findBySubmission_IdAndFaculty_Id(submission.getId(), courseFacultyId)
+                    .orElse(null);
+        }
+
+        SubmissionResponse.SubmissionResponseBuilder b = SubmissionResponse.builder()
                 .id(submission.getId())
                 .assignmentId(submission.getAssignment().getId())
                 .assignmentName(submission.getAssignment().getName())
@@ -645,8 +622,13 @@ public class SubmissionService {
                                 .email(s.getUser() != null ? s.getUser().getEmail() : null)
                                 .cwid(s.getCwid())
                                 .build())
-                        .toList())
-                .build();
+                        .toList());
+        if (triage != null) {
+            b.authorshipTriageLabel(triage.getLabel())
+                    .authorshipTriageNotes(triage.getNotes())
+                    .authorshipTriageLabeledAt(triage.getLabeledAt());
+        }
+        return b.build();
     }
 
     private void ensureStudentCanViewSubmissionForAssignment(Student requester, Submission submission) {

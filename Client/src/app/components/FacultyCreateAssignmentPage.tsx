@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Plus, ListChecks, Trash2 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
@@ -9,7 +9,7 @@ import {
   updateFacultyAssignmentDraft,
 } from "../../services/assignmentService";
 import { getRubric, getUnweightedRubricTotalPoints } from "../../services/rubricService";
-import { createTestSuite } from "../../services/testSuiteService";
+import { createTestSuite, getTestSuiteByAssignment, updateTestSuite } from "../../services/testSuiteService";
 import type {
   AssignmentCreateFormData,
   AssignmentExistingStarterFile,
@@ -94,7 +94,7 @@ function FacultyCreateAssignmentView({
 
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-8 py-7">
-      <div className="mx-auto w-full max-w-[1160px]">
+      <div className="2xl:mx-auto 2xl:max-w-[1160px]">
         <div className="mb-5 text-[15px] text-[#6D7B91]">
           <Link to="/faculty/my-classes" className="hover:text-[#2B2A2A]">
             My Classes
@@ -211,7 +211,7 @@ function FacultyCreateAssignmentView({
               </section>
 
               <section className="mt-5 rounded-2xl border border-[#E5E9F2] bg-[#FAFBFD] p-5">
-                <h3 className="text-[16px] font-semibold text-[#1F2430]">Schedule</h3>
+                <h3 className="text-[16px] font-semibold text-[#1F2430]">Calendar</h3>
                 <p className="mt-1 text-[12px] text-[#6D7B91]">Set opening, due, and optional late window.</p>
                 {/* REFACTOR: Keep all schedule date/time controls in one aligned row on desktop for faster scanning. */}
                 <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -431,7 +431,7 @@ function FacultyCreateAssignmentView({
                     <h3 className="text-[16px] font-semibold text-[#1F2430]">Test cases (optional)</h3>
                   </div>
                   <p className="mt-1 text-[12px] text-[#6D7B91]">
-                    Add test cases now or later from the assignment page. Mark as private to hide from students until grading.
+                    Create or update this assignment&apos;s test cases here. Mark a case as private to hide it from students until grading.
                   </p>
                   <div className="mt-4">
                     <label className="mb-2 block text-[13px] font-medium text-[#1F2430]">Suite title</label>
@@ -658,6 +658,7 @@ export function FacultyCreateAssignmentPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [testCasesAdded, setTestCasesAdded] = useState(false);
   const [totalPointsLockedByRubric, setTotalPointsLockedByRubric] = useState(false);
+  const [hasExistingTestSuite, setHasExistingTestSuite] = useState(false);
   /** Snapshot of server starter files when edit page loaded (for dirty detection). */
   const [initialStarterSnapshot, setInitialStarterSnapshot] = useState<AssignmentExistingStarterFile[]>([]);
   /** Edit mode: starter files still included on save; user can remove before save. */
@@ -692,6 +693,51 @@ export function FacultyCreateAssignmentPage() {
       setRetainedStarterFiles([]);
     }
   }, [pageData, mode, assignmentId]);
+
+  useEffect(() => {
+    if (mode !== "edit" || !assignmentId) {
+      setHasExistingTestSuite(false);
+      setTestSuiteDraft({
+        title: "Test Suite",
+        description: "",
+        testCases: [{ id: "tc-1", title: "", isPrivate: false, input: "", fileName: "", output: "" }],
+      });
+      return;
+    }
+
+    getTestSuiteByAssignment(assignmentId)
+      .then((suite) => {
+        if (!suite) {
+          setHasExistingTestSuite(false);
+          setTestSuiteDraft({
+            title: "Test Suite",
+            description: "",
+            testCases: [{ id: "tc-1", title: "", isPrivate: false, input: "", fileName: "", output: "" }],
+          });
+          return;
+        }
+
+        setHasExistingTestSuite(true);
+        setTestSuiteDraft({
+          title: suite.title?.trim() ? suite.title : "Test Suite",
+          description: suite.description ?? "",
+          testCases:
+            suite.testCases?.length > 0
+              ? suite.testCases.map((testCase, index) => ({
+                  id: String(testCase.id ?? `tc-${index + 1}`),
+                  title: testCase.title ?? "",
+                  isPrivate: Boolean(testCase.isPrivate),
+                  input: testCase.input ?? "",
+                  fileName: testCase.fileName ?? "",
+                  output: testCase.output ?? "",
+                }))
+              : [{ id: "tc-1", title: "", isPrivate: false, input: "", fileName: "", output: "" }],
+        });
+      })
+      .catch(() => {
+        setHasExistingTestSuite(false);
+      });
+  }, [assignmentId, mode]);
 
   const handleRemoveRetainedStarter = (id: number) => {
     setRetainedStarterFiles((previous) =>
@@ -807,11 +853,6 @@ export function FacultyCreateAssignmentPage() {
         return;
       }
     }
-    if (form.starterCodeUrl.trim() && !/^https?:\/\//i.test(form.starterCodeUrl.trim())) {
-      toast.error("Starter Code URL must start with http:// or https://");
-      return;
-    }
-
     setIsSaving(true);
     try {
       let savedAssignmentId: string;
@@ -837,7 +878,7 @@ export function FacultyCreateAssignmentPage() {
       }
       const hasTestCases = testSuiteDraft.testCases.some((c) => c.output.trim().length > 0);
       setTestCasesAdded(false);
-      if (mode === "create" && hasTestCases) {
+      if (hasTestCases) {
         const payload: TestSuitePayload = {
           title: testSuiteDraft.title.trim() || "Test Suite",
           description: testSuiteDraft.description.trim(),
@@ -852,7 +893,14 @@ export function FacultyCreateAssignmentPage() {
             })),
         };
         if (payload.testCases.length > 0) {
-          await createTestSuite(savedAssignmentId, payload);
+          if (mode === "edit" && hasExistingTestSuite) {
+            await updateTestSuite(savedAssignmentId, payload);
+          } else {
+            await createTestSuite(savedAssignmentId, payload);
+            if (mode === "edit") {
+              setHasExistingTestSuite(true);
+            }
+          }
           setTestCasesAdded(true);
         }
       }

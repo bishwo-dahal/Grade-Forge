@@ -11,6 +11,7 @@ import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
 
 type AssignmentTabFilter = "all" | StudentAssignmentStatus;
+type AssignmentSortOrder = "due-date" | "course" | "points-high" | "points-low" | "title";
 
 interface StudentAssignmentsViewProps {
   // NOTE: This component is presentation-only. Data is injected by the page/container.
@@ -18,6 +19,8 @@ interface StudentAssignmentsViewProps {
   isLoading: boolean;
   selectedFilter: AssignmentTabFilter;
   onFilterChange: (filter: AssignmentTabFilter) => void;
+  sortOrder: AssignmentSortOrder;
+  onSortChange: (sort: AssignmentSortOrder) => void;
   onOpenAssignment: (assignmentId: string) => void;
 }
 
@@ -45,6 +48,23 @@ function filterAssignments(assignments: StudentAssignmentListItem[], selectedFil
     return assignments;
   }
   return assignments.filter((assignment) => assignment.status === selectedFilter);
+}
+
+function sortAssignments(assignments: StudentAssignmentListItem[], sortOrder: AssignmentSortOrder) {
+  const sorted = [...assignments];
+  switch (sortOrder) {
+    case "course":
+      return sorted.sort((a, b) => a.courseCode.localeCompare(b.courseCode));
+    case "points-high":
+      return sorted.sort((a, b) => b.points - a.points);
+    case "points-low":
+      return sorted.sort((a, b) => a.points - b.points);
+    case "title":
+      return sorted.sort((a, b) => a.title.localeCompare(b.title));
+    case "due-date":
+    default:
+      return sorted;
+  }
 }
 
 function getStatusBadgeClasses(status: StudentAssignmentStatus): string {
@@ -82,25 +102,33 @@ function StudentAssignmentsView({
   isLoading,
   selectedFilter,
   onFilterChange,
+  sortOrder,
+  onSortChange,
   onOpenAssignment,
 }: StudentAssignmentsViewProps) {
   const tabConfigs = useMemo(() => buildTabConfigs(assignments), [assignments]);
   const visibleAssignments = useMemo(
-    () => filterAssignments(assignments, selectedFilter),
-    [assignments, selectedFilter],
+    () => sortAssignments(filterAssignments(assignments, selectedFilter), sortOrder),
+    [assignments, selectedFilter, sortOrder],
   );
 
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-8 py-6">
+      <div className="2xl:max-w-7xl 2xl:mx-auto">
       {/* REFACTOR: Merge sort and status tabs into one compact controls row, with sort anchored on the left side. */}
       <section className="flex flex-wrap items-center justify-between gap-3">
         <div className="relative">
           <select
             aria-label="Sort assignments"
-            defaultValue="due-date"
+            value={sortOrder}
+            onChange={(e) => onSortChange(e.target.value as AssignmentSortOrder)}
             className="h-9 appearance-none rounded-xl border border-[#CFD2D9] bg-white pl-3.5 pr-9 text-[12px] text-[#344155] focus:outline-none"
           >
             <option value="due-date">Sort by Due Date</option>
+            <option value="course">Sort by Course</option>
+            <option value="points-high">Sort by Points (High → Low)</option>
+            <option value="points-low">Sort by Points (Low → High)</option>
+            <option value="title">Sort by Title (A–Z)</option>
           </select>
           <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5D667A]" />
         </div>
@@ -191,6 +219,7 @@ function StudentAssignmentsView({
           </article>
         ) : null}
       </section>
+      </div>
     </main>
   );
 }
@@ -200,6 +229,7 @@ export function StudentAssignmentsPage() {
   const [assignments, setAssignments] = useState<StudentAssignmentListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState<AssignmentTabFilter>("all");
+  const [sortOrder, setSortOrder] = useState<AssignmentSortOrder>("due-date");
   const loggedInUser = getAuthenticatedUser();
   const displayName = loggedInUser?.name ?? "Alex Johnson";
   const displayEmail = loggedInUser?.email ?? "alex@university.edu";
@@ -246,7 +276,8 @@ export function StudentAssignmentsPage() {
         <AuthTopBar
           roleView="student"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search calendar, assignments..."
+          showSearch={false}
+          pageTitle="Assignments"
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />
@@ -257,6 +288,8 @@ export function StudentAssignmentsPage() {
           isLoading={isLoading}
           selectedFilter={selectedFilter}
           onFilterChange={setSelectedFilter}
+          sortOrder={sortOrder}
+          onSortChange={setSortOrder}
           onOpenAssignment={handleOpenAssignment}
         />
       }

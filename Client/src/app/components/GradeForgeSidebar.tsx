@@ -3,22 +3,38 @@ import {
   BookOpen,
   FileText,
   Calendar,
-  FolderOpen,
-  MessageSquare,
+  Settings,
   Users,
   UserPlus,
   Code2,
   ListChecks,
   Monitor,
   UserSearch,
+  Brain,
+  HelpCircle,
+  LogOut,
 } from "lucide-react";
 import type { ComponentType } from "react";
-import { Link, useLocation } from "react-router";
+import { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router";
+import { clearAuthenticated } from "../auth";
+import { buildLogoutConfirmationMessage, queueAuthNotification } from "../authNotifications";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
 import { SidebarPinnedCollapseFooter } from "./layout/SidebarPinnedCollapseFooter";
 import { useSidebarPinnedCollapsed } from "./layout/useSidebarPinnedCollapsed";
 
 interface GradeForgeSidebarProps {
   viewMode: "student" | "faculty" | "gradingAssistant" | "university";
+  compactOnly?: boolean;
 }
 
 interface SidebarNavItem {
@@ -28,13 +44,15 @@ interface SidebarNavItem {
   matchPrefixes?: string[];
 }
 
-export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
+export function GradeForgeSidebar({ viewMode, compactOnly = false }: GradeForgeSidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const { pinnedCollapsed } = useSidebarPinnedCollapsed();
   const isDashboardRoute = location.pathname === "/dashboard" || location.pathname.startsWith("/dashboard/");
   const isUniversityView = viewMode === "university";
   // NOTE: Sidebar stays full-width on dashboard unless the user pins “keep collapsed”; other routes use the icon rail.
-  const isCollapsedMode = pinnedCollapsed || !isDashboardRoute;
+  const isCollapsedMode = compactOnly || pinnedCollapsed || !isDashboardRoute;
 
   // NOTE: Sidebar routes are role-specific so student and faculty can navigate to distinct page shells.
   const studentItems: SidebarNavItem[] = [
@@ -50,8 +68,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
     // CLEANUP: Standalone faculty grading hub was removed so grading stays scoped to each class/assignment workflow.
     { icon: ListChecks, label: "Rubrics", to: "/faculty/rubrics" },
     { icon: UserPlus, label: "Grading Assistants", to: "/faculty/grading-assistants" },
-    { icon: Users, label: "Students", to: "/faculty/students" },
-    { icon: Calendar, label: "Schedule", to: "/faculty/schedule" },
+    { icon: Calendar, label: "Calendar", to: "/faculty/schedule" },
   ];
 
   const gradingAssistantItems: SidebarNavItem[] = [
@@ -67,6 +84,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
     // NOTE: Languages management has its own university section route for easier backend ownership boundaries.
     { icon: Code2, label: "Languages", to: "/university-admin/languages" },
     { icon: UserSearch, label: "Manage Users", to: "/university-admin/manage-users" },
+    { icon: Brain, label: "ML training data", to: "/university-admin/training-data" },
     { icon: Monitor, label: "Monitor", to: "/university-admin/monitor" },
   ];
 
@@ -83,15 +101,11 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
       ? []
       : viewMode === "gradingAssistant"
         ? []
-        : viewMode === "student"
-          ? [
-              { icon: FolderOpen, label: "Materials", to: "/student/materials" },
-              { icon: MessageSquare, label: "Discussions", to: "/student/discussions" },
-            ]
-          : [
-              { icon: FolderOpen, label: "Materials", to: "/faculty/materials" },
-              { icon: MessageSquare, label: "Discussions", to: "/faculty/discussions" },
-            ];
+        : [];
+  const settingsItem: SidebarNavItem | null =
+    viewMode === "student" || viewMode === "faculty" || viewMode === "gradingAssistant"
+      ? { icon: Settings, label: "Settings", to: "/settings", matchPrefixes: ["/settings"] }
+      : null;
 
   const isItemActive = (item: SidebarNavItem): boolean => {
     const prefixes = [item.to, ...(item.matchPrefixes ?? [])];
@@ -100,59 +114,86 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
 
   const sidebarShellClass = !isCollapsedMode
     ? "w-60"
-    : pinnedCollapsed
+    : compactOnly || pinnedCollapsed
       ? "w-[78px]"
       : "group/sidebar w-[78px] hover:w-60 focus-within:w-60";
   const collapsibleTextClass = !isCollapsedMode
     ? ""
-    : pinnedCollapsed
+    : compactOnly || pinnedCollapsed
       ? "pointer-events-none max-w-0 overflow-hidden opacity-0 translate-x-1.5"
       : // FIX: Animate labels with max-width instead of toggling to w-auto so hover expansion feels smoother and less abrupt.
         "max-w-0 overflow-hidden opacity-0 translate-x-1.5 transition-[max-width,opacity,transform] duration-300 ease-out group-hover/sidebar:max-w-[160px] group-hover/sidebar:translate-x-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:max-w-[160px] group-focus-within/sidebar:translate-x-0 group-focus-within/sidebar:opacity-100";
   const collapsibleHeadingClass = !isCollapsedMode
     ? ""
-    : pinnedCollapsed
+    : compactOnly || pinnedCollapsed
       ? "pointer-events-none max-h-0 overflow-hidden opacity-0 mb-0"
       : // FIX: Keep section headings in flow and fade them in so the collapsed rail expands without a visual pop.
         "max-h-0 overflow-hidden opacity-0 transition-[max-height,opacity] duration-300 ease-out group-hover/sidebar:max-h-8 group-hover/sidebar:opacity-100 group-focus-within/sidebar:max-h-8 group-focus-within/sidebar:opacity-100";
   const navLinkLayoutClass = !isCollapsedMode
     ? "gap-3 px-3 py-2.5"
-    : pinnedCollapsed
+    : compactOnly || pinnedCollapsed
       ? "justify-center gap-0 px-0 py-2.5"
       : // FIX: Restore icon-label spacing during hover expansion while keeping the collapsed icon rail centered.
         "justify-center gap-0 px-0 py-2.5 group-hover/sidebar:justify-start group-hover/sidebar:gap-3 group-hover/sidebar:px-3 group-focus-within/sidebar:justify-start group-focus-within/sidebar:gap-3 group-focus-within/sidebar:px-3";
   const navLabelClass = !isCollapsedMode
     ? ""
-    : pinnedCollapsed
+    : compactOnly || pinnedCollapsed
       ? "pointer-events-none max-w-0 overflow-hidden opacity-0 translate-x-1.5"
       : // FIX: Match nav label motion with the sidebar shell so icon/text spacing stays stable while the rail opens.
         "max-w-0 overflow-hidden opacity-0 translate-x-1.5 transition-[max-width,opacity,transform] duration-300 ease-out group-hover/sidebar:max-w-[160px] group-hover/sidebar:translate-x-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:max-w-[160px] group-focus-within/sidebar:translate-x-0 group-focus-within/sidebar:opacity-100";
 
+  const handleConfirmLogout = () => {
+    queueAuthNotification(buildLogoutConfirmationMessage(viewMode));
+    setIsLogoutDialogOpen(false);
+    clearAuthenticated();
+    navigate("/signin", { replace: true });
+  };
+
+  const bottomPinnedBorderClass = isUniversityView ? "border-t border-[#C9C4C9]" : "border-t border-white/15";
+  const bottomLogoutRowClass =
+    !isCollapsedMode
+      ? "px-4"
+      : compactOnly || pinnedCollapsed
+        ? "flex justify-center px-1"
+        : "px-4";
+
   return (
+    <>
     <aside
-      className={`${sidebarShellClass} bg-[#7A1226] border-r border-[#D1BCBF] flex-shrink-0 flex flex-col transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
+      className={`${sidebarShellClass} ${isUniversityView ? "bg-white border-r border-[#C9C4C9]" : "bg-[#7A1226] border-r border-[#D1BCBF]"} flex min-h-0 flex-shrink-0 flex-col self-stretch transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
     >
       {/* NOTE: Role switcher was removed intentionally; access is controlled by auth role + route guards. */}
-      <div
-        className={`h-[76px] border-b border-[#C9C4C9] bg-white ${isCollapsedMode ? "px-0 flex items-center justify-center" : "px-6 flex items-center"}`}
-      >
-        <Link
-          to="/dashboard"
-          className={`flex items-center hover:opacity-90 transition-[opacity,transform] duration-300 ease-out ${isCollapsedMode ? "justify-center w-12 h-12 rounded-[14px]" : "gap-3"}`}
-          aria-label="Go to dashboard"
+      {viewMode === "university" ? (
+        <div className="px-4 py-4 border-b border-[#C9C4C9]">
+          {/* FIX: Use the same divider color token as the top bar so horizontal lines align visually. */}
+          {/* FIX: Keep university title on a single line with a smaller, natural size per updated design feedback. */}
+          {/* FIX: Set university heading to 22px to match the requested sidebar title size. */}
+          <h1 className={`text-[22px] font-semibold leading-none text-[#1F2430] whitespace-nowrap ${collapsibleTextClass}`}>University Admin</h1>
+          <p className={`mt-1.5 text-[14px] text-[#5D667A] whitespace-nowrap ${collapsibleTextClass}`}>System Management</p>
+        </div>
+      ) : (
+        /* REFACTOR: Keep existing logo header for student/faculty while university mode uses title-style sidebar header. */
+        <div
+          className={`h-[64px] border-b border-[#C9C4C9] bg-white ${isCollapsedMode ? "px-0 flex items-center justify-center" : "px-5 flex items-center"}`}
         >
-          <img
-            src="/favicon.svg"
-            alt="Grade Forge"
-            className="h-8 w-8 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
-          />
-          {!isCollapsedMode && (
-            <span className={`text-[15px] font-semibold text-[#1F2430] whitespace-nowrap ${collapsibleTextClass}`}>
-              Grade Forge
-            </span>
-          )}
-        </Link>
-      </div>
+          <Link
+            to="/dashboard"
+            className={`flex items-center hover:opacity-90 transition-[opacity,transform] duration-300 ease-out ${isCollapsedMode ? "justify-center w-12 h-12 rounded-[14px]" : "gap-3"}`}
+            aria-label="Go to dashboard"
+          >
+            <img
+              src="/favicon.svg"
+              alt="Grade Forge"
+              className="h-7 w-7 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
+            />
+            {!isCollapsedMode && (
+              <span className={`text-[14px] font-semibold text-[#1F2430] whitespace-nowrap ${collapsibleTextClass}`}>
+                Grade Forge
+              </span>
+            )}
+          </Link>
+        </div>
+      )}
 
       {/* Navigation */}
       {/* FIX: Add top spacing in university mode so the first nav item does not stick to the header divider. */}
@@ -160,7 +201,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
         {/* Learning Section */}
         <div className="mb-6">
           {viewMode !== "university" && (
-            <div className={`px-3 mb-2 ${collapsibleHeadingClass}`}>
+            <div className={`px-3 mb-2 ${viewMode === "faculty" ? "pt-3" : ""} ${collapsibleHeadingClass}`}>
               <span className={`text-[11px] font-semibold tracking-wider uppercase ${isUniversityView ? "text-[#8D97AC]" : "text-[#D8B7BE]"}`}>
                 {viewMode === "student" ? "Learning" : viewMode === "gradingAssistant" ? "Grading" : "Teaching"}
               </span>
@@ -212,13 +253,104 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
             </ul>
           </div>
         )}
+
+        {/* Full page navigation: /docs is served by Spring (VitePress), not the React router. */}
+        <div className="mt-6">
+          <div className={`px-3 mb-2 ${collapsibleHeadingClass}`}>
+            <span
+              className={`text-[11px] font-semibold tracking-wider uppercase ${
+                isUniversityView ? "text-[#8D97AC]" : "text-[#D8B7BE]"
+              }`}
+            >
+              Help
+            </span>
+          </div>
+          <ul className="space-y-1">
+            <li>
+              <a
+                href="/docs/"
+                className={`w-full flex items-center rounded-lg transition-all ${navLinkLayoutClass} ${
+                  isUniversityView
+                    ? "text-[#44506B] hover:text-[#1F2430] hover:bg-[#F1EEF1]"
+                    : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]"
+                }`}
+              >
+                <HelpCircle className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />
+                <span className={`text-[14px] whitespace-nowrap ${navLabelClass}`}>Documentation</span>
+              </a>
+            </li>
+          </ul>
+        </div>
       </nav>
 
-      <SidebarPinnedCollapseFooter
-        variant="maroon"
-        rail={isCollapsedMode}
-        expandedInset="forge"
-      />
+      {settingsItem && (
+        <div
+          className={`shrink-0 px-4 pb-3 ${
+            viewMode === "faculty" || viewMode === "student" || viewMode === "gradingAssistant" ? "pt-2" : ""
+          }`}
+        >
+          <Link
+            to={settingsItem.to}
+            className={`w-full flex items-center rounded-lg transition-all ${navLinkLayoutClass} ${
+              isItemActive(settingsItem)
+                ? (isUniversityView
+                    ? "bg-[#7A1226] text-white shadow-[0_8px_18px_rgba(122,18,38,0.32)]"
+                    : "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]")
+                : (isUniversityView
+                    ? "text-[#44506B] hover:text-[#1F2430] hover:bg-[#F1EEF1]"
+                    : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]")
+            }`}
+          >
+            <settingsItem.icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />
+            <span className={`text-[14px] whitespace-nowrap ${navLabelClass}`}>{settingsItem.label}</span>
+          </Link>
+        </div>
+      )}
+
+      <div className={`flex w-full min-w-0 shrink-0 flex-col ${bottomPinnedBorderClass}`}>
+        <div className={`py-2 ${bottomLogoutRowClass}`}>
+          <button
+            type="button"
+            onClick={() => setIsLogoutDialogOpen(true)}
+            title="Log out"
+            aria-label="Log out"
+            className={`w-full flex items-center rounded-lg transition-all ${navLinkLayoutClass} ${
+              isUniversityView
+                ? "text-[#44506B] hover:text-[#1F2430] hover:bg-[#F1EEF1]"
+                : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]"
+            }`}
+          >
+            <LogOut className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />
+            <span className={`text-[14px] whitespace-nowrap ${navLabelClass}`}>Log out</span>
+          </button>
+        </div>
+        <SidebarPinnedCollapseFooter
+          variant={isUniversityView ? "university" : "maroon"}
+          rail={isCollapsedMode}
+          expandedInset="forge"
+          withAccessoryAbove
+        />
+      </div>
     </aside>
+    <AlertDialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Confirm logout</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to log out from this account?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-red-600 hover:bg-red-700 focus-visible:ring-red-600"
+            onClick={handleConfirmLogout}
+          >
+            Log out
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

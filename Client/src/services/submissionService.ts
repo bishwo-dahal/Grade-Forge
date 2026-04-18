@@ -10,6 +10,8 @@ import type {
   SubmissionSummary,
 } from "../types/submission";
 import api from "../api/axios";
+import { invalidateFacultyCourseworkSnapshotCache } from "./facultyCourseworkService";
+import { invalidateStudentCourseworkSnapshotCache } from "./studentCourseworkService";
 
 // NOTE: Centralized mock submission data to create a single integration seam.
 // TODO(backend): Replace mock service with real API calls. Keep return shapes stable for the UI.
@@ -245,6 +247,9 @@ interface FacultySubmissionDetailResponse {
     email: string;
     cwid: string;
   }> | null;
+  authorshipTriageLabel?: "AI_ASSISTED" | "HUMAN_WRITTEN" | "UNCLEAR" | null;
+  authorshipTriageNotes?: string | null;
+  authorshipTriageLabeledAt?: string | null;
 }
 
 interface SubmissionFileApiResponse {
@@ -341,6 +346,7 @@ export async function submitStudentAssignmentFiles(assignmentId: string, files: 
     formData.append("files", normalized, normalized.name);
   }
   await api.post(`/api/v1/student/submissions?assignmentId=${parsedAssignmentId}`, formData);
+  invalidateStudentCourseworkSnapshotCache();
 }
 
 export async function listClassSubmissions(classId: string): Promise<ClassSubmissionItem[]> {
@@ -406,6 +412,7 @@ export async function listFacultyAssignmentSubmissionFiles(
           // Prefer detailed response, fall back to slim list response.
           studentId: (detail as { studentId?: string }).studentId ?? String(sub.studentId),
           studentName: sub.studentName,
+          studentEmail: detail.studentEmail ?? sub.studentEmail ?? null,
           submittedAt: sub.submittedAt ?? detail.submittedAt ?? "",
           // FIX: Prefer the full submission-detail grade because the slim list endpoint can lag behind immediately after a grade update.
           marks: detail.marks ?? (typeof sub.grade === "number" ? sub.grade : null),
@@ -413,6 +420,9 @@ export async function listFacultyAssignmentSubmissionFiles(
           subGroupId: detail.subGroupId ?? null,
           subGroupName: detail.subGroupName ?? null,
           subGroupMembers: detail.subGroupMembers ?? null,
+          authorshipTriageLabel: detail.authorshipTriageLabel ?? null,
+          authorshipTriageNotes: detail.authorshipTriageNotes ?? null,
+          authorshipTriageLabeledAt: detail.authorshipTriageLabeledAt ?? null,
         } satisfies FacultyAssignmentSubmissionRow;
       } catch {
         // NOTE: Keep assignment views usable even if one detail lookup fails; affected rows fall back to list metadata without files.
@@ -446,6 +456,7 @@ export async function getFacultySubmissionById(
     submissionId: String(data.id),
     studentId: String(data.studentId),
     studentName: data.studentName,
+    studentEmail: data.studentEmail ?? null,
     submittedAt: data.submittedAt ?? "",
     marks: typeof data.marks === "number" ? data.marks : null,
     files: mapSubmissionFiles(data.files),
@@ -453,6 +464,34 @@ export async function getFacultySubmissionById(
     subGroupId: data.subGroupId ?? null,
     subGroupName: data.subGroupName ?? null,
     subGroupMembers: data.subGroupMembers ?? null,
+    authorshipTriageLabel: data.authorshipTriageLabel ?? null,
+    authorshipTriageNotes: data.authorshipTriageNotes ?? null,
+    authorshipTriageLabeledAt: data.authorshipTriageLabeledAt ?? null,
+  };
+}
+
+export type AuthorshipTriageLabel = "AI_ASSISTED" | "HUMAN_WRITTEN" | "UNCLEAR";
+
+/** PATCH faculty authorship triage; `label: null` clears triage for this submission. */
+export async function patchAuthorshipTriage(
+  submissionId: string,
+  payload: { label: AuthorshipTriageLabel | null; notes?: string | null },
+): Promise<Pick<
+  FacultySubmissionDetailResponse,
+  "authorshipTriageLabel" | "authorshipTriageNotes" | "authorshipTriageLabeledAt"
+>> {
+  const id = parseSubmissionId(submissionId);
+  const { data } = await api.patch<FacultySubmissionDetailResponse>(
+    `/api/v1/faculty/submissions/${id}/authorship-triage`,
+    {
+      label: payload.label,
+      notes: payload.notes ?? null,
+    },
+  );
+  return {
+    authorshipTriageLabel: data.authorshipTriageLabel ?? null,
+    authorshipTriageNotes: data.authorshipTriageNotes ?? null,
+    authorshipTriageLabeledAt: data.authorshipTriageLabeledAt ?? null,
   };
 }
 
@@ -468,6 +507,7 @@ export async function submitFacultySubmissionGrade(payload: FacultySubmissionGra
     feedback: payload.feedback,
   };
   await api.patch(`/api/v1/faculty/submissions/${parsedSubmissionId}/grade`, body);
+  invalidateFacultyCourseworkSnapshotCache();
 }
 
 export function resolvePreviewLanguage(fileName: string, fallbackLanguage: string): string {

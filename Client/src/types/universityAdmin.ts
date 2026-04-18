@@ -178,3 +178,40 @@ export interface GradingAssistantResponse {
   department: string;
   faculty?: FacultySearchResponse | null;
 }
+
+/** Response from POST /api/v1/university_admin/run-authorship-training/start */
+export interface AuthorshipTrainingStartResponse {
+  runId: string;
+}
+
+/** Polled while training runs; terminal states include the same fields as a completed run. */
+export interface AuthorshipTrainingStatusResponse {
+  runId: string;
+  state: "RUNNING" | "SUCCEEDED" | "FAILED";
+  phase: string;
+  success?: boolean;
+  message?: string;
+  labeledRowsTotal?: number;
+  rowsUsedForTraining?: number;
+  rowsSkippedNoGraderFeatures?: number;
+  modelOutputPath?: string | null;
+  stderrTail?: string | null;
+}
+
+/** Faculty authorship triage rows exposed to university admins for ML training oversight (metadata only). */
+export interface AuthorshipTriageTrainingRow {
+  submissionId: number;
+  studentId: number;
+  studentName: string;
+  assignmentId: number;
+  assignmentName: string;
+  courseId: number;
+  courseName: string;
+  courseCode: string;
+  facultyId: number;
+  facultyName: string;
+  facultyEmail: string;
+  label: "AI_ASSISTED" | "HUMAN_WRITTEN" | "UNCLEAR";
+  labeledAt: string;
+  notes: string | null;
+}

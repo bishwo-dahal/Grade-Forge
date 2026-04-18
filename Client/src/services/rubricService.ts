@@ -89,8 +89,9 @@ export async function listMyRubrics(): Promise<RubricSummary[]> {
     return data.map(mapRubricToSummary);
   } catch (error: any) {
     const status = error?.response?.status as number | undefined;
-    if (status === 404) {
-      // Backend throws ResourceNotFoundException when no rubrics exist; treat as empty list.
+    // Backend returns 400 (via ResourceNotFoundException → GlobalExceptionHandling) when no rubrics exist.
+    // Also handle 404 defensively in case the mapping changes.
+    if (status === 404 || status === 400) {
       return [];
     }
     throw error;

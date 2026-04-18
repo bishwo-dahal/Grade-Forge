@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import JSZip from "jszip";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   ChevronLeft,
+  CloudUpload,
   Download,
   FileText,
-  Filter,
   Inbox,
   ListChecks,
-  MoreVertical,
+  Pencil,
   RefreshCcw,
   Zap,
 } from "lucide-react";
@@ -25,10 +26,20 @@ import type { GradingAssistantSubmissionResponse } from "../../types/gradingAssi
 import { getAssignmentByCourse } from "../../services/gradingAssistantAssignmentService";
 import { getRubric } from "../../services/gradingAssistantRubricService";
 import { listSubmissionsByAssignment } from "../../services/gradingAssistantSubmissionService";
+import { toast } from "sonner";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
 
 /** Normalized assignment summary for shared AssignmentDetailPage (Faculty + Grading Assistant). */
 export interface AssignmentDetailPageAssignment {
@@ -132,7 +143,22 @@ export interface AssignmentDetailPageProps {
   testCasesLink?: { to: string; label: string };
   /** Optional test suite to display (like rubric section). */
   testSuiteSection?: AssignmentDetailPageTestSuiteSection | null;
+  /** Optional edit entry for faculty assignment detail pages. */
+  editAssignmentLink?: { to: string; label?: string };
+  /** Optional: publish/sync assignment definition to Canvas (faculty assignment detail). */
+  onSyncAssignmentWithCanvas?: () => Promise<void>;
+  /** Optional: post one row's grade to Canvas (faculty). */
+  onPostSubmissionGradeToCanvas?: (row: AssignmentDetailPageSubmissionRow) => Promise<void>;
+  /** Optional: bulk post graded rows with student id to Canvas (faculty). */
+  onPostBulkGradesToCanvas?: (rows: AssignmentDetailPageSubmissionRow[]) => Promise<void>;
 }
+
+type AssignmentDetailSection =
+  | "description"
+  | "details"
+  | "rubric"
+  | "tests"
+  | "submissions";
 
 /** Per-student slice of the latest grader report (similarity + AI authorship risk). */
 type GraderReportStudentSummary = {
@@ -165,7 +191,12 @@ export function AssignmentDetailPage({
   submissionsCountLabel,
   testCasesLink,
   testSuiteSection,
+  editAssignmentLink,
+  onSyncAssignmentWithCanvas,
+  onPostSubmissionGradeToCanvas,
+  onPostBulkGradesToCanvas,
 }: AssignmentDetailPageProps) {
+  const [activeSection, setActiveSection] = useState<AssignmentDetailSection>("description");
   const [plagSummary, setPlagSummary] = useState<{
     byStudent: Record<string, GraderReportStudentSummary>;
     loading: boolean;
@@ -177,6 +208,63 @@ export function AssignmentDetailPage({
     "idle" | "requesting" | "running" | "completed" | "failed"
   >("idle");
   const [plagRunMessage, setPlagRunMessage] = useState<string | null>(null);
+  const [downloadingAll, setDownloadingAll] = useState(false);
+  const [postingCanvasBySubmissionId, setPostingCanvasBySubmissionId] = useState<Record<string, boolean>>({});
+  const [isPostingBulkGradesToCanvas, setIsPostingBulkGradesToCanvas] = useState(false);
+  const [isBulkCanvasConfirmOpen, setIsBulkCanvasConfirmOpen] = useState(false);
+  const [isSyncCanvasConfirmOpen, setIsSyncCanvasConfirmOpen] = useState(false);
+  const [isSyncingAssignmentWithCanvas, setIsSyncingAssignmentWithCanvas] = useState(false);
+
+  const handleDownloadAll = useCallback(async () => {
+    const rowsWithFiles = submissions.filter(
+      (r) => (r.files && r.files.length > 0) || r.primaryDownloadUrl,
+    );
+    if (!rowsWithFiles.length) return;
+    setDownloadingAll(true);
+    try {
+      const zip = new JSZip();
+      await Promise.all(
+        rowsWithFiles.map(async (row) => {
+          const safeStudentName = (row.studentName || `submission-${row.submissionId}`).replace(
+            /[\\/:*?"<>|]/g,
+            "_",
+          );
+          const folder = zip.folder(safeStudentName);
+          if (!folder) return;
+          const files =
+            row.files && row.files.length > 0
+              ? row.files
+              : row.primaryDownloadUrl && row.primaryFileName
+                ? [{ fileName: row.primaryFileName, downloadUrl: row.primaryDownloadUrl }]
+                : [];
+          await Promise.all(
+            files.map(async (f) => {
+              try {
+                const res = await fetch(f.downloadUrl);
+                if (!res.ok) return;
+                const blob = await res.blob();
+                folder.file(f.fileName, blob);
+              } catch {
+                // Skip files that fail to fetch.
+              }
+            }),
+          );
+        }),
+      );
+      const safeTitle = (assignment?.title || "submissions").replace(/[\\/:*?"<>|]/g, "_");
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${safeTitle}-all-submissions.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Silent failure; download is a convenience action.
+    } finally {
+      setDownloadingAll(false);
+    }
+  }, [submissions, assignment?.title]);
 
   useEffect(() => {
     if (!assignment?.id) {
@@ -249,10 +337,52 @@ export function AssignmentDetailPage({
     () => submissions.some((row) => Boolean(row.subGroupName && row.subGroupName.trim())),
     [submissions],
   );
+
+  const bulkCanvasEligibleCount = useMemo(
+    () =>
+      submissions.filter(
+        (row) => row.marks != null && row.studentId != null && row.studentId.trim().length > 0,
+      ).length,
+    [submissions],
+  );
+
+  const handleConfirmBulkCanvasPost = useCallback(async () => {
+    if (!onPostBulkGradesToCanvas) return;
+    setIsPostingBulkGradesToCanvas(true);
+    try {
+      await onPostBulkGradesToCanvas(submissions);
+      toast.success("Posted to Canvas.");
+      setIsBulkCanvasConfirmOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Canvas post failed.");
+      setIsBulkCanvasConfirmOpen(false);
+    } finally {
+      setIsPostingBulkGradesToCanvas(false);
+    }
+  }, [onPostBulkGradesToCanvas, submissions]);
+
+  const handleConfirmSyncAssignmentWithCanvas = useCallback(async () => {
+    if (!onSyncAssignmentWithCanvas) return;
+    setIsSyncingAssignmentWithCanvas(true);
+    try {
+      await onSyncAssignmentWithCanvas();
+    } finally {
+      setIsSyncingAssignmentWithCanvas(false);
+      setIsSyncCanvasConfirmOpen(false);
+    }
+  }, [onSyncAssignmentWithCanvas]);
+
+  const sectionTabs: Array<{ id: AssignmentDetailSection; label: string }> = [
+    { id: "description", label: "Description" },
+    { id: "details", label: "Assignment Details" },
+    { id: "rubric", label: "Rubric" },
+    { id: "tests", label: "Test Cases" },
+    { id: "submissions", label: "Submissions" },
+  ];
   if (loading) {
     return (
       <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
-        <div className="max-w-7xl mx-auto px-8 py-6">
+        <div className="2xl:max-w-7xl 2xl:mx-auto px-8 py-6">
           <div className="h-7 w-60 rounded bg-gray-200 animate-pulse mb-4" />
           <div className="bg-white rounded-2xl border border-gray-200 p-6 animate-pulse space-y-4">
             <div className="h-6 w-72 rounded bg-gray-200" />
@@ -266,8 +396,9 @@ export function AssignmentDetailPage({
   }
 
   return (
+    <>
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
-      <div className="max-w-7xl mx-auto px-8 py-6">
+      <div className="2xl:max-w-7xl 2xl:mx-auto px-8 py-6">
         <Link
           to={backLink.to}
           className="inline-flex items-center gap-1.5 text-[13px] text-gray-600 hover:text-[#2B2A2A] transition-colors mb-4"
@@ -294,31 +425,82 @@ export function AssignmentDetailPage({
         {assignment ? (
           <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-200">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#EEF3FF] flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-[#EEF3FF] flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0">
+                    <h1 className="text-[22px] font-semibold text-[#2B2A2A] truncate">
+                      {assignment.title}
+                    </h1>
+                    <p className="text-[13px] text-gray-600 mt-0.5">{assignment.courseName}</p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <h1 className="text-[22px] font-semibold text-[#2B2A2A] truncate">
-                    {assignment.title}
-                  </h1>
-                  <p className="text-[13px] text-gray-600 mt-0.5">{assignment.courseName}</p>
-                </div>
+                {editAssignmentLink ? (
+                  <div className="flex flex-shrink-0 flex-col items-end gap-2">
+                    <Link
+                      to={editAssignmentLink.to}
+                      aria-label={editAssignmentLink.label ?? "Edit assignment"}
+                      title={editAssignmentLink.label ?? "Edit assignment"}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-[#2B2A2A]"
+                    >
+                      <Pencil className="h-4 w-4" strokeWidth={2} />
+                    </Link>
+                    {onSyncAssignmentWithCanvas ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsSyncCanvasConfirmOpen(true)}
+                        disabled={isSyncingAssignmentWithCanvas}
+                        aria-label="Sync assignment with Canvas"
+                        title="Sync assignment with Canvas"
+                        className="whitespace-nowrap rounded-lg border border-[#D6DDF5] bg-[#F8FAFF] px-3 py-1.5 text-[11px] font-medium text-[#5A7ACD] hover:bg-[#EEF2FC] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Sync with Canvas
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
 
+            <div className="border-b border-gray-200 px-6 py-3">
+              <div className="flex flex-wrap gap-2">
+                {sectionTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveSection(tab.id)}
+                    className={`rounded-full px-4 py-2 text-[13px] font-medium transition-colors ${
+                      activeSection === tab.id
+                        ? "bg-[#2B2A2A] text-white"
+                        : "border border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-[#2B2A2A]"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {activeSection !== "submissions" ? (
             <div className="px-6 py-5 space-y-5">
-              {assignment.description ? (
+              {activeSection === "description" ? (
                 <div>
                   <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
                     Description
                   </h3>
-                  <p className="text-[14px] text-[#2B2A2A] whitespace-pre-wrap">
-                    {assignment.description}
-                  </p>
+                  {assignment.description ? (
+                    <p className="text-[14px] text-[#2B2A2A] whitespace-pre-wrap">
+                      {assignment.description}
+                    </p>
+                  ) : (
+                    <p className="text-[14px] text-gray-500">No description was provided for this assignment.</p>
+                  )}
                 </div>
               ) : null}
 
+              {activeSection === "details" ? (
               <div className="pt-2 border-t border-gray-100">
                 <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-3">
                   Assignment details
@@ -413,13 +595,16 @@ export function AssignmentDetailPage({
                   </div>
                 </div>
               </div>
+              ) : null}
 
-              {rubricSection ? (
+              {activeSection === "rubric" ? (
                 <div className="pt-2 border-t border-gray-100">
                   <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
                     Rubric
                   </h3>
-                  {rubricSection.loading ? (
+                  {!rubricSection ? (
+                    <p className="text-[14px] text-gray-500">No rubric is attached to this assignment.</p>
+                  ) : rubricSection.loading ? (
                     <p className="text-[14px] text-gray-500">Loading rubric…</p>
                   ) : (rubricSection.criteriaNested?.length ?? 0) > 0 ? (
                     <div className="space-y-4">
@@ -494,16 +679,20 @@ export function AssignmentDetailPage({
                     </div>
                   ) : rubricSection.name ? (
                     <p className="text-[14px] text-[#2B2A2A]">{rubricSection.name}</p>
-                  ) : null}
+                  ) : (
+                    <p className="text-[14px] text-gray-500">No rubric details are available yet.</p>
+                  )}
                 </div>
               ) : null}
 
-              {testSuiteSection ? (
+              {activeSection === "tests" ? (
                 <div className="pt-2 border-t border-gray-100">
                   <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
                     Test cases
                   </h3>
-                  {testSuiteSection.loading ? (
+                  {!testSuiteSection ? (
+                    <p className="text-[14px] text-gray-500">No test cases are attached to this assignment.</p>
+                  ) : testSuiteSection.loading ? (
                     <p className="text-[14px] text-gray-500">Loading test cases…</p>
                   ) : testSuiteSection.testCases.length > 0 ? (
                     <div className="space-y-3">
@@ -540,37 +729,26 @@ export function AssignmentDetailPage({
                     </div>
                   ) : testSuiteSection.title ? (
                     <p className="text-[14px] text-[#2B2A2A]">{testSuiteSection.title} — no cases yet.</p>
-                  ) : null}
+                  ) : (
+                    <p className="text-[14px] text-gray-500">No test cases are available yet.</p>
+                  )}
                 </div>
               ) : null}
             </div>
+            ) : null}
           </div>
         ) : null}
 
+        {activeSection === "submissions" ? (
         <div className="mt-6 bg-white rounded-2xl border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Inbox className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
               <div>
                 <h2 className="text-[16px] font-semibold text-[#2B2A2A]">Submissions</h2>
-                <p className="text-[13px] text-gray-600">{submissionsSectionSubtitle}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {submissionsCountLabel ? (
-                <span className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-medium text-[#2B2A2A]">
-                  {submissionsCountLabel}
-                </span>
-              ) : null}
-              {speedGradingLink ? (
-                <Link
-                  to={speedGradingLink.to}
-                  // NOTE: Faculty launches speed grading from the assignment detail page so the queue is anchored to the current assignment.
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2B2A2A] rounded-lg text-[12px] font-medium text-white transition-colors hover:bg-[#3A3939]"
-                >
-                  <span>{speedGradingLink.label}</span>
-                </Link>
-              ) : null}
               <button
                 type="button"
                 onClick={onRefreshSubmissions}
@@ -585,11 +763,37 @@ export function AssignmentDetailPage({
               </button>
               <button
                 type="button"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50"
+                onClick={() => void handleDownloadAll()}
+                disabled={downloadingAll || submissions.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
               >
-                <Filter className="w-4 h-4" strokeWidth={2} />
-                <span>Filter</span>
+                <Download
+                  className={`w-4 h-4 ${downloadingAll ? "animate-pulse" : ""}`}
+                  strokeWidth={2}
+                />
+                <span>{downloadingAll ? "Preparing…" : "Download All"}</span>
               </button>
+              {onPostBulkGradesToCanvas ? (
+                <button
+                  type="button"
+                  title="Post every graded submission (with student id) to Canvas in one request."
+                  disabled={submissionsLoading || bulkCanvasEligibleCount < 1}
+                  onClick={() => setIsBulkCanvasConfirmOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <CloudUpload className="w-4 h-4" strokeWidth={2} />
+                  <span>Post all grades to Canvas</span>
+                </button>
+              ) : null}
+              {speedGradingLink ? (
+                <Link
+                  to={speedGradingLink.to}
+                  // NOTE: Faculty launches speed grading from the assignment detail page so the queue is anchored to the current assignment.
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#7A1226] rounded-lg text-[12px] font-medium text-white transition-colors hover:bg-[#65101F]"
+                >
+                  <span>{speedGradingLink.label}</span>
+                </Link>
+              ) : null}
               <button
                 type="button"
                 disabled={!assignment?.id}
@@ -809,13 +1013,6 @@ export function AssignmentDetailPage({
                                 <Download className="w-4 h-4" strokeWidth={2} />
                               </button>
                             )}
-                            <Link
-                              to={openHref}
-                              aria-label="Open submission"
-                              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                              <FileText className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                            </Link>
                             {row.subGroupName ? (
                               <Link
                                 to={`${openHref}?tab=group`}
@@ -825,13 +1022,41 @@ export function AssignmentDetailPage({
                                 Group
                               </Link>
                             ) : null}
-                            <button
-                              type="button"
-                              aria-label="More submission actions"
-                              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                              <MoreVertical className="w-4 h-4 text-gray-500" strokeWidth={2} />
-                            </button>
+                            {onPostSubmissionGradeToCanvas ? (
+                              <button
+                                type="button"
+                                title="Send this row's grade to Canvas"
+                                aria-label="Send this row's grade to Canvas"
+                                disabled={
+                                  row.marks == null ||
+                                  !row.studentId?.trim() ||
+                                  Boolean(postingCanvasBySubmissionId[row.submissionId])
+                                }
+                                onClick={async () => {
+                                  if (!onPostSubmissionGradeToCanvas || row.marks == null) return;
+                                  setPostingCanvasBySubmissionId((previous) => ({
+                                    ...previous,
+                                    [row.submissionId]: true,
+                                  }));
+                                  try {
+                                    await onPostSubmissionGradeToCanvas(row);
+                                    toast.success("Posted to Canvas.");
+                                  } catch (error) {
+                                    toast.error(
+                                      error instanceof Error ? error.message : "Canvas post failed.",
+                                    );
+                                  } finally {
+                                    setPostingCanvasBySubmissionId((previous) => ({
+                                      ...previous,
+                                      [row.submissionId]: false,
+                                    }));
+                                  }
+                                }}
+                                className="px-2 py-1 text-[11px] font-medium rounded-md border border-gray-300 bg-white text-[#2B2A2A] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {postingCanvasBySubmissionId[row.submissionId] ? "Sending…" : "Canvas"}
+                              </button>
+                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -851,8 +1076,70 @@ export function AssignmentDetailPage({
             </table>
           </div>
         </div>
+        ) : null}
       </div>
     </main>
+    <AlertDialog
+      open={isBulkCanvasConfirmOpen}
+      onOpenChange={(open) => {
+        if (!open && isPostingBulkGradesToCanvas) return;
+        setIsBulkCanvasConfirmOpen(open);
+      }}
+    >
+      <AlertDialogContent
+        onEscapeKeyDown={(event) => {
+          if (isPostingBulkGradesToCanvas) event.preventDefault();
+        }}
+      >
+        <AlertDialogHeader>
+          <AlertDialogTitle>Post all grades to Canvas?</AlertDialogTitle>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isPostingBulkGradesToCanvas}>Cancel</AlertDialogCancel>
+          <button
+            type="button"
+            onClick={() => void handleConfirmBulkCanvasPost()}
+            disabled={isPostingBulkGradesToCanvas}
+            className="inline-flex h-9 items-center justify-center rounded-md bg-[#2B2A2A] px-4 text-sm font-medium text-white transition-colors hover:bg-[#3A3939] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isPostingBulkGradesToCanvas ? "Posting…" : "Confirm"}
+          </button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    <AlertDialog
+      open={isSyncCanvasConfirmOpen}
+      onOpenChange={(open) => {
+        if (!open && isSyncingAssignmentWithCanvas) return;
+        setIsSyncCanvasConfirmOpen(open);
+      }}
+    >
+      <AlertDialogContent
+        onEscapeKeyDown={(event) => {
+          if (isSyncingAssignmentWithCanvas) event.preventDefault();
+        }}
+      >
+        <AlertDialogHeader>
+          <AlertDialogTitle>Sync this assignment with Canvas?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This publishes the assignment to the Canvas course linked to this class. Continue only if you intend
+            to update Canvas.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isSyncingAssignmentWithCanvas}>Cancel</AlertDialogCancel>
+          <button
+            type="button"
+            onClick={() => void handleConfirmSyncAssignmentWithCanvas()}
+            disabled={isSyncingAssignmentWithCanvas}
+            className="inline-flex h-9 items-center justify-center rounded-md bg-[#2B2A2A] px-4 text-sm font-medium text-white transition-colors hover:bg-[#3A3939] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSyncingAssignmentWithCanvas ? "Syncing…" : "Sync"}
+          </button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 

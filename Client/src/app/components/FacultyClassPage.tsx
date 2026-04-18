@@ -1,12 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { 
-  Settings, 
-  ChevronLeft, 
-  LayoutDashboard, 
-  FileText, 
-  Send, 
-  BarChart3, 
+  Settings,
+  ChevronLeft,
+  FileText,
+  BarChart3,
   Plus,
   Upload,
   Users,
@@ -27,14 +25,14 @@ import {
   X,
   RefreshCcw,
   ChevronRight,
-  FileUp
+  FileUp,
+  Zap,
 } from "lucide-react";
 import type {
   ClassHeader,
   ClassCreateFormData,
-  ClassRecentActivity,
   FacultyAssignment,
-  FacultyDashboardStat,
+  CanvasCourseStudent,
   FacultyStudentEmailSuggestion,
   FacultyRosterStats,
   FacultyRosterStudentRow,
@@ -45,23 +43,22 @@ import type { MainGroupResponse } from "../../types/courseGroup";
 import type { ClassSubmissionItem, SpeedGradingAssignmentOption } from "../../types/submission";
 import {
   dropStudentFromCourse,
+  enrollFacultyStudentsBulk,
   enrollStudentByEmail,
   getFacultyClassHeaderById,
   deleteFacultyCourse,
   getFacultyCourseDetailsById,
-  listClassRecentActivity,
   listFacultyAssignments,
   listFacultySemesters,
   listFacultyStudentEmailSuggestions,
+  listCanvasCourseStudents,
   listFacultyRosterRows,
-  listFacultyDashboardStats,
   searchFacultyStudentByEmail,
   toggleFacultyCourseActive,
   updateFacultyCourse,
   deleteFacultyAssignment,
   getCourseCoverImageUrl,
 } from "../../services/classService";
-
 import type { CourseApiResponse } from "../../services/classService";
 import { createFacultyMainGroup, listFacultyCourseGroups } from "../../services/courseGroupService";
 import { listClassSubmissions } from "../../services/submissionService";
@@ -83,6 +80,7 @@ import type {
 import type { GradingAssistantResponse } from "../../types/gradingAssistant";
 import type { CourseAssistantResponse } from "../../types/courseAssistant";
 import { SegmentedFilter, type SegmentedFilterItem } from "./ui/SegmentedFilter";
+import { ConfirmationModal, TimedSuccessModal } from "./ui/ActionFeedbackModal";
 import {
   Tooltip,
   TooltipContent,
@@ -93,12 +91,10 @@ import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection as TopBarSettingsSection } from "./layout/AuthTopBar";
-import { SidebarPinnedCollapseFooter } from "./layout/SidebarPinnedCollapseFooter";
-import { useSidebarPinnedCollapsed } from "./layout/useSidebarPinnedCollapsed";
+import { FacultyClassSidebar } from "./layout/FacultyClassSidebar";
 import { DEFAULT_COURSE_COVER_IMAGE } from "../../constants/defaultCourseCover";
 
 const SECTION_PATH_SEGMENTS = [
-  "dashboard",
   "assignments",
   "grades",
   "students",
@@ -123,14 +119,14 @@ export function FacultyClassPage() {
   const { classId, section: sectionParam } = useParams();
   const navigate = useNavigate();
   const resolvedClassId = classId ?? "1";
-  const activeSection: SectionType = isValidSection(sectionParam) ? sectionParam : "dashboard";
+  const activeSection: SectionType = isValidSection(sectionParam) ? sectionParam : "assignments";
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
   const [classHeader, setClassHeader] = useState<ClassHeader | null>(null);
 
   // Redirect invalid section to dashboard
   useEffect(() => {
     if (sectionParam != null && !isValidSection(sectionParam)) {
-      navigate(`/faculty/class/${resolvedClassId}/dashboard`, { replace: true });
+      navigate(`/faculty/class/${resolvedClassId}/assignments`, { replace: true });
     }
   }, [sectionParam, resolvedClassId, navigate]);
 
@@ -183,129 +179,18 @@ export function FacultyClassPage() {
     navigate("/signin", { replace: true });
   };
 
-  const { pinnedCollapsed } = useSidebarPinnedCollapsed();
 
   return (
     <div className="flex h-screen bg-[#F5F4F6]">
-      {/* Left Sidebar Navigation */}
-      <aside
-        className={`flex flex-shrink-0 flex-col border-r border-[#65101F] bg-[#7A1226] transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          pinnedCollapsed ? "w-[78px]" : "w-64"
-        }`}
-      >
-        <div className="flex min-h-0 flex-1 flex-col">
-          {/* Logo Header */}
-          <div
-            className={`flex h-[76px] items-center border-b border-[#65101F] bg-white ${
-              pinnedCollapsed ? "justify-center px-0" : "px-6"
-            }`}
-          >
-            <Link
-              to="/dashboard"
-              className={`flex items-center transition-opacity hover:opacity-90 ${
-                pinnedCollapsed ? "h-12 w-12 justify-center rounded-[14px]" : "gap-3"
-              }`}
-              aria-label="Go to main dashboard"
-            >
-              <img
-                src="/favicon.svg"
-                alt={pinnedCollapsed ? "" : "Grade Forge"}
-                className="h-8 w-8 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
-              />
-              {!pinnedCollapsed && (
-                <span className="whitespace-nowrap text-[15px] font-semibold text-[#1F2430]">Grade Forge</span>
-              )}
-            </Link>
-          </div>
-          {/* Back to Main Dashboard Link */}
-          <div
-            className={`flex border-b border-[#65101F] py-3 ${pinnedCollapsed ? "justify-center px-0" : "px-4"}`}
-          >
-            <Link
-              to="/dashboard"
-              title="Back to Main Dashboard"
-              className={`flex items-center text-[13px] text-[#F5E5E8] transition-colors hover:text-white ${
-                pinnedCollapsed ? "justify-center" : "gap-2"
-              }`}
-              aria-label="Back to Main Dashboard"
-            >
-              <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} />
-              {!pinnedCollapsed && <span>Back to Main Dashboard</span>}
-            </Link>
-          </div>
-
-          {/* Navigation Menu - each item has its own route */}
-          <nav
-            className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-4 ${
-              pinnedCollapsed ? "px-1" : "px-3"
-            }`}
-          >
-            <ul className="space-y-1">
-              <NavItem
-                icon={<LayoutDashboard className="w-4 h-4" strokeWidth={2} />}
-                label="Home"
-                active={activeSection === "dashboard"}
-                to={`/faculty/class/${resolvedClassId}/dashboard`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<FileText className="w-4 h-4" strokeWidth={2} />}
-                label="Assignments"
-                active={activeSection === "assignments"}
-                to={`/faculty/class/${resolvedClassId}/assignments`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<BarChart3 className="w-4 h-4" strokeWidth={2} />}
-                label="Grades"
-                active={activeSection === "grades"}
-                to={`/faculty/class/${resolvedClassId}/grades`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<Users className="w-4 h-4" strokeWidth={2} />}
-                label="Students"
-                active={activeSection === "students"}
-                to={`/faculty/class/${resolvedClassId}/students`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<UserPlus className="w-4 h-4" strokeWidth={2} />}
-                label="Grading Assistants"
-                active={activeSection === "assistants"}
-                to={`/faculty/class/${resolvedClassId}/assistants`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<UsersRound className="w-4 h-4" strokeWidth={2} />}
-                label="Groups"
-                active={activeSection === "groups"}
-                to={`/faculty/class/${resolvedClassId}/groups`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<Settings className="w-4 h-4" strokeWidth={2} />}
-                label="Settings"
-                active={activeSection === "settings"}
-                to={`/faculty/class/${resolvedClassId}/settings`}
-                rail={pinnedCollapsed}
-              />
-            </ul>
-          </nav>
-          <SidebarPinnedCollapseFooter
-            variant="maroon"
-            rail={pinnedCollapsed}
-            expandedInset="flush"
-          />
-        </div>
-      </aside>
+      <FacultyClassSidebar classId={resolvedClassId} activeSection={activeSection} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <AuthTopBar
           roleView="faculty"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search calendar, assignments..."
+          showSearch={false}
+          pageTitle={courseFullName || "Class Dashboard"}
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />
@@ -315,7 +200,6 @@ export function FacultyClassPage() {
           className="flex-1 overflow-y-auto bg-fixed bg-cover bg-center bg-no-repeat"
           style={{ backgroundImage: `url("${classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}")` }}
         >
-          {/* Top Header */}
           <header className="bg-white border-b border-gray-200 px-8 py-6">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -333,33 +217,12 @@ export function FacultyClassPage() {
                   <span>{classData.section}</span>
                 </div>
               </div>
-              {/* NOTE: Student-roster actions live in the top header so they align with the page-level action position. */}
-              {activeSection === "students" ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
-                    <Download className="w-4 h-4" strokeWidth={2} />
-                    <span>Import from Canvas</span>
-                  </button>
-                  <button
-                    onClick={() => setIsAddStudentModalOpen(true)}
-                    className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
-                  >
-                    <Plus className="w-4 h-4" strokeWidth={2} />
-                    <span>Add Student</span>
-                  </button>
-                </div>
-              ) : null}
             </div>
           </header>
 
           <div className="min-h-full bg-white/10 backdrop-blur-[2px]">
             <div className="max-w-7xl mx-auto px-8 py-6">
-              {activeSection === "dashboard" && (
-                <DashboardSection />
-              )}
-              {activeSection === "assignments" && (
-                <AssignmentsSection />
-              )}
+              {activeSection === "assignments" && <AssignmentsSection />}
               {activeSection === "grades" && (
                 <GradesSection courseFullName={courseFullName} facultyName={facultyName} />
               )}
@@ -367,183 +230,16 @@ export function FacultyClassPage() {
                 <StudentsSection
                   isAddStudentModalOpen={isAddStudentModalOpen}
                   onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
+                  onOpenAddStudentModal={() => setIsAddStudentModalOpen(true)}
                 />
               )}
-              {activeSection === "assistants" && (
-                <AssistantsSection />
-              )}
-              {activeSection === "groups" && (
-                <GroupsSection />
-              )}
-              {activeSection === "settings" && (
-                <SettingsSection classId={resolvedClassId} />
-              )}
+              {activeSection === "assistants" && <AssistantsSection />}
+              {activeSection === "groups" && <GroupsSection />}
+              {activeSection === "settings" && <SettingsSection classId={resolvedClassId} />}
             </div>
           </div>
         </main>
       </div>
-    </div>
-  );
-}
-
-// Navigation Item Component - links to section route
-function NavItem({
-  icon,
-  label,
-  active,
-  to,
-  badge,
-  rail = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  active: boolean;
-  to: string;
-  badge?: number;
-  rail?: boolean;
-}) {
-  return (
-    <li>
-      <Link
-        to={to}
-        title={rail ? label : undefined}
-        className={`
-          relative flex w-full items-center rounded-lg text-[13px] font-medium transition-colors
-          ${rail ? "justify-center px-0 py-2.5" : "justify-between gap-3 px-3 py-2.5"}
-          ${active ? "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]" : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]"}
-        `}
-      >
-        <div className={`flex items-center ${rail ? "justify-center" : "gap-3"}`}>
-          {icon}
-          {rail ? <span className="sr-only">{label}</span> : <span>{label}</span>}
-        </div>
-        {!rail && badge !== undefined && badge > 0 && (
-          <span
-            className={`
-              px-2 py-0.5 text-[11px] font-semibold rounded-full
-              ${active ? "bg-[#7A1226] text-white" : "bg-[#9F3549] text-white"}
-            `}
-          >
-            {badge}
-          </span>
-        )}
-        {rail && badge !== undefined && badge > 0 && (
-          <span className="absolute right-1 top-1 h-2 min-w-2 rounded-full bg-[#9F3549]" aria-hidden />
-        )}
-      </Link>
-    </li>
-  );
-}
-
-// Placeholder sections - will be implemented
-function DashboardSection() {
-  const { classId } = useParams();
-  // NOTE: Dashboard stats and activity now load from backend-driven service calls.
-  const [recentActivity, setRecentActivity] = useState<ClassRecentActivity[]>([]);
-  const [stats, setStats] = useState<FacultyDashboardStat[]>([]);
-
-  useEffect(() => {
-    const resolvedId = classId || "1";
-    listClassRecentActivity(resolvedId).then(setRecentActivity);
-    listFacultyDashboardStats(resolvedId).then(setStats);
-  }, [classId]);
-
-  const activityIconMap = {
-    send: Send,
-    check: CheckCircle2,
-    "user-plus": UserPlus,
-  } as const;
-
-  const statIconMap = {
-    users: Users,
-    "file-text": FileText,
-    clock: Clock,
-    alert: AlertCircle,
-  } as const;
-
-  return (
-    <div className="space-y-6">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {stats.map((stat) => {
-            const StatIcon = statIconMap[stat.iconKey];
-            return (
-              <StatCard
-                key={stat.label}
-                label={stat.label}
-                value={stat.value}
-                icon={<StatIcon className="w-5 h-5" strokeWidth={2} />}
-                iconBg={stat.iconBg}
-                iconColor={stat.iconColor}
-                badge={stat.badge}
-              />
-            );
-          })}
-        </div>
-
-        {/* Recent Activity */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[15px] font-semibold text-[#2B2A2A]">Recent Activity</h3>
-            <button className="text-[12px] text-gray-500 hover:text-[#2B2A2A]">View All</button>
-          </div>
-          <div className="space-y-4">
-            {recentActivity.length > 0 ? (
-              recentActivity.map((activity) => {
-                const ActivityIcon = activityIconMap[activity.iconKey];
-                return (
-                  <div
-                    key={activity.id}
-                    className="flex items-start gap-3 pb-4 border-b border-gray-100 last:border-b-0 last:pb-0"
-                  >
-                    <div className={`mt-0.5 w-8 h-8 ${activity.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                      <ActivityIcon className={`w-4 h-4 ${activity.iconColor}`} strokeWidth={2} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[14px] text-[#2B2A2A]">{activity.message}</p>
-                      <p className="text-[12px] text-gray-500 mt-0.5">{activity.time}</p>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <p className="text-[13px] text-gray-600">No recent class activity yet.</p>
-            )}
-          </div>
-        </div>
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  icon,
-  iconBg,
-  iconColor,
-  badge,
-}: {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-  iconBg: string;
-  iconColor: string;
-  badge?: boolean;
-}) {
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5">
-      <div className="flex items-start justify-between mb-3">
-        <div className={`w-10 h-10 ${iconBg} rounded-lg flex items-center justify-center`}>
-          <span className={iconColor}>{icon}</span>
-        </div>
-        {badge && (
-          <span className="px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-semibold rounded uppercase">
-            Action Needed
-          </span>
-        )}
-      </div>
-      <div className="text-[28px] font-semibold text-[#2B2A2A] mb-1">{value}</div>
-      <div className="text-[13px] text-gray-600">{label}</div>
     </div>
   );
 }
@@ -557,7 +253,6 @@ function AssignmentsSection() {
   const [openAssignmentActionsId, setOpenAssignmentActionsId] = useState<string | null>(null);
   const [assignmentDeleteTarget, setAssignmentDeleteTarget] = useState<FacultyAssignment | null>(null);
   const [isDeletingAssignment, setIsDeletingAssignment] = useState(false);
-
   const loadAssignments = useCallback(async () => {
     // FIX: Centralize assignment reload so header/footer actions reuse the same backend-driven refresh path.
     setIsAssignmentsLoading(true);
@@ -584,7 +279,6 @@ function AssignmentsSection() {
     setIsDeletingAssignment(true);
     try {
       await deleteFacultyAssignment(deletingAssignment.id);
-      setSelectedAssignments((prev) => prev.filter((id) => id !== deletingAssignment.id));
       toast.success("Assignment deleted successfully.");
       await loadAssignments();
     } catch (error) {
@@ -1173,6 +867,7 @@ function GradesSection({
   facultyName: string;
 }) {
   const { classId } = useParams();
+  const navigate = useNavigate();
   const courseId = useMemo(() => Number(classId || "0") || 0, [classId]);
 
   const [courseReport, setCourseReport] = useState<CourseGradeReportResponse | null>(null);
@@ -1185,6 +880,9 @@ function GradesSection({
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<number | null>(null);
   const [assignmentReportLoading, setAssignmentReportLoading] = useState(false);
+
+  const [isSpeedGraderOpen, setIsSpeedGraderOpen] = useState(false);
+  const [speedGraderSelectedId, setSpeedGraderSelectedId] = useState<number | null>(null);
 
   // Load course grade report only when Grades section is shown (component mounted).
   useEffect(() => {
@@ -1220,6 +918,26 @@ function GradesSection({
     const first = courseReport.students[0];
     return first.assignments ?? [];
   }, [courseReport]);
+
+  const speedGradingOptions = useMemo(() => {
+    if (!courseReport?.students?.length) return [];
+    const byId = new Map<number, { assignmentId: number; assignmentName: string; ungraded: number; total: number }>();
+    for (const student of courseReport.students) {
+      for (const a of student.assignments) {
+        if (!byId.has(a.assignmentId)) {
+          byId.set(a.assignmentId, { assignmentId: a.assignmentId, assignmentName: a.assignmentName, ungraded: 0, total: 0 });
+        }
+        const entry = byId.get(a.assignmentId)!;
+        entry.total += 1;
+        if (a.status === "SUBMITTED") entry.ungraded += 1;
+      }
+    }
+    return Array.from(byId.values()).sort((a, b) => b.ungraded - a.ungraded);
+  }, [courseReport]);
+
+  const suggestedAssignmentId = useMemo(() => {
+    return speedGradingOptions[0]?.assignmentId ?? null;
+  }, [speedGradingOptions]);
 
   const filteredStudentsCourse = useMemo(() => {
     if (!courseReport?.students) return [];
@@ -1329,15 +1047,29 @@ function GradesSection({
             View and manage student grades for this course
           </p>
         </div>
-        <button
-          type="button"
-          onClick={exportGradesCsv}
-          disabled={!courseReport || (viewMode === "assignment" && !assignmentReport)}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Download className="w-4 h-4" strokeWidth={2} />
-          <span>Export Grades</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setSpeedGraderSelectedId(suggestedAssignmentId);
+              setIsSpeedGraderOpen(true);
+            }}
+            disabled={speedGradingOptions.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-[#7A1226] hover:bg-[#65101F] rounded-lg text-[13px] font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Zap className="w-4 h-4" strokeWidth={2} />
+            <span>Speed Grader</span>
+          </button>
+          <button
+            type="button"
+            onClick={exportGradesCsv}
+            disabled={!courseReport || (viewMode === "assignment" && !assignmentReport)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download className="w-4 h-4" strokeWidth={2} />
+            <span>Export Grades</span>
+          </button>
+        </div>
       </div>
 
       {loadError && (
@@ -1548,6 +1280,84 @@ function GradesSection({
           )}
         </>
       ) : null}
+
+      {isSpeedGraderOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white shadow-xl">
+            <div className="border-b border-gray-200 px-5 py-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Zap className="w-4 h-4 text-[#7A1226]" strokeWidth={2} />
+                <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Speed Grading</h3>
+              </div>
+              <p className="text-[12px] text-gray-600">
+                Select an assignment to grade. The queue opens in read-only grading mode, one submission at a time.
+              </p>
+            </div>
+
+            <div className="px-5 py-4 space-y-4">
+              {speedGradingOptions.length > 0 ? (
+                <>
+                  {suggestedAssignmentId != null && speedGradingOptions[0]?.ungraded > 0 ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700 mb-0.5">
+                        Suggested
+                      </p>
+                      <p className="text-[13px] font-medium text-[#2B2A2A]">
+                        {speedGradingOptions[0].assignmentName}
+                      </p>
+                      <p className="text-[12px] text-amber-700 mt-0.5">
+                        {speedGradingOptions[0].ungraded} ungraded submission{speedGradingOptions[0].ungraded !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                  ) : null}
+                  <div className="space-y-1.5">
+                    <label className="block text-[12px] font-medium text-[#2B2A2A]">Assignment</label>
+                    <select
+                      value={speedGraderSelectedId ?? ""}
+                      onChange={(e) => setSpeedGraderSelectedId(Number(e.target.value))}
+                      className="h-10 w-full rounded-lg border border-gray-300 px-3 text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]/30"
+                    >
+                      {speedGradingOptions.map((opt) => (
+                        <option key={opt.assignmentId} value={opt.assignmentId}>
+                          {opt.assignmentName}
+                          {opt.ungraded > 0 ? ` — ${opt.ungraded} ungraded` : " — all graded"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <p className="text-[13px] text-gray-600">
+                  No assignment submissions available for speed grading yet.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-gray-200 bg-gray-50 px-5 py-4 rounded-b-xl">
+              <button
+                type="button"
+                onClick={() => setIsSpeedGraderOpen(false)}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-[#2B2A2A] hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!speedGraderSelectedId}
+                onClick={() => {
+                  if (!speedGraderSelectedId || !classId) return;
+                  navigate(`/faculty/class/${classId}/speed-grading/${speedGraderSelectedId}`);
+                  setIsSpeedGraderOpen(false);
+                }}
+                className="flex items-center gap-1.5 rounded-lg bg-[#7A1226] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#65101F] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Zap className="w-3.5 h-3.5" strokeWidth={2} />
+                Start Grading
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1635,7 +1445,7 @@ function downloadSampleStudentCsv(): void {
   URL.revokeObjectURL(url);
 }
 
-type AddStudentMode = "choice" | "manual" | "csv";
+type AddStudentMode = "choice" | "manual" | "csv" | "canvas";
 
 function StudentGradesModal({
   student,
@@ -1742,9 +1552,11 @@ function StudentGradesModal({
 function StudentsSection({
   isAddStudentModalOpen,
   onCloseAddStudentModal,
+  onOpenAddStudentModal,
 }: {
   isAddStudentModalOpen: boolean;
   onCloseAddStudentModal: () => void;
+  onOpenAddStudentModal: () => void;
 }) {
   const { classId } = useParams();
   const resolvedId = classId || "1";
@@ -1782,6 +1594,14 @@ function StudentsSection({
   const [parsedFileRows, setParsedFileRows] = useState<{ name: string; email: string }[] | null>(null);
   const [fileImportResults, setFileImportResults] = useState<{ email: string; name: string; status: "success" | "error"; message?: string }[]>([]);
   const [isFileImporting, setIsFileImporting] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
+  const [canvasStudents, setCanvasStudents] = useState<CanvasCourseStudent[]>([]);
+  const [canvasStudentsError, setCanvasStudentsError] = useState<string | null>(null);
+  const [isCanvasStudentsLoading, setIsCanvasStudentsLoading] = useState(false);
+  const [canvasSearchValue, setCanvasSearchValue] = useState("");
+  const [isEnrollAllCanvasLoading, setIsEnrollAllCanvasLoading] = useState(false);
+  const [canvasEnrollLoadingById, setCanvasEnrollLoadingById] = useState<Record<string, boolean>>({});
+  const [enrolledCanvasStudentIds, setEnrolledCanvasStudentIds] = useState<Record<string, boolean>>({});
 
   const courseId = useMemo(() => Number(resolvedId) || 0, [resolvedId]);
 
@@ -1830,6 +1650,13 @@ function StudentsSection({
     setIsEnrollLoading(false);
     setParsedFileRows(null);
     setFileImportResults([]);
+    setCanvasStudents([]);
+    setCanvasStudentsError(null);
+    setCanvasSearchValue("");
+    setIsCanvasStudentsLoading(false);
+    setIsEnrollAllCanvasLoading(false);
+    setCanvasEnrollLoadingById({});
+    setEnrolledCanvasStudentIds({});
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -1859,7 +1686,7 @@ function StudentsSection({
     const results: { email: string; name: string; status: "success" | "error"; message?: string }[] = [];
     for (const row of parsedFileRows) {
       try {
-        await enrollStudentByEmail(resolvedId, row.email);
+        await enrollStudentByEmail(resolvedId, row.email, null);
         results.push({ email: row.email, name: row.name, status: "success" });
       } catch (err) {
         results.push({ email: row.email, name: row.name, status: "error", message: getErrorMessage(err) });
@@ -1868,6 +1695,12 @@ function StudentsSection({
     setFileImportResults(results);
     setIsFileImporting(false);
     await loadRoster();
+    const successCount = results.filter((item) => item.status === "success").length;
+    if (successCount > 0) {
+      setSuccessModalMessage(
+        successCount === 1 ? "1 student was enrolled successfully." : `${successCount} students were enrolled successfully.`,
+      );
+    }
   }, [parsedFileRows, resolvedId]);
 
   useEffect(() => {
@@ -1930,6 +1763,42 @@ function StudentsSection({
       window.clearTimeout(timer);
     };
   }, [isAddStudentModalOpen, addMode, lookupEmail, resolvedId]);
+
+  useEffect(() => {
+    if (!isAddStudentModalOpen || addMode !== "canvas") {
+      return;
+    }
+    setIsCanvasStudentsLoading(true);
+    setCanvasStudentsError(null);
+    listCanvasCourseStudents(resolvedId)
+      .then((rows) => {
+        setCanvasStudents(rows);
+      })
+      .catch((error) => {
+        setCanvasStudents([]);
+        setCanvasStudentsError(getErrorMessage(error));
+      })
+      .finally(() => {
+        setIsCanvasStudentsLoading(false);
+      });
+  }, [isAddStudentModalOpen, addMode, resolvedId]);
+
+  const filteredCanvasStudents = useMemo(() => {
+    const normalizedQuery = canvasSearchValue.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return canvasStudents;
+    }
+    return canvasStudents.filter((student) => {
+      const idMatch =
+        student.canvasUserId != null && String(student.canvasUserId).includes(normalizedQuery);
+      return (
+        idMatch ||
+        student.name.toLowerCase().includes(normalizedQuery) ||
+        student.loginId.toLowerCase().includes(normalizedQuery) ||
+        student.state.toLowerCase().includes(normalizedQuery)
+      );
+    });
+  }, [canvasStudents, canvasSearchValue]);
 
   const getDisplayedAvgScore = useCallback(
     (row: FacultyRosterStudentRow): number => {
@@ -2051,10 +1920,11 @@ function StudentsSection({
     setIsEnrollLoading(true);
     setFeedbackMessage(null);
     try {
-      await enrollStudentByEmail(resolvedId, lookupResult.studentEmail);
+      await enrollStudentByEmail(resolvedId, lookupResult.studentEmail, null);
       setFeedbackMessage({ tone: "success", text: `${lookupResult.studentName} was enrolled successfully.` });
       await loadRoster();
       closeAddStudentModal();
+      setSuccessModalMessage(`${lookupResult.studentName} was enrolled successfully.`);
     } catch (error) {
       setFeedbackMessage({ tone: "error", text: getErrorMessage(error) });
     } finally {
@@ -2062,13 +1932,141 @@ function StudentsSection({
     }
   };
 
+  const handleCanvasEnrollOne = async (student: CanvasCourseStudent) => {
+    const loginId = student.loginId.trim();
+    if (!loginId) {
+      toast.error(`Cannot enroll ${student.name}: missing login ID.`);
+      return;
+    }
+
+    setCanvasEnrollLoadingById((previous) => ({ ...previous, [student.id]: true }));
+    try {
+      await enrollStudentByEmail(resolvedId, loginId, student.canvasUserId ?? null);
+      setEnrolledCanvasStudentIds((previous) => ({ ...previous, [student.id]: true }));
+      toast.success(`${student.name} enrolled successfully.`);
+      await loadRoster();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setCanvasEnrollLoadingById((previous) => ({ ...previous, [student.id]: false }));
+    }
+  };
+
+  const handleCanvasEnrollAll = async () => {
+    if (filteredCanvasStudents.length < 1) {
+      return;
+    }
+
+    const candidates = filteredCanvasStudents.filter(
+      (student) => student.loginId.trim().length > 0 && !enrolledCanvasStudentIds[student.id],
+    );
+    if (candidates.length < 1) {
+      toast.info("No eligible Canvas students to enroll.");
+      return;
+    }
+
+    setIsEnrollAllCanvasLoading(true);
+    try {
+      const settled = await Promise.allSettled(
+        candidates.map(async (student) => {
+          const matched = await searchFacultyStudentByEmail(resolvedId, student.loginId.trim());
+          return { student, matched };
+        }),
+      );
+
+      type BulkRow = { studentId: number; canvasId: number | null; rowIds: string[] };
+      const byStudentId = new Map<number, BulkRow>();
+      let skipped = 0;
+
+      for (const outcome of settled) {
+        if (outcome.status === "rejected") {
+          skipped += 1;
+          continue;
+        }
+        const { student, matched } = outcome.value;
+        if (matched.alreadyInCourse || matched.studentId == null) {
+          skipped += 1;
+          continue;
+        }
+        const sid = matched.studentId;
+        const canvasId = student.canvasUserId ?? null;
+        const existing = byStudentId.get(sid);
+        if (existing) {
+          existing.rowIds.push(student.id);
+          if (existing.canvasId == null && canvasId != null) {
+            existing.canvasId = canvasId;
+          }
+        } else {
+          byStudentId.set(sid, { studentId: sid, canvasId, rowIds: [student.id] });
+        }
+      }
+
+      const bulkItems = Array.from(byStudentId.values()).map((row) => ({
+        studentId: row.studentId,
+        canvasId: row.canvasId,
+      }));
+
+      if (bulkItems.length < 1) {
+        toast.error(
+          skipped > 0
+            ? "Students not found or students already enrolled."
+            : "No eligible Canvas students to enroll.",
+        );
+        return;
+      }
+
+      await enrollFacultyStudentsBulk(resolvedId, bulkItems);
+
+      setEnrolledCanvasStudentIds((previous) => {
+        const next = { ...previous };
+        for (const row of byStudentId.values()) {
+          for (const id of row.rowIds) {
+            next[id] = true;
+          }
+        }
+        return next;
+      });
+
+      toast.success(
+        `${bulkItems.length} student${bulkItems.length === 1 ? "" : "s"} enrolled successfully.`,
+      );
+      if (skipped > 0) {
+        toast.info(
+          `${skipped} row${skipped === 1 ? "" : "s"} skipped (not found, already enrolled, or missing match).`,
+        );
+      }
+      await loadRoster();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsEnrollAllCanvasLoading(false);
+    }
+  };
+
   return (
     <div>
-      <div className="mb-6">
-        <div className="inline-block rounded-lg border border-gray-300 bg-white px-4 py-2">
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Student Roster</h2>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Student Roster</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setAddMode("canvas");
+              onOpenAddStudentModal();
+            }}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors"
+          >
+            <Users className="w-4 h-4" strokeWidth={2} />
+            <span>Import from Canvas</span>
+          </button>
+          <button
+            onClick={onOpenAddStudentModal}
+            className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" strokeWidth={2} />
+            <span>Add Student</span>
+          </button>
         </div>
-        {/* CLEANUP: Removed extra helper sentence under Student Roster heading per current UI copy direction. */}
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
@@ -2296,11 +2294,11 @@ function StudentsSection({
 
             <div className="p-5">
               {addMode === "choice" ? (
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <button
                     type="button"
                     onClick={() => setAddMode("manual")}
-                    className="flex-1 flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left"
+                    className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left"
                   >
                     <div className="p-2.5 rounded-lg bg-[#5A7ACD]/10">
                       <Search className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
@@ -2311,13 +2309,26 @@ function StudentsSection({
                   <button
                     type="button"
                     onClick={() => setAddMode("csv")}
-                    className="flex-1 flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left"
+                    className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left"
                   >
                     <div className="p-2.5 rounded-lg bg-[#5A7ACD]/10">
                       <FileUp className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
                     </div>
                     <h4 className="text-[15px] font-semibold text-[#2B2A2A]">Add from CSV file</h4>
                     <p className="text-[13px] text-gray-600">Upload a CSV with student information to add multiple students</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddMode("canvas")}
+                    className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left sm:col-span-2 lg:col-span-1"
+                  >
+                    <div className="p-2.5 rounded-lg bg-[#5A7ACD]/10">
+                      <Users className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
+                    </div>
+                    <h4 className="text-[15px] font-semibold text-[#2B2A2A]">Import from Canvas</h4>
+                    <p className="text-[13px] text-gray-600">
+                      Load students from the Canvas course linked to this class and enroll by login ID
+                    </p>
                   </button>
                 </div>
               ) : addMode === "manual" ? (
@@ -2442,7 +2453,7 @@ function StudentsSection({
                 </p>
               ) : null}
                 </>
-              ) : (
+              ) : addMode === "csv" ? (
                 <div className="overflow-y-auto max-h-[70vh]">
                   <p className="text-[13px] text-gray-600 mb-3">
                     Upload a CSV or text file with one student per line. Use <strong>name, email</strong> or <strong>email</strong> only. Header row (e.g. &quot;name,email&quot;) is ignored.
@@ -2519,6 +2530,86 @@ function StudentsSection({
                     </>
                   )}
                 </div>
+              ) : (
+                <div className="flex max-h-[70vh] flex-col gap-4 overflow-hidden">
+                  <p className="text-[13px] text-gray-600">
+                    Each row uses the student&apos;s Canvas login ID to find their Grade-Forge account before enrolling.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative min-w-[200px] flex-1">
+                      <Search
+                        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                        strokeWidth={2}
+                      />
+                      <input
+                        value={canvasSearchValue}
+                        onChange={(event) => setCanvasSearchValue(event.target.value)}
+                        type="text"
+                        placeholder="Filter by name, login, Canvas ID, or state…"
+                        className="h-10 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-[13px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/25"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleCanvasEnrollAll()}
+                      disabled={
+                        isCanvasStudentsLoading ||
+                        isEnrollAllCanvasLoading ||
+                        filteredCanvasStudents.length < 1
+                      }
+                      className="h-10 shrink-0 rounded-xl bg-[#2B2A2A] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#3a3939] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isEnrollAllCanvasLoading ? "Enrolling all…" : "Add all students"}
+                    </button>
+                  </div>
+                  {canvasStudentsError ? (
+                    <p className="text-[13px] text-red-600">{canvasStudentsError}</p>
+                  ) : null}
+                  <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-gray-200 bg-white">
+                    {isCanvasStudentsLoading ? (
+                      <div className="flex justify-center py-10">
+                        <RefreshCcw className="h-8 w-8 animate-spin text-gray-400" strokeWidth={2} />
+                      </div>
+                    ) : filteredCanvasStudents.length > 0 ? (
+                      <ul className="divide-y divide-gray-100">
+                        {filteredCanvasStudents.map((student) => (
+                          <li
+                            key={student.id}
+                            className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[14px] font-medium text-[#2B2A2A]">{student.name}</p>
+                              <p className="text-[12px] text-gray-600">
+                                ID: {student.canvasUserId != null ? student.canvasUserId : "N/A"} • Login:{" "}
+                                {student.loginId || "—"} • {student.state || "—"}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void handleCanvasEnrollOne(student)}
+                              disabled={
+                                !student.loginId.trim() ||
+                                Boolean(canvasEnrollLoadingById[student.id]) ||
+                                Boolean(enrolledCanvasStudentIds[student.id])
+                              }
+                              className="h-9 shrink-0 rounded-lg bg-[#5A7ACD] px-3 text-[12px] font-medium text-white transition-colors hover:bg-[#4e6fbd] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {canvasEnrollLoadingById[student.id]
+                                ? "Adding…"
+                                : enrolledCanvasStudentIds[student.id]
+                                  ? "Added"
+                                  : "Add"}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="px-4 py-10 text-center text-[13px] text-gray-500">
+                        No Canvas students to show. Confirm this course has a Canvas course ID configured.
+                      </p>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -2556,6 +2647,12 @@ function StudentsSection({
           </div>
         </div>
       )}
+      <TimedSuccessModal
+        open={successModalMessage !== null}
+        title="Success"
+        description={successModalMessage ?? ""}
+        onClose={() => setSuccessModalMessage(null)}
+      />
     </div>
   );
 }
@@ -2594,6 +2691,7 @@ function AssistantsSection() {
   const [removeConfirm, setRemoveConfirm] = useState<CourseAssistantResponse | null>(null);
   const [removing, setRemoving] = useState(false);
   const [errorDialog, setErrorDialog] = useState<string | null>(null);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const loadData = useCallback(() => {
     if (!courseId) return;
@@ -2638,6 +2736,12 @@ function AssistantsSection() {
       setAssignModalOpen(false);
       setSelectedGradingAssistantId("");
       loadData();
+      const assignedAssistant = gradingAssistants.find((assistant) => assistant.id === selectedGradingAssistantId);
+      setSuccessModalMessage(
+        assignedAssistant != null
+          ? `${assignedAssistant.name} was assigned successfully.`
+          : "Grading assistant assigned successfully.",
+      );
     } catch (err: unknown) {
       setAssignError(getApiErrorMessage(err, "Failed to assign assistant."));
     } finally {
@@ -2889,6 +2993,12 @@ function AssistantsSection() {
           </div>
         </div>
       )}
+      <TimedSuccessModal
+        open={successModalMessage !== null}
+        title="Success"
+        description={successModalMessage ?? ""}
+        onClose={() => setSuccessModalMessage(null)}
+      />
     </div>
   );
 }
@@ -2902,6 +3012,7 @@ function GroupsSection() {
   const [mainModalOpen, setMainModalOpen] = useState(false);
   const [mainName, setMainName] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const loadGroups = useCallback(async () => {
     setLoading(true);
@@ -2933,6 +3044,7 @@ function GroupsSection() {
       setMainName("");
       setMainModalOpen(false);
       await loadGroups();
+      setSuccessModalMessage(`Main group "${trimmed}" was created successfully.`);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -3064,6 +3176,12 @@ function GroupsSection() {
           </div>
         </div>
       ) : null}
+      <TimedSuccessModal
+        open={successModalMessage !== null}
+        title="Success"
+        description={successModalMessage ?? ""}
+        onClose={() => setSuccessModalMessage(null)}
+      />
     </div>
   );
 }
@@ -3092,6 +3210,8 @@ function SettingsSection({ classId }: { classId: string }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
+  const [showToggleConfirm, setShowToggleConfirm] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const [form, setForm] = useState<ClassCreateFormData>(EMPTY_CLASS_FORM);
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
@@ -3165,6 +3285,7 @@ function SettingsSection({ classId }: { classId: string }) {
       const updated = await updateFacultyCourse(classId, form, coverImageFile);
       setCourse(updated);
       toast.success("Course updated successfully.");
+      setSuccessModalMessage("Course changes were saved successfully.");
     } catch (err) {
       const message = getErrorMessage(err);
       setError(message);
@@ -3193,6 +3314,7 @@ function SettingsSection({ classId }: { classId: string }) {
         ...prev,
         active: Boolean(refreshed.active),
       }));
+      setSuccessModalMessage(`Course is now ${refreshed.active ? "active" : "disabled"}.`);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -3275,7 +3397,7 @@ function SettingsSection({ classId }: { classId: string }) {
               <div className="flex flex-wrap gap-2 justify-end">
                 <button
                   type="button"
-                  onClick={() => void handleToggleActive()}
+                  onClick={() => setShowToggleConfirm(true)}
                   disabled={isSaving || isDeleting || isTogglingActive}
                   className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
                   aria-label="Toggle course active status"
@@ -3667,6 +3789,28 @@ function SettingsSection({ classId }: { classId: string }) {
           </div>
         </div>
       ) : null}
+      <ConfirmationModal
+        open={showToggleConfirm}
+        title={course?.active ? "Disable course?" : "Activate course?"}
+        description={
+          course?.active
+            ? "Students will no longer have access to this course while it is disabled."
+            : "This course will become active and available again."
+        }
+        confirmLabel={course?.active ? "Disable" : "Activate"}
+        onCancel={() => setShowToggleConfirm(false)}
+        onConfirm={() => {
+          setShowToggleConfirm(false);
+          void handleToggleActive();
+        }}
+        busy={isTogglingActive}
+      />
+      <TimedSuccessModal
+        open={successModalMessage !== null}
+        title="Success"
+        description={successModalMessage ?? ""}
+        onClose={() => setSuccessModalMessage(null)}
+      />
     </div>
   );
 }

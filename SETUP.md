@@ -38,7 +38,46 @@ npm install
 npm run dev
 ```
 
-Open the URL shown in the terminal (usually `http://localhost:5173`).
+Open the URL shown in the terminal (usually `http://localhost:5173`). With the backend running on **8080**, **`/docs`** on the dev server is **proxied** to Spring (see `Client/vite.config.ts`), so **`http://localhost:5173/docs/`** works after you run **`./scripts/build-and-sync-docs.sh`** once.
+
+### 4) Documentation (VitePress, optional)
+
+Product docs live in **`docs-site/`** ([VitePress](https://vitepress.dev/)). They are built into the Spring Boot JAR at **`/docs/`** in production (see the root **`Dockerfile`**).
+
+**Edit docs only (no backend):** from the project root:
+
+```bash
+cd docs-site
+npm install
+npm run docs:dev
+```
+
+Use the URL VitePress prints (with `base: '/docs/'` in config, it is often **`http://localhost:5173/docs/`**).
+
+**Serve docs from the Spring app on port 8080** (same as production layout): from the **project root**, run:
+
+```bash
+./scripts/build-and-sync-docs.sh
+cd Server
+mvn spring-boot:run
+```
+
+That script installs `docs-site` dependencies if needed, runs **`vitepress build`**, and copies **`.vitepress/dist`** into **`Server/src/main/resources/static/docs/`**.
+
+Open **`http://localhost:8080/docs/`**. Re-run the script whenever you change Markdown under **`docs-site/`**.
+
+Manual equivalent (if you prefer not to use the script):
+
+```bash
+cd docs-site
+npm install
+npm run docs:build
+rm -rf ../Server/src/main/resources/static/docs
+mkdir -p ../Server/src/main/resources/static/docs
+cp -a .vitepress/dist/. ../Server/src/main/resources/static/docs/
+cd ../Server
+mvn spring-boot:run
+```
 
 ---
 
@@ -55,7 +94,9 @@ The repo builds a **single Docker image** (frontend static assets baked into the
   - **`8081`** — app when deployed from **`production`** branch (container `grade-forge-production`).
   - **`5672` / `15672`** — RabbitMQ if you rely on the workflow-started `gradeforge-rabbitmq` container (the first deploy starts it).
 
-Put the app behind **HTTPS** in front of the instance (ALB, nginx, Caddy, etc.); the workflow only publishes HTTP on the host ports above.
+If you terminate **HTTPS on the same EC2 host with Nginx** (see **Optional: Nginx reverse proxy + HTTPS** below), you can restrict the security group to **`80`** and **`443`** (plus **`22`** for SSH) and **not** expose **`8080` / `8081`** publicly; Nginx proxies to `localhost` only.
+
+Otherwise put the app behind **HTTPS** in front of the instance (ALB, nginx on another host, Caddy, etc.); the workflow only publishes HTTP on the host ports above.
 
 ### 2) Configure GitHub Actions secrets
 
@@ -79,7 +120,7 @@ Optional **Plagiarism & AI / Ollama** secrets are listed in **Production: GitHub
 
 ### 3) Trigger a deploy
 
-- **Automatic:** Push to **`main`** or **`production`** when changed paths include `Client/`, `Server/`, `grader/`, `Dockerfile`, etc. (see the workflow `paths` filter).
+- **Automatic:** Push to **`main`** or **`production`** when changed paths include `Client/`, `Server/`, `docs-site/`, `grader/`, `Dockerfile`, etc. (see the workflow `paths` filter).
 - **Manual:** **Actions → Docker Deployment for Grade Forge → Run workflow** — pick branch, optionally “deploy as main” on port 8080.
 
 The workflow builds and pushes **`bishwodahal/grade-forge:<branch-name>`**, then SSHs into EC2, pulls that image, ensures RabbitMQ is up, and runs **`docker run`** with your DB/S3/RabbitMQ and LLM env vars.
@@ -95,6 +136,109 @@ Use **8081** if you deployed the **`production`** branch. Expect HTTP **200** fr
 ### 5) Optional: Ollama on the same EC2 host
 
 Install Ollama on the **host** (not in the app image), pull a model, then set GitHub secret **`GRADER_LLM_AI_SIGNAL_ENABLED`** to **`true`**. Details: **Production: Ollama + Docker (EC2)**.
+
+### 6) Optional: Nginx reverse proxy + HTTPS (`gradeforge.tech`)
+
+This is a reference layout for the next time you put **Nginx** on **Amazon Linux / RHEL-style** EC2, with **Route 53** DNS and **Let’s Encrypt**. Nginx listens on **80/443**; your Grade-Forge containers stay on **localhost** ports (no port in the public URL).
+
+**Map proxy ports to whatever you actually run.** The GitHub Actions deploy in this repo typically publishes **`8080`** for `main` and **`8081`** for `production`. If you prefer **`8181`** for a second app (e.g. `prod.gradeforge.tech`), change `proxy_pass` below to match your `docker run -p` choices.
+
+#### DNS (Route 53)
+
+| Name | Type | Value |
+|------|------|--------|
+| `gradeforge.tech` | A | EC2 public IP |
+| `www.gradeforge.tech` | A | EC2 public IP (optional) |
+| `prod.gradeforge.tech` | A | EC2 public IP |
+
+Allow a few minutes for propagation.
+
+#### Security group
+
+- **22** (SSH) — restrict to your IP if possible.
+- **80** (HTTP) — `0.0.0.0/0` (for Let’s Encrypt and redirect to HTTPS).
+- **443** (HTTPS) — `0.0.0.0/0`.
+
+Do **not** open **8080/8081/8181** publicly if Nginx proxies to them on `localhost` only.
+
+#### Install and smoke-test Nginx
+
+```bash
+sudo yum update -y
+sudo yum install -y nginx
+sudo systemctl enable nginx
+sudo systemctl start nginx
+curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1/
+```
+
+#### Confirm backends before TLS
+
+```bash
+curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/
+# Second app (adjust port: 8081 per this repo’s workflow, or 8181 if you use that):
+curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8081/
+```
+
+#### HTTP-only Nginx config first (then Certbot adds TLS)
+
+On Amazon Linux, site snippets often live under **`/etc/nginx/conf.d/`**. Create **`/etc/nginx/conf.d/gradeforge.conf`** with **HTTP only** first so **`certbot --nginx`** can obtain certificates and install SSL without referencing missing files:
+
+```nginx
+# Main app → localhost:8080 (change if your container uses another host port)
+server {
+    listen 80;
+    server_name gradeforge.tech www.gradeforge.tech;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# Second hostname → second backend (example: 8081; use 8181 if that is your mapping)
+server {
+    listen 80;
+    server_name prod.gradeforge.tech;
+
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+#### Let’s Encrypt (Certbot + Nginx plugin)
+
+```bash
+sudo yum install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d gradeforge.tech -d www.gradeforge.tech -d prod.gradeforge.tech
+```
+
+Follow prompts: agree to terms, choose **redirect HTTP to HTTPS** when offered. Certbot will adjust the Nginx config and store certs under **`/etc/letsencrypt/live/gradeforge.tech/`** (first `-d` name).
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot renew --dry-run
+```
+
+Renewal is normally handled by a **systemd timer** or **cron** installed with Certbot.
+
+#### Verify
+
+- `https://gradeforge.tech` → first backend.
+- `https://prod.gradeforge.tech` → second backend (if configured).
 
 ---
 
@@ -192,6 +336,6 @@ nvm install 24
 
 ## Summary
 
-**Local dev:** `docker compose up -d` → run `Server` → run `Client`. Optional Ollama: see **Ollama (LLM)** above.
+**Local dev:** `docker compose up -d` → run `Server` → run `Client`. Optional docs: see **Documentation (VitePress, optional)** above. Optional Ollama: see **Ollama (LLM)** above.
 
-**Production:** EC2 + Docker + GitHub Actions — see **Production deployment (EC2 + GitHub Actions)**. LLM env vars and optional Ollama on the host: **Production: Ollama + Docker (EC2)** and **Production: GitHub Actions**.
+**Production:** EC2 + Docker + GitHub Actions — see **Production deployment (EC2 + GitHub Actions)**. Optional **Nginx + HTTPS** on the same host: **Optional: Nginx reverse proxy + HTTPS** in that section. LLM env vars and optional Ollama on the host: **Production: Ollama + Docker (EC2)** and **Production: GitHub Actions**.

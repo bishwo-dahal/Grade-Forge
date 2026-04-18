@@ -1,6 +1,6 @@
 package com.grade.forge.testsuite.controller;
 
-import com.grade.forge.audit.ActivityLogService;
+import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.assignment.repository.AssignmentRepository;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/faculty/assignments")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('FACULTY')")
+@PreAuthorize("hasAnyAuthority('FACULTY','GRADING_ASSISTANT')")
 public class TestSuiteFacultyController {
 
     private final TestSuiteService testSuiteService;
