@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Loader2, Play, Send, RotateCcw, Save, Upload, CheckSquare, X, AlertCircle } from "lucide-react";
+import { Loader2, Play, Send, RotateCcw, Save, Upload, CheckSquare, X, AlertCircle, FileText } from "lucide-react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { MonacoEditor } from "../editors";
 import { ConsoleDrawer } from "./ConsoleDrawer";
 import { SubmitConfirmModal } from "./SubmitConfirmModal";
 import { EditorTabBar } from "./EditorTabBar";
 import { UnsavedCloseModal } from "./UnsavedCloseModal";
+import { TimedSuccessModal } from "../ui/ActionFeedbackModal";
 import { FileTree, buildEmptyFileTree, buildInitialFileTree, buildFileTreeFromFiles, nextNodeId, nextUntitledFileName, uniqueFileName, getDefaultExtension } from "./filetree";
 import {
   getWorkspaceState,
@@ -37,6 +38,8 @@ interface CodeWorkspaceProps {
   codeExamples: EditorCodeExamples;
   /** Called when Run Tests is clicked. Receives current workspace files and optional custom stdin (students only). */
   onRunTests: (files?: File[], customStdin?: string) => void;
+  /** Optional action shown next to Run Tests for faculty speed-grading shortcuts. */
+  onAssignmentDetails?: () => void;
   /** When true, pass customStdin when Run Tests is clicked (students; value comes from Test Cases tab). */
   showCustomStdin?: boolean;
   /** Custom stdin from Test Cases tab; used when Run Tests is clicked. */
@@ -106,6 +109,7 @@ export function CodeWorkspace({
   assignment,
   codeExamples,
   onRunTests,
+  onAssignmentDetails,
   onSubmit,
   showUploadControls = false,
   showFacultyGradeControls = false,
@@ -141,6 +145,7 @@ export function CodeWorkspace({
   const [facultyGradeFeedback, setFacultyGradeFeedback] = useState<string>("");
   const [facultyGradeError, setFacultyGradeError] = useState<string | null>(null);
   const [facultyGradeStatusMessage, setFacultyGradeStatusMessage] = useState<string | null>(null);
+  const [showFacultyGradeSuccessModal, setShowFacultyGradeSuccessModal] = useState(false);
   const [isFacultyGradeSubmitting, setIsFacultyGradeSubmitting] = useState(false);
   const [facultyPreviewLanguage, setFacultyPreviewLanguage] = useState<string | null>(null);
   const [isFacultyEditorReadOnly, setIsFacultyEditorReadOnly] = useState(false);
@@ -798,6 +803,7 @@ export function CodeWorkspace({
       // FIX: Show explicit success after backend grade update so faculty knows save completed.
       setFacultyGradeStatusMessage("Grade submitted successfully.");
       setShowFacultyGradeModal(false);
+      setShowFacultyGradeSuccessModal(true);
     } catch (error) {
       setFacultyGradeError(getErrorMessage(error));
     } finally {
@@ -948,6 +954,15 @@ export function CodeWorkspace({
                         <Play className="w-3.5 h-3.5" strokeWidth={2} />
                         <span>Run Tests</span>
                       </button>
+                      {onAssignmentDetails && (
+                        <button
+                          onClick={onAssignmentDetails}
+                          className="px-3 py-1.5 text-[12px] text-gray-300 hover:text-white hover:bg-[#3c3c3c] rounded transition-colors flex items-center gap-1.5 border border-[#3c3c3c] flex-shrink-0"
+                        >
+                          <FileText className="w-3.5 h-3.5" strokeWidth={2} />
+                          <span>Assignment details</span>
+                        </button>
+                      )}
                       {showFacultyGradeControls && (
                         <button
                           onClick={openFacultyGradeModal}
@@ -1177,6 +1192,12 @@ export function CodeWorkspace({
           </div>
         </div>
       ) : null}
+      <TimedSuccessModal
+        open={showFacultyGradeSuccessModal}
+        title="Grade saved"
+        description="The submission was graded successfully."
+        onClose={() => setShowFacultyGradeSuccessModal(false)}
+      />
 
       {/* Submit Confirmation Modal */}
       {showSubmitModal && (

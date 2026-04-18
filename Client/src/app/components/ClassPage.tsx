@@ -1,26 +1,20 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { Settings, ChevronLeft, Book, FileText, Megaphone, BarChart3, FolderOpen, Users, CheckCircle2, Clock, AlertCircle, Download, Mail } from "lucide-react";
+import { Settings, ChevronLeft, Book, FileText, BarChart3, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import type {
   ClassAnnouncement,
   ClassAssignment,
   ClassHeader,
   ClassImportantDate,
   ClassOverviewStat,
-  ClassResource,
-  ClassStudent,
-  InstructorProfile,
-  TeachingAssistantProfile,
 } from "../../types/class";
 import type { CategoryStat, GradeRow, OverallGradeSummary } from "../../types/grade";
 import {
   getClassHeaderById,
-  getClassPeople,
   listClassAnnouncements,
   listClassAssignments,
   listClassImportantDates,
   listClassOverviewStats,
-  listClassResources,
 } from "../../services/classService";
 import { getOverallGradeSummary, listCategoryStats, listGradeRows } from "../../services/resultService";
 import React from "react";
@@ -29,28 +23,18 @@ import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
 import { GradeForgeSidebar } from "./GradeForgeSidebar";
 
-type SectionType = 'overview' | 'assignments' | 'announcements' | 'grades' | 'resources' | 'people';
+type SectionType = 'overview' | 'assignments' | 'grades';
 
 export function ClassPage() {
   const { classId } = useParams();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<SectionType>('overview');
-  const [announcementCount, setAnnouncementCount] = useState(0);
-
   // NOTE: Class header data now comes from backend-driven service mapping.
   const [classHeader, setClassHeader] = useState<ClassHeader | null>(null);
 
   useEffect(() => {
     const resolvedId = classId || "1";
     getClassHeaderById(resolvedId).then(setClassHeader);
-  }, [classId]);
-
-  useEffect(() => {
-    const resolvedId = classId || "1";
-    // NOTE: Sidebar announcement badge is now data-driven instead of hardcoded.
-    listClassAnnouncements(resolvedId).then((announcements) => {
-      setAnnouncementCount(announcements.filter((announcement) => announcement.unread).length);
-    });
   }, [classId]);
 
   // NOTE: Lightweight placeholder keeps layout stable during async load.
@@ -124,7 +108,7 @@ export function ClassPage() {
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-8 py-6">
+          <div className="2xl:max-w-7xl 2xl:mx-auto px-8 py-6">
             <div className="mb-4">
               <Link
                 to="/dashboard"
@@ -150,39 +134,17 @@ export function ClassPage() {
                   onClick={() => setActiveSection("assignments")}
                 />
                 <SectionTab
-                  icon={<Megaphone className="w-4 h-4" strokeWidth={2} />}
-                  label="Announcements"
-                  active={activeSection === "announcements"}
-                  onClick={() => setActiveSection("announcements")}
-                  badge={announcementCount > 0 ? announcementCount : undefined}
-                />
-                <SectionTab
                   icon={<BarChart3 className="w-4 h-4" strokeWidth={2} />}
                   label="Grades"
                   active={activeSection === "grades"}
                   onClick={() => setActiveSection("grades")}
-                />
-                <SectionTab
-                  icon={<FolderOpen className="w-4 h-4" strokeWidth={2} />}
-                  label="Resources"
-                  active={activeSection === "resources"}
-                  onClick={() => setActiveSection("resources")}
-                />
-                <SectionTab
-                  icon={<Users className="w-4 h-4" strokeWidth={2} />}
-                  label="People"
-                  active={activeSection === "people"}
-                  onClick={() => setActiveSection("people")}
                 />
               </div>
             </section>
 
             {activeSection === 'overview' && <OverviewSection />}
             {activeSection === 'assignments' && <AssignmentsSection />}
-            {activeSection === 'announcements' && <AnnouncementsSection />}
             {activeSection === 'grades' && <GradesSection />}
-            {activeSection === 'resources' && <ResourcesSection />}
-            {activeSection === 'people' && <PeopleSection />}
           </div>
         </main>
       </div>
@@ -491,72 +453,6 @@ function AssignmentsSection() {
   );
 }
 
-function AnnouncementsSection() {
-  const { classId } = useParams();
-  // NOTE: Announcements now load from class service with backend/empty-state seam.
-  const [announcements, setAnnouncements] = useState<ClassAnnouncement[]>([]);
-
-  useEffect(() => {
-    const resolvedId = classId || "1";
-    listClassAnnouncements(resolvedId).then(setAnnouncements);
-  }, [classId]);
-
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Announcements</h2>
-        <p className="text-[13px] text-gray-600">
-          Important updates and information for this course
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        {announcements.length > 0 ? (
-          announcements.map((announcement) => (
-            <div
-              key={announcement.id}
-              className={`bg-white rounded-lg border p-6 ${
-                announcement.unread ? 'border-[#FEB05D]' : 'border-gray-200'
-              }`}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-start gap-3">
-                  {announcement.unread && (
-                    <div className="mt-1.5 w-2 h-2 bg-[#FEB05D] rounded-full flex-shrink-0"></div>
-                  )}
-                  <div>
-                    <h3 className={`text-[16px] ${announcement.unread ? 'font-semibold' : 'font-medium'} text-[#2B2A2A] mb-1`}>
-                      {announcement.title}
-                    </h3>
-                    <div className="flex items-center gap-3 text-[12px] text-gray-600">
-                      <span>{announcement.author}</span>
-                      <span className="text-gray-300">&bull;</span>
-                      <span>{announcement.date} at {announcement.time}</span>
-                    </div>
-                  </div>
-                </div>
-                {announcement.unread && (
-                  <span className="px-2.5 py-1 bg-[#FEB05D] text-white text-[11px] font-semibold rounded uppercase">
-                    New
-                  </span>
-                )}
-              </div>
-              <p className="text-[14px] text-gray-700 leading-relaxed whitespace-pre-line">
-                {announcement.content}
-              </p>
-            </div>
-          ))
-        ) : (
-          // TODO(backend): Replace this empty-state block once class announcements endpoint is available.
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <p className="text-[14px] text-gray-600">No announcements available yet.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function GradesSection() {
   const { classId } = useParams();
   // NOTE: Grades now load from backend-driven results service mapping.
@@ -696,212 +592,3 @@ function GradesSection() {
   );
 }
 
-function ResourcesSection() {
-  const { classId } = useParams();
-  // NOTE: Resources now load from the class service for backend handoff.
-  const [resources, setResources] = useState<ClassResource[]>([]);
-
-  useEffect(() => {
-    const resolvedId = classId || "1";
-    listClassResources(resolvedId).then(setResources);
-  }, [classId]);
-
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Resources</h2>
-        <p className="text-[13px] text-gray-600">
-          Course materials, lecture slides, and reference documents
-        </p>
-      </div>
-
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Name
-              </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Category
-              </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Size
-              </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Uploaded
-              </th>
-              <th className="text-right px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Action
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {resources.length > 0 ? (
-              resources.map((resource, index) => (
-                <tr
-                  key={resource.id}
-                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === resources.length - 1 ? 'border-b-0' : ''}`}
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[14px] font-medium text-[#2B2A2A]">{resource.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-[13px] text-gray-600">{resource.category}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-[13px] text-gray-600">{resource.size}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-[13px] text-gray-600">{resource.uploadedDate}</span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#7A1226] hover:bg-[#65101F] text-white rounded-lg text-[12px] font-medium transition-colors">
-                      <Download className="w-3.5 h-3.5" strokeWidth={2} />
-                      <span>Download</span>
-                    </button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              // TODO(backend): Replace this empty-state row when class resources endpoint is available.
-              <tr>
-                <td colSpan={5} className="px-6 py-6 text-center text-[13px] text-gray-600">
-                  No resources available yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function PeopleSection() {
-  const { classId } = useParams();
-  // NOTE: People data now comes from backend-driven class service mapping.
-  const [instructor, setInstructor] = useState<InstructorProfile | null>(null);
-  const [teachingAssistants, setTeachingAssistants] = useState<TeachingAssistantProfile[]>([]);
-  const [students, setStudents] = useState<ClassStudent[]>([]);
-
-  useEffect(() => {
-    const resolvedId = classId || "1";
-    getClassPeople(resolvedId).then((people) => {
-      setInstructor(people.instructor);
-      setTeachingAssistants(people.teachingAssistants);
-      setStudents(people.students);
-    });
-  }, [classId]);
-
-  if (!instructor) {
-    return null;
-  }
-
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">People</h2>
-        <p className="text-[13px] text-gray-600">
-          Instructor, teaching assistants, and enrolled students
-        </p>
-      </div>
-
-      {/* Instructor */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <h3 className="text-[15px] font-semibold text-[#2B2A2A] mb-4">Instructor</h3>
-        <div className="flex items-start justify-between">
-          <div>
-            <h4 className="text-[16px] font-semibold text-[#2B2A2A] mb-2">{instructor.name}</h4>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-[13px] text-gray-600">
-                <Mail className="w-4 h-4" strokeWidth={2} />
-                <a href={`mailto:${instructor.email}`} className="hover:text-[#5A7ACD] transition-colors">
-                  {instructor.email}
-                </a>
-              </div>
-              <div className="text-[13px] text-gray-600">
-                <strong>Office Hours:</strong> {instructor.officeHours}
-              </div>
-              <div className="text-[13px] text-gray-600">
-                <strong>Office:</strong> {instructor.office}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Teaching Assistants */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <h3 className="text-[15px] font-semibold text-[#2B2A2A] mb-4">Teaching Assistants</h3>
-        <div className="space-y-4">
-          {teachingAssistants.map((ta) => (
-            <div key={ta.id} className="pb-4 border-b border-gray-100 last:border-b-0 last:pb-0">
-              <h4 className="text-[14px] font-semibold text-[#2B2A2A] mb-2">{ta.name}</h4>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-[13px] text-gray-600">
-                  <Mail className="w-3.5 h-3.5" strokeWidth={2} />
-                  <a href={`mailto:${ta.email}`} className="hover:text-[#5A7ACD] transition-colors">
-                    {ta.email}
-                  </a>
-                </div>
-                <div className="text-[12px] text-gray-600">
-                  <strong>Office Hours:</strong> {ta.officeHours} &bull; <strong>Office:</strong> {ta.office}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Students */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-          <h3 className="text-[15px] font-semibold text-[#2B2A2A]">Enrolled Students ({students.length})</h3>
-        </div>
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Name
-              </th>
-              <th className="text-left px-6 py-3 text-[12px] font-semibold text-gray-600 uppercase tracking-wide">
-                Email
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {students.length > 0 ? (
-              students.map((student, index) => (
-                <tr
-                  key={student.id}
-                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === students.length - 1 ? 'border-b-0' : ''}`}
-                >
-                  <td className="px-6 py-4">
-                    <span className="text-[14px] font-medium text-[#2B2A2A]">{student.name}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <a
-                      href={`mailto:${student.email}`}
-                      className="text-[13px] text-gray-600 hover:text-[#5A7ACD] transition-colors"
-                    >
-                      {student.email}
-                    </a>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={2} className="px-6 py-6 text-center text-[13px] text-gray-600">
-                  No student roster available yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}

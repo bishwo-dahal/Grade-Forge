@@ -3,8 +3,7 @@ import {
   BookOpen,
   FileText,
   Calendar,
-  FolderOpen,
-  MessageSquare,
+  Settings,
   Users,
   UserPlus,
   Code2,
@@ -21,6 +20,7 @@ import { useSidebarPinnedCollapsed } from "./layout/useSidebarPinnedCollapsed";
 
 interface GradeForgeSidebarProps {
   viewMode: "student" | "faculty" | "gradingAssistant" | "university";
+  compactOnly?: boolean;
 }
 
 interface SidebarNavItem {
@@ -30,13 +30,13 @@ interface SidebarNavItem {
   matchPrefixes?: string[];
 }
 
-export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
+export function GradeForgeSidebar({ viewMode, compactOnly = false }: GradeForgeSidebarProps) {
   const location = useLocation();
   const { pinnedCollapsed } = useSidebarPinnedCollapsed();
   const isDashboardRoute = location.pathname === "/dashboard" || location.pathname.startsWith("/dashboard/");
   const isUniversityView = viewMode === "university";
   // NOTE: Sidebar stays full-width on dashboard unless the user pins “keep collapsed”; other routes use the icon rail.
-  const isCollapsedMode = pinnedCollapsed || !isDashboardRoute;
+  const isCollapsedMode = compactOnly || pinnedCollapsed || !isDashboardRoute;
 
   // NOTE: Sidebar routes are role-specific so student and faculty can navigate to distinct page shells.
   const studentItems: SidebarNavItem[] = [
@@ -52,8 +52,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
     // CLEANUP: Standalone faculty grading hub was removed so grading stays scoped to each class/assignment workflow.
     { icon: ListChecks, label: "Rubrics", to: "/faculty/rubrics" },
     { icon: UserPlus, label: "Grading Assistants", to: "/faculty/grading-assistants" },
-    { icon: Users, label: "Students", to: "/faculty/students" },
-    { icon: Calendar, label: "Schedule", to: "/faculty/schedule" },
+    { icon: Calendar, label: "Calendar", to: "/faculty/schedule" },
   ];
 
   const gradingAssistantItems: SidebarNavItem[] = [
@@ -86,15 +85,11 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
       ? []
       : viewMode === "gradingAssistant"
         ? []
-        : viewMode === "student"
-          ? [
-              { icon: FolderOpen, label: "Materials", to: "/student/materials" },
-              { icon: MessageSquare, label: "Discussions", to: "/student/discussions" },
-            ]
-          : [
-              { icon: FolderOpen, label: "Materials", to: "/faculty/materials" },
-              { icon: MessageSquare, label: "Discussions", to: "/faculty/discussions" },
-            ];
+        : [];
+  const settingsItem: SidebarNavItem | null =
+    viewMode === "student" || viewMode === "faculty"
+      ? { icon: Settings, label: "Settings", to: "/settings", matchPrefixes: ["/settings"] }
+      : null;
 
   const isItemActive = (item: SidebarNavItem): boolean => {
     const prefixes = [item.to, ...(item.matchPrefixes ?? [])];
@@ -103,30 +98,30 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
 
   const sidebarShellClass = !isCollapsedMode
     ? "w-60"
-    : pinnedCollapsed
+    : compactOnly || pinnedCollapsed
       ? "w-[78px]"
       : "group/sidebar w-[78px] hover:w-60 focus-within:w-60";
   const collapsibleTextClass = !isCollapsedMode
     ? ""
-    : pinnedCollapsed
+    : compactOnly || pinnedCollapsed
       ? "pointer-events-none max-w-0 overflow-hidden opacity-0 translate-x-1.5"
       : // FIX: Animate labels with max-width instead of toggling to w-auto so hover expansion feels smoother and less abrupt.
         "max-w-0 overflow-hidden opacity-0 translate-x-1.5 transition-[max-width,opacity,transform] duration-300 ease-out group-hover/sidebar:max-w-[160px] group-hover/sidebar:translate-x-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:max-w-[160px] group-focus-within/sidebar:translate-x-0 group-focus-within/sidebar:opacity-100";
   const collapsibleHeadingClass = !isCollapsedMode
     ? ""
-    : pinnedCollapsed
+    : compactOnly || pinnedCollapsed
       ? "pointer-events-none max-h-0 overflow-hidden opacity-0 mb-0"
       : // FIX: Keep section headings in flow and fade them in so the collapsed rail expands without a visual pop.
         "max-h-0 overflow-hidden opacity-0 transition-[max-height,opacity] duration-300 ease-out group-hover/sidebar:max-h-8 group-hover/sidebar:opacity-100 group-focus-within/sidebar:max-h-8 group-focus-within/sidebar:opacity-100";
   const navLinkLayoutClass = !isCollapsedMode
     ? "gap-3 px-3 py-2.5"
-    : pinnedCollapsed
+    : compactOnly || pinnedCollapsed
       ? "justify-center gap-0 px-0 py-2.5"
       : // FIX: Restore icon-label spacing during hover expansion while keeping the collapsed icon rail centered.
         "justify-center gap-0 px-0 py-2.5 group-hover/sidebar:justify-start group-hover/sidebar:gap-3 group-hover/sidebar:px-3 group-focus-within/sidebar:justify-start group-focus-within/sidebar:gap-3 group-focus-within/sidebar:px-3";
   const navLabelClass = !isCollapsedMode
     ? ""
-    : pinnedCollapsed
+    : compactOnly || pinnedCollapsed
       ? "pointer-events-none max-w-0 overflow-hidden opacity-0 translate-x-1.5"
       : // FIX: Match nav label motion with the sidebar shell so icon/text spacing stays stable while the rail opens.
         "max-w-0 overflow-hidden opacity-0 translate-x-1.5 transition-[max-width,opacity,transform] duration-300 ease-out group-hover/sidebar:max-w-[160px] group-hover/sidebar:translate-x-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:max-w-[160px] group-focus-within/sidebar:translate-x-0 group-focus-within/sidebar:opacity-100";
@@ -147,7 +142,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
       ) : (
         /* REFACTOR: Keep existing logo header for student/faculty while university mode uses title-style sidebar header. */
         <div
-          className={`h-[76px] border-b border-[#C9C4C9] bg-white ${isCollapsedMode ? "px-0 flex items-center justify-center" : "px-6 flex items-center"}`}
+          className={`h-[64px] border-b border-[#C9C4C9] bg-white ${isCollapsedMode ? "px-0 flex items-center justify-center" : "px-5 flex items-center"}`}
         >
           <Link
             to="/dashboard"
@@ -157,10 +152,10 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
             <img
               src="/favicon.svg"
               alt="Grade Forge"
-              className="h-8 w-8 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
+              className="h-7 w-7 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
             />
             {!isCollapsedMode && (
-              <span className={`text-[15px] font-semibold text-[#1F2430] whitespace-nowrap ${collapsibleTextClass}`}>
+              <span className={`text-[14px] font-semibold text-[#1F2430] whitespace-nowrap ${collapsibleTextClass}`}>
                 Grade Forge
               </span>
             )}
@@ -174,7 +169,7 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
         {/* Learning Section */}
         <div className="mb-6">
           {viewMode !== "university" && (
-            <div className={`px-3 mb-2 ${collapsibleHeadingClass}`}>
+            <div className={`px-3 mb-2 ${viewMode === "faculty" ? "pt-3" : ""} ${collapsibleHeadingClass}`}>
               <span className={`text-[11px] font-semibold tracking-wider uppercase ${isUniversityView ? "text-[#8D97AC]" : "text-[#D8B7BE]"}`}>
                 {viewMode === "student" ? "Learning" : viewMode === "gradingAssistant" ? "Grading" : "Teaching"}
               </span>
@@ -263,6 +258,26 @@ export function GradeForgeSidebar({ viewMode }: GradeForgeSidebarProps) {
           </ul>
         </div>
       </nav>
+
+      {settingsItem && (
+        <div className={`shrink-0 px-4 pb-3 ${viewMode === "faculty" || viewMode === "student" ? "pt-2" : ""}`}>
+          <Link
+            to={settingsItem.to}
+            className={`w-full flex items-center rounded-lg transition-all ${navLinkLayoutClass} ${
+              isItemActive(settingsItem)
+                ? (isUniversityView
+                    ? "bg-[#7A1226] text-white shadow-[0_8px_18px_rgba(122,18,38,0.32)]"
+                    : "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]")
+                : (isUniversityView
+                    ? "text-[#44506B] hover:text-[#1F2430] hover:bg-[#F1EEF1]"
+                    : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]")
+            }`}
+          >
+            <settingsItem.icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />
+            <span className={`text-[14px] whitespace-nowrap ${navLabelClass}`}>{settingsItem.label}</span>
+          </Link>
+        </div>
+      )}
 
       <SidebarPinnedCollapseFooter
         variant={isUniversityView ? "university" : "maroon"}

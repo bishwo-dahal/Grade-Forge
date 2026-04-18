@@ -6,18 +6,13 @@ import type { Rubric } from "../../types/rubric";
 import {
   getAssignmentDescription,
   getAssignmentDetailById,
-  postFacultyBulkStudentGradesToCanvas,
-  postFacultyStudentGradeToCanvas,
 } from "../../services/assignmentService";
-import {
-  getFacultySubmissionById,
-  listFacultyAssignmentSubmissionFiles,
-} from "../../services/submissionService";
+import { listFacultyAssignmentSubmissionFiles } from "../../services/submissionService";
 import { getRubric } from "../../services/rubricService";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
-import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
+import { FacultyClassSidebar } from "./layout/FacultyClassSidebar";
 import {
   AssignmentDetailPage,
   formatSubmissionDisplayDate,
@@ -248,82 +243,19 @@ export function FacultyGradingAssignmentDetailPage() {
     }
     return mapToTestSuiteSection(testSuite);
   }, [testSuite, testSuiteLoading]);
-  const handlePostSubmissionGradeToCanvas = useCallback(
-    async (row: AssignmentDetailPageSubmissionRow) => {
-      if (!resolvedClassId.trim() || !resolvedAssignmentId.trim()) {
-        throw new Error("Invalid course or assignment.");
-      }
-      if (!row.studentId || row.studentId.trim().length < 1) {
-        throw new Error("Missing student id for this submission.");
-      }
-      if (row.marks == null) {
-        throw new Error("Grade this submission before posting to Canvas.");
-      }
-
-      const detail = await getFacultySubmissionById(row.submissionId);
-      await postFacultyStudentGradeToCanvas(
-        resolvedClassId,
-        resolvedAssignmentId,
-        row.studentId,
-        {
-          points: row.marks,
-          feedback: detail.feedback ?? "",
-        },
-      );
-    },
-    [resolvedAssignmentId, resolvedClassId],
-  );
-
-  const handlePostBulkGradesToCanvas = useCallback(
-    async (rows: AssignmentDetailPageSubmissionRow[]) => {
-      if (!resolvedClassId.trim() || !resolvedAssignmentId.trim()) {
-        throw new Error("Invalid course or assignment.");
-      }
-      const eligible = rows.filter(
-        (row) =>
-          row.marks != null && row.studentId != null && row.studentId.trim().length > 0,
-      );
-      if (eligible.length < 1) {
-        throw new Error("No graded submissions with a student id are available to post.");
-      }
-
-      const payloads = await Promise.all(
-        eligible.map(async (row) => {
-          const parsedStudentId = Number(row.studentId!.trim());
-          if (!Number.isFinite(parsedStudentId) || parsedStudentId <= 0) {
-            throw new Error(`Invalid student id for ${row.studentName}.`);
-          }
-          const detail = await getFacultySubmissionById(row.submissionId);
-          return {
-            studentId: parsedStudentId,
-            points: row.marks!,
-            feedback: detail.feedback ?? "",
-          };
-        }),
-      );
-
-      await postFacultyBulkStudentGradesToCanvas(
-        resolvedClassId,
-        resolvedAssignmentId,
-        payloads,
-      );
-    },
-    [resolvedAssignmentId, resolvedClassId],
-  );
 
   return (
-    <AuthShell
-      roleView="faculty"
-      topBar={
+    <div className="flex h-screen bg-[#F5F4F6]">
+      <FacultyClassSidebar classId={resolvedClassId} activeSection="assignments" />
+      <div className="flex flex-1 flex-col overflow-hidden">
         <AuthTopBar
           roleView="faculty"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search classes, assignments..."
+          showSearch={false}
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />
-      }
-      mainContent={
+        <div className="flex-1 overflow-y-auto">
         <AssignmentDetailPage
           assignment={pageAssignment}
           rubricSection={pageRubric}
@@ -344,14 +276,17 @@ export function FacultyGradingAssignmentDetailPage() {
             label: "Speed Grading",
           }}
           testCasesLink={{
-            to: `/faculty/assignment/${resolvedAssignmentId}?tab=tests`,
+            to: `/faculty/class/${resolvedClassId}/assignments/${resolvedAssignmentId}/edit`,
             label: "Edit test cases",
           }}
           testSuiteSection={pageTestSuiteSection}
-          onPostSubmissionGradeToCanvas={handlePostSubmissionGradeToCanvas}
-          onPostBulkGradesToCanvas={handlePostBulkGradesToCanvas}
+          editAssignmentLink={{
+            to: `/faculty/class/${resolvedClassId}/assignments/${resolvedAssignmentId}/edit`,
+            label: "Edit assignment",
+          }}
         />
-      }
-    />
+        </div>
+      </div>
+    </div>
   );
 }

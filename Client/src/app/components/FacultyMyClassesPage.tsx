@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, ArrowRight, Calendar, Clock3, Plus } from "lucide-react";
+import { AlertCircle, ArrowRight, Plus } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import {
@@ -73,18 +73,12 @@ function FacultyMyClassesView({
 
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-4 py-4 sm:px-6">
+      <div className="2xl:max-w-7xl 2xl:mx-auto">
       <section className="mt-1 flex flex-wrap items-center justify-between gap-3">
         {/* REFACTOR: Use shared segmented filter component so this control style can be reused across pages. */}
         <SegmentedFilter items={filterPills} value={selectedFilter} onValueChange={onFilterChange} />
 
         <div className="flex items-center gap-2.5">
-          {/* CLEANUP: Removed large top statistics cards and kept only compact pending grading summary near class creation action. */}
-          <div className="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 text-[12px] font-medium text-[#3E4E67]">
-            <Clock3 className="h-4 w-4 text-[#F5A54A]" strokeWidth={2} />
-            <span>Pending Grading:</span>
-            <span className="text-[13px] font-semibold text-[#1F2430]">{pendingGrading}</span>
-          </div>
-
           <button
             type="button"
             onClick={onCreateNewClass}
@@ -248,13 +242,6 @@ function FacultyMyClassesView({
                     </p>
                     <p className="text-[10px] text-[#5D6A80]">{course.semester}</p>
 
-                    <div className="rounded-md bg-[#F6F7F9] px-2 py-1.5">
-                      <div className="flex items-center gap-1 text-[11px] text-[#3F4F67]">
-                        <Calendar className="h-3 w-3 shrink-0 text-[#5D6A80]" strokeWidth={2} />
-                        <span className="truncate">{course.schedule}</span>
-                      </div>
-                      <p className="mt-0.5 truncate text-[10px] text-[#5D6A80]">{course.location}</p>
-                    </div>
 
                     <div className="grid grid-cols-3 gap-1">
                       <div>
@@ -299,6 +286,7 @@ function FacultyMyClassesView({
             ))}
         </section>
       )}
+      </div>
     </main>
   );
 }
@@ -401,7 +389,8 @@ export function FacultyMyClassesPage() {
         <AuthTopBar
           roleView="faculty"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search calendar, assignments..."
+          showSearch={false}
+          pageTitle="My Classes"
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />

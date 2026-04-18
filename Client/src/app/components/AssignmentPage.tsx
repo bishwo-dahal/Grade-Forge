@@ -38,6 +38,7 @@ import {
 import { requestRunTests, runTestsWithFiles, pollRunTestsUntilDone } from "../../services/runTestsService";
 import { getAuthenticatedRole } from "../auth";
 import React from "react";
+import { GradeForgeSidebar } from "./GradeForgeSidebar";
 import type {
   FacultyAssignmentSubmissionRow,
   FacultyEditorPreviewPayload,
@@ -61,6 +62,7 @@ export function AssignmentPage() {
   const authenticatedRole = getAuthenticatedRole();
   const isStudentRole = authenticatedRole === "STUDENT";
   const isFacultyRole = authenticatedRole === "FACULTY";
+  const sidebarViewMode = isFacultyRole ? "faculty" : "student";
 
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     if (tabParam === "tests") return "tests";
@@ -345,23 +347,26 @@ export function AssignmentPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col h-screen bg-[#F5F2F2]">
-        {/* NOTE: Skeleton shell keeps assignment workspace visible while backend data initializes. */}
-        <div className="bg-white border-b border-gray-200 px-6 py-3">
-          <div className="h-4 w-56 rounded bg-gray-200 animate-pulse" />
-        </div>
-        <div className="flex flex-1 overflow-hidden gap-1 p-0">
-          <div className="w-[35%] min-w-[320px] bg-white border-r border-gray-200 p-4 animate-pulse">
-            <div className="h-7 w-52 rounded bg-gray-200 mb-4" />
-            <div className="h-10 w-full rounded bg-gray-100 mb-4" />
-            <div className="space-y-3">
-              <div className="h-24 w-full rounded bg-gray-100" />
-              <div className="h-24 w-full rounded bg-gray-100" />
-              <div className="h-24 w-full rounded bg-gray-100" />
-            </div>
+      <div className="flex h-screen bg-[#F5F2F2]">
+        <GradeForgeSidebar viewMode={sidebarViewMode} compactOnly />
+        <div className="flex min-w-0 flex-1 flex-col bg-[#F5F2F2]">
+          {/* NOTE: Skeleton shell keeps assignment workspace visible while backend data initializes. */}
+          <div className="bg-white border-b border-gray-200 px-6 py-3">
+            <div className="h-4 w-56 rounded bg-gray-200 animate-pulse" />
           </div>
-          <div className="flex-1 p-4 animate-pulse">
-            <div className="h-full w-full rounded-xl bg-gray-100" />
+          <div className="flex flex-1 overflow-hidden gap-1 p-0">
+            <div className="w-[35%] min-w-[320px] bg-white border-r border-gray-200 p-4 animate-pulse">
+              <div className="h-7 w-52 rounded bg-gray-200 mb-4" />
+              <div className="h-10 w-full rounded bg-gray-100 mb-4" />
+              <div className="space-y-3">
+                <div className="h-24 w-full rounded bg-gray-100" />
+                <div className="h-24 w-full rounded bg-gray-100" />
+                <div className="h-24 w-full rounded bg-gray-100" />
+              </div>
+            </div>
+            <div className="flex-1 p-4 animate-pulse">
+              <div className="h-full w-full rounded-xl bg-gray-100" />
+            </div>
           </div>
         </div>
       </div>
@@ -371,37 +376,46 @@ export function AssignmentPage() {
   if (!assignment) {
     if (errorMessage) {
       return (
-        <div className="flex h-screen items-center justify-center bg-[#F5F2F2] text-[14px] text-[#C23A42]">
-          {errorMessage}
+        <div className="flex h-screen bg-[#F5F2F2]">
+          <GradeForgeSidebar viewMode={sidebarViewMode} compactOnly />
+          <div className="flex min-w-0 flex-1 items-center justify-center text-[14px] text-[#C23A42]">
+            {errorMessage}
+          </div>
         </div>
       );
     }
     return (
-      <div className="flex h-screen items-center justify-center bg-[#F5F2F2] text-[14px] text-gray-600">
-        Assignment not found.
+      <div className="flex h-screen bg-[#F5F2F2]">
+        <GradeForgeSidebar viewMode={sidebarViewMode} compactOnly />
+        <div className="flex min-w-0 flex-1 items-center justify-center text-[14px] text-gray-600">
+          Assignment not found.
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#F5F2F2]">
-      {/* Top Navigation Breadcrumb */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3">
-        <div className="flex items-center gap-2 text-[13px]">
-          <Link to="/dashboard" className="text-gray-500 hover:text-[#2B2A2A] flex items-center gap-1">
-            <ChevronLeft className="w-4 h-4" strokeWidth={2} />
-            Dashboard
-          </Link>
-          <span className="text-gray-300">/</span>
-          <Link to="/dashboard" className="text-gray-500 hover:text-[#2B2A2A]">{assignment.courseCode}</Link>
-          <span className="text-gray-300">/</span>
-          <span className="text-[#2B2A2A] font-medium">Assignments</span>
-        </div>
-      </div>
+    <div className="flex h-screen bg-[#F5F2F2]">
+      <GradeForgeSidebar viewMode={sidebarViewMode} compactOnly />
 
-      {/* Main Content Area - Two Panel Layout */}
-      <div className="flex flex-1 overflow-hidden">
-        <PanelGroup direction="horizontal">
+      <div className="flex min-w-0 flex-1 flex-col bg-[#F5F2F2]">
+        {/* Top Navigation Breadcrumb */}
+        <div className="bg-white border-b border-gray-200 px-6 py-3">
+          <div className="flex items-center gap-2 text-[13px]">
+            <Link to="/dashboard" className="text-gray-500 hover:text-[#2B2A2A] flex items-center gap-1">
+              <ChevronLeft className="w-4 h-4" strokeWidth={2} />
+              Dashboard
+            </Link>
+            <span className="text-gray-300">/</span>
+            <Link to="/dashboard" className="text-gray-500 hover:text-[#2B2A2A]">{assignment.courseCode}</Link>
+            <span className="text-gray-300">/</span>
+            <span className="text-[#2B2A2A] font-medium">Assignments</span>
+          </div>
+        </div>
+
+        {/* Main Content Area - Two Panel Layout */}
+        <div className="flex min-w-0 flex-1 overflow-hidden">
+          <PanelGroup direction="horizontal">
           {/* Left Panel - Assignment Content */}
           <Panel defaultSize={35} minSize={30}>
             <div className="h-full flex flex-col bg-white border-r border-gray-200 overflow-hidden">
@@ -625,7 +639,8 @@ export function AssignmentPage() {
               runResult={runResult}
             />
           </Panel>
-        </PanelGroup>
+          </PanelGroup>
+        </div>
       </div>
     </div>
   );

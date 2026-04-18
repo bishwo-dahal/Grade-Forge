@@ -341,7 +341,7 @@ export function RubricForm({
 
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-8 py-7">
-      <div className="mx-auto w-full max-w-[960px]">
+      <div className="2xl:mx-auto 2xl:max-w-[960px]">
         <h1 className="text-[28px] font-semibold leading-tight text-[#1F2430]">
           {mode === "create" ? "Create Rubric" : "Edit Rubric"}
         </h1>

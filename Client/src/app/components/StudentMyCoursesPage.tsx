@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Filter } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { listEnrolledCourses } from "../../services/classService";
@@ -23,21 +22,9 @@ function StudentMyCoursesView({ courses, isLoading, layoutMode, onLayoutModeChan
   const isGrid = layoutMode === "grid";
 
   return (
-    <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-8 py-6">
+    <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-4 py-3">
+      <div className="2xl:max-w-7xl 2xl:mx-auto">
       <section className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#CFD2D9] bg-[#F2F3F5] px-4 text-[14px] font-medium text-[#2B2A2A]"
-          >
-            <Filter className="h-4 w-4 text-[#5D667A]" strokeWidth={2} />
-            Filter
-          </button>
-          <p className="text-[14px] text-[#5D667A]">
-            Showing <span className="font-semibold text-[#2B2A2A]">{courses.length}</span> classes
-          </p>
-        </div>
-
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -92,39 +79,66 @@ function StudentMyCoursesView({ courses, isLoading, layoutMode, onLayoutModeChan
           courses.map((course) => {
             const assignmentsLeft = course.total - course.completed;
             const progress = course.total > 0 ? (course.completed / course.total) * 100 : 0;
+            const isInactive = !course.isActive;
+
+            const cardContent = (
+              <div className="flex flex-1 flex-col gap-1 p-3 pt-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] uppercase tracking-wide text-[#738099]">
+                    {course.courseCode} · {course.credits} cr
+                  </p>
+                  {isInactive && (
+                    <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-gray-500">
+                      Inactive
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-[13px] font-semibold leading-tight text-[#2B2A2A]">{course.title}</h2>
+                <p className="text-[11px] text-[#5D667A]">{course.instructor}</p>
+                <p className="text-[11px] text-[#7A849A]">{course.semester}</p>
+
+                <div className="mt-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] uppercase tracking-wide text-[#738099]">Assignments</p>
+                    <p className="text-[11px] font-semibold text-[#111827]">{assignmentsLeft} left</p>
+                  </div>
+                  <div className="mt-1 h-1.5 w-full rounded-full bg-[#E5E7EB]">
+                    <div
+                      className={`h-1.5 rounded-full ${isInactive ? "bg-gray-300" : "bg-[#FEB05D]"}`}
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-[10px] text-[#97A0B4]">
+                    {course.completed} / {course.total} done
+                  </p>
+                </div>
+
+                {isInactive ? (
+                  <div className="mt-auto flex h-8 items-center justify-center rounded-lg bg-gray-100 text-[12px] font-medium text-gray-400 cursor-not-allowed select-none">
+                    Class Inactive
+                  </div>
+                ) : (
+                  <Link
+                    to={`/class/${course.id}`}
+                    className="mt-auto flex h-8 items-center justify-center rounded-lg bg-[#F2F3F5] text-[12px] font-medium text-[#111827] hover:bg-[#E9EBEF]"
+                  >
+                    View Class
+                  </Link>
+                )}
+              </div>
+            );
 
             return (
-              <article key={course.id} className="overflow-hidden rounded-2xl shadow-sm">
-                <CourseCoverCardShell coverImageUrl={course.coverImageUrl} className="min-h-[220px] border-0 shadow-none">
-                  <div className="flex flex-1 flex-col gap-1 p-3 pt-2">
-                    <p className="text-[10px] uppercase tracking-wide text-[#738099]">
-                      {course.courseCode} · {course.credits} cr
-                    </p>
-                    <h2 className="text-[13px] font-semibold leading-tight text-[#2B2A2A]">{course.title}</h2>
-                    <p className="text-[11px] text-[#5D667A]">{course.instructor}</p>
-                    <p className="text-[11px] text-[#7A849A]">{course.semester}</p>
-
-                    <div className="mt-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-[10px] uppercase tracking-wide text-[#738099]">Assignments</p>
-                        <p className="text-[11px] font-semibold text-[#111827]">{assignmentsLeft} left</p>
-                      </div>
-                      <div className="mt-1 h-1.5 w-full rounded-full bg-[#E5E7EB]">
-                        <div className="h-1.5 rounded-full bg-[#FEB05D]" style={{ width: `${progress}%` }} />
-                      </div>
-                      <p className="mt-1 text-[10px] text-[#97A0B4]">
-                        {course.completed} / {course.total} done
-                      </p>
-                    </div>
-
-                    <Link
-                      to={`/class/${course.id}`}
-                      className="mt-auto flex h-8 items-center justify-center rounded-lg bg-[#F2F3F5] text-[12px] font-medium text-[#111827] hover:bg-[#E9EBEF]"
-                    >
-                      View Class
-                    </Link>
+              <article key={course.id} className={`overflow-hidden rounded-2xl shadow-sm${isInactive ? " opacity-70" : ""}`}>
+                {isGrid ? (
+                  <CourseCoverCardShell coverImageUrl={course.coverImageUrl} className="min-h-[220px] border-0 shadow-none">
+                    {cardContent}
+                  </CourseCoverCardShell>
+                ) : (
+                  <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+                    {cardContent}
                   </div>
-                </CourseCoverCardShell>
+                )}
               </article>
             );
           })}
@@ -134,6 +148,7 @@ function StudentMyCoursesView({ courses, isLoading, layoutMode, onLayoutModeChan
           </article>
         ) : null}
       </section>
+      </div>
     </main>
   );
 }
@@ -185,7 +200,8 @@ export function StudentMyCoursesPage() {
         <AuthTopBar
           roleView="student"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search calendar, assignments..."
+          showSearch={false}
+          pageTitle="My Courses"
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />
