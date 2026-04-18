@@ -56,7 +56,7 @@ function GradeForgeRightPanelView({ alerts, taskDays }: GradeForgeRightPanelView
   // Days with tasks
 
   return (
-    <aside className="w-80 bg-white border-l border-gray-200 flex-shrink-0 overflow-y-auto">
+    <aside className="w-72 bg-white border-l border-gray-200 flex-shrink-0 overflow-y-auto">
       <div className="p-6">
         {/* Calendar */}
         <div className="mb-8">
