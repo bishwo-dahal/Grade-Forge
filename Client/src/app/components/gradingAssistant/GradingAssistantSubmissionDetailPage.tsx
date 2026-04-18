@@ -183,7 +183,8 @@ export function GradingAssistantSubmissionDetailPage() {
             email: displayEmail,
             initials: displayInitials,
           }}
-          searchPlaceholder="Search..."
+          showSearch={false}
+          pageTitle="Submission Detail"
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />

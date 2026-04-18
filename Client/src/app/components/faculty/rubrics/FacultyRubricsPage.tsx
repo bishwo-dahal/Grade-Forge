@@ -40,10 +40,10 @@ function FacultyRubricsView({
 }) {
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2] px-6 py-5">
+      <div className="2xl:max-w-7xl 2xl:mx-auto">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-[18px] font-semibold text-[#2B2A2A]">Rubrics</h1>
-          <p className="text-[13px] text-gray-600">
+          <p className="text-[15px] text-gray-600">
             Manage reusable grading rubrics for your assignments.
           </p>
         </div>
@@ -193,6 +193,7 @@ function FacultyRubricsView({
           </div>
         )}
       </div>
+      </div>
     </main>
   );
 }
@@ -304,7 +305,8 @@ export function FacultyRubricsPage() {
           <AuthTopBar
             roleView="faculty"
             profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-            searchPlaceholder="Search calendar, assignments..."
+            showSearch={false}
+            pageTitle="Rubrics"
             onSettingsSectionSelect={goToSettingsSection}
             onLogout={handleLogout}
           />

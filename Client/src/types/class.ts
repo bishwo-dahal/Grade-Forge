@@ -45,15 +45,17 @@ export interface CourseCard {
   progressColor: string;
   /** Cover image URL from `courseImage.downloadUrl` when the backend provides it. */
   coverImageUrl?: string | null;
+  isActive: boolean;
+  isPublished: boolean;
 }
 
 export interface FacultyCourseCard {
   id: string;
   title: string;
   code: string;
-  students: number;
-  pendingSubmissions: number;
-  activeAssignments: number;
+  students: number | null;
+  pendingSubmissions: number | null;
+  activeAssignments: number | null;
   icon: string;
   iconBg: string;
   coverImageUrl?: string | null;

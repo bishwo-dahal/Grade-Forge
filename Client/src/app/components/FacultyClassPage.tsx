@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { 
-  Settings, 
-  ChevronLeft, 
-  LayoutDashboard, 
-  FileText, 
-  Send, 
-  BarChart3, 
+  Settings,
+  ChevronLeft,
+  FileText,
+  Send,
+  BarChart3,
   Plus,
   Upload,
   Users,
@@ -29,6 +28,7 @@ import {
   ChevronRight,
   FileUp,
   Link2,
+  Zap,
 } from "lucide-react";
 import type {
   ClassHeader,
@@ -89,6 +89,7 @@ import type {
 import type { GradingAssistantResponse } from "../../types/gradingAssistant";
 import type { CourseAssistantResponse } from "../../types/courseAssistant";
 import { SegmentedFilter, type SegmentedFilterItem } from "./ui/SegmentedFilter";
+import { ConfirmationModal, TimedSuccessModal } from "./ui/ActionFeedbackModal";
 import {
   Tooltip,
   TooltipContent,
@@ -99,11 +100,9 @@ import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection as TopBarSettingsSection } from "./layout/AuthTopBar";
-import { SidebarPinnedCollapseFooter } from "./layout/SidebarPinnedCollapseFooter";
-import { useSidebarPinnedCollapsed } from "./layout/useSidebarPinnedCollapsed";
+import { FacultyClassSidebar } from "./layout/FacultyClassSidebar";
 
 const SECTION_PATH_SEGMENTS = [
-  "dashboard",
   "assignments",
   "grades",
   "students",
@@ -128,14 +127,14 @@ export function FacultyClassPage() {
   const { classId, section: sectionParam } = useParams();
   const navigate = useNavigate();
   const resolvedClassId = classId ?? "1";
-  const activeSection: SectionType = isValidSection(sectionParam) ? sectionParam : "dashboard";
+  const activeSection: SectionType = isValidSection(sectionParam) ? sectionParam : "assignments";
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
   const [classHeader, setClassHeader] = useState<ClassHeader | null>(null);
 
   // Redirect invalid section to dashboard
   useEffect(() => {
     if (sectionParam != null && !isValidSection(sectionParam)) {
-      navigate(`/faculty/class/${resolvedClassId}/dashboard`, { replace: true });
+      navigate(`/faculty/class/${resolvedClassId}/assignments`, { replace: true });
     }
   }, [sectionParam, resolvedClassId, navigate]);
 
@@ -188,129 +187,18 @@ export function FacultyClassPage() {
     navigate("/signin", { replace: true });
   };
 
-  const { pinnedCollapsed } = useSidebarPinnedCollapsed();
 
   return (
     <div className="flex h-screen bg-[#F5F4F6]">
-      {/* Left Sidebar Navigation */}
-      <aside
-        className={`flex flex-shrink-0 flex-col border-r border-[#65101F] bg-[#7A1226] transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          pinnedCollapsed ? "w-[78px]" : "w-64"
-        }`}
-      >
-        <div className="flex min-h-0 flex-1 flex-col">
-          {/* Logo Header */}
-          <div
-            className={`flex h-[76px] items-center border-b border-[#65101F] bg-white ${
-              pinnedCollapsed ? "justify-center px-0" : "px-6"
-            }`}
-          >
-            <Link
-              to="/dashboard"
-              className={`flex items-center transition-opacity hover:opacity-90 ${
-                pinnedCollapsed ? "h-12 w-12 justify-center rounded-[14px]" : "gap-3"
-              }`}
-              aria-label="Go to dashboard"
-            >
-              <img
-                src="/favicon.svg"
-                alt={pinnedCollapsed ? "" : "Grade Forge"}
-                className="h-8 w-8 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
-              />
-              {!pinnedCollapsed && (
-                <span className="whitespace-nowrap text-[15px] font-semibold text-[#1F2430]">Grade Forge</span>
-              )}
-            </Link>
-          </div>
-          {/* Back to Dashboard Link */}
-          <div
-            className={`flex border-b border-[#65101F] py-3 ${pinnedCollapsed ? "justify-center px-0" : "px-4"}`}
-          >
-            <Link
-              to="/dashboard"
-              title="Back to Dashboard"
-              className={`flex items-center text-[13px] text-[#F5E5E8] transition-colors hover:text-white ${
-                pinnedCollapsed ? "justify-center" : "gap-2"
-              }`}
-              aria-label="Back to Dashboard"
-            >
-              <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} />
-              {!pinnedCollapsed && <span>Back to Dashboard</span>}
-            </Link>
-          </div>
-
-          {/* Navigation Menu - each item has its own route */}
-          <nav
-            className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-4 ${
-              pinnedCollapsed ? "px-1" : "px-3"
-            }`}
-          >
-            <ul className="space-y-1">
-              <NavItem
-                icon={<LayoutDashboard className="w-4 h-4" strokeWidth={2} />}
-                label="Dashboard"
-                active={activeSection === "dashboard"}
-                to={`/faculty/class/${resolvedClassId}/dashboard`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<FileText className="w-4 h-4" strokeWidth={2} />}
-                label="Assignments"
-                active={activeSection === "assignments"}
-                to={`/faculty/class/${resolvedClassId}/assignments`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<BarChart3 className="w-4 h-4" strokeWidth={2} />}
-                label="Grades"
-                active={activeSection === "grades"}
-                to={`/faculty/class/${resolvedClassId}/grades`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<Users className="w-4 h-4" strokeWidth={2} />}
-                label="Students"
-                active={activeSection === "students"}
-                to={`/faculty/class/${resolvedClassId}/students`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<UserPlus className="w-4 h-4" strokeWidth={2} />}
-                label="Grading Assistants"
-                active={activeSection === "assistants"}
-                to={`/faculty/class/${resolvedClassId}/assistants`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<UsersRound className="w-4 h-4" strokeWidth={2} />}
-                label="Groups"
-                active={activeSection === "groups"}
-                to={`/faculty/class/${resolvedClassId}/groups`}
-                rail={pinnedCollapsed}
-              />
-              <NavItem
-                icon={<Settings className="w-4 h-4" strokeWidth={2} />}
-                label="Settings"
-                active={activeSection === "settings"}
-                to={`/faculty/class/${resolvedClassId}/settings`}
-                rail={pinnedCollapsed}
-              />
-            </ul>
-          </nav>
-          <SidebarPinnedCollapseFooter
-            variant="maroon"
-            rail={pinnedCollapsed}
-            expandedInset="flush"
-          />
-        </div>
-      </aside>
+      <FacultyClassSidebar classId={resolvedClassId} activeSection={activeSection} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <AuthTopBar
           roleView="faculty"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search calendar, assignments..."
+          showSearch={false}
+          pageTitle={courseFullName || "Class Dashboard"}
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />
@@ -387,8 +275,7 @@ export function FacultyClassPage() {
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto px-8 py-6">
-            {activeSection === "dashboard" && <DashboardSection />}
-            {activeSection === "assignments" && <AssignmentsSection />}
+{activeSection === "assignments" && <AssignmentsSection />}
             {activeSection === "grades" && (
               <GradesSection courseFullName={courseFullName} facultyName={facultyName} />
             )}
@@ -396,6 +283,7 @@ export function FacultyClassPage() {
               <StudentsSection
                 isAddStudentModalOpen={isAddStudentModalOpen}
                 onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
+                onOpenAddStudentModal={() => setIsAddStudentModalOpen(true)}
               />
             )}
             {activeSection === "assistants" && <AssistantsSection />}
@@ -458,7 +346,7 @@ function NavItem({
 }
 
 // Placeholder sections - will be implemented
-function DashboardSection() {
+function DashboardSection({ courseFullName }: { courseFullName: string }) {
   const { classId } = useParams();
   // NOTE: Dashboard stats and activity now load from backend-driven service calls.
   const [recentActivity, setRecentActivity] = useState<ClassRecentActivity[]>([]);
@@ -486,7 +374,7 @@ function DashboardSection() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Class Dashboard</h2>
+        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">{courseFullName || "Class Dashboard"}</h2>
         <p className="text-[13px] text-gray-600">
           Overview of your class activity and statistics
         </p>
@@ -1257,6 +1145,7 @@ function GradesSection({
   facultyName: string;
 }) {
   const { classId } = useParams();
+  const navigate = useNavigate();
   const courseId = useMemo(() => Number(classId || "0") || 0, [classId]);
 
   const [courseReport, setCourseReport] = useState<CourseGradeReportResponse | null>(null);
@@ -1269,6 +1158,9 @@ function GradesSection({
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<number | null>(null);
   const [assignmentReportLoading, setAssignmentReportLoading] = useState(false);
+
+  const [isSpeedGraderOpen, setIsSpeedGraderOpen] = useState(false);
+  const [speedGraderSelectedId, setSpeedGraderSelectedId] = useState<number | null>(null);
 
   // Load course grade report only when Grades section is shown (component mounted).
   useEffect(() => {
@@ -1304,6 +1196,26 @@ function GradesSection({
     const first = courseReport.students[0];
     return first.assignments ?? [];
   }, [courseReport]);
+
+  const speedGradingOptions = useMemo(() => {
+    if (!courseReport?.students?.length) return [];
+    const byId = new Map<number, { assignmentId: number; assignmentName: string; ungraded: number; total: number }>();
+    for (const student of courseReport.students) {
+      for (const a of student.assignments) {
+        if (!byId.has(a.assignmentId)) {
+          byId.set(a.assignmentId, { assignmentId: a.assignmentId, assignmentName: a.assignmentName, ungraded: 0, total: 0 });
+        }
+        const entry = byId.get(a.assignmentId)!;
+        entry.total += 1;
+        if (a.status === "SUBMITTED") entry.ungraded += 1;
+      }
+    }
+    return Array.from(byId.values()).sort((a, b) => b.ungraded - a.ungraded);
+  }, [courseReport]);
+
+  const suggestedAssignmentId = useMemo(() => {
+    return speedGradingOptions[0]?.assignmentId ?? null;
+  }, [speedGradingOptions]);
 
   const filteredStudentsCourse = useMemo(() => {
     if (!courseReport?.students) return [];
@@ -1413,15 +1325,29 @@ function GradesSection({
             View and manage student grades for this course
           </p>
         </div>
-        <button
-          type="button"
-          onClick={exportGradesCsv}
-          disabled={!courseReport || (viewMode === "assignment" && !assignmentReport)}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Download className="w-4 h-4" strokeWidth={2} />
-          <span>Export Grades</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setSpeedGraderSelectedId(suggestedAssignmentId);
+              setIsSpeedGraderOpen(true);
+            }}
+            disabled={speedGradingOptions.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-[#7A1226] hover:bg-[#65101F] rounded-lg text-[13px] font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Zap className="w-4 h-4" strokeWidth={2} />
+            <span>Speed Grader</span>
+          </button>
+          <button
+            type="button"
+            onClick={exportGradesCsv}
+            disabled={!courseReport || (viewMode === "assignment" && !assignmentReport)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download className="w-4 h-4" strokeWidth={2} />
+            <span>Export Grades</span>
+          </button>
+        </div>
       </div>
 
       {loadError && (
@@ -1632,6 +1558,84 @@ function GradesSection({
           )}
         </>
       ) : null}
+
+      {isSpeedGraderOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white shadow-xl">
+            <div className="border-b border-gray-200 px-5 py-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Zap className="w-4 h-4 text-[#7A1226]" strokeWidth={2} />
+                <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Speed Grading</h3>
+              </div>
+              <p className="text-[12px] text-gray-600">
+                Select an assignment to grade. The queue opens in read-only grading mode, one submission at a time.
+              </p>
+            </div>
+
+            <div className="px-5 py-4 space-y-4">
+              {speedGradingOptions.length > 0 ? (
+                <>
+                  {suggestedAssignmentId != null && speedGradingOptions[0]?.ungraded > 0 ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700 mb-0.5">
+                        Suggested
+                      </p>
+                      <p className="text-[13px] font-medium text-[#2B2A2A]">
+                        {speedGradingOptions[0].assignmentName}
+                      </p>
+                      <p className="text-[12px] text-amber-700 mt-0.5">
+                        {speedGradingOptions[0].ungraded} ungraded submission{speedGradingOptions[0].ungraded !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                  ) : null}
+                  <div className="space-y-1.5">
+                    <label className="block text-[12px] font-medium text-[#2B2A2A]">Assignment</label>
+                    <select
+                      value={speedGraderSelectedId ?? ""}
+                      onChange={(e) => setSpeedGraderSelectedId(Number(e.target.value))}
+                      className="h-10 w-full rounded-lg border border-gray-300 px-3 text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-1 focus:ring-[#5A7ACD]/30"
+                    >
+                      {speedGradingOptions.map((opt) => (
+                        <option key={opt.assignmentId} value={opt.assignmentId}>
+                          {opt.assignmentName}
+                          {opt.ungraded > 0 ? ` — ${opt.ungraded} ungraded` : " — all graded"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <p className="text-[13px] text-gray-600">
+                  No assignment submissions available for speed grading yet.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-gray-200 bg-gray-50 px-5 py-4 rounded-b-xl">
+              <button
+                type="button"
+                onClick={() => setIsSpeedGraderOpen(false)}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-[#2B2A2A] hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!speedGraderSelectedId}
+                onClick={() => {
+                  if (!speedGraderSelectedId || !classId) return;
+                  navigate(`/faculty/class/${classId}/speed-grading/${speedGraderSelectedId}`);
+                  setIsSpeedGraderOpen(false);
+                }}
+                className="flex items-center gap-1.5 rounded-lg bg-[#7A1226] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#65101F] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Zap className="w-3.5 h-3.5" strokeWidth={2} />
+                Start Grading
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1826,9 +1830,11 @@ function StudentGradesModal({
 function StudentsSection({
   isAddStudentModalOpen,
   onCloseAddStudentModal,
+  onOpenAddStudentModal,
 }: {
   isAddStudentModalOpen: boolean;
   onCloseAddStudentModal: () => void;
+  onOpenAddStudentModal: () => void;
 }) {
   const { classId } = useParams();
   const resolvedId = classId || "1";
@@ -1866,6 +1872,7 @@ function StudentsSection({
   const [parsedFileRows, setParsedFileRows] = useState<{ name: string; email: string }[] | null>(null);
   const [fileImportResults, setFileImportResults] = useState<{ email: string; name: string; status: "success" | "error"; message?: string }[]>([]);
   const [isFileImporting, setIsFileImporting] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const courseId = useMemo(() => Number(resolvedId) || 0, [resolvedId]);
 
@@ -1952,6 +1959,12 @@ function StudentsSection({
     setFileImportResults(results);
     setIsFileImporting(false);
     await loadRoster();
+    const successCount = results.filter((item) => item.status === "success").length;
+    if (successCount > 0) {
+      setSuccessModalMessage(
+        successCount === 1 ? "1 student was enrolled successfully." : `${successCount} students were enrolled successfully.`,
+      );
+    }
   }, [parsedFileRows, resolvedId]);
 
   useEffect(() => {
@@ -2139,6 +2152,7 @@ function StudentsSection({
       setFeedbackMessage({ tone: "success", text: `${lookupResult.studentName} was enrolled successfully.` });
       await loadRoster();
       closeAddStudentModal();
+      setSuccessModalMessage(`${lookupResult.studentName} was enrolled successfully.`);
     } catch (error) {
       setFeedbackMessage({ tone: "error", text: getErrorMessage(error) });
     } finally {
@@ -2148,9 +2162,21 @@ function StudentsSection({
 
   return (
     <div>
-      <div className="mb-6">
+      <div className="mb-6 flex items-center justify-between gap-3">
         <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Student Roster</h2>
-        {/* CLEANUP: Removed extra helper sentence under Student Roster heading per current UI copy direction. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
+            <Download className="w-4 h-4" strokeWidth={2} />
+            <span>Import from Canvas</span>
+          </button>
+          <button
+            onClick={onOpenAddStudentModal}
+            className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" strokeWidth={2} />
+            <span>Add Student</span>
+          </button>
+        </div>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
@@ -2638,6 +2664,12 @@ function StudentsSection({
           </div>
         </div>
       )}
+      <TimedSuccessModal
+        open={successModalMessage !== null}
+        title="Success"
+        description={successModalMessage ?? ""}
+        onClose={() => setSuccessModalMessage(null)}
+      />
     </div>
   );
 }
@@ -2676,6 +2708,7 @@ function AssistantsSection() {
   const [removeConfirm, setRemoveConfirm] = useState<CourseAssistantResponse | null>(null);
   const [removing, setRemoving] = useState(false);
   const [errorDialog, setErrorDialog] = useState<string | null>(null);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const loadData = useCallback(() => {
     if (!courseId) return;
@@ -2720,6 +2753,12 @@ function AssistantsSection() {
       setAssignModalOpen(false);
       setSelectedGradingAssistantId("");
       loadData();
+      const assignedAssistant = gradingAssistants.find((assistant) => assistant.id === selectedGradingAssistantId);
+      setSuccessModalMessage(
+        assignedAssistant != null
+          ? `${assignedAssistant.name} was assigned successfully.`
+          : "Grading assistant assigned successfully.",
+      );
     } catch (err: unknown) {
       setAssignError(getApiErrorMessage(err, "Failed to assign assistant."));
     } finally {
@@ -2971,6 +3010,12 @@ function AssistantsSection() {
           </div>
         </div>
       )}
+      <TimedSuccessModal
+        open={successModalMessage !== null}
+        title="Success"
+        description={successModalMessage ?? ""}
+        onClose={() => setSuccessModalMessage(null)}
+      />
     </div>
   );
 }
@@ -2984,6 +3029,7 @@ function GroupsSection() {
   const [mainModalOpen, setMainModalOpen] = useState(false);
   const [mainName, setMainName] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const loadGroups = useCallback(async () => {
     setLoading(true);
@@ -3015,6 +3061,7 @@ function GroupsSection() {
       setMainName("");
       setMainModalOpen(false);
       await loadGroups();
+      setSuccessModalMessage(`Main group "${trimmed}" was created successfully.`);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -3146,6 +3193,12 @@ function GroupsSection() {
           </div>
         </div>
       ) : null}
+      <TimedSuccessModal
+        open={successModalMessage !== null}
+        title="Success"
+        description={successModalMessage ?? ""}
+        onClose={() => setSuccessModalMessage(null)}
+      />
     </div>
   );
 }
@@ -3174,6 +3227,8 @@ function SettingsSection({ classId }: { classId: string }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
+  const [showToggleConfirm, setShowToggleConfirm] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
 
   const [form, setForm] = useState<ClassCreateFormData>(EMPTY_CLASS_FORM);
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
@@ -3350,6 +3405,7 @@ function SettingsSection({ classId }: { classId: string }) {
       const updated = await updateFacultyCourse(classId, form, coverImageFile);
       setCourse(updated);
       toast.success("Course updated successfully.");
+      setSuccessModalMessage("Course changes were saved successfully.");
     } catch (err) {
       const message = getErrorMessage(err);
       setError(message);
@@ -3378,6 +3434,7 @@ function SettingsSection({ classId }: { classId: string }) {
         ...prev,
         active: Boolean(refreshed.active),
       }));
+      setSuccessModalMessage(`Course is now ${refreshed.active ? "active" : "disabled"}.`);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -3486,7 +3543,7 @@ function SettingsSection({ classId }: { classId: string }) {
               <div className="flex flex-wrap gap-2 justify-end">
                 <button
                   type="button"
-                  onClick={() => void handleToggleActive()}
+                  onClick={() => setShowToggleConfirm(true)}
                   disabled={isSaving || isDeleting || isTogglingActive}
                   className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
                   aria-label="Toggle course active status"
@@ -4020,7 +4077,6 @@ function SettingsSection({ classId }: { classId: string }) {
           </div>
         </div>
       ) : null}
-
       {isUnlinkConfirmOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-3xl bg-white shadow-xl">
@@ -4066,6 +4122,28 @@ function SettingsSection({ classId }: { classId: string }) {
           </div>
         </div>
       ) : null}
+      <ConfirmationModal
+        open={showToggleConfirm}
+        title={course?.active ? "Disable course?" : "Activate course?"}
+        description={
+          course?.active
+            ? "Students will no longer have access to this course while it is disabled."
+            : "This course will become active and available again."
+        }
+        confirmLabel={course?.active ? "Disable" : "Activate"}
+        onCancel={() => setShowToggleConfirm(false)}
+        onConfirm={() => {
+          setShowToggleConfirm(false);
+          void handleToggleActive();
+        }}
+        busy={isTogglingActive}
+      />
+      <TimedSuccessModal
+        open={successModalMessage !== null}
+        title="Success"
+        description={successModalMessage ?? ""}
+        onClose={() => setSuccessModalMessage(null)}
+      />
     </div>
   );
 }

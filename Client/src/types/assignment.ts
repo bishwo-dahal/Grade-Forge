@@ -89,6 +89,16 @@ export interface StudentAssignmentListItem {
   iconBg: string;
 }
 
+export interface CalendarAssignment {
+  id: number;
+  name: string;
+  courseId: number;
+  courseCode: string;
+  /** ISO datetime string, e.g. "2026-02-10T23:59:00". Assignments without a due date must be excluded before constructing this type. */
+  dueDate: string;
+  totalPoints: number;
+}
+
 // NOTE: Added list item type used by the recent assignments table UI.
 export interface RecentAssignmentItem {
   name: string;

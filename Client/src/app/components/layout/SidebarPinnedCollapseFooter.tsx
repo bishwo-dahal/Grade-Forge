@@ -40,7 +40,7 @@ export function SidebarPinnedCollapseFooter({
     "shrink-0 border-t py-3",
     isUniversityView ? "border-[#C9C4C9]" : "border-white/15",
     rail
-      ? "flex justify-center"
+      ? "flex justify-center group-hover/sidebar:justify-start group-hover/sidebar:px-3 group-focus-within/sidebar:justify-start group-focus-within/sidebar:px-3"
       : expandedInset === "flush"
         ? "flex justify-start px-3"
         : "flex justify-start pl-7 pr-4",

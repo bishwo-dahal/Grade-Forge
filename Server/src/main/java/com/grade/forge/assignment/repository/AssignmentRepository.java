@@ -13,6 +13,7 @@ import java.util.Optional;
 @Repository
 public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
     List<Assignment> findByCourse_Id(Long courseId);
+    List<Assignment> findByCourse_IdIn(List<Long> courseIds);
     Optional<Assignment> findByCourse_IdAndNameIgnoreCase(Long courseId, String name);
     Optional<Assignment> findByIdAndCourse_Id(Long id, Long courseId);
 
@@ -29,4 +30,12 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
     Optional<Assignment> findByCourse_IdAndSourceAssignment_Id(Long courseId, Long sourceAssignmentId);
 
     long countByCourse_Id(Long courseId);
+
+    @Query("""
+        SELECT a.course.id, COUNT(a)
+        FROM Assignment a
+        WHERE a.course.id IN :courseIds AND (a.dueDate IS NULL OR a.dueDate >= :now)
+        GROUP BY a.course.id
+        """)
+    List<Object[]> countActiveByCourseIds(@Param("courseIds") List<Long> courseIds, @Param("now") LocalDateTime now);
 }

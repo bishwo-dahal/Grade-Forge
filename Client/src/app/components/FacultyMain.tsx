@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import type { FacultyCourseCard } from "../../types/class";
 import { CourseCoverCardShell } from "./CourseCoverCardShell";
 import type { UserProfile } from "../../types/user";
-import { listFacultyCourses } from "../../services/classService";
+import { listFacultyCourses, listFacultyCoursesWithMetrics } from "../../services/classService";
 import { getFacultyProfile } from "../../services/authService";
 
 interface FacultyMainViewProps {
@@ -23,9 +23,22 @@ export function FacultyMain({}: FacultyMainProps) {
 
   useEffect(() => {
     getFacultyProfile().then(setProfile);
-    // NOTE: Dashboard course list is backend-driven; errors resolve to empty state instead of stale mock data.
+    // NOTE: Faculty course cards now load complete dashboard counts from the backend course list itself.
     listFacultyCourses()
-      .then(setCourses)
+      .then((loadedCourses) => {
+        setCourses(loadedCourses);
+        const needsMetricFallback = loadedCourses.some(
+          (course) =>
+            course.students === null ||
+            course.pendingSubmissions === null ||
+            course.activeAssignments === null,
+        );
+        if (needsMetricFallback) {
+          void listFacultyCoursesWithMetrics()
+            .then(setCourses)
+            .catch(() => undefined);
+        }
+      })
       .catch(() => setCourses([]))
       .finally(() => setIsCoursesLoading(false));
   }, []);
@@ -135,15 +148,15 @@ function TeachingCourses({
                 <div className="mt-1 space-y-1.5 text-[12px]">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-gray-600">Students</span>
-                    <span className="font-semibold text-[#1F2430]">{course.students}</span>
+                    <CourseMetricValue value={course.students} className="font-semibold text-[#1F2430]" />
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-gray-600">Pending</span>
-                    <span className="font-semibold text-[#9F3549]">{course.pendingSubmissions}</span>
+                    <CourseMetricValue value={course.pendingSubmissions} className="font-semibold text-[#9F3549]" />
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-gray-600">Active</span>
-                    <span className="font-semibold text-[#1F2430]">{course.activeAssignments}</span>
+                    <CourseMetricValue value={course.activeAssignments} className="font-semibold text-[#1F2430]" />
                   </div>
                 </div>
                 <div className="mt-auto w-full rounded-md bg-[#F5F4F6] py-2 text-center text-[12px] font-medium text-[#1F2430] transition-colors group-hover:bg-[#ECE9ED]">
@@ -156,4 +169,18 @@ function TeachingCourses({
       </div>
     </div>
   );
+}
+
+function CourseMetricValue({
+  value,
+  className,
+}: {
+  value: number | null;
+  className: string;
+}) {
+  if (value === null) {
+    return <span className="h-3.5 w-8 animate-pulse rounded bg-gray-200" aria-hidden="true" />;
+  }
+
+  return <span className={className}>{value}</span>;
 }

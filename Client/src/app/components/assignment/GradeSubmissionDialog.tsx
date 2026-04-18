@@ -11,6 +11,17 @@ import {
 import type { RubricCategory } from "../../../types/grade";
 import type { Rubric } from "../../../types/rubric";
 import { roundTo2, formatMax2Decimals } from "../../../utils/number";
+import {
+  calculateCriterionPoints,
+  computeRubricMarks,
+  flattenRubricCriteria,
+  gradeFromCriterionPoints,
+  maxPtsForCriterion,
+  normalizeDecimalInput,
+  parseScoreInput,
+  rubricTotal,
+  seedRubricScoreInputs,
+} from "./gradingMath";
 
 export interface GradeSubmissionDialogProps {
   open: boolean;
@@ -39,44 +50,6 @@ export interface GradeSubmissionDialogProps {
     rubricGrades?: Array<{ criterionId: number; score: number; comment: string }>,
   ) => Promise<void>;
   isSubmitting?: boolean;
-}
-
-/** Flatten criteria with max points and weight for form state */
-function flattenCriteria(categories: RubricCategory[]): { id?: number; maxPoints: number; weight?: number | null }[] {
-  const list: { id?: number; maxPoints: number; weight?: number | null }[] = [];
-  for (const cat of categories) {
-    for (const c of cat.criteria) {
-      list.push({ id: c.id, maxPoints: c.points, weight: c.weight ?? null });
-    }
-  }
-  return list;
-}
-
-function rubricTotal(categories: RubricCategory[]): number {
-  return categories.reduce((sum, cat) => sum + cat.points, 0);
-}
-
-/** Distribute total marks across criteria proportionally by max points (for prefilling existing grade). */
-function distributeMarksAcrossCriteria(
-  flatCriteria: { maxPoints: number }[],
-  totalMarks: number
-): number[] {
-  const totalMax = flatCriteria.reduce((s, c) => s + c.maxPoints, 0);
-  if (totalMax <= 0 || totalMarks <= 0) return flatCriteria.map(() => 0);
-  const scores = flatCriteria.map((c) => {
-    const p = (c.maxPoints / totalMax) * totalMarks;
-    return Math.min(c.maxPoints, Math.floor(p));
-  });
-  let remainder = totalMarks - scores.reduce((a, b) => a + b, 0);
-  for (let i = 0; remainder > 0 && i < flatCriteria.length; i++) {
-    const cap = flatCriteria[i].maxPoints - scores[i];
-    const add = Math.min(remainder, cap);
-    if (add > 0) {
-      scores[i] += add;
-      remainder -= add;
-    }
-  }
-  return scores;
 }
 
 /** Whether rubric has nested criteria (criteria[].subCriteria) for hierarchical display */
@@ -111,7 +84,7 @@ export function GradeSubmissionDialog({
   onSubmit,
   isSubmitting = false,
 }: GradeSubmissionDialogProps) {
-  const flatCriteria = flattenCriteria(rubricCategories);
+  const flatCriteria = flattenRubricCriteria(rubricCategories);
   const rubricMax = rubricTotal(rubricCategories);
   const nested = Boolean(rubricNested && hasNestedCriteria(rubricNested));
   const isUnweighted = isRubricUnweighted(rubricNested, nested, flatCriteria);
@@ -130,8 +103,6 @@ export function GradeSubmissionDialog({
   );
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState<string | null>(null);
-
-  const parseGrade = (s: string): number => Math.max(0, Number.parseFloat(s) || 0);
 
   useEffect(() => {
     if (!open) return;
@@ -156,7 +127,7 @@ export function GradeSubmissionDialog({
         );
       } else if (currentMarks != null && currentMarks > 0 && rubricMax > 0) {
         setCriterionScores(
-          distributeMarksAcrossCriteria(flatCriteria, currentMarks).map((n) => (n ? String(n) : "")),
+          seedRubricScoreInputs(flatCriteria, currentMarks, maxPoints),
         );
         setCriterionComments(flatCriteria.map(() => ""));
       } else {
@@ -178,61 +149,9 @@ export function GradeSubmissionDialog({
     rubricExistingGrades,
   ]);
 
-  const computedMarks = hasRubric
-    ? criterionScores.reduce((sum, s, i) => {
-        const max = flatCriteria[i]?.maxPoints ?? 0;
-        const g = parseGrade(s);
-        return sum + (max > 0 ? Math.min(max, g) : g);
-      }, 0)
+  const normalizedRubricMarks = hasRubric
+    ? computeRubricMarks(flatCriteria, criterionScores, maxPoints, overridePts)
     : null;
-
-  /** Calculated Pts for row i (from grade, max, weight). Used when overridePts[i] is null. Max 2 decimals. */
-  const getCalculatedPts = (flatIndex: number, max: number, weight: number | null): number => {
-    const grade = max > 0 ? Math.min(max, parseGrade(criterionScores[flatIndex] ?? "")) : parseGrade(criterionScores[flatIndex] ?? "");
-    if (weight != null && max > 0) return roundTo2((grade / max) * (weight / 100) * maxPoints);
-    if (rubricMax > 0) return roundTo2((grade * maxPoints) / rubricMax);
-    return 0;
-  };
-
-  /** Back-calculate grade from Pts for a row (so Grade and Pts stay related). Max 2 decimals. */
-  const gradeFromPts = (pts: number, max: number, weight: number | null): number => {
-    if (weight != null && weight > 0 && maxPoints > 0) return roundTo2((pts * max * 100) / (weight * maxPoints));
-    if (rubricMax > 0 && maxPoints > 0) return roundTo2((pts * rubricMax) / maxPoints);
-    return 0;
-  };
-
-  /** Max Pts for a row (cap so user cannot enter more than this). Max 2 decimals. */
-  const maxPtsForRow = (max: number, weight: number | null): number => {
-    if (weight != null && weight >= 0) return roundTo2((weight / 100) * maxPoints);
-    if (rubricMax > 0 && max > 0) return roundTo2((max / rubricMax) * maxPoints);
-    return maxPoints;
-  };
-
-  /** Total = sum of (override Pts or calculated Pts). So when faculty edit Pts, total updates. */
-  const normalizedRubricMarks = (() => {
-    if (!hasRubric || flatCriteria.length === 0) return null;
-    const allHaveWeight = flatCriteria.every(
-      (c) => c.weight != null && Number.isFinite(c.weight) && c.weight >= 0,
-    );
-    if (allHaveWeight) {
-      let sum = 0;
-      for (let i = 0; i < flatCriteria.length; i++) {
-        const max = flatCriteria[i].maxPoints;
-        const w = flatCriteria[i].weight ?? 0;
-        const rowMax = maxPtsForRow(max, flatCriteria[i].weight ?? null);
-        const calculated = getCalculatedPts(i, max, w);
-        const pts = roundTo2(
-          overridePts[i] != null && Number.isFinite(overridePts[i])
-            ? Math.min(overridePts[i]!, rowMax)
-            : calculated,
-        );
-        sum += pts;
-      }
-      return sum;
-    }
-    // Unweighted: grade entered = points for that row; total = sum of grades (no scaling)
-    return roundTo2(Math.min(maxPoints, computedMarks ?? 0));
-  })();
 
   const handleSubmit = async () => {
     setError(null);
@@ -261,7 +180,7 @@ export function GradeSubmissionDialog({
               if (typeof criterion.id !== "number") return null;
               return {
                 criterionId: criterion.id,
-                score: parseGrade(criterionScores[flatIndex] ?? ""),
+                score: parseScoreInput(criterionScores[flatIndex] ?? ""),
                 comment: criterionComments[flatIndex] ?? "",
               };
             }),
@@ -362,9 +281,10 @@ export function GradeSubmissionDialog({
                                     const max = sub.maxScore ?? 0;
                                     const gradeStr = criterionScores[flatIndex] ?? "";
                                     const weight = sub.weight ?? null;
+                                    const flatCriterion = flatCriteria[flatIndex];
                                     const percentOfMax = weight != null ? weight : (rubricMax > 0 && max > 0 ? (max / rubricMax) * 100 : 0);
-                                    const calculatedPts = getCalculatedPts(flatIndex, max, weight);
-                                    const rowMaxPts = maxPtsForRow(max, weight);
+                                    const calculatedPts = calculateCriterionPoints(gradeStr, flatCriterion, maxPoints, rubricMax);
+                                    const rowMaxPts = maxPtsForCriterion(max, weight, maxPoints, rubricMax);
                                     const rawPts = overridePts[flatIndex] != null && Number.isFinite(overridePts[flatIndex]) ? overridePts[flatIndex]! : calculatedPts;
                                     const pts = roundTo2(Math.min(rawPts, rowMaxPts));
                                     const comment = criterionComments[flatIndex] ?? "";
@@ -402,20 +322,9 @@ export function GradeSubmissionDialog({
                                                   });
                                                   return;
                                                 }
-                                                const parsed = parseFloat(raw);
-                                                if (!Number.isFinite(parsed)) return;
                                                 const minVal = max < 0 ? max : 0;
-                                                const clamped = Math.min(max, Math.max(minVal, parsed));
-                                                const inRange = parsed === clamped;
-                                                const moreThan2Decimals = roundTo2(parsed) !== parsed;
-                                                const display = inRange
-                                                  ? moreThan2Decimals
-                                                    ? formatMax2Decimals(roundTo2(parsed))
-                                                    : raw.trim()
-                                                  : (() => {
-                                                      const r = roundTo2(clamped);
-                                                      return r === Math.floor(r) ? String(Math.round(r)) : r.toFixed(2);
-                                                    })();
+                                                const display = normalizeDecimalInput(raw, minVal, max);
+                                                if (display == null) return;
                                                 setCriterionScores((prev) => {
                                                   const next = [...prev];
                                                   next[flatIndex] = display;
@@ -462,7 +371,7 @@ export function GradeSubmissionDialog({
                                                       });
                                                       return;
                                                     }
-                                                    const v = parseFloat(raw);
+                                                    const v = Number.parseFloat(raw);
                                                     if (!Number.isFinite(v) || v < 0) return;
                                                     const clamped = roundTo2(Math.min(rowMaxPts, v));
                                                     setOverridePts((prev) => {
@@ -470,10 +379,15 @@ export function GradeSubmissionDialog({
                                                       next[flatIndex] = clamped;
                                                       return next;
                                                     });
-                                                    const gradeBack = Math.max(0, max > 0 ? Math.min(max, gradeFromPts(clamped, max, weight)) : gradeFromPts(clamped, max, weight));
+                                                    const gradeBack = Math.max(
+                                                      0,
+                                                      max > 0
+                                                        ? Math.min(max, gradeFromCriterionPoints(clamped, flatCriterion, maxPoints, rubricMax))
+                                                        : gradeFromCriterionPoints(clamped, flatCriterion, maxPoints, rubricMax),
+                                                    );
                                                     setCriterionScores((prev) => {
                                                       const next = [...prev];
-                                                      next[flatIndex] = (() => { const r = roundTo2(gradeBack); return r === Math.floor(r) ? String(Math.round(r)) : r.toFixed(2); })();
+                                                      next[flatIndex] = formatMax2Decimals(gradeBack);
                                                       return next;
                                                     });
                                                   }}
@@ -513,9 +427,10 @@ export function GradeSubmissionDialog({
                               const max = criterion.points ?? 0;
                               const gradeStr = criterionScores[flatIndex] ?? "";
                               const weight = criterion.weight ?? null;
+                              const flatCriterion = flatCriteria[flatIndex];
                               const percentOfMax = weight != null ? weight : (rubricMax > 0 && max > 0 ? (max / rubricMax) * 100 : 0);
-                              const calculatedPts = getCalculatedPts(flatIndex, max, weight);
-                              const rowMaxPts = maxPtsForRow(max, weight);
+                              const calculatedPts = calculateCriterionPoints(gradeStr, flatCriterion, maxPoints, rubricMax);
+                              const rowMaxPts = maxPtsForCriterion(max, weight, maxPoints, rubricMax);
                               const rawPts = overridePts[flatIndex] != null && Number.isFinite(overridePts[flatIndex]) ? overridePts[flatIndex]! : calculatedPts;
                               const pts = roundTo2(Math.min(rawPts, rowMaxPts));
                               const comment = criterionComments[flatIndex] ?? "";
@@ -557,20 +472,9 @@ export function GradeSubmissionDialog({
                                             });
                                             return;
                                           }
-                                          const parsed = parseFloat(raw);
-                                          if (!Number.isFinite(parsed)) return;
                                           const minVal = max < 0 ? max : 0;
-                                          const clamped = Math.min(max, Math.max(minVal, parsed));
-                                          const inRange = parsed === clamped;
-                                          const moreThan2Decimals = roundTo2(parsed) !== parsed;
-                                          const display = inRange
-                                            ? moreThan2Decimals
-                                              ? formatMax2Decimals(roundTo2(parsed))
-                                              : raw.trim()
-                                            : (() => {
-                                                const r = roundTo2(clamped);
-                                                return r === Math.floor(r) ? String(Math.round(r)) : r.toFixed(2);
-                                              })();
+                                          const display = normalizeDecimalInput(raw, minVal, max);
+                                          if (display == null) return;
                                           setCriterionScores((prev) => {
                                             const next = [...prev];
                                             next[flatIndex] = display;
@@ -617,7 +521,7 @@ export function GradeSubmissionDialog({
                                                 });
                                                 return;
                                               }
-                                              const v = parseFloat(raw);
+                                              const v = Number.parseFloat(raw);
                                               if (!Number.isFinite(v) || v < 0) return;
                                               const clamped = roundTo2(Math.min(rowMaxPts, v));
                                               setOverridePts((prev) => {
@@ -625,10 +529,15 @@ export function GradeSubmissionDialog({
                                                 next[flatIndex] = clamped;
                                                 return next;
                                               });
-                                              const gradeBack = Math.max(0, max > 0 ? Math.min(max, gradeFromPts(clamped, max, weight)) : gradeFromPts(clamped, max, weight));
+                                              const gradeBack = Math.max(
+                                                0,
+                                                max > 0
+                                                  ? Math.min(max, gradeFromCriterionPoints(clamped, flatCriterion, maxPoints, rubricMax))
+                                                  : gradeFromCriterionPoints(clamped, flatCriterion, maxPoints, rubricMax),
+                                              );
                                               setCriterionScores((prev) => {
                                                 const next = [...prev];
-                                                next[flatIndex] = (() => { const r = roundTo2(gradeBack); return r === Math.floor(r) ? String(Math.round(r)) : r.toFixed(2); })();
+                                                next[flatIndex] = formatMax2Decimals(gradeBack);
                                                 return next;
                                               });
                                             }}

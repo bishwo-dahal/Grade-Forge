@@ -1,17 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import {
-  BarChart3,
-  ChevronLeft,
-  Download,
-  FileText,
-  LayoutDashboard,
-  Plus,
-  Settings,
-  UserPlus,
-  Users,
-  UsersRound,
-} from "lucide-react";
 import type { AssignmentDescription, AssignmentDetail } from "../../types/assignment";
 import type { FacultyAssignmentSubmissionRow } from "../../types/submission";
 import type { Rubric } from "../../types/rubric";
@@ -24,8 +12,7 @@ import { getRubric } from "../../services/rubricService";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
-import { SidebarPinnedCollapseFooter } from "./layout/SidebarPinnedCollapseFooter";
-import { useSidebarPinnedCollapsed } from "./layout/useSidebarPinnedCollapsed";
+import { FacultyClassSidebar } from "./layout/FacultyClassSidebar";
 import { getFacultyClassHeaderById } from "../../services/classService";
 import type { ClassHeader } from "../../types/class";
 import {
@@ -280,103 +267,14 @@ export function FacultyGradingAssignmentDetailPage() {
     role: "Instructor",
   };
 
-  const { pinnedCollapsed } = useSidebarPinnedCollapsed();
-
-  const sidebarNav = [
-    { key: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="w-4 h-4" strokeWidth={2} />, to: `/faculty/class/${resolvedClassId}/dashboard` },
-    { key: "assignments", label: "Assignments", icon: <FileText className="w-4 h-4" strokeWidth={2} />, to: `/faculty/class/${resolvedClassId}/assignments` },
-    { key: "grades", label: "Grades", icon: <BarChart3 className="w-4 h-4" strokeWidth={2} />, to: `/faculty/class/${resolvedClassId}/grades` },
-    { key: "students", label: "Students", icon: <Users className="w-4 h-4" strokeWidth={2} />, to: `/faculty/class/${resolvedClassId}/students` },
-    { key: "assistants", label: "Grading Assistants", icon: <UserPlus className="w-4 h-4" strokeWidth={2} />, to: `/faculty/class/${resolvedClassId}/assistants` },
-    { key: "groups", label: "Groups", icon: <UsersRound className="w-4 h-4" strokeWidth={2} />, to: `/faculty/class/${resolvedClassId}/groups` },
-    { key: "settings", label: "Settings", icon: <Settings className="w-4 h-4" strokeWidth={2} />, to: `/faculty/class/${resolvedClassId}/settings` },
-  ] as const;
-
   return (
     <div className="flex h-screen bg-[#F5F4F6]">
-      {/* Left Sidebar Navigation (match /faculty/class/:id/assignments) */}
-      <aside
-        className={`flex flex-shrink-0 flex-col border-r border-[#65101F] bg-[#7A1226] transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          pinnedCollapsed ? "w-[78px]" : "w-64"
-        }`}
-      >
-        <div className="flex min-h-0 flex-1 flex-col">
-          {/* Logo Header */}
-          <div
-            className={`flex h-[76px] items-center border-b border-[#65101F] bg-white ${
-              pinnedCollapsed ? "justify-center px-0" : "px-6"
-            }`}
-          >
-            <Link
-              to="/dashboard"
-              className={`flex items-center transition-opacity hover:opacity-90 ${
-                pinnedCollapsed ? "h-12 w-12 justify-center rounded-[14px]" : "gap-3"
-              }`}
-              aria-label="Go to dashboard"
-            >
-              <img
-                src="/favicon.svg"
-                alt={pinnedCollapsed ? "" : "Grade Forge"}
-                className="h-8 w-8 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
-              />
-              {!pinnedCollapsed && (
-                <span className="whitespace-nowrap text-[15px] font-semibold text-[#1F2430]">Grade Forge</span>
-              )}
-            </Link>
-          </div>
-
-          {/* Back to Dashboard Link */}
-          <div
-            className={`flex border-b border-[#65101F] py-3 ${pinnedCollapsed ? "justify-center px-0" : "px-4"}`}
-          >
-            <Link
-              to="/dashboard"
-              title="Back to Dashboard"
-              className={`flex items-center text-[13px] text-[#F5E5E8] transition-colors hover:text-white ${
-                pinnedCollapsed ? "justify-center" : "gap-2"
-              }`}
-              aria-label="Back to Dashboard"
-            >
-              <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} />
-              {!pinnedCollapsed && <span>Back to Dashboard</span>}
-            </Link>
-          </div>
-
-          <nav className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-4 ${pinnedCollapsed ? "px-1" : "px-3"}`}>
-            <ul className="space-y-1">
-              {sidebarNav.map((item) => (
-                <li key={item.key}>
-                  <Link
-                    to={item.to}
-                    title={pinnedCollapsed ? item.label : undefined}
-                    className={[
-                      "relative flex w-full items-center rounded-lg text-[13px] font-medium transition-colors",
-                      pinnedCollapsed ? "justify-center px-0 py-2.5" : "justify-between gap-3 px-3 py-2.5",
-                      item.key === "assignments"
-                        ? "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]"
-                        : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]",
-                    ].join(" ")}
-                  >
-                    <div className={`flex items-center ${pinnedCollapsed ? "justify-center" : "gap-3"}`}>
-                      {item.icon}
-                      {pinnedCollapsed ? <span className="sr-only">{item.label}</span> : <span>{item.label}</span>}
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          <SidebarPinnedCollapseFooter variant="maroon" rail={pinnedCollapsed} expandedInset="flush" />
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
+      <FacultyClassSidebar classId={resolvedClassId} activeSection="assignments" />
       <div className="flex flex-1 flex-col overflow-hidden">
         <AuthTopBar
           roleView="faculty"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search calendar, assignments..."
+          showSearch={false}
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />
@@ -443,10 +341,14 @@ export function FacultyGradingAssignmentDetailPage() {
                 label: "Speed Grading",
               }}
               testCasesLink={{
-                to: `/faculty/assignment/${resolvedAssignmentId}?tab=tests`,
+                to: `/faculty/class/${resolvedClassId}/assignments/${resolvedAssignmentId}/edit`,
                 label: "Edit test cases",
               }}
               testSuiteSection={pageTestSuiteSection}
+              editAssignmentLink={{
+                to: `/faculty/class/${resolvedClassId}/assignments/${resolvedAssignmentId}/edit`,
+                label: "Edit assignment",
+              }}
             />
           </div>
         </main>

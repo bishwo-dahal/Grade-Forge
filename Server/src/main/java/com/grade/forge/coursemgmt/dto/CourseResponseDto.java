@@ -20,6 +20,9 @@ public class CourseResponseDto {
     private String canvasCourseId;
     private Boolean active;
     private Boolean isPublished;
+    private Integer students;
+    private Integer pendingSubmissions;
+    private Integer activeAssignments;
     private SemesterBasicDto semester;
     private FacultyBasicDto faculty;
 
