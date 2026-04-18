@@ -9,6 +9,11 @@ export interface SidebarPinnedCollapseFooterProps {
   rail: boolean;
   /** Full-width sidebar: match Grade Forge nav inset vs faculty class `px-3` nav. */
   expandedInset?: "forge" | "flush";
+  /**
+   * When true, omits the strong top border (use when an accessory row sits above in the same
+   * `shrink-0` block). Renders a lighter divider above the toggle instead.
+   */
+  withAccessoryAbove?: boolean;
 }
 
 function pinToggleButtonClassName(
@@ -32,13 +37,20 @@ export function SidebarPinnedCollapseFooter({
   variant,
   rail,
   expandedInset = "forge",
+  withAccessoryAbove = false,
 }: SidebarPinnedCollapseFooterProps) {
   const { pinnedCollapsed, togglePinnedCollapsed } = useSidebarPinnedCollapsed();
   const isUniversityView = variant === "university";
 
   const rowClass = [
     "shrink-0 border-t py-3",
-    isUniversityView ? "border-[#C9C4C9]" : "border-white/15",
+    withAccessoryAbove
+      ? isUniversityView
+        ? "border-[#E3DFE3]"
+        : "border-white/10"
+      : isUniversityView
+        ? "border-[#C9C4C9]"
+        : "border-white/15",
     rail
       ? "flex justify-center group-hover/sidebar:justify-start group-hover/sidebar:px-3 group-focus-within/sidebar:justify-start group-focus-within/sidebar:px-3"
       : expandedInset === "flush"

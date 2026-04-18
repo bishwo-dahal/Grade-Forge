@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/faculty/assignments")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('FACULTY')")
+@PreAuthorize("hasAnyAuthority('FACULTY','GRADING_ASSISTANT')")
 public class TestSuiteFacultyController {
 
     private final TestSuiteService testSuiteService;

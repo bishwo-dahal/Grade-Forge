@@ -12,9 +12,23 @@ import {
   UserSearch,
   Brain,
   HelpCircle,
+  LogOut,
 } from "lucide-react";
 import type { ComponentType } from "react";
-import { Link, useLocation } from "react-router";
+import { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router";
+import { clearAuthenticated } from "../auth";
+import { buildLogoutConfirmationMessage, queueAuthNotification } from "../authNotifications";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
 import { SidebarPinnedCollapseFooter } from "./layout/SidebarPinnedCollapseFooter";
 import { useSidebarPinnedCollapsed } from "./layout/useSidebarPinnedCollapsed";
 
@@ -32,6 +46,8 @@ interface SidebarNavItem {
 
 export function GradeForgeSidebar({ viewMode, compactOnly = false }: GradeForgeSidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const { pinnedCollapsed } = useSidebarPinnedCollapsed();
   const isDashboardRoute = location.pathname === "/dashboard" || location.pathname.startsWith("/dashboard/");
   const isUniversityView = viewMode === "university";
@@ -87,7 +103,7 @@ export function GradeForgeSidebar({ viewMode, compactOnly = false }: GradeForgeS
         ? []
         : [];
   const settingsItem: SidebarNavItem | null =
-    viewMode === "student" || viewMode === "faculty"
+    viewMode === "student" || viewMode === "faculty" || viewMode === "gradingAssistant"
       ? { icon: Settings, label: "Settings", to: "/settings", matchPrefixes: ["/settings"] }
       : null;
 
@@ -126,9 +142,25 @@ export function GradeForgeSidebar({ viewMode, compactOnly = false }: GradeForgeS
       : // FIX: Match nav label motion with the sidebar shell so icon/text spacing stays stable while the rail opens.
         "max-w-0 overflow-hidden opacity-0 translate-x-1.5 transition-[max-width,opacity,transform] duration-300 ease-out group-hover/sidebar:max-w-[160px] group-hover/sidebar:translate-x-0 group-hover/sidebar:opacity-100 group-focus-within/sidebar:max-w-[160px] group-focus-within/sidebar:translate-x-0 group-focus-within/sidebar:opacity-100";
 
+  const handleConfirmLogout = () => {
+    queueAuthNotification(buildLogoutConfirmationMessage(viewMode));
+    setIsLogoutDialogOpen(false);
+    clearAuthenticated();
+    navigate("/signin", { replace: true });
+  };
+
+  const bottomPinnedBorderClass = isUniversityView ? "border-t border-[#C9C4C9]" : "border-t border-white/15";
+  const bottomLogoutRowClass =
+    !isCollapsedMode
+      ? "px-4"
+      : compactOnly || pinnedCollapsed
+        ? "flex justify-center px-1"
+        : "px-4";
+
   return (
+    <>
     <aside
-      className={`${sidebarShellClass} ${isUniversityView ? "bg-white border-r border-[#C9C4C9]" : "bg-[#7A1226] border-r border-[#D1BCBF]"} flex-shrink-0 flex flex-col transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
+      className={`${sidebarShellClass} ${isUniversityView ? "bg-white border-r border-[#C9C4C9]" : "bg-[#7A1226] border-r border-[#D1BCBF]"} flex min-h-0 flex-shrink-0 flex-col self-stretch transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
     >
       {/* NOTE: Role switcher was removed intentionally; access is controlled by auth role + route guards. */}
       {viewMode === "university" ? (
@@ -260,7 +292,11 @@ export function GradeForgeSidebar({ viewMode, compactOnly = false }: GradeForgeS
       </nav>
 
       {settingsItem && (
-        <div className={`shrink-0 px-4 pb-3 ${viewMode === "faculty" || viewMode === "student" ? "pt-2" : ""}`}>
+        <div
+          className={`shrink-0 px-4 pb-3 ${
+            viewMode === "faculty" || viewMode === "student" || viewMode === "gradingAssistant" ? "pt-2" : ""
+          }`}
+        >
           <Link
             to={settingsItem.to}
             className={`w-full flex items-center rounded-lg transition-all ${navLinkLayoutClass} ${
@@ -279,11 +315,50 @@ export function GradeForgeSidebar({ viewMode, compactOnly = false }: GradeForgeS
         </div>
       )}
 
-      <SidebarPinnedCollapseFooter
-        variant={isUniversityView ? "university" : "maroon"}
-        rail={isCollapsedMode}
-        expandedInset="forge"
-      />
+      <div className={`flex w-full min-w-0 shrink-0 flex-col ${bottomPinnedBorderClass}`}>
+        <div className={`py-2 ${bottomLogoutRowClass}`}>
+          <button
+            type="button"
+            onClick={() => setIsLogoutDialogOpen(true)}
+            title="Log out"
+            aria-label="Log out"
+            className={`w-full flex items-center rounded-lg transition-all ${navLinkLayoutClass} ${
+              isUniversityView
+                ? "text-[#44506B] hover:text-[#1F2430] hover:bg-[#F1EEF1]"
+                : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]"
+            }`}
+          >
+            <LogOut className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />
+            <span className={`text-[14px] whitespace-nowrap ${navLabelClass}`}>Log out</span>
+          </button>
+        </div>
+        <SidebarPinnedCollapseFooter
+          variant={isUniversityView ? "university" : "maroon"}
+          rail={isCollapsedMode}
+          expandedInset="forge"
+          withAccessoryAbove
+        />
+      </div>
     </aside>
+    <AlertDialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Confirm logout</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to log out from this account?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-red-600 hover:bg-red-700 focus-visible:ring-red-600"
+            onClick={handleConfirmLogout}
+          >
+            Log out
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

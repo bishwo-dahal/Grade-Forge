@@ -231,6 +231,17 @@ export interface FacultyStudentEmailSuggestion {
   alreadyInCourse: boolean;
 }
 
+export interface CanvasCourseStudent {
+  /** Stable row key for React and enroll loading state (prefers Canvas user id when the API returns it). */
+  id: string;
+  /** Canvas user id from the API `id` field when present. */
+  canvasUserId: number | null;
+  name: string;
+  loginId: string;
+  state: string;
+  createdAt: string;
+}
+
 // NOTE: UI-driven roster row shape for faculty student table; keep aligned to rendered columns only.
 export interface FacultyRosterStudentRow {
   id: string;

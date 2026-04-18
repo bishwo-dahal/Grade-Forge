@@ -15,6 +15,7 @@ import type {
   FacultyRosterStats,
   FacultyStudentEmailSuggestion,
   FacultyStudentSearchResult,
+  CanvasCourseStudent,
   FacultyCourseCreatePayload,
   FacultySemesterOption,
   FacultyDashboardStat,
@@ -663,6 +664,32 @@ interface FacultyStudentSearchApiResponse {
   name: string | null;
   email: string | null;
   enrolledStatus: string | null;
+}
+
+interface CanvasCourseStudentApiResponse {
+  id?: number | string | null;
+  name: string | null;
+  loginId?: string | null;
+  state?: string | null;
+  createdAt?: string | null;
+}
+
+function parseCanvasUserId(value: number | string | null | undefined): number | null {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }
 
 function buildCourseIcon(courseCode: string): { icon: string; iconBg: string } {
@@ -1521,7 +1548,11 @@ export async function listFacultyStudentEmailSuggestions(
   return Array.from(dedupedByEmail.values()).slice(0, 8);
 }
 
-export async function enrollStudentByEmail(classId: string, email: string): Promise<void> {
+export async function enrollStudentByEmail(
+  classId: string,
+  email: string,
+  canvasUserId?: number | null,
+): Promise<void> {
   const courseId = toCourseId(classId);
   const trimmedEmail = email.trim();
   if (!trimmedEmail) {
@@ -1540,6 +1571,62 @@ export async function enrollStudentByEmail(classId: string, email: string): Prom
   await api.post("/api/v1/faculty/enrollments", {
     studentId: matchedStudent.studentId,
     courseId,
+    canvasId: canvasUserId ?? null,
+  });
+}
+
+/** Matches backend `EnrollmentRequest` for POST /api/v1/faculty/enrollments/bulk. */
+export interface FacultyEnrollmentBulkRequest {
+  studentId: number;
+  courseId: number;
+  canvasId: number | null;
+}
+
+export async function enrollFacultyStudentsBulk(
+  classId: string,
+  items: Array<{ studentId: number; canvasId: number | null }>,
+): Promise<unknown[]> {
+  const courseId = toCourseId(classId);
+  if (items.length < 1) {
+    throw new Error("No enrollments to submit.");
+  }
+  const body: FacultyEnrollmentBulkRequest[] = items.map((item) => {
+    const sid = Number(item.studentId);
+    if (!Number.isFinite(sid) || sid <= 0) {
+      throw new Error("Invalid student id in bulk enrollment.");
+    }
+    const cid =
+      item.canvasId != null && Number.isFinite(item.canvasId) && item.canvasId > 0
+        ? Math.trunc(item.canvasId)
+        : null;
+    return {
+      studentId: Math.trunc(sid),
+      courseId: Math.trunc(courseId),
+      canvasId: cid,
+    };
+  });
+  const { data } = await api.post<unknown[]>("/api/v1/faculty/enrollments/bulk", body);
+  return data;
+}
+
+export async function listCanvasCourseStudents(classId: string): Promise<CanvasCourseStudent[]> {
+  const courseId = toCourseId(classId);
+  const { data } = await api.get<CanvasCourseStudentApiResponse[]>(
+    `/api/v1/faculty/canvas/courses/${courseId}/students`,
+  );
+  return data.map((student, index) => {
+    const canvasUserId = parseCanvasUserId(student.id);
+    return {
+      id:
+        canvasUserId != null
+          ? String(canvasUserId)
+          : `${student.loginId?.trim() || "canvas-student"}-${index}`,
+      canvasUserId,
+      name: student.name?.trim() || "Unknown student",
+      loginId: student.loginId?.trim() || "",
+      state: student.state?.trim() || "",
+      createdAt: student.createdAt?.trim() || "",
+    };
   });
 }
 
