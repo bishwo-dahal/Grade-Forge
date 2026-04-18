@@ -115,10 +115,10 @@ export function GradeForgeSidebar({ viewMode, compactOnly = false }: GradeForgeS
   };
 
   const sidebarShellClass = !isCollapsedMode
-    ? "w-60"
+    ? "w-[13.5rem]"
     : compactOnly || pinnedCollapsed
       ? "w-[78px]"
-      : "group/sidebar w-[78px] hover:w-60 focus-within:w-60";
+      : "group/sidebar w-[78px] hover:w-[13.5rem] focus-within:w-[13.5rem]";
   const collapsibleTextClass = !isCollapsedMode
     ? ""
     : compactOnly || pinnedCollapsed
@@ -168,6 +168,11 @@ export function GradeForgeSidebar({ viewMode, compactOnly = false }: GradeForgeS
           ? "Teaching"
           : "Administration";
 
+  /** Icon rail that never grows (assignment overlay, or user pinned collapsed). */
+  const sidebarRailLockedNarrow = isCollapsedMode && (compactOnly || pinnedCollapsed);
+  /** Hover/focus can expand to full width; brand text should appear with the same motion as nav labels. */
+  const showBrandTitle = !isCollapsedMode || !sidebarRailLockedNarrow;
+
   return (
     <>
     <aside
@@ -175,11 +180,23 @@ export function GradeForgeSidebar({ viewMode, compactOnly = false }: GradeForgeS
     >
       {/* NOTE: Role switcher was removed intentionally; access is controlled by auth role + route guards. */}
       <div
-        className={`h-[64px] border-b border-[#C9C4C9] bg-white ${isCollapsedMode ? "px-0 flex items-center justify-center" : "px-5 flex items-center"}`}
+        className={`h-[64px] border-b border-[#C9C4C9] bg-white flex items-center ${
+          !isCollapsedMode
+            ? "px-5"
+            : sidebarRailLockedNarrow
+              ? "px-0 justify-center"
+              : "px-0 justify-center transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/sidebar:px-5 group-hover/sidebar:justify-start group-focus-within/sidebar:px-5 group-focus-within/sidebar:justify-start"
+        }`}
       >
         <Link
           to="/dashboard"
-          className={`flex items-center hover:opacity-90 transition-[opacity,transform] duration-300 ease-out ${isCollapsedMode ? "justify-center w-12 h-12 rounded-[14px]" : "gap-3"}`}
+          className={`flex items-center hover:opacity-90 transition-[opacity,transform] duration-300 ease-out ${
+            !isCollapsedMode
+              ? "gap-3"
+              : sidebarRailLockedNarrow
+                ? "justify-center w-12 h-12 rounded-[14px]"
+                : "justify-center gap-0 rounded-[14px] group-hover/sidebar:justify-start group-hover/sidebar:gap-3 group-focus-within/sidebar:justify-start group-focus-within/sidebar:gap-3"
+          }`}
           aria-label="Go to dashboard"
         >
           <img
@@ -187,8 +204,12 @@ export function GradeForgeSidebar({ viewMode, compactOnly = false }: GradeForgeS
             alt="Grade Forge"
             className="h-7 w-7 flex-shrink-0 rounded-[10px] border border-[#C9C4C9]"
           />
-          {!isCollapsedMode && (
-            <span className={`text-[14px] font-semibold text-[#1F2430] whitespace-nowrap ${collapsibleTextClass}`}>
+          {showBrandTitle && (
+            <span
+              className={`text-[14px] font-semibold text-[#1F2430] whitespace-nowrap ${
+                isCollapsedMode ? navLabelClass : ""
+              }`}
+            >
               Grade Forge
             </span>
           )}
