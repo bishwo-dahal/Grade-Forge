@@ -2,3 +2,7 @@
 @import './tailwind.css';
 @import './theme.css';
 @import './editor-overrides.css';
+
+html {
+  scroll-behavior: smooth;
+}
