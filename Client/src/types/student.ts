@@ -20,6 +20,7 @@ export interface StudentResponse {
   cwid: string | null;
   major: string | null;
   canvasUserId: string | null;
+  preferences: Record<string, unknown> | null;
 }
 
 export interface StudentUpdateRequest {
