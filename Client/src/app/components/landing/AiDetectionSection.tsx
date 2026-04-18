@@ -105,6 +105,7 @@ export function AiDetectionSection() {
 
   return (
     <section
+      id="ai-detection"
       className="bg-[#F5F4F6] py-20 md:py-28"
       style={{ fontFamily: "Montserrat, 'Segoe UI', Helvetica Neue, Arial, sans-serif" }}
     >

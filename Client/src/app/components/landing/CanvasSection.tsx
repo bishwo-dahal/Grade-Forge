@@ -46,6 +46,7 @@ function MockCanvasCard() {
         <span className="text-[11px] text-[#5d667a]">Last synced: 2 minutes ago</span>
         <button
           disabled
+          aria-label="Sync Now (coming soon)"
           className="px-3 py-1.5 bg-[#7A1226] text-white text-[11px] font-semibold rounded-lg opacity-50 cursor-not-allowed"
         >
           Sync Now
