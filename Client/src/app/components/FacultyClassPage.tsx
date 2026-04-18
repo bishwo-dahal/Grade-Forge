@@ -64,6 +64,7 @@ import {
   deleteFacultyAssignment,
   getCourseCoverImageUrl,
 } from "../../services/classService";
+import { publishFacultyAssignmentToCanvas } from "../../services/assignmentService";
 
 import type { CourseApiResponse } from "../../services/classService";
 import { createFacultyMainGroup, listFacultyCourseGroups } from "../../services/courseGroupService";
@@ -402,6 +403,7 @@ function AssignmentsSection() {
   const [openAssignmentActionsId, setOpenAssignmentActionsId] = useState<string | null>(null);
   const [assignmentDeleteTarget, setAssignmentDeleteTarget] = useState<FacultyAssignment | null>(null);
   const [isDeletingAssignment, setIsDeletingAssignment] = useState(false);
+  const [canvasPublishLoadingAssignmentId, setCanvasPublishLoadingAssignmentId] = useState<string | null>(null);
 
   const loadAssignments = useCallback(async () => {
     // FIX: Centralize assignment reload so header/footer actions reuse the same backend-driven refresh path.
@@ -429,13 +431,26 @@ function AssignmentsSection() {
     setIsDeletingAssignment(true);
     try {
       await deleteFacultyAssignment(deletingAssignment.id);
-      setSelectedAssignments((prev) => prev.filter((id) => id !== deletingAssignment.id));
       toast.success("Assignment deleted successfully.");
       await loadAssignments();
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {
       setIsDeletingAssignment(false);
+    }
+  }
+
+  async function handlePublishAssignmentToCanvas(assignment: FacultyAssignment) {
+    setOpenAssignmentActionsId(null);
+    setCanvasPublishLoadingAssignmentId(assignment.id);
+    try {
+      await publishFacultyAssignmentToCanvas(resolvedClassId, assignment.id);
+      toast.success("Assignment published to Canvas.");
+      await loadAssignments();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setCanvasPublishLoadingAssignmentId(null);
     }
   }
 
@@ -610,6 +625,19 @@ function AssignmentsSection() {
                           >
                             <Edit className="h-4 w-4" strokeWidth={2} />
                           </Link>
+                          <button
+                            type="button"
+                            onClick={() => void handlePublishAssignmentToCanvas(assignment)}
+                            disabled={canvasPublishLoadingAssignmentId != null}
+                            aria-label="Publish assignment to Canvas"
+                            title="Publish assignment to Canvas"
+                            className="flex w-full items-center justify-center border-t border-gray-200 px-1 py-2 text-[#5A7ACD] hover:bg-[#F5F7FF] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Send
+                              className={`h-4 w-4 ${canvasPublishLoadingAssignmentId === assignment.id ? "animate-pulse" : ""}`}
+                              strokeWidth={2}
+                            />
+                          </button>
                           <button
                             type="button"
                             onClick={() => {
