@@ -3,6 +3,7 @@ package com.grade.forge.canvas.service;
 import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.assignment.repository.AssignmentRepository;
 import com.grade.forge.canvas.dto.CanvasAssignmentResponseDto;
+import com.grade.forge.canvas.dto.CanvasStudentBulkGradeRequest;
 import com.grade.forge.canvas.dto.CanvasStudentDto;
 import com.grade.forge.canvas.dto.GradeRequest;
 import com.grade.forge.coursemgmt.entity.Course;
@@ -169,6 +170,27 @@ public class CanvasAssignmentService {
                 .body(String.class);
 
         return response != null ? response : "success";
+    }
+
+    public List<String> postStudentGrades(Long courseId,
+                                          Long assignmentId,
+                                          List<CanvasStudentBulkGradeRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
+            throw new IllegalArgumentException("At least one student grade payload is required");
+        }
+
+        List<String> responses = new ArrayList<>();
+        for (CanvasStudentBulkGradeRequest request : requests) {
+            responses.add(postStudentGrade(
+                    courseId,
+                    assignmentId,
+                    request.getStudentId(),
+                    request.getPoints(),
+                    request.getFeedback()
+            ));
+        }
+
+        return responses;
     }
 
     private JsonNode findStudentEnrollment(JsonNode enrollments) {

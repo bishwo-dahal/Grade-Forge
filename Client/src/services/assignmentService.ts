@@ -1126,3 +1126,41 @@ export async function postFacultyStudentGradeToCanvas(
   );
   return data;
 }
+
+export type FacultyCanvasBulkGradeItem = {
+  studentId: number;
+  points: number;
+  feedback: string;
+};
+
+export async function postFacultyBulkStudentGradesToCanvas(
+  courseId: string,
+  assignmentId: string,
+  requests: FacultyCanvasBulkGradeItem[],
+): Promise<string[]> {
+  const parsedCourseId = parseClassId(courseId || defaultCreateAssignmentHeader.classId);
+  const parsedAssignmentId = parseAssignmentId(assignmentId);
+  if (requests.length < 1) {
+    throw new Error("No grades to post.");
+  }
+  for (const item of requests) {
+    if (!Number.isFinite(item.studentId) || item.studentId <= 0) {
+      throw new Error("Invalid student id.");
+    }
+    const pts =
+      typeof item.points === "number" && Number.isFinite(item.points) ? item.points : NaN;
+    if (!Number.isFinite(pts) || pts < 0) {
+      throw new Error("Points must be zero or higher.");
+    }
+  }
+
+  const { data } = await api.post<string[]>(
+    `/api/v1/faculty/canvas/courses/${parsedCourseId}/assignments/${parsedAssignmentId}/students/grades`,
+    requests.map((r) => ({
+      studentId: r.studentId,
+      points: r.points,
+      feedback: r.feedback ?? "",
+    })),
+  );
+  return data;
+}

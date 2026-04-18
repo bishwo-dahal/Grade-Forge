@@ -6,6 +6,7 @@ import type { Rubric } from "../../types/rubric";
 import {
   getAssignmentDescription,
   getAssignmentDetailById,
+  postFacultyBulkStudentGradesToCanvas,
   postFacultyStudentGradeToCanvas,
 } from "../../services/assignmentService";
 import {
@@ -273,6 +274,43 @@ export function FacultyGradingAssignmentDetailPage() {
     [resolvedAssignmentId, resolvedClassId],
   );
 
+  const handlePostBulkGradesToCanvas = useCallback(
+    async (rows: AssignmentDetailPageSubmissionRow[]) => {
+      if (!resolvedClassId.trim() || !resolvedAssignmentId.trim()) {
+        throw new Error("Invalid course or assignment.");
+      }
+      const eligible = rows.filter(
+        (row) =>
+          row.marks != null && row.studentId != null && row.studentId.trim().length > 0,
+      );
+      if (eligible.length < 1) {
+        throw new Error("No graded submissions with a student id are available to post.");
+      }
+
+      const payloads = await Promise.all(
+        eligible.map(async (row) => {
+          const parsedStudentId = Number(row.studentId!.trim());
+          if (!Number.isFinite(parsedStudentId) || parsedStudentId <= 0) {
+            throw new Error(`Invalid student id for ${row.studentName}.`);
+          }
+          const detail = await getFacultySubmissionById(row.submissionId);
+          return {
+            studentId: parsedStudentId,
+            points: row.marks!,
+            feedback: detail.feedback ?? "",
+          };
+        }),
+      );
+
+      await postFacultyBulkStudentGradesToCanvas(
+        resolvedClassId,
+        resolvedAssignmentId,
+        payloads,
+      );
+    },
+    [resolvedAssignmentId, resolvedClassId],
+  );
+
   return (
     <AuthShell
       roleView="faculty"
@@ -311,6 +349,7 @@ export function FacultyGradingAssignmentDetailPage() {
           }}
           testSuiteSection={pageTestSuiteSection}
           onPostSubmissionGradeToCanvas={handlePostSubmissionGradeToCanvas}
+          onPostBulkGradesToCanvas={handlePostBulkGradesToCanvas}
         />
       }
     />

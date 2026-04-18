@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   ChevronLeft,
+  CloudUpload,
   Download,
   FileText,
   Filter,
@@ -29,6 +30,14 @@ import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
 
 /** Normalized assignment summary for shared AssignmentDetailPage (Faculty + Grading Assistant). */
 export interface AssignmentDetailPageAssignment {
@@ -134,6 +143,8 @@ export interface AssignmentDetailPageProps {
   testSuiteSection?: AssignmentDetailPageTestSuiteSection | null;
   /** Optional action for faculty rows to post one student's grade to Canvas. */
   onPostSubmissionGradeToCanvas?: (row: AssignmentDetailPageSubmissionRow) => Promise<void>;
+  /** Optional bulk post for faculty: all graded rows with a student id in one Canvas request. */
+  onPostBulkGradesToCanvas?: (rows: AssignmentDetailPageSubmissionRow[]) => Promise<void>;
 }
 
 /** Per-student slice of the latest grader report (similarity + AI authorship risk). */
@@ -168,6 +179,7 @@ export function AssignmentDetailPage({
   testCasesLink,
   testSuiteSection,
   onPostSubmissionGradeToCanvas,
+  onPostBulkGradesToCanvas,
 }: AssignmentDetailPageProps) {
   const [plagSummary, setPlagSummary] = useState<{
     byStudent: Record<string, GraderReportStudentSummary>;
@@ -183,6 +195,16 @@ export function AssignmentDetailPage({
   const [openActionMenuSubmissionId, setOpenActionMenuSubmissionId] = useState<string | null>(null);
   const [postingCanvasBySubmissionId, setPostingCanvasBySubmissionId] = useState<Record<string, boolean>>({});
   const [canvasActionMessage, setCanvasActionMessage] = useState<string | null>(null);
+  const [isPostingBulkGradesToCanvas, setIsPostingBulkGradesToCanvas] = useState(false);
+  const [isBulkCanvasConfirmOpen, setIsBulkCanvasConfirmOpen] = useState(false);
+
+  const bulkCanvasEligibleCount = useMemo(
+    () =>
+      submissions.filter(
+        (row) => row.marks != null && row.studentId != null && row.studentId.trim().length > 0,
+      ).length,
+    [submissions],
+  );
 
   useEffect(() => {
     if (!assignment?.id) {
@@ -255,6 +277,26 @@ export function AssignmentDetailPage({
     () => submissions.some((row) => Boolean(row.subGroupName && row.subGroupName.trim())),
     [submissions],
   );
+
+  const handleConfirmBulkCanvasPost = useCallback(async () => {
+    if (!onPostBulkGradesToCanvas) return;
+    const eligibleCount = submissions.filter(
+      (row) => row.marks != null && row.studentId != null && row.studentId.trim().length > 0,
+    ).length;
+    setCanvasActionMessage(null);
+    setIsPostingBulkGradesToCanvas(true);
+    try {
+      await onPostBulkGradesToCanvas(submissions);
+      setCanvasActionMessage(`Posted ${eligibleCount} to Canvas.`);
+      setIsBulkCanvasConfirmOpen(false);
+    } catch (error) {
+      setCanvasActionMessage(error instanceof Error ? error.message : "Canvas post failed.");
+      setIsBulkCanvasConfirmOpen(false);
+    } finally {
+      setIsPostingBulkGradesToCanvas(false);
+    }
+  }, [onPostBulkGradesToCanvas, submissions]);
+
   if (loading) {
     return (
       <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
@@ -272,6 +314,7 @@ export function AssignmentDetailPage({
   }
 
   return (
+    <>
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
       <div className="max-w-7xl mx-auto px-8 py-6">
         <Link
@@ -567,6 +610,18 @@ export function AssignmentDetailPage({
                 <span className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[12px] font-medium text-[#2B2A2A]">
                   {submissionsCountLabel}
                 </span>
+              ) : null}
+              {onPostBulkGradesToCanvas ? (
+                <button
+                  type="button"
+                  title="Post all graded rows (with student id) to Canvas."
+                  disabled={submissionsLoading || bulkCanvasEligibleCount < 1}
+                  onClick={() => setIsBulkCanvasConfirmOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <CloudUpload className="w-4 h-4" strokeWidth={2} />
+                  <span>Post all</span>
+                </button>
               ) : null}
               {speedGradingLink ? (
                 <Link
@@ -914,6 +969,35 @@ export function AssignmentDetailPage({
         </div>
       </div>
     </main>
+    <AlertDialog
+      open={isBulkCanvasConfirmOpen}
+      onOpenChange={(open) => {
+        if (!open && isPostingBulkGradesToCanvas) return;
+        setIsBulkCanvasConfirmOpen(open);
+      }}
+    >
+      <AlertDialogContent
+        onEscapeKeyDown={(event) => {
+          if (isPostingBulkGradesToCanvas) event.preventDefault();
+        }}
+      >
+        <AlertDialogHeader>
+          <AlertDialogTitle>Post grades to Canvas?</AlertDialogTitle>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isPostingBulkGradesToCanvas}>Cancel</AlertDialogCancel>
+          <button
+            type="button"
+            onClick={() => void handleConfirmBulkCanvasPost()}
+            disabled={isPostingBulkGradesToCanvas}
+            className="inline-flex h-9 items-center justify-center rounded-md bg-[#2B2A2A] px-4 text-sm font-medium text-white transition-colors hover:bg-[#3A3939] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isPostingBulkGradesToCanvas ? "Posting…" : "Confirm"}
+          </button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 

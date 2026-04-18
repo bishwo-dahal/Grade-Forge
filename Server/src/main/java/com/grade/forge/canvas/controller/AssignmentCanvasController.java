@@ -1,6 +1,7 @@
 package com.grade.forge.canvas.controller;
 
 import com.grade.forge.canvas.dto.CanvasStudentDto;
+import com.grade.forge.canvas.dto.CanvasStudentBulkGradeRequest;
 import com.grade.forge.canvas.dto.CanvasStudentGradeRequest;
 import com.grade.forge.canvas.service.CanvasAssignmentService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,6 +50,13 @@ public class AssignmentCanvasController {
                 request.getPoints(),
                 request.getFeedback()
         );
+    }
+
+    @PostMapping("/courses/{courseId}/assignments/{assignmentId}/students/grades")
+    public List<String> postStudentGrades(@PathVariable Long courseId,
+                                          @PathVariable Long assignmentId,
+                                          @RequestBody List<CanvasStudentBulkGradeRequest> requests) {
+        return canvasAssignmentService.postStudentGrades(courseId, assignmentId, requests);
     }
 
 
