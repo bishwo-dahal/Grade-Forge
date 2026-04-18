@@ -18,7 +18,7 @@ export default function LandingPage() {
 
   return (
     <div
-      className="min-h-screen bg-[#F5F4F6] flex flex-col scroll-smooth overflow-x-hidden"
+      className="min-h-screen bg-[#F5F4F6] flex flex-col overflow-x-hidden"
       style={{ fontFamily: "Montserrat, 'Segoe UI', Helvetica Neue, Arial, sans-serif" }}
     >
       <LandingNav />

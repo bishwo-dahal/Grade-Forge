@@ -3,6 +3,7 @@ import { Link } from "react-router";
 
 const NAV_TABS = [
   { label: "Features", href: "#features" },
+  { label: "AI Detection", href: "#ai-detection" },
   { label: "For Students", href: "#for-students" },
   { label: "For Faculty", href: "#for-faculty" },
   { label: "Canvas", href: "#canvas" },

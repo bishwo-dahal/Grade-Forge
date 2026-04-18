@@ -1,9 +1,14 @@
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
+
+// useLayoutEffect causes a warning in non-browser environments (SSR/tests).
+// Use the browser version when window is available, useEffect otherwise.
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 export function useFadeIn<T extends HTMLElement = HTMLElement>(threshold = 0.12) {
   const ref = useRef<T>(null);
 
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
 

@@ -61,7 +61,6 @@ export function ForUsersSection() {
         </div>
 
         <div
-          id="for-faculty"
           className="grid grid-cols-1 md:grid-cols-2 gap-6"
         >
           {/* Students card */}
@@ -81,7 +80,7 @@ export function ForUsersSection() {
           </div>
 
           {/* Faculty card */}
-          <div className="bg-white rounded-2xl border border-[#e8e3e8] p-8 shadow-sm">
+          <div id="for-faculty" className="bg-white rounded-2xl border border-[#e8e3e8] p-8 shadow-sm">
             <div className="w-12 h-12 rounded-xl bg-[#fef2f2] flex items-center justify-center mb-5">
               <BuildingIcon />
             </div>

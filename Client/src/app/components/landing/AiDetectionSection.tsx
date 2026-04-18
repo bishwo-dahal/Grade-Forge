@@ -26,7 +26,7 @@ function MockDetectionCard() {
         </div>
         <div className="flex items-center gap-5">
           {/* Circular gauge */}
-          <svg width="80" height="80" viewBox="0 0 100 100" className="shrink-0">
+          <svg width="80" height="80" viewBox="0 0 100 100" className="shrink-0" role="img" aria-label="AI authorship risk gauge showing 12% risk">
             <circle cx="50" cy="50" r="38" fill="none" stroke="#e8e3e8" strokeWidth="9" />
             <circle
               cx="50"
