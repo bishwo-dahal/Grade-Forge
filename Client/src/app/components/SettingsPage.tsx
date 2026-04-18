@@ -4,6 +4,7 @@ import { Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff, Pencil, Camera
 import type { UserProfile } from "../../types/user";
 import type { FacultyResponse, FacultyUpdateRequest } from "../../types/faculty";
 import type { GradingAssistantResponse } from "../../types/gradingAssistant";
+import type { StudentResponse } from "../../types/student";
 import {
   getFacultyProfile,
   getStudentProfile,
@@ -11,6 +12,7 @@ import {
   updatePassword,
 } from "../../services/authService";
 import { getCurrentFaculty, updateCurrentFaculty } from "../../services/facultyService";
+import { getCurrentStudent, updateCurrentStudent } from "../../services/studentService";
 import { getCurrentGradingAssistantProfile } from "../../services/gradingAssistantService";
 import { patchCurrentUserProfile } from "../../services/userService";
 import { clearAuthenticated, getAuthenticatedRole, getAuthenticatedUser, getToken, setAuthenticated } from "../auth";
@@ -48,6 +50,10 @@ export function SettingsPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showRepeatPassword, setShowRepeatPassword] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [studentProfile, setStudentProfile] = useState<StudentResponse | null>(null);
+  const [studentProfileLoading, setStudentProfileLoading] = useState(false);
+  const [studentProfileError, setStudentProfileError] = useState<string | null>(null);
+  const [studentMajorEdit, setStudentMajorEdit] = useState("");
   const [isEditingStudent, setIsEditingStudent] = useState(false);
   const [studentNameEdit, setStudentNameEdit] = useState("");
   const [studentProfilePicture, setStudentProfilePicture] = useState<File | null>(null);
@@ -120,6 +126,14 @@ export function SettingsPage() {
     }
 
     getStudentProfile().then(setProfile);
+    setStudentProfileLoading(true);
+    getCurrentStudent()
+      .then((data) => {
+        setStudentProfile(data);
+        setStudentMajorEdit(data.major ?? "");
+      })
+      .catch(() => setStudentProfileError("Failed to load student profile."))
+      .finally(() => setStudentProfileLoading(false));
   }, [role]);
 
   useEffect(() => {
@@ -311,17 +325,26 @@ export function SettingsPage() {
     }
     const nameChanged = trimmed !== (loggedInUser.name ?? "").trim();
     const hasFile = Boolean(studentProfilePicture && studentProfilePicture.size > 0);
-    if (!nameChanged && !hasFile) {
+    const majorTrimmed = studentMajorEdit.trim();
+    const majorChanged = majorTrimmed !== (studentProfile?.major ?? "").trim();
+    if (!nameChanged && !hasFile && !majorChanged) {
       toast.info("No changes to save.");
       return;
     }
 
     setUpdatingStudentAccount(true);
     try {
-      await patchCurrentUserProfile({
-        name: nameChanged ? trimmed : undefined,
-        file: hasFile ? studentProfilePicture : undefined,
-      });
+      if (nameChanged || hasFile) {
+        await patchCurrentUserProfile({
+          name: nameChanged ? trimmed : undefined,
+          file: hasFile ? studentProfilePicture : undefined,
+        });
+      }
+      if (majorChanged) {
+        const updated = await updateCurrentStudent({ major: majorTrimmed || null });
+        setStudentProfile(updated);
+        setStudentMajorEdit(updated.major ?? "");
+      }
       try {
         await refreshAuthSessionFromMe();
       } catch (refreshErr: unknown) {
@@ -343,6 +366,7 @@ export function SettingsPage() {
 
   const cancelStudentAccountEdit = () => {
     setStudentNameEdit(loggedInUser?.name ?? displayName);
+    setStudentMajorEdit(studentProfile?.major ?? "");
     setStudentProfilePicture(null);
     setIsEditingStudent(false);
   };
@@ -550,7 +574,7 @@ export function SettingsPage() {
           <h1 className="text-[38px] leading-none font-bold text-[#2B2A2A] mb-3">Settings</h1>
           <p className="text-[14px] text-gray-600 mb-8">Manage your account preferences and settings</p>
 
-          <div className={`space-y-6 ${viewMode === "faculty" && activeSection === "profile" ? "max-w-[1100px]" : "max-w-[710px]"}`}>
+          <div className={`space-y-6 ${(viewMode === "faculty" || viewMode === "student") && activeSection === "profile" ? "max-w-[1100px]" : "max-w-[710px]"}`}>
             {activeSection === "profile" && (
               <section className="bg-white rounded-2xl border border-gray-200 p-6">
                   <h2 className="text-[28px] font-semibold text-[#2B2A2A] mb-5 flex items-center gap-2">
@@ -1010,82 +1034,110 @@ export function SettingsPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      <div>
-                        <label htmlFor="settings-student-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
-                          Full Name
-                        </label>
-                        <input
-                          id="settings-student-full-name"
-                          value={isEditingStudent ? studentNameEdit : displayName}
-                          onChange={(e) => setStudentNameEdit(e.target.value)}
-                          readOnly={!isEditingStudent}
-                          className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${
-                            isEditingStudent
-                              ? "text-[#2B2A2A] focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
-                              : "bg-gray-50 text-gray-700"
-                          }`}
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="settings-student-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
-                          Email Address
-                        </label>
-                        <input
-                          id="settings-student-email"
-                          value={displayEmail}
-                          readOnly
-                          disabled
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-500 cursor-not-allowed opacity-90"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="settings-student-id" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
-                          Student ID
-                        </label>
-                        <input
-                          id="settings-student-id"
-                          value={displayStudentId}
-                          readOnly
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
-                        />
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3 pt-1">
-                        {isEditingStudent ? (
-                          <>
+                    <>
+                      {studentProfileLoading && (
+                        <p className="text-[14px] text-gray-600 mb-4">Loading profile…</p>
+                      )}
+                      {studentProfileError && !studentProfileLoading && (
+                        <div className="mb-4 py-2 px-3 bg-red-50 border border-red-200 rounded-lg text-[13px] text-red-700">
+                          {studentProfileError}
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+                        <div>
+                          <label htmlFor="settings-student-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                            Full Name
+                          </label>
+                          <input
+                            id="settings-student-full-name"
+                            value={isEditingStudent ? studentNameEdit : displayName}
+                            onChange={(e) => setStudentNameEdit(e.target.value)}
+                            readOnly={!isEditingStudent}
+                            className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${
+                              isEditingStudent
+                                ? "text-[#2B2A2A] focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                                : "bg-gray-50 text-gray-700"
+                            }`}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="settings-student-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                            Email Address
+                          </label>
+                          <input
+                            id="settings-student-email"
+                            value={displayEmail}
+                            readOnly
+                            disabled
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-500 cursor-not-allowed opacity-90"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="settings-student-cwid" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                            Student ID (CWID)
+                          </label>
+                          <input
+                            id="settings-student-cwid"
+                            value={studentProfile?.cwid ?? ""}
+                            readOnly
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="settings-student-major" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                            Major
+                          </label>
+                          <input
+                            id="settings-student-major"
+                            value={isEditingStudent ? studentMajorEdit : (studentProfile?.major ?? "")}
+                            onChange={(e) => setStudentMajorEdit(e.target.value)}
+                            readOnly={!isEditingStudent}
+                            placeholder="e.g. Computer Science"
+                            className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${
+                              isEditingStudent
+                                ? "text-[#2B2A2A] placeholder:text-gray-400 focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                                : "bg-gray-50 text-gray-700"
+                            }`}
+                          />
+                        </div>
+                        <div className="md:col-span-2 lg:col-span-3 pt-2 flex items-center gap-3">
+                          {isEditingStudent ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={cancelStudentAccountEdit}
+                                disabled={updatingStudentAccount}
+                                className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 bg-white hover:bg-gray-50 rounded-xl text-[14px] font-medium text-[#2B2A2A] transition-colors disabled:opacity-60"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleStudentAccountSave}
+                                disabled={updatingStudentAccount}
+                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5A606B] hover:bg-[#474D56] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
+                              >
+                                {updatingStudentAccount ? "Saving…" : "Save changes"}
+                              </button>
+                            </>
+                          ) : (
                             <button
                               type="button"
-                              onClick={cancelStudentAccountEdit}
-                              disabled={updatingStudentAccount}
-                              className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 bg-white hover:bg-gray-50 rounded-xl text-[14px] font-medium text-[#2B2A2A] transition-colors disabled:opacity-60"
+                              onClick={() => {
+                                setStudentNameEdit(loggedInUser?.name ?? displayName);
+                                setStudentMajorEdit(studentProfile?.major ?? "");
+                                setStudentProfilePicture(null);
+                                setIsEditingStudent(true);
+                              }}
+                              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5A606B] hover:bg-[#474D56] rounded-xl text-[14px] font-semibold text-white transition-colors"
                             >
-                              Cancel
+                              <Pencil className="w-4 h-4" strokeWidth={2} />
+                              Edit account
                             </button>
-                            <button
-                              type="button"
-                              onClick={handleStudentAccountSave}
-                              disabled={updatingStudentAccount}
-                              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
-                            >
-                              {updatingStudentAccount ? "Saving…" : "Save changes"}
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setStudentNameEdit(displayName);
-                              setStudentProfilePicture(null);
-                              setIsEditingStudent(true);
-                            }}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] rounded-xl text-[14px] font-semibold text-white transition-colors"
-                          >
-                            <Pencil className="w-4 h-4" strokeWidth={2} />
-                            Edit account
-                          </button>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </>
                   )}
               </section>
             )}
