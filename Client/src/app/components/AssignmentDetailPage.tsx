@@ -35,6 +35,7 @@ import {
   AlertDialog,
   AlertDialogCancel,
   AlertDialogContent,
+  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -144,6 +145,8 @@ export interface AssignmentDetailPageProps {
   testSuiteSection?: AssignmentDetailPageTestSuiteSection | null;
   /** Optional edit entry for faculty assignment detail pages. */
   editAssignmentLink?: { to: string; label?: string };
+  /** Optional: publish/sync assignment definition to Canvas (faculty assignment detail). */
+  onSyncAssignmentWithCanvas?: () => Promise<void>;
   /** Optional: post one row's grade to Canvas (faculty). */
   onPostSubmissionGradeToCanvas?: (row: AssignmentDetailPageSubmissionRow) => Promise<void>;
   /** Optional: bulk post graded rows with student id to Canvas (faculty). */
@@ -189,6 +192,7 @@ export function AssignmentDetailPage({
   testCasesLink,
   testSuiteSection,
   editAssignmentLink,
+  onSyncAssignmentWithCanvas,
   onPostSubmissionGradeToCanvas,
   onPostBulkGradesToCanvas,
 }: AssignmentDetailPageProps) {
@@ -208,6 +212,8 @@ export function AssignmentDetailPage({
   const [postingCanvasBySubmissionId, setPostingCanvasBySubmissionId] = useState<Record<string, boolean>>({});
   const [isPostingBulkGradesToCanvas, setIsPostingBulkGradesToCanvas] = useState(false);
   const [isBulkCanvasConfirmOpen, setIsBulkCanvasConfirmOpen] = useState(false);
+  const [isSyncCanvasConfirmOpen, setIsSyncCanvasConfirmOpen] = useState(false);
+  const [isSyncingAssignmentWithCanvas, setIsSyncingAssignmentWithCanvas] = useState(false);
 
   const handleDownloadAll = useCallback(async () => {
     const rowsWithFiles = submissions.filter(
@@ -355,6 +361,17 @@ export function AssignmentDetailPage({
     }
   }, [onPostBulkGradesToCanvas, submissions]);
 
+  const handleConfirmSyncAssignmentWithCanvas = useCallback(async () => {
+    if (!onSyncAssignmentWithCanvas) return;
+    setIsSyncingAssignmentWithCanvas(true);
+    try {
+      await onSyncAssignmentWithCanvas();
+    } finally {
+      setIsSyncingAssignmentWithCanvas(false);
+      setIsSyncCanvasConfirmOpen(false);
+    }
+  }, [onSyncAssignmentWithCanvas]);
+
   const sectionTabs: Array<{ id: AssignmentDetailSection; label: string }> = [
     { id: "description", label: "Description" },
     { id: "details", label: "Assignment Details" },
@@ -421,14 +438,28 @@ export function AssignmentDetailPage({
                   </div>
                 </div>
                 {editAssignmentLink ? (
-                  <Link
-                    to={editAssignmentLink.to}
-                    aria-label={editAssignmentLink.label ?? "Edit assignment"}
-                    title={editAssignmentLink.label ?? "Edit assignment"}
-                    className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-[#2B2A2A]"
-                  >
-                    <Pencil className="h-4 w-4" strokeWidth={2} />
-                  </Link>
+                  <div className="flex flex-shrink-0 flex-col items-end gap-2">
+                    <Link
+                      to={editAssignmentLink.to}
+                      aria-label={editAssignmentLink.label ?? "Edit assignment"}
+                      title={editAssignmentLink.label ?? "Edit assignment"}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-[#2B2A2A]"
+                    >
+                      <Pencil className="h-4 w-4" strokeWidth={2} />
+                    </Link>
+                    {onSyncAssignmentWithCanvas ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsSyncCanvasConfirmOpen(true)}
+                        disabled={isSyncingAssignmentWithCanvas}
+                        aria-label="Sync assignment with Canvas"
+                        title="Sync assignment with Canvas"
+                        className="whitespace-nowrap rounded-lg border border-[#D6DDF5] bg-[#F8FAFF] px-3 py-1.5 text-[11px] font-medium text-[#5A7ACD] hover:bg-[#EEF2FC] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Sync with Canvas
+                      </button>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             </div>
@@ -1072,6 +1103,38 @@ export function AssignmentDetailPage({
             className="inline-flex h-9 items-center justify-center rounded-md bg-[#2B2A2A] px-4 text-sm font-medium text-white transition-colors hover:bg-[#3A3939] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isPostingBulkGradesToCanvas ? "Posting…" : "Confirm"}
+          </button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    <AlertDialog
+      open={isSyncCanvasConfirmOpen}
+      onOpenChange={(open) => {
+        if (!open && isSyncingAssignmentWithCanvas) return;
+        setIsSyncCanvasConfirmOpen(open);
+      }}
+    >
+      <AlertDialogContent
+        onEscapeKeyDown={(event) => {
+          if (isSyncingAssignmentWithCanvas) event.preventDefault();
+        }}
+      >
+        <AlertDialogHeader>
+          <AlertDialogTitle>Sync this assignment with Canvas?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This publishes the assignment to the Canvas course linked to this class. Continue only if you intend
+            to update Canvas.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isSyncingAssignmentWithCanvas}>Cancel</AlertDialogCancel>
+          <button
+            type="button"
+            onClick={() => void handleConfirmSyncAssignmentWithCanvas()}
+            disabled={isSyncingAssignmentWithCanvas}
+            className="inline-flex h-9 items-center justify-center rounded-md bg-[#2B2A2A] px-4 text-sm font-medium text-white transition-colors hover:bg-[#3A3939] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSyncingAssignmentWithCanvas ? "Syncing…" : "Sync"}
           </button>
         </AlertDialogFooter>
       </AlertDialogContent>

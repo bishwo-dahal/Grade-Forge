@@ -8,6 +8,7 @@ import {
   getAssignmentDetailById,
   postFacultyBulkStudentGradesToCanvas,
   postFacultyStudentGradeToCanvas,
+  publishFacultyAssignmentToCanvas,
 } from "../../services/assignmentService";
 import { getFacultySubmissionById, listFacultyAssignmentSubmissionFiles } from "../../services/submissionService";
 import { getRubric } from "../../services/rubricService";
@@ -25,6 +26,7 @@ import {
 } from "./AssignmentDetailPage";
 import { getTestSuiteByAssignment } from "../../services/testSuiteService";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
+import { toast } from "sonner";
 
 function extractErrorMessage(error: unknown): string {
   return getApiErrorMessage(error, "Unable to load grading details.");
@@ -272,6 +274,19 @@ export function FacultyGradingAssignmentDetailPage() {
     [resolvedAssignmentId, resolvedClassId],
   );
 
+  const handleSyncAssignmentWithCanvas = useCallback(async () => {
+    if (!resolvedClassId.trim() || !resolvedAssignmentId.trim()) {
+      return;
+    }
+    try {
+      await publishFacultyAssignmentToCanvas(resolvedClassId, resolvedAssignmentId);
+      toast.success("Synced with Canvas.");
+      await loadAll();
+    } catch (error) {
+      toast.error(extractErrorMessage(error));
+    }
+  }, [loadAll, resolvedAssignmentId, resolvedClassId]);
+
   const handlePostBulkGradesToCanvas = useCallback(
     async (rows: AssignmentDetailPageSubmissionRow[]) => {
       if (!resolvedClassId.trim() || !resolvedAssignmentId.trim()) {
@@ -349,6 +364,7 @@ export function FacultyGradingAssignmentDetailPage() {
             to: `/faculty/class/${resolvedClassId}/assignments/${resolvedAssignmentId}/edit`,
             label: "Edit assignment",
           }}
+          onSyncAssignmentWithCanvas={handleSyncAssignmentWithCanvas}
           onPostSubmissionGradeToCanvas={handlePostSubmissionGradeToCanvas}
           onPostBulkGradesToCanvas={handlePostBulkGradesToCanvas}
         />
