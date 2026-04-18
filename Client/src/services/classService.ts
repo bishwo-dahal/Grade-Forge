@@ -1575,6 +1575,13 @@ export async function enrollStudentByEmail(
   });
 }
 
+/** Matches backend `EnrollmentRequest` for POST /api/v1/faculty/enrollments/bulk. */
+export interface FacultyEnrollmentBulkRequest {
+  studentId: number;
+  courseId: number;
+  canvasId: number | null;
+}
+
 export async function enrollFacultyStudentsBulk(
   classId: string,
   items: Array<{ studentId: number; canvasId: number | null }>,
@@ -1583,11 +1590,21 @@ export async function enrollFacultyStudentsBulk(
   if (items.length < 1) {
     throw new Error("No enrollments to submit.");
   }
-  const body = items.map((item) => ({
-    studentId: item.studentId,
-    courseId,
-    canvasId: item.canvasId,
-  }));
+  const body: FacultyEnrollmentBulkRequest[] = items.map((item) => {
+    const sid = Number(item.studentId);
+    if (!Number.isFinite(sid) || sid <= 0) {
+      throw new Error("Invalid student id in bulk enrollment.");
+    }
+    const cid =
+      item.canvasId != null && Number.isFinite(item.canvasId) && item.canvasId > 0
+        ? Math.trunc(item.canvasId)
+        : null;
+    return {
+      studentId: Math.trunc(sid),
+      courseId: Math.trunc(courseId),
+      canvasId: cid,
+    };
+  });
   const { data } = await api.post<unknown[]>("/api/v1/faculty/enrollments/bulk", body);
   return data;
 }

@@ -6,8 +6,10 @@ import type { Rubric } from "../../types/rubric";
 import {
   getAssignmentDescription,
   getAssignmentDetailById,
+  postFacultyBulkStudentGradesToCanvas,
+  postFacultyStudentGradeToCanvas,
 } from "../../services/assignmentService";
-import { listFacultyAssignmentSubmissionFiles } from "../../services/submissionService";
+import { getFacultySubmissionById, listFacultyAssignmentSubmissionFiles } from "../../services/submissionService";
 import { getRubric } from "../../services/rubricService";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthTopBar } from "./layout/AuthTopBar";
@@ -244,6 +246,69 @@ export function FacultyGradingAssignmentDetailPage() {
     return mapToTestSuiteSection(testSuite);
   }, [testSuite, testSuiteLoading]);
 
+  const handlePostSubmissionGradeToCanvas = useCallback(
+    async (row: AssignmentDetailPageSubmissionRow) => {
+      if (!resolvedClassId.trim() || !resolvedAssignmentId.trim()) {
+        throw new Error("Invalid course or assignment.");
+      }
+      if (!row.studentId || row.studentId.trim().length < 1) {
+        throw new Error("Missing student id for this submission.");
+      }
+      if (row.marks == null) {
+        throw new Error("Grade this submission before posting to Canvas.");
+      }
+
+      const detail = await getFacultySubmissionById(row.submissionId);
+      await postFacultyStudentGradeToCanvas(
+        resolvedClassId,
+        resolvedAssignmentId,
+        row.studentId,
+        {
+          points: row.marks,
+          feedback: detail.feedback ?? "",
+        },
+      );
+    },
+    [resolvedAssignmentId, resolvedClassId],
+  );
+
+  const handlePostBulkGradesToCanvas = useCallback(
+    async (rows: AssignmentDetailPageSubmissionRow[]) => {
+      if (!resolvedClassId.trim() || !resolvedAssignmentId.trim()) {
+        throw new Error("Invalid course or assignment.");
+      }
+      const eligible = rows.filter(
+        (row) =>
+          row.marks != null && row.studentId != null && row.studentId.trim().length > 0,
+      );
+      if (eligible.length < 1) {
+        throw new Error("No graded submissions with a student id are available to post.");
+      }
+
+      const payloads = await Promise.all(
+        eligible.map(async (row) => {
+          const parsedStudentId = Number(row.studentId!.trim());
+          if (!Number.isFinite(parsedStudentId) || parsedStudentId <= 0) {
+            throw new Error(`Invalid student id for ${row.studentName}.`);
+          }
+          const detail = await getFacultySubmissionById(row.submissionId);
+          return {
+            studentId: parsedStudentId,
+            points: row.marks!,
+            feedback: detail.feedback ?? "",
+          };
+        }),
+      );
+
+      await postFacultyBulkStudentGradesToCanvas(
+        resolvedClassId,
+        resolvedAssignmentId,
+        payloads,
+      );
+    },
+    [resolvedAssignmentId, resolvedClassId],
+  );
+
   return (
     <div className="flex h-screen bg-[#F5F4F6]">
       <FacultyClassSidebar classId={resolvedClassId} activeSection="assignments" />
@@ -284,6 +349,8 @@ export function FacultyGradingAssignmentDetailPage() {
             to: `/faculty/class/${resolvedClassId}/assignments/${resolvedAssignmentId}/edit`,
             label: "Edit assignment",
           }}
+          onPostSubmissionGradeToCanvas={handlePostSubmissionGradeToCanvas}
+          onPostBulkGradesToCanvas={handlePostBulkGradesToCanvas}
         />
         </div>
       </div>

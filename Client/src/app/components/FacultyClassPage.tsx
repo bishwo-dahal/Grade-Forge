@@ -35,6 +35,7 @@ import type {
   ClassRecentActivity,
   FacultyAssignment,
   FacultyDashboardStat,
+  CanvasCourseStudent,
   FacultyStudentEmailSuggestion,
   FacultyRosterStats,
   FacultyRosterStudentRow,
@@ -45,6 +46,7 @@ import type { MainGroupResponse } from "../../types/courseGroup";
 import type { ClassSubmissionItem, SpeedGradingAssignmentOption } from "../../types/submission";
 import {
   dropStudentFromCourse,
+  enrollFacultyStudentsBulk,
   enrollStudentByEmail,
   getFacultyClassHeaderById,
   deleteFacultyCourse,
@@ -53,6 +55,7 @@ import {
   listFacultyAssignments,
   listFacultySemesters,
   listFacultyStudentEmailSuggestions,
+  listCanvasCourseStudents,
   listFacultyRosterRows,
   listFacultyDashboardStats,
   searchFacultyStudentByEmail,
@@ -1593,7 +1596,7 @@ function downloadSampleStudentCsv(): void {
   URL.revokeObjectURL(url);
 }
 
-type AddStudentMode = "choice" | "manual" | "csv";
+type AddStudentMode = "choice" | "manual" | "csv" | "canvas";
 
 function StudentGradesModal({
   student,
@@ -1743,6 +1746,13 @@ function StudentsSection({
   const [fileImportResults, setFileImportResults] = useState<{ email: string; name: string; status: "success" | "error"; message?: string }[]>([]);
   const [isFileImporting, setIsFileImporting] = useState(false);
   const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
+  const [canvasStudents, setCanvasStudents] = useState<CanvasCourseStudent[]>([]);
+  const [canvasStudentsError, setCanvasStudentsError] = useState<string | null>(null);
+  const [isCanvasStudentsLoading, setIsCanvasStudentsLoading] = useState(false);
+  const [canvasSearchValue, setCanvasSearchValue] = useState("");
+  const [isEnrollAllCanvasLoading, setIsEnrollAllCanvasLoading] = useState(false);
+  const [canvasEnrollLoadingById, setCanvasEnrollLoadingById] = useState<Record<string, boolean>>({});
+  const [enrolledCanvasStudentIds, setEnrolledCanvasStudentIds] = useState<Record<string, boolean>>({});
 
   const courseId = useMemo(() => Number(resolvedId) || 0, [resolvedId]);
 
@@ -1791,6 +1801,13 @@ function StudentsSection({
     setIsEnrollLoading(false);
     setParsedFileRows(null);
     setFileImportResults([]);
+    setCanvasStudents([]);
+    setCanvasStudentsError(null);
+    setCanvasSearchValue("");
+    setIsCanvasStudentsLoading(false);
+    setIsEnrollAllCanvasLoading(false);
+    setCanvasEnrollLoadingById({});
+    setEnrolledCanvasStudentIds({});
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -1820,7 +1837,7 @@ function StudentsSection({
     const results: { email: string; name: string; status: "success" | "error"; message?: string }[] = [];
     for (const row of parsedFileRows) {
       try {
-        await enrollStudentByEmail(resolvedId, row.email);
+        await enrollStudentByEmail(resolvedId, row.email, null);
         results.push({ email: row.email, name: row.name, status: "success" });
       } catch (err) {
         results.push({ email: row.email, name: row.name, status: "error", message: getErrorMessage(err) });
@@ -1897,6 +1914,42 @@ function StudentsSection({
       window.clearTimeout(timer);
     };
   }, [isAddStudentModalOpen, addMode, lookupEmail, resolvedId]);
+
+  useEffect(() => {
+    if (!isAddStudentModalOpen || addMode !== "canvas") {
+      return;
+    }
+    setIsCanvasStudentsLoading(true);
+    setCanvasStudentsError(null);
+    listCanvasCourseStudents(resolvedId)
+      .then((rows) => {
+        setCanvasStudents(rows);
+      })
+      .catch((error) => {
+        setCanvasStudents([]);
+        setCanvasStudentsError(getErrorMessage(error));
+      })
+      .finally(() => {
+        setIsCanvasStudentsLoading(false);
+      });
+  }, [isAddStudentModalOpen, addMode, resolvedId]);
+
+  const filteredCanvasStudents = useMemo(() => {
+    const normalizedQuery = canvasSearchValue.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return canvasStudents;
+    }
+    return canvasStudents.filter((student) => {
+      const idMatch =
+        student.canvasUserId != null && String(student.canvasUserId).includes(normalizedQuery);
+      return (
+        idMatch ||
+        student.name.toLowerCase().includes(normalizedQuery) ||
+        student.loginId.toLowerCase().includes(normalizedQuery) ||
+        student.state.toLowerCase().includes(normalizedQuery)
+      );
+    });
+  }, [canvasStudents, canvasSearchValue]);
 
   const getDisplayedAvgScore = useCallback(
     (row: FacultyRosterStudentRow): number => {
@@ -2018,7 +2071,7 @@ function StudentsSection({
     setIsEnrollLoading(true);
     setFeedbackMessage(null);
     try {
-      await enrollStudentByEmail(resolvedId, lookupResult.studentEmail);
+      await enrollStudentByEmail(resolvedId, lookupResult.studentEmail, null);
       setFeedbackMessage({ tone: "success", text: `${lookupResult.studentName} was enrolled successfully.` });
       await loadRoster();
       closeAddStudentModal();
@@ -2030,13 +2083,131 @@ function StudentsSection({
     }
   };
 
+  const handleCanvasEnrollOne = async (student: CanvasCourseStudent) => {
+    const loginId = student.loginId.trim();
+    if (!loginId) {
+      toast.error(`Cannot enroll ${student.name}: missing login ID.`);
+      return;
+    }
+
+    setCanvasEnrollLoadingById((previous) => ({ ...previous, [student.id]: true }));
+    try {
+      await enrollStudentByEmail(resolvedId, loginId, student.canvasUserId ?? null);
+      setEnrolledCanvasStudentIds((previous) => ({ ...previous, [student.id]: true }));
+      toast.success(`${student.name} enrolled successfully.`);
+      await loadRoster();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setCanvasEnrollLoadingById((previous) => ({ ...previous, [student.id]: false }));
+    }
+  };
+
+  const handleCanvasEnrollAll = async () => {
+    if (filteredCanvasStudents.length < 1) {
+      return;
+    }
+
+    const candidates = filteredCanvasStudents.filter(
+      (student) => student.loginId.trim().length > 0 && !enrolledCanvasStudentIds[student.id],
+    );
+    if (candidates.length < 1) {
+      toast.info("No eligible Canvas students to enroll.");
+      return;
+    }
+
+    setIsEnrollAllCanvasLoading(true);
+    try {
+      const settled = await Promise.allSettled(
+        candidates.map(async (student) => {
+          const matched = await searchFacultyStudentByEmail(resolvedId, student.loginId.trim());
+          return { student, matched };
+        }),
+      );
+
+      type BulkRow = { studentId: number; canvasId: number | null; rowIds: string[] };
+      const byStudentId = new Map<number, BulkRow>();
+      let skipped = 0;
+
+      for (const outcome of settled) {
+        if (outcome.status === "rejected") {
+          skipped += 1;
+          continue;
+        }
+        const { student, matched } = outcome.value;
+        if (matched.alreadyInCourse || matched.studentId == null) {
+          skipped += 1;
+          continue;
+        }
+        const sid = matched.studentId;
+        const canvasId = student.canvasUserId ?? null;
+        const existing = byStudentId.get(sid);
+        if (existing) {
+          existing.rowIds.push(student.id);
+          if (existing.canvasId == null && canvasId != null) {
+            existing.canvasId = canvasId;
+          }
+        } else {
+          byStudentId.set(sid, { studentId: sid, canvasId, rowIds: [student.id] });
+        }
+      }
+
+      const bulkItems = Array.from(byStudentId.values()).map((row) => ({
+        studentId: row.studentId,
+        canvasId: row.canvasId,
+      }));
+
+      if (bulkItems.length < 1) {
+        toast.error(
+          skipped > 0
+            ? "Students not found or students already enrolled."
+            : "No eligible Canvas students to enroll.",
+        );
+        return;
+      }
+
+      await enrollFacultyStudentsBulk(resolvedId, bulkItems);
+
+      setEnrolledCanvasStudentIds((previous) => {
+        const next = { ...previous };
+        for (const row of byStudentId.values()) {
+          for (const id of row.rowIds) {
+            next[id] = true;
+          }
+        }
+        return next;
+      });
+
+      toast.success(
+        `${bulkItems.length} student${bulkItems.length === 1 ? "" : "s"} enrolled successfully.`,
+      );
+      if (skipped > 0) {
+        toast.info(
+          `${skipped} row${skipped === 1 ? "" : "s"} skipped (not found, already enrolled, or missing match).`,
+        );
+      }
+      await loadRoster();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsEnrollAllCanvasLoading(false);
+    }
+  };
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between gap-3">
         <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Student Roster</h2>
         <div className="flex flex-wrap items-center gap-2">
-          <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
-            <Download className="w-4 h-4" strokeWidth={2} />
+          <button
+            type="button"
+            onClick={() => {
+              setAddMode("canvas");
+              onOpenAddStudentModal();
+            }}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors"
+          >
+            <Users className="w-4 h-4" strokeWidth={2} />
             <span>Import from Canvas</span>
           </button>
           <button
@@ -2274,11 +2445,11 @@ function StudentsSection({
 
             <div className="p-5">
               {addMode === "choice" ? (
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <button
                     type="button"
                     onClick={() => setAddMode("manual")}
-                    className="flex-1 flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left"
+                    className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left"
                   >
                     <div className="p-2.5 rounded-lg bg-[#5A7ACD]/10">
                       <Search className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
@@ -2289,13 +2460,26 @@ function StudentsSection({
                   <button
                     type="button"
                     onClick={() => setAddMode("csv")}
-                    className="flex-1 flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left"
+                    className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left"
                   >
                     <div className="p-2.5 rounded-lg bg-[#5A7ACD]/10">
                       <FileUp className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
                     </div>
                     <h4 className="text-[15px] font-semibold text-[#2B2A2A]">Add from CSV file</h4>
                     <p className="text-[13px] text-gray-600">Upload a CSV with student information to add multiple students</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddMode("canvas")}
+                    className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left sm:col-span-2 lg:col-span-1"
+                  >
+                    <div className="p-2.5 rounded-lg bg-[#5A7ACD]/10">
+                      <Users className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
+                    </div>
+                    <h4 className="text-[15px] font-semibold text-[#2B2A2A]">Import from Canvas</h4>
+                    <p className="text-[13px] text-gray-600">
+                      Load students from the Canvas course linked to this class and enroll by login ID
+                    </p>
                   </button>
                 </div>
               ) : addMode === "manual" ? (
@@ -2420,7 +2604,7 @@ function StudentsSection({
                 </p>
               ) : null}
                 </>
-              ) : (
+              ) : addMode === "csv" ? (
                 <div className="overflow-y-auto max-h-[70vh]">
                   <p className="text-[13px] text-gray-600 mb-3">
                     Upload a CSV or text file with one student per line. Use <strong>name, email</strong> or <strong>email</strong> only. Header row (e.g. &quot;name,email&quot;) is ignored.
@@ -2496,6 +2680,86 @@ function StudentsSection({
                       )}
                     </>
                   )}
+                </div>
+              ) : (
+                <div className="flex max-h-[70vh] flex-col gap-4 overflow-hidden">
+                  <p className="text-[13px] text-gray-600">
+                    Each row uses the student&apos;s Canvas login ID to find their Grade-Forge account before enrolling.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative min-w-[200px] flex-1">
+                      <Search
+                        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                        strokeWidth={2}
+                      />
+                      <input
+                        value={canvasSearchValue}
+                        onChange={(event) => setCanvasSearchValue(event.target.value)}
+                        type="text"
+                        placeholder="Filter by name, login, Canvas ID, or state…"
+                        className="h-10 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-[13px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/25"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleCanvasEnrollAll()}
+                      disabled={
+                        isCanvasStudentsLoading ||
+                        isEnrollAllCanvasLoading ||
+                        filteredCanvasStudents.length < 1
+                      }
+                      className="h-10 shrink-0 rounded-xl bg-[#2B2A2A] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#3a3939] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isEnrollAllCanvasLoading ? "Enrolling all…" : "Add all students"}
+                    </button>
+                  </div>
+                  {canvasStudentsError ? (
+                    <p className="text-[13px] text-red-600">{canvasStudentsError}</p>
+                  ) : null}
+                  <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-gray-200 bg-white">
+                    {isCanvasStudentsLoading ? (
+                      <div className="flex justify-center py-10">
+                        <RefreshCcw className="h-8 w-8 animate-spin text-gray-400" strokeWidth={2} />
+                      </div>
+                    ) : filteredCanvasStudents.length > 0 ? (
+                      <ul className="divide-y divide-gray-100">
+                        {filteredCanvasStudents.map((student) => (
+                          <li
+                            key={student.id}
+                            className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[14px] font-medium text-[#2B2A2A]">{student.name}</p>
+                              <p className="text-[12px] text-gray-600">
+                                ID: {student.canvasUserId != null ? student.canvasUserId : "N/A"} • Login:{" "}
+                                {student.loginId || "—"} • {student.state || "—"}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void handleCanvasEnrollOne(student)}
+                              disabled={
+                                !student.loginId.trim() ||
+                                Boolean(canvasEnrollLoadingById[student.id]) ||
+                                Boolean(enrolledCanvasStudentIds[student.id])
+                              }
+                              className="h-9 shrink-0 rounded-lg bg-[#5A7ACD] px-3 text-[12px] font-medium text-white transition-colors hover:bg-[#4e6fbd] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {canvasEnrollLoadingById[student.id]
+                                ? "Adding…"
+                                : enrolledCanvasStudentIds[student.id]
+                                  ? "Added"
+                                  : "Add"}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="px-4 py-10 text-center text-[13px] text-gray-500">
+                        No Canvas students to show. Confirm this course has a Canvas course ID configured.
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

@@ -3,6 +3,7 @@ import JSZip from "jszip";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   ChevronLeft,
+  CloudUpload,
   Download,
   FileText,
   Inbox,
@@ -25,10 +26,19 @@ import type { GradingAssistantSubmissionResponse } from "../../types/gradingAssi
 import { getAssignmentByCourse } from "../../services/gradingAssistantAssignmentService";
 import { getRubric } from "../../services/gradingAssistantRubricService";
 import { listSubmissionsByAssignment } from "../../services/gradingAssistantSubmissionService";
+import { toast } from "sonner";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
 
 /** Normalized assignment summary for shared AssignmentDetailPage (Faculty + Grading Assistant). */
 export interface AssignmentDetailPageAssignment {
@@ -134,6 +144,10 @@ export interface AssignmentDetailPageProps {
   testSuiteSection?: AssignmentDetailPageTestSuiteSection | null;
   /** Optional edit entry for faculty assignment detail pages. */
   editAssignmentLink?: { to: string; label?: string };
+  /** Optional: post one row's grade to Canvas (faculty). */
+  onPostSubmissionGradeToCanvas?: (row: AssignmentDetailPageSubmissionRow) => Promise<void>;
+  /** Optional: bulk post graded rows with student id to Canvas (faculty). */
+  onPostBulkGradesToCanvas?: (rows: AssignmentDetailPageSubmissionRow[]) => Promise<void>;
 }
 
 type AssignmentDetailSection =
@@ -175,6 +189,8 @@ export function AssignmentDetailPage({
   testCasesLink,
   testSuiteSection,
   editAssignmentLink,
+  onPostSubmissionGradeToCanvas,
+  onPostBulkGradesToCanvas,
 }: AssignmentDetailPageProps) {
   const [activeSection, setActiveSection] = useState<AssignmentDetailSection>("description");
   const [plagSummary, setPlagSummary] = useState<{
@@ -189,6 +205,9 @@ export function AssignmentDetailPage({
   >("idle");
   const [plagRunMessage, setPlagRunMessage] = useState<string | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
+  const [postingCanvasBySubmissionId, setPostingCanvasBySubmissionId] = useState<Record<string, boolean>>({});
+  const [isPostingBulkGradesToCanvas, setIsPostingBulkGradesToCanvas] = useState(false);
+  const [isBulkCanvasConfirmOpen, setIsBulkCanvasConfirmOpen] = useState(false);
 
   const handleDownloadAll = useCallback(async () => {
     const rowsWithFiles = submissions.filter(
@@ -312,6 +331,30 @@ export function AssignmentDetailPage({
     () => submissions.some((row) => Boolean(row.subGroupName && row.subGroupName.trim())),
     [submissions],
   );
+
+  const bulkCanvasEligibleCount = useMemo(
+    () =>
+      submissions.filter(
+        (row) => row.marks != null && row.studentId != null && row.studentId.trim().length > 0,
+      ).length,
+    [submissions],
+  );
+
+  const handleConfirmBulkCanvasPost = useCallback(async () => {
+    if (!onPostBulkGradesToCanvas) return;
+    setIsPostingBulkGradesToCanvas(true);
+    try {
+      await onPostBulkGradesToCanvas(submissions);
+      toast.success("Posted to Canvas.");
+      setIsBulkCanvasConfirmOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Canvas post failed.");
+      setIsBulkCanvasConfirmOpen(false);
+    } finally {
+      setIsPostingBulkGradesToCanvas(false);
+    }
+  }, [onPostBulkGradesToCanvas, submissions]);
+
   const sectionTabs: Array<{ id: AssignmentDetailSection; label: string }> = [
     { id: "description", label: "Description" },
     { id: "details", label: "Assignment Details" },
@@ -336,6 +379,7 @@ export function AssignmentDetailPage({
   }
 
   return (
+    <>
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
       <div className="2xl:max-w-7xl 2xl:mx-auto px-8 py-6">
         <Link
@@ -698,6 +742,18 @@ export function AssignmentDetailPage({
                 />
                 <span>{downloadingAll ? "Preparing…" : "Download All"}</span>
               </button>
+              {onPostBulkGradesToCanvas ? (
+                <button
+                  type="button"
+                  title="Post every graded submission (with student id) to Canvas in one request."
+                  disabled={submissionsLoading || bulkCanvasEligibleCount < 1}
+                  onClick={() => setIsBulkCanvasConfirmOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <CloudUpload className="w-4 h-4" strokeWidth={2} />
+                  <span>Post all grades to Canvas</span>
+                </button>
+              ) : null}
               {speedGradingLink ? (
                 <Link
                   to={speedGradingLink.to}
@@ -935,6 +991,41 @@ export function AssignmentDetailPage({
                                 Group
                               </Link>
                             ) : null}
+                            {onPostSubmissionGradeToCanvas ? (
+                              <button
+                                type="button"
+                                title="Send this row's grade to Canvas"
+                                aria-label="Send this row's grade to Canvas"
+                                disabled={
+                                  row.marks == null ||
+                                  !row.studentId?.trim() ||
+                                  Boolean(postingCanvasBySubmissionId[row.submissionId])
+                                }
+                                onClick={async () => {
+                                  if (!onPostSubmissionGradeToCanvas || row.marks == null) return;
+                                  setPostingCanvasBySubmissionId((previous) => ({
+                                    ...previous,
+                                    [row.submissionId]: true,
+                                  }));
+                                  try {
+                                    await onPostSubmissionGradeToCanvas(row);
+                                    toast.success("Posted to Canvas.");
+                                  } catch (error) {
+                                    toast.error(
+                                      error instanceof Error ? error.message : "Canvas post failed.",
+                                    );
+                                  } finally {
+                                    setPostingCanvasBySubmissionId((previous) => ({
+                                      ...previous,
+                                      [row.submissionId]: false,
+                                    }));
+                                  }
+                                }}
+                                className="px-2 py-1 text-[11px] font-medium rounded-md border border-gray-300 bg-white text-[#2B2A2A] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {postingCanvasBySubmissionId[row.submissionId] ? "Sending…" : "Canvas"}
+                              </button>
+                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -957,6 +1048,35 @@ export function AssignmentDetailPage({
         ) : null}
       </div>
     </main>
+    <AlertDialog
+      open={isBulkCanvasConfirmOpen}
+      onOpenChange={(open) => {
+        if (!open && isPostingBulkGradesToCanvas) return;
+        setIsBulkCanvasConfirmOpen(open);
+      }}
+    >
+      <AlertDialogContent
+        onEscapeKeyDown={(event) => {
+          if (isPostingBulkGradesToCanvas) event.preventDefault();
+        }}
+      >
+        <AlertDialogHeader>
+          <AlertDialogTitle>Post all grades to Canvas?</AlertDialogTitle>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isPostingBulkGradesToCanvas}>Cancel</AlertDialogCancel>
+          <button
+            type="button"
+            onClick={() => void handleConfirmBulkCanvasPost()}
+            disabled={isPostingBulkGradesToCanvas}
+            className="inline-flex h-9 items-center justify-center rounded-md bg-[#2B2A2A] px-4 text-sm font-medium text-white transition-colors hover:bg-[#3A3939] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isPostingBulkGradesToCanvas ? "Posting…" : "Confirm"}
+          </button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 
