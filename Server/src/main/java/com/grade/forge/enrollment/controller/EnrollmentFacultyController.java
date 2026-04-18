@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -20,7 +21,7 @@ public class EnrollmentFacultyController {
 
     private final EnrollmentService enrollmentService;
     private final ActivityLogService activityLogService;
-
+// Single Enrollment
     @PostMapping
     public ResponseEntity<EnrollmentResponse> enrollStudent(Authentication authentication, @RequestBody EnrollmentRequest request) {
         try {
@@ -29,6 +30,29 @@ public class EnrollmentFacultyController {
             return new ResponseEntity<>(response, HttpStatus.CREATED);
         } catch (Exception ex) {
             activityLogService.log(authentication, "Enrolled student", "Student: " + request.getStudentId() + " in Course ID: " + request.getCourseId(), "failed");
+            throw ex;
+        }
+    }
+
+    @PostMapping("/bulk")
+    public ResponseEntity<List<EnrollmentResponse>> enrollStudents(Authentication authentication,
+                                                                   @RequestBody List<EnrollmentRequest> requests) {
+        List<EnrollmentResponse> responses = new ArrayList<>();
+
+        try {
+            for (EnrollmentRequest request : requests) {
+                EnrollmentResponse response = enrollmentService.enrollStudentInCourse(
+                        request.getStudentId(),
+                        request.getCourseId(),
+                        request.getCanvasId()
+                );
+                responses.add(response);
+            }
+
+            activityLogService.log(authentication, "Bulk enrolled students", "Total students enrolled: " + responses.size(), "success");
+            return new ResponseEntity<>(responses, HttpStatus.CREATED);
+        } catch (Exception ex) {
+            activityLogService.log(authentication, "Bulk enrolled students", "Failed during bulk enrollment request", "failed");
             throw ex;
         }
     }
