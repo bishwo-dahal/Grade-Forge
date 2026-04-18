@@ -21,6 +21,7 @@ public class EnrollmentFacultyController {
 
     private final EnrollmentService enrollmentService;
     private final ActivityLogService activityLogService;
+
 // Single Enrollment
     @PostMapping
     public ResponseEntity<EnrollmentResponse> enrollStudent(Authentication authentication, @RequestBody EnrollmentRequest request) {
@@ -34,6 +35,8 @@ public class EnrollmentFacultyController {
         }
     }
 
+
+//    Bulk Enrollment
     @PostMapping("/bulk")
     public ResponseEntity<List<EnrollmentResponse>> enrollStudents(Authentication authentication,
                                                                    @RequestBody List<EnrollmentRequest> requests) {

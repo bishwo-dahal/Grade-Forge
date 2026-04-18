@@ -46,6 +46,7 @@ import type { MainGroupResponse } from "../../types/courseGroup";
 import type { ClassSubmissionItem, SpeedGradingAssignmentOption } from "../../types/submission";
 import {
   dropStudentFromCourse,
+  enrollFacultyStudentsBulk,
   enrollStudentByEmail,
   getFacultyClassHeaderById,
   deleteFacultyCourse,
@@ -2180,37 +2181,90 @@ function StudentsSection({
       return;
     }
 
-    setIsEnrollAllCanvasLoading(true);
-    let successCount = 0;
-    let failedCount = 0;
-
-    for (const student of canvasStudents) {
-      const loginId = student.loginId.trim();
-      if (!loginId || enrolledCanvasStudentIds[student.id]) {
-        continue;
-      }
-
-      try {
-        await enrollStudentByEmail(resolvedId, loginId, student.canvasUserId ?? null);
-        successCount += 1;
-        setEnrolledCanvasStudentIds((previous) => ({ ...previous, [student.id]: true }));
-      } catch {
-        failedCount += 1;
-      }
-    }
-
-    if (successCount > 0) {
-      toast.success(`${successCount} student${successCount === 1 ? "" : "s"} enrolled successfully.`);
-      await loadRoster();
-    }
-    if (failedCount > 0) {
-      toast.error(`${failedCount} student${failedCount === 1 ? "" : "s"} failed to enroll.`);
-    }
-    if (successCount === 0 && failedCount === 0) {
+    const candidates = canvasStudents.filter(
+      (student) => student.loginId.trim().length > 0 && !enrolledCanvasStudentIds[student.id],
+    );
+    if (candidates.length < 1) {
       toast.info("No eligible Canvas students to enroll.");
+      return;
     }
 
-    setIsEnrollAllCanvasLoading(false);
+    setIsEnrollAllCanvasLoading(true);
+    try {
+      const settled = await Promise.allSettled(
+        candidates.map(async (student) => {
+          const matched = await searchFacultyStudentByEmail(resolvedId, student.loginId.trim());
+          return { student, matched };
+        }),
+      );
+
+      type BulkRow = { studentId: number; canvasId: number | null; rowIds: string[] };
+      const byStudentId = new Map<number, BulkRow>();
+      let skipped = 0;
+
+      for (const outcome of settled) {
+        if (outcome.status === "rejected") {
+          skipped += 1;
+          continue;
+        }
+        const { student, matched } = outcome.value;
+        if (matched.alreadyInCourse || matched.studentId == null) {
+          skipped += 1;
+          continue;
+        }
+        const sid = matched.studentId;
+        const canvasId = student.canvasUserId ?? null;
+        const existing = byStudentId.get(sid);
+        if (existing) {
+          existing.rowIds.push(student.id);
+          if (existing.canvasId == null && canvasId != null) {
+            existing.canvasId = canvasId;
+          }
+        } else {
+          byStudentId.set(sid, { studentId: sid, canvasId, rowIds: [student.id] });
+        }
+      }
+
+      const bulkItems = Array.from(byStudentId.values()).map((row) => ({
+        studentId: row.studentId,
+        canvasId: row.canvasId,
+      }));
+
+      if (bulkItems.length < 1) {
+        toast.error(
+          skipped > 0
+            ? "No students could be matched for enrollment."
+            : "No eligible Canvas students to enroll.",
+        );
+        return;
+      }
+
+      await enrollFacultyStudentsBulk(resolvedId, bulkItems);
+
+      setEnrolledCanvasStudentIds((previous) => {
+        const next = { ...previous };
+        for (const row of byStudentId.values()) {
+          for (const id of row.rowIds) {
+            next[id] = true;
+          }
+        }
+        return next;
+      });
+
+      toast.success(
+        `${bulkItems.length} student${bulkItems.length === 1 ? "" : "s"} enrolled successfully.`,
+      );
+      if (skipped > 0) {
+        toast.info(
+          `${skipped} row${skipped === 1 ? "" : "s"} skipped (not found, already enrolled, or missing match).`,
+        );
+      }
+      await loadRoster();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsEnrollAllCanvasLoading(false);
+    }
   };
 
   return (

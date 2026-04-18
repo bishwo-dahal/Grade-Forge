@@ -1556,6 +1556,23 @@ export async function enrollStudentByEmail(
   });
 }
 
+export async function enrollFacultyStudentsBulk(
+  classId: string,
+  items: Array<{ studentId: number; canvasId: number | null }>,
+): Promise<unknown[]> {
+  const courseId = toCourseId(classId);
+  if (items.length < 1) {
+    throw new Error("No enrollments to submit.");
+  }
+  const body = items.map((item) => ({
+    studentId: item.studentId,
+    courseId,
+    canvasId: item.canvasId,
+  }));
+  const { data } = await api.post<unknown[]>("/api/v1/faculty/enrollments/bulk", body);
+  return data;
+}
+
 export async function listCanvasCourseStudents(classId: string): Promise<CanvasCourseStudent[]> {
   const courseId = toCourseId(classId);
   const { data } = await api.get<CanvasCourseStudentApiResponse[]>(
