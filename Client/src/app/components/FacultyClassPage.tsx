@@ -220,7 +220,7 @@ export function FacultyClassPage() {
             </div>
           </header>
 
-          <div className="min-h-full bg-white/10 backdrop-blur-[2px]">
+          <div className="min-h-full bg-white/15 backdrop-blur-xl backdrop-saturate-150">
             <div className="max-w-7xl mx-auto px-8 py-6">
               {activeSection === "assignments" && <AssignmentsSection />}
               {activeSection === "grades" && (

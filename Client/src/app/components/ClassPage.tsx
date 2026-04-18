@@ -136,12 +136,12 @@ export function ClassPage() {
             </div>
           </header>
 
-          <div className="min-h-full bg-white/10 backdrop-blur-[2px]">
+          <div className="min-h-full bg-white/15 backdrop-blur-xl backdrop-saturate-150">
             <div className="max-w-7xl mx-auto px-8 py-6">
               <div className="mb-4">
                 <Link
                   to="/dashboard"
-                  className="inline-flex items-center gap-2 rounded-md border border-white/70 bg-white/75 px-3 py-1.5 text-[13px] text-[#1F2430] shadow-sm backdrop-blur-[2px] transition-colors hover:bg-white"
+                  className="inline-flex items-center gap-2 rounded-md border border-white/70 bg-white/75 px-3 py-1.5 text-[13px] text-[#1F2430] shadow-sm backdrop-blur-md transition-colors hover:bg-white"
                 >
                   <ChevronLeft className="w-4 h-4" strokeWidth={2} />
                   <span>Back to Main Dashboard</span>
