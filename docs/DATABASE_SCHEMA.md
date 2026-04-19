@@ -102,6 +102,7 @@ Class section (e.g. CS101-A).
 | image_url       | String  |                           | Course card image        |
 | canvas_course_id| String  |                           | External roster sync     |
 | is_published    | Boolean | Default: false           | If false, hidden from students |
+| parent_course_id | Long   | FK → courses.id, nullable | When set, this row is a **section course** linked to the main (parent) course |
 
 ---
 
@@ -152,6 +153,9 @@ Work units created by faculty.
 | available_from   | Timestamp|                                  | When submissions open    |
 | due_date         | Timestamp|                                  | Soft deadline            |
 | late_due_date    | Timestamp|                                  | Hard deadline (cutoff)   |
+| source_assignment_id | Long | FK → assignments.id, nullable | Parent assignment when this row is a synced **section** copy |
+| inherit_sync_enabled | Boolean | Default true | When false, section copy no longer receives parent updates |
+| last_inherited_at | Timestamp | nullable | Last time section copy was updated from parent |
 
 ---
 
@@ -172,6 +176,8 @@ Work units created by faculty.
 |---------------|--------------|----------------|------------|---------------------------|
 | **Semester**  | One-to-Many  | Course         | semester_id | `List<Course> courses`    |
 | **Faculty**   | One-to-Many  | Course         | faculty_id  | `List<Course> courses`    |
+| **Course**    | One-to-Many  | Course         | parent_course_id | `List<Course> childCourses` (self; section rows) |
+| **Course**    | Many-to-One  | Course         | parent_course_id | `Course parentCourse` (main course) |
 | **Course**    | Many-to-One  | Semester       | semester_id | `Semester semester`       |
 | **Course**    | Many-to-One  | Faculty        | faculty_id  | `Faculty faculty`         |
 | **Course**    | One-to-Many  | Enrollment     | course_id   | `List<Enrollment> enrollments` |

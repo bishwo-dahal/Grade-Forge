@@ -75,6 +75,22 @@ public class Assignment {
     @OneToOne(mappedBy = "assignment", cascade = CascadeType.ALL, orphanRemoval = true)
     private TestSuite testSuite;
 
+    /**
+     * Parent assignment on the main course when this row is a synced section copy; null for root assignments.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "source_assignment_id")
+    private Assignment sourceAssignment;
+
+    /**
+     * When false, this section copy no longer receives updates from {@link #sourceAssignment}.
+     */
+    @Column(name = "inherit_sync_enabled", nullable = false, columnDefinition = "boolean default true")
+    private Boolean inheritSyncEnabled = Boolean.TRUE;
+
+    @Column(name = "last_inherited_at")
+    private LocalDateTime lastInheritedAt;
+
     @Column(name = "canvas_assignment_id")
     private Long canvasAssignmentId;
 

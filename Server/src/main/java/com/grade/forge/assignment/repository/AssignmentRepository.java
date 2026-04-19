@@ -23,6 +23,14 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
     @Query("SELECT a FROM Assignment a WHERE (a.lateDueDate IS NOT NULL AND a.lateDueDate < :now) OR (a.lateDueDate IS NULL AND a.dueDate IS NOT NULL AND a.dueDate < :now)")
     List<Assignment> findWithDeadlineBefore(@Param("now") LocalDateTime now);
 
+    List<Assignment> findBySourceAssignment_Id(Long sourceAssignmentId);
+
+    List<Assignment> findBySourceAssignment_IdAndInheritSyncEnabledIsTrue(Long sourceAssignmentId);
+
+    Optional<Assignment> findByCourse_IdAndSourceAssignment_Id(Long courseId, Long sourceAssignmentId);
+
+    long countByCourse_Id(Long courseId);
+
     @Query("""
         SELECT a.course.id, COUNT(a)
         FROM Assignment a

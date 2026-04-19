@@ -18,6 +18,27 @@ import { CourseCoverCardShell } from "./CourseCoverCardShell";
 
 type FacultyClassFilter = "active" | "archived";
 
+function FacultyCourseHierarchyBadges({ course }: { course: FacultyMyClassItem }) {
+  const mainCount = course.linkedSectionCount ?? 0;
+  return (
+    <div className="contents">
+      {mainCount > 0 ? (
+        <span
+          className="shrink-0 rounded-full border border-[#5A7ACD]/45 bg-[#EEF2FA] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#345079]"
+          title="Main course — assignments and tests sync to these section courses"
+        >
+          Main · {mainCount}
+        </span>
+      ) : null}
+      {course.isLinkedSection ? (
+        <span className="shrink-0 rounded-full border border-amber-300/70 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-900">
+          Section
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 interface FacultyMyClassesViewProps {
   // NOTE: This component is presentation-only. Data is injected by the page/container.
   classes: FacultyMyClassItem[];
@@ -156,9 +177,12 @@ function FacultyMyClassesView({
                     <article key={course.id}>
                       <CourseCoverCardShell compact coverImageUrl={course.coverImageUrl}>
                         <div className="flex flex-1 flex-col gap-1 p-2">
-                          <h2 className="line-clamp-2 text-[12px] font-semibold leading-snug text-[#1F2430]">
-                            {course.title}
-                          </h2>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <h2 className="line-clamp-2 text-[12px] font-semibold leading-snug text-[#1F2430]">
+                              {course.title}
+                            </h2>
+                            <FacultyCourseHierarchyBadges course={course} />
+                          </div>
                           <p className="text-[11px] leading-tight text-[#3E4E67]">
                             {course.code} · Sec {course.section}
                           </p>
@@ -234,9 +258,12 @@ function FacultyMyClassesView({
               <article key={course.id}>
                 <CourseCoverCardShell compact coverImageUrl={course.coverImageUrl}>
                   <div className="flex flex-1 flex-col gap-1 p-2">
-                    <h2 className="line-clamp-2 text-[12px] font-semibold leading-snug text-[#1F2430]">
-                      {course.title}
-                    </h2>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <h2 className="line-clamp-2 text-[12px] font-semibold leading-snug text-[#1F2430]">
+                        {course.title}
+                      </h2>
+                      <FacultyCourseHierarchyBadges course={course} />
+                    </div>
                     <p className="text-[11px] leading-tight text-[#3E4E67]">
                       {course.code} · Sec {course.section}
                     </p>
@@ -344,12 +371,16 @@ export function FacultyMyClassesPage() {
     setIsArchivedCoursesLoading(true);
     listFacultyCoursesBySemester(selectedArchivedSemesterId)
       .then((courses) => {
-        const mapped: FacultyMyClassItem[] = courses.map((course) => ({
+        const mapped: FacultyMyClassItem[] = courses.map((course) => {
+          const sectionChildren = !course.parentCourseId ? (course.sectionCourses?.length ?? 0) : 0;
+          return {
           id: String(course.id),
           title: course.name,
           code: course.courseCode,
           section: course.section ?? "TBD",
           semester: course.semester?.name ?? "TBD",
+          isLinkedSection: Boolean(course.parentCourseId),
+          ...(sectionChildren > 0 ? { linkedSectionCount: sectionChildren } : {}),
           isActive: Boolean(course.active),
           students: 0,
           assignments: 0,
@@ -361,7 +392,8 @@ export function FacultyMyClassesPage() {
           icon: "",
           iconBg: "",
           coverImageUrl: getCourseCoverImageUrl(course),
-        }));
+        };
+        });
         setArchivedSemesterCourses(mapped);
       })
       .catch((loadError) => setError(getApiErrorMessage(loadError, "Could not load semester courses.")))

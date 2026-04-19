@@ -4,12 +4,15 @@ import com.grade.forge.audit.service.ActivityLogService;
 import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.coursemgmt.dto.CourseRequestDto;
 import com.grade.forge.coursemgmt.dto.CourseResponseDto;
+import com.grade.forge.coursemgmt.dto.LinkSectionCourseRequest;
+import com.grade.forge.coursemgmt.dto.SectionCourseCreateRequest;
 import com.grade.forge.coursemgmt.service.CourseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -20,6 +23,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/faculty/courses")
 @RequiredArgsConstructor
+@PreAuthorize("hasAuthority('FACULTY')")
 public class FacultyCourseController {
 
 
@@ -60,9 +64,12 @@ public class FacultyCourseController {
     }
 
     @GetMapping("/semester/{semesterId}")
-    public ResponseEntity<List<CourseResponseDto>> getCoursesBySemester(@AuthenticationPrincipal CustomUserDetails customUserDetails,
-                                                                        @PathVariable Long semesterId) {
-        List<CourseResponseDto> courses = courseService.getCoursesBySemesterForFaculty(customUserDetails.getUsername(), semesterId);
+    public ResponseEntity<List<CourseResponseDto>> getCoursesBySemester(
+            @AuthenticationPrincipal CustomUserDetails customUserDetails,
+            @PathVariable Long semesterId,
+            @RequestParam(name = "sectionLinkEligible", defaultValue = "false") boolean sectionLinkEligible) {
+        List<CourseResponseDto> courses = courseService.getCoursesBySemesterForFaculty(
+                customUserDetails.getUsername(), semesterId, sectionLinkEligible);
         return new ResponseEntity<>(courses, HttpStatus.OK);
     }
 
@@ -127,8 +134,43 @@ public class FacultyCourseController {
             throw ex;
         }
     }
-    
-    
-    
 
+    @GetMapping("/{parentId}/sections")
+    public ResponseEntity<List<CourseResponseDto>> listSectionCourses(
+            @AuthenticationPrincipal CustomUserDetails customUserDetails,
+            @PathVariable Long parentId) {
+        return ResponseEntity.ok(courseService.listSectionCoursesForParent(customUserDetails.getUsername(), parentId));
+    }
+
+    @PostMapping("/{parentId}/sections")
+    public ResponseEntity<CourseResponseDto> createSectionCourse(
+            Authentication authentication,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails,
+            @PathVariable Long parentId,
+            @RequestBody SectionCourseCreateRequest request) {
+        CourseResponseDto created = courseService.createSectionCourse(customUserDetails.getUsername(), parentId, request);
+        activityLogService.log(authentication, "Created section course", "Section: " + created.getSection() + " under parent " + parentId, "success");
+        return new ResponseEntity<>(created, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/{parentId}/link-section")
+    public ResponseEntity<CourseResponseDto> linkSectionCourse(
+            Authentication authentication,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails,
+            @PathVariable Long parentId,
+            @RequestBody LinkSectionCourseRequest request) {
+        CourseResponseDto linked = courseService.linkSectionCourse(customUserDetails.getUsername(), parentId, request);
+        activityLogService.log(authentication, "Linked section course", "Child course " + request.getChildCourseId() + " to parent " + parentId, "success");
+        return ResponseEntity.ok(linked);
+    }
+
+    @PostMapping("/{sectionCourseId}/unlink-section")
+    public ResponseEntity<CourseResponseDto> unlinkSectionCourse(
+            Authentication authentication,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails,
+            @PathVariable Long sectionCourseId) {
+        CourseResponseDto updated = courseService.unlinkSectionCourse(customUserDetails.getUsername(), sectionCourseId);
+        activityLogService.log(authentication, "Unlinked section course", "Course: " + updated.getName(), "success");
+        return ResponseEntity.ok(updated);
+    }
 }

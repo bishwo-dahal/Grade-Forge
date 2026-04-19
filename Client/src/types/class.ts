@@ -10,6 +10,16 @@ export interface ClassHeader {
   instructorEmail?: string;
   role?: string;
   coverImageUrl?: string;
+  /** When set, this class workspace is a linked section of a main course. */
+  parentCourseId?: number | null;
+  parentCourse?: {
+    id: number;
+    name: string;
+    courseCode: string;
+    section: string | null;
+  } | null;
+  /** When this course is a main (non-section) row, how many section courses are linked under it. */
+  linkedSectionCount?: number;
 }
 
 export interface ClassOverviewItem {
@@ -50,6 +60,8 @@ export interface FacultyCourseCard {
   icon: string;
   iconBg: string;
   coverImageUrl?: string | null;
+  /** Main course with at least one linked section course (>0). */
+  linkedSectionCount?: number;
 }
 
 // NOTE: UI-driven model for Faculty My Classes workspace cards; keep fields aligned to what the page renders.
@@ -59,6 +71,10 @@ export interface FacultyMyClassItem {
   code: string;
   section: string;
   semester: string;
+  /** True when this course row is linked as a section under a main course. */
+  isLinkedSection?: boolean;
+  /** Number of section courses under this main row; 0 or omitted when this row is itself a section. */
+  linkedSectionCount?: number;
   isActive: boolean;
   students: number;
   assignments: number;
@@ -164,6 +180,8 @@ export interface FacultyAssignment {
   submissions: number;
   totalStudents: number;
   status: "published" | "closed" | "draft";
+  /** Synced copy from the main course (still receiving updates when true). */
+  inheritedFromMain?: boolean;
 }
 
 export interface ClassAnnouncement {

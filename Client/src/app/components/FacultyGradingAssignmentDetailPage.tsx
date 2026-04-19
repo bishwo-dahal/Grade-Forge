@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import type { AssignmentDescription, AssignmentDetail } from "../../types/assignment";
 import type { FacultyAssignmentSubmissionRow } from "../../types/submission";
 import type { Rubric } from "../../types/rubric";
@@ -16,6 +16,8 @@ import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
 import { FacultyClassSidebar } from "./layout/FacultyClassSidebar";
+import { getFacultyClassHeaderById } from "../../services/classService";
+import type { ClassHeader } from "../../types/class";
 import {
   AssignmentDetailPage,
   formatSubmissionDisplayDate,
@@ -140,6 +142,7 @@ export function FacultyGradingAssignmentDetailPage() {
     );
   }, [displayName]);
 
+  const [classHeader, setClassHeader] = useState<ClassHeader | null>(null);
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [description, setDescription] = useState<AssignmentDescription | null>(null);
   const [rubric, setRubric] = useState<Rubric | null>(null);
@@ -159,6 +162,16 @@ export function FacultyGradingAssignmentDetailPage() {
     clearAuthenticated();
     navigate("/signin", { replace: true });
   };
+
+  useEffect(() => {
+    if (!resolvedClassId.trim()) {
+      setClassHeader(null);
+      return;
+    }
+    getFacultyClassHeaderById(resolvedClassId)
+      .then(setClassHeader)
+      .catch(() => setClassHeader(null));
+  }, [resolvedClassId]);
 
   const loadAll = useCallback(async () => {
     if (!resolvedAssignmentId.trim()) {
@@ -248,6 +261,16 @@ export function FacultyGradingAssignmentDetailPage() {
     return mapToTestSuiteSection(testSuite);
   }, [testSuite, testSuiteLoading]);
 
+  const classData: ClassHeader = classHeader ?? {
+    id: resolvedClassId || "1",
+    code: "",
+    name: "",
+    section: "",
+    semester: "",
+    instructor: "",
+    role: "Instructor",
+  };
+
   const handlePostSubmissionGradeToCanvas = useCallback(
     async (row: AssignmentDetailPageSubmissionRow) => {
       if (!resolvedClassId.trim() || !resolvedAssignmentId.trim()) {
@@ -335,40 +358,83 @@ export function FacultyGradingAssignmentDetailPage() {
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />
-        <div className="flex-1 overflow-y-auto">
-        <AssignmentDetailPage
-          assignment={pageAssignment}
-          rubricSection={pageRubric}
-          submissions={pageSubmissions}
-          backLink={{ to: `/faculty/class/${resolvedClassId}/assignments`, label: "Back to assignments" }}
-          getSubmissionLink={(id) =>
-            `/faculty/class/${resolvedClassId}/assignment/${resolvedAssignmentId}/submission/${id}`
-          }
-          loading={loading}
-          submissionsLoading={submissionsLoading}
-          error={errorMessage}
-          onRefreshSubmissions={reloadSubmissions}
-          submissionsSectionSubtitle="Open a submission to review code and submit a grade."
-          submissionsCountLabel={`${latestSubmissionsPerStudent.length} submitted`}
-          speedGradingLink={{
-            // NOTE: Assignment detail owns the speed grading entry so faculty can jump directly into the queue for this assignment.
-            to: `/faculty/class/${resolvedClassId}/speed-grading/${resolvedAssignmentId}`,
-            label: "Speed Grading",
-          }}
-          testCasesLink={{
-            to: `/faculty/class/${resolvedClassId}/assignments/${resolvedAssignmentId}/edit`,
-            label: "Edit test cases",
-          }}
-          testSuiteSection={pageTestSuiteSection}
-          editAssignmentLink={{
-            to: `/faculty/class/${resolvedClassId}/assignments/${resolvedAssignmentId}/edit`,
-            label: "Edit assignment",
-          }}
-          onSyncAssignmentWithCanvas={handleSyncAssignmentWithCanvas}
-          onPostSubmissionGradeToCanvas={handlePostSubmissionGradeToCanvas}
-          onPostBulkGradesToCanvas={handlePostBulkGradesToCanvas}
-        />
-        </div>
+
+        <header className="bg-white border-b border-gray-200 px-8 py-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-3 mb-2">
+                <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
+                  {classData.code}: {classData.name}
+                </h1>
+                <span className="px-3 py-1 bg-[#5A7ACD] text-white text-[11px] font-semibold rounded uppercase">
+                  {classData.role || "Instructor"}
+                </span>
+              </div>
+              <div className="flex items-center gap-4 text-[13px] text-gray-600">
+                <span>{classData.instructor || "Instructor"}</span>
+                <span className="text-gray-300">&bull;</span>
+                <span>{classData.semester}</span>
+                <span className="text-gray-300">&bull;</span>
+                <span>{classData.section}</span>
+              </div>
+            </div>
+
+            {classHeader?.parentCourseId != null && classHeader.parentCourse ? (
+              <div className="flex shrink-0 flex-col items-end gap-2 border-r-2 border-amber-400 pr-2.5">
+                <p className="text-right text-[12px] leading-snug text-amber-950">
+                  <strong>Linked section</strong> of{" "}
+                  <strong>
+                    {classHeader.parentCourse.courseCode}: {classHeader.parentCourse.name}
+                  </strong>
+                </p>
+                <div className="flex w-full justify-end pt-0.5">
+                  <Link
+                    to={`/faculty/class/${classHeader.parentCourse.id}/assignments`}
+                    className="inline-flex items-center rounded-lg bg-[#2B2A2A] px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#3a3939]"
+                  >
+                    Open main course
+                  </Link>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-7xl mx-auto px-8 py-6">
+            <AssignmentDetailPage
+              assignment={pageAssignment}
+              rubricSection={pageRubric}
+              submissions={pageSubmissions}
+              backLink={{ to: `/faculty/class/${resolvedClassId}/assignments`, label: "Back to assignments" }}
+              getSubmissionLink={(id) =>
+                `/faculty/class/${resolvedClassId}/assignment/${resolvedAssignmentId}/submission/${id}`
+              }
+              loading={loading}
+              submissionsLoading={submissionsLoading}
+              error={errorMessage}
+              onRefreshSubmissions={reloadSubmissions}
+              submissionsSectionSubtitle="Open a submission to review code and submit a grade."
+              submissionsCountLabel={`${latestSubmissionsPerStudent.length} submitted`}
+              speedGradingLink={{
+                to: `/faculty/class/${resolvedClassId}/speed-grading/${resolvedAssignmentId}`,
+                label: "Speed Grading",
+              }}
+              testCasesLink={{
+                to: `/faculty/class/${resolvedClassId}/assignments/${resolvedAssignmentId}/edit`,
+                label: "Edit test cases",
+              }}
+              testSuiteSection={pageTestSuiteSection}
+              editAssignmentLink={{
+                to: `/faculty/class/${resolvedClassId}/assignments/${resolvedAssignmentId}/edit`,
+                label: "Edit assignment",
+              }}
+              onSyncAssignmentWithCanvas={handleSyncAssignmentWithCanvas}
+              onPostSubmissionGradeToCanvas={handlePostSubmissionGradeToCanvas}
+              onPostBulkGradesToCanvas={handlePostBulkGradesToCanvas}
+            />
+          </div>
+        </main>
       </div>
     </div>
   );

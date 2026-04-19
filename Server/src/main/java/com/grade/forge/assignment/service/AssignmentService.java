@@ -6,14 +6,13 @@ import com.grade.forge.assignment.dto.AssignmentResponse;
 import com.grade.forge.assignment.dto.AssignmentStarterFileResponse;
 import com.grade.forge.assignment.entity.Assignment;
 import com.grade.forge.assignment.entity.AssignmentStarterFile;
+import com.grade.forge.assignment.enums.SubmissionType;
 import com.grade.forge.assignment.repository.AssignmentRepository;
 import com.grade.forge.assignment.repository.AssignmentStarterFileRepository;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
-import com.grade.forge.email.service.EmailService;
-import com.grade.forge.enrollment.entity.Enrollment;
-import com.grade.forge.enrollment.enums.EnrolledStatus;
-import com.grade.forge.enrollment.repository.EnrollmentRepository;
+import com.grade.forge.configuration.security.CustomUserDetails;
+import com.grade.forge.coursemgmt.service.CourseSectionSyncService;
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.group.entity.MainGroup;
 import com.grade.forge.group.repository.MainGroupRepository;
@@ -29,6 +28,10 @@ import com.grade.forge.submission.repository.SubmissionFileRepository;
 import com.grade.forge.storage.service.FileStorageService;
 import com.grade.forge.testsuite.entity.TestCase;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -43,6 +46,10 @@ import java.util.stream.Collectors;
 @Transactional
 public class AssignmentService {
 
+    @Autowired
+    @Lazy
+    private CourseSectionSyncService courseSectionSyncService;
+
     private final AssignmentRepository assignmentRepository;
     private final CourseRepository courseRepository;
     private final ProgrammingLanguageRepository programmingLanguageRepository;
@@ -53,9 +60,8 @@ public class AssignmentService {
     private final SubmissionRepository submissionRepository;
     private final SubmissionFileRepository submissionFileRepository;
     private final AssignmentStarterFileRepository assignmentStarterFileRepository;
-    private final EnrollmentRepository enrollmentRepository;
     private final FileStorageService fileStorageService;
-    private final EmailService emailService;
+    private final AssignmentNotificationService assignmentNotificationService;
 
     public AssignmentResponse createAssignment(AssignmentRequest request, List<MultipartFile> files, String userEmail) {
         validateCreate(request);
@@ -66,6 +72,10 @@ public class AssignmentService {
 
         if (!Objects.equals(course.getFaculty().getEmail(), userEmail)) {
             throw new IllegalArgumentException("You are not authorized to create assignments for this course");
+        }
+        if (course.getParentCourse() != null) {
+            throw new IllegalArgumentException(
+                    "This course is a linked section. Create and edit assignments on the main course to sync to all sections.");
         }
 
         Rubric rubric = null;
@@ -81,6 +91,8 @@ public class AssignmentService {
         assignment.setCourse(course);
         assignment.setProgrammingLanguage(language);
         assignment.setRubric(rubric);
+        assignment.setSourceAssignment(null);
+        assignment.setInheritSyncEnabled(true);
         if (request.getMainGroupId() != null) {
             MainGroup mainGroup = mainGroupRepository.findById(request.getMainGroupId())
                     .orElseThrow(() -> new ResourceNotFoundException("Main group not found with id: " + request.getMainGroupId()));
@@ -99,13 +111,13 @@ public class AssignmentService {
         }
 
 
-        // Send emails to all enrolled students (non-blocking)
         try {
-            sendAssignmentNotificationEmails(saved);
+            assignmentNotificationService.notifyEnrolledNewAssignment(saved);
         } catch (Exception e) {
             System.err.println("Failed to send assignment notification emails: " + e.getMessage());
         }
 
+        courseSectionSyncService.syncParentAssignmentCreateToSections(saved);
 
         return mapToResponse(saved);
     }
@@ -114,31 +126,66 @@ public class AssignmentService {
         Assignment assignment = assignmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + id));
 
-        if (request.getCourseId() != null) {
-            Course course = courseRepository.findById(request.getCourseId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + request.getCourseId()));
-            assignment.setCourse(course);
+        String facultyEmail = resolveFacultyEmail();
+        if (!Objects.equals(assignment.getCourse().getFaculty().getEmail(), facultyEmail)) {
+            throw new IllegalArgumentException("You are not authorized to update this assignment");
+        }
+
+        boolean sectionInheritActive = assignment.getSourceAssignment() != null
+                && Boolean.TRUE.equals(assignment.getInheritSyncEnabled());
+
+        if (!sectionInheritActive) {
+            if (request.getCourseId() != null) {
+                Course course = courseRepository.findById(request.getCourseId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + request.getCourseId()));
+                assignment.setCourse(course);
+            }
         }
         // ensure we have the latest course reference for rubric validation
         Course currentCourse = assignment.getCourse();
 
-        if (request.getLanguageId() != null) {
-            ProgrammingLanguage language = programmingLanguageRepository.findById(request.getLanguageId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Programming language not found with id: " + request.getLanguageId()));
-            assignment.setProgrammingLanguage(language);
+        if (!sectionInheritActive) {
+            if (request.getLanguageId() != null) {
+                ProgrammingLanguage language = programmingLanguageRepository.findById(request.getLanguageId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Programming language not found with id: " + request.getLanguageId()));
+                assignment.setProgrammingLanguage(language);
+            }
+            if (request.getName() != null) {
+                assignment.setName(request.getName());
+            }
+            if (request.getDescription() != null) {
+                assignment.setDescription(request.getDescription());
+            }
+            if (request.getTotalPoints() != null) {
+                assignment.setTotalPoints(request.getTotalPoints());
+            }
+            if (request.getSubmissionType() != null) {
+                assignment.setSubmissionType(request.getSubmissionType());
+            }
+            if (request.getRubricId() != null) {
+                Rubric rubric = rubricRepository.findById(request.getRubricId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Rubric not found with id: " + request.getRubricId()));
+                if (!Objects.equals(rubric.getFaculty().getId(), currentCourse.getFaculty().getId())) {
+                    throw new IllegalArgumentException("Rubric does not belong to the course faculty");
+                }
+                assignment.setRubric(rubric);
+            }
         }
-        if (request.getName() != null) {
-            assignment.setName(request.getName());
+
+        // Section copies can set their own main group (roster differs per section),
+        // but still cannot change submission type while sync is enabled.
+        if (request.getMainGroupId() != null) {
+            if (assignment.getSubmissionType() != SubmissionType.GROUP) {
+                throw new IllegalArgumentException("Main group can only be set for group assignments");
+            }
+            MainGroup mainGroup = mainGroupRepository.findById(request.getMainGroupId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Main group not found with id: " + request.getMainGroupId()));
+            if (!Objects.equals(mainGroup.getCourse().getId(), currentCourse.getId())) {
+                throw new IllegalArgumentException("Main group does not belong to the assignment's course");
+            }
+            assignment.setMainGroup(mainGroup);
         }
-        if (request.getDescription() != null) {
-            assignment.setDescription(request.getDescription());
-        }
-        if (request.getTotalPoints() != null) {
-            assignment.setTotalPoints(request.getTotalPoints());
-        }
-        if (request.getSubmissionType() != null) {
-            assignment.setSubmissionType(request.getSubmissionType());
-        }
+
         if (request.getAvailableFrom() != null) {
             assignment.setAvailableFrom(request.getAvailableFrom());
         }
@@ -147,22 +194,6 @@ public class AssignmentService {
         }
         if (request.getLateDueDate() != null) {
             assignment.setLateDueDate(request.getLateDueDate());
-        }
-        if (request.getRubricId() != null) {
-            Rubric rubric = rubricRepository.findById(request.getRubricId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Rubric not found with id: " + request.getRubricId()));
-            if (!Objects.equals(rubric.getFaculty().getId(), currentCourse.getFaculty().getId())) {
-                throw new IllegalArgumentException("Rubric does not belong to the course faculty");
-            }
-            assignment.setRubric(rubric);
-        }
-        if (request.getMainGroupId() != null) {
-            MainGroup mainGroup = mainGroupRepository.findById(request.getMainGroupId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Main group not found with id: " + request.getMainGroupId()));
-            if (!Objects.equals(mainGroup.getCourse().getId(), currentCourse.getId())) {
-                throw new IllegalArgumentException("Main group does not belong to the assignment's course");
-            }
-            assignment.setMainGroup(mainGroup);
         }
 
         validateTimeline(assignment.getAvailableFrom(), assignment.getDueDate(), assignment.getLateDueDate());
@@ -173,7 +204,39 @@ public class AssignmentService {
 
         Assignment refreshed = assignmentRepository.findById(saved.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + saved.getId()));
+
+        if (refreshed.getCourse().getParentCourse() == null && refreshed.getSourceAssignment() == null) {
+            courseSectionSyncService.syncParentAssignmentUpdateToSections(refreshed);
+        }
+
         return mapToResponse(refreshed);
+    }
+
+    public AssignmentResponse detachSectionAssignmentInherit(Long assignmentId) {
+        String facultyEmail = resolveFacultyEmail();
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId));
+        if (!Objects.equals(assignment.getCourse().getFaculty().getEmail(), facultyEmail)) {
+            throw new IllegalArgumentException("You are not authorized to update this assignment");
+        }
+        if (assignment.getSourceAssignment() == null) {
+            throw new IllegalArgumentException("This assignment is not linked to a main-course assignment.");
+        }
+        assignment.setInheritSyncEnabled(false);
+        assignmentRepository.save(assignment);
+        return mapToResponse(assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId)));
+    }
+
+    private String resolveFacultyEmail() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            throw new IllegalStateException("Not authenticated");
+        }
+        if (auth.getPrincipal() instanceof CustomUserDetails cud) {
+            return cud.getUsername();
+        }
+        return auth.getName();
     }
 
     /**
@@ -181,6 +244,9 @@ public class AssignmentService {
      * If both are absent (keepFileIds null and no new files), existing starter files are unchanged.
      */
     private void handleStarterFilesUpdate(Assignment saved, AssignmentRequest request, List<MultipartFile> newFiles) {
+        if (saved.getSourceAssignment() != null && Boolean.TRUE.equals(saved.getInheritSyncEnabled())) {
+            return;
+        }
         if (request.getKeepFileIds() == null && (newFiles == null || newFiles.isEmpty())) {
             return;
         }
@@ -252,6 +318,33 @@ public class AssignmentService {
     }
 
     public void deleteAssignment(Long id) {
+        Assignment assignment = assignmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + id));
+        String facultyEmail = resolveFacultyEmail();
+        if (!Objects.equals(assignment.getCourse().getFaculty().getEmail(), facultyEmail)) {
+            throw new IllegalArgumentException("You are not authorized to delete this assignment");
+        }
+        if (assignment.getSourceAssignment() != null && Boolean.TRUE.equals(assignment.getInheritSyncEnabled())) {
+            throw new IllegalArgumentException(
+                    "Cannot delete a synced section assignment while linked. Detach it first, or delete from the main course.");
+        }
+
+        deleteAssignmentAsCourseCleanup(id);
+    }
+
+    /**
+     * Deletes an assignment and any section copies that reference it as {@code sourceAssignment},
+     * without faculty auth (used when deleting an entire course).
+     */
+    public void deleteAssignmentAsCourseCleanup(Long id) {
+        List<Assignment> sectionCopies = assignmentRepository.findBySourceAssignment_Id(id);
+        for (Assignment copy : sectionCopies) {
+            deleteAssignmentInternal(copy.getId());
+        }
+        deleteAssignmentInternal(id);
+    }
+
+    private void deleteAssignmentInternal(Long id) {
         Assignment assignment = assignmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + id));
         cleanupTestRunsAndResults(assignment);
@@ -368,6 +461,9 @@ public class AssignmentService {
                 .rubricName(assignment.getRubric() != null ? assignment.getRubric().getName() : null)
                 .mainGroupId(assignment.getMainGroup() != null ? assignment.getMainGroup().getId() : null)
                 .mainGroupName(assignment.getMainGroup() != null ? assignment.getMainGroup().getName() : null)
+                .sourceAssignmentId(assignment.getSourceAssignment() != null ? assignment.getSourceAssignment().getId() : null)
+                .inheritSyncEnabled(assignment.getInheritSyncEnabled())
+                .lastInheritedAt(assignment.getLastInheritedAt())
                 .build();
     }
 
@@ -384,6 +480,9 @@ public class AssignmentService {
         response.setLanguageName(assignment.getProgrammingLanguage() != null
                 ? assignment.getProgrammingLanguage().getName()
                 : null);
+        response.setSourceAssignmentId(assignment.getSourceAssignment() != null ? assignment.getSourceAssignment().getId() : null);
+        response.setInheritSyncEnabled(assignment.getInheritSyncEnabled());
+        response.setLastInheritedAt(assignment.getLastInheritedAt());
         return response;
     }
 
@@ -398,224 +497,4 @@ public class AssignmentService {
                 .build();
     }
 
-    private void sendAssignmentNotificationEmails(Assignment assignment) {
-        // Get all enrolled students for the course
-        List<Enrollment> enrolledStudents = enrollmentRepository.findByCourse_Id(assignment.getCourse().getId()).stream()
-                .filter(enrollment -> EnrolledStatus.ENROLLED.equals(enrollment.getEnrolledStatus()))
-                .toList();
-
-        if (enrolledStudents.isEmpty()) {
-            return;
-        }
-
-        // Extract email addresses from enrolled students
-        String[] recipientEmails = enrolledStudents.stream()
-                .map(enrollment -> enrollment.getStudent().getUser().getEmail())
-                .toArray(String[]::new);
-
-        // Prepare email content
-        String subject = "New Assignment: " + assignment.getName() + " Course: " + assignment.getCourse().getName();
-
-        String courseName     = assignment.getCourse().getName();
-        String assignmentName = assignment.getName();
-        String description    = assignment.getDescription() != null
-                ? assignment.getDescription() : "No description provided";
-        String totalPoints    = String.valueOf(assignment.getTotalPoints());
-
-
-      final java.time.format.DateTimeFormatter humanDateTime =
-              java.time.format.DateTimeFormatter.ofPattern("MMMM d yyyy h:mm a");
-      String availableFrom = assignment.getAvailableFrom() != null
-              ? assignment.getAvailableFrom().format(humanDateTime) : "Not specified";
-      String dueDate = assignment.getDueDate() != null
-              ? assignment.getDueDate().format(humanDateTime) : "Not specified";
-
-        String countdown;
-        if (assignment.getDueDate() == null) {
-            countdown = "No deadline";
-        } else {
-            long daysRemaining = java.time.temporal.ChronoUnit.DAYS.between(
-                    java.time.LocalDate.now(),
-                    assignment.getDueDate().toLocalDate()
-            );
-
-            if (daysRemaining > 1) {
-                countdown = daysRemaining + " days";
-            } else if (daysRemaining == 1) {
-                countdown = "1 day";
-            } else if (daysRemaining == 0) {
-                countdown = "today";
-            } else {
-                countdown = Math.abs(daysRemaining) + " days ago";
-            }
-        }
-
-
-        String content = String.format("""
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-
-<body style="margin:0;padding:0;background-color:#ffffff;font-family:Arial,Helvetica,sans-serif;">
-
-<!-- HEADER -->
-<table role="presentation" width="100%%" cellspacing="0" cellpadding="0"
-       style="background-color:#9A2236;">
-  <tr>
-    <td style="padding:44px 48px 38px;">
-
-      <table role="presentation" width="100%%">
-        <tr>
-          <td width="60" valign="middle">
-            <div style="width:48px;height:48px;background:rgba(255,255,255,0.15);
-                        border-radius:12px;text-align:center;line-height:48px;">
-              <img src="https://grade-forge.s3.us-east-2.amazonaws.com/email_logo/logo.png"
-                   width="45" height="45" style="display:block;border:0;" />
-            </div>
-          </td>
-
-          <td style="padding-left:16px;
-                     color:#ffffff;
-                     font-size:13px;
-                     font-weight:600;
-                     letter-spacing:0.12em;
-                     text-transform:uppercase;">
-            Grade Forge · ULM
-          </td>
-        </tr>
-      </table>
-
-      <div style="margin-top:20px;
-                  display:inline-block;
-                  padding:5px 12px;
-                  border-radius:20px;
-                  border:1px solid rgba(255,255,255,0.3);
-                  color:#ffffff;
-                  font-size:11px;">
-        %s
-      </div>
-
-      <h1 style="color:#ffffff;
-                 font-family:Georgia,serif;
-                 font-size:30px;
-                 margin-top:20px;">
-        New Assignment <span style="color:#ffdcb4;">Posted</span>
-      </h1>
-
-    </td>
-  </tr>
-</table>
-
-<!-- BODY -->
-<table role="presentation" width="100%%">
-  <tr>
-    <td style="padding:44px 48px;">
-
-      <p style="font-size:16px;color:#333;">Hello Class,</p>
-
-      <p style="font-size:15px;color:#666;line-height:1.6;">
-        A new assignment has been posted for <strong>%s</strong>.
-        Please review details below.
-      </p>
-
-      <!-- CARD -->
-      <table role="presentation" width="100%%"
-             style="margin-top:25px;border:1px solid #ddd;border-radius:10px;overflow:hidden;">
-
-        <tr style="background-color:#9A2236;">
-          <td style="padding:14px;color:#ffffff;font-size:12px;font-weight:bold;">
-            Assignment Details
-          </td>
-        </tr>
-
-        <tr>
-          <td style="padding:16px;">
-            <div style="font-size:11px;color:#999;">Title</div>
-            <div style="font-size:14px;color:#222;">%s</div>
-          </td>
-        </tr>
-
-        <tr>
-          <td style="padding:16px;border-top:1px solid #eee;">
-            <div style="font-size:11px;color:#999;">Description</div>
-            <div style="font-size:14px;color:#222;">%s</div>
-          </td>
-        </tr>
-
-        <tr>
-          <td style="padding:16px;border-top:1px solid #eee;">
-            <div style="font-size:11px;color:#999;">Total Points</div>
-            <div style="font-size:14px;color:#222;">%s pts</div>
-          </td>
-        </tr>
-
-        <tr>
-          <td style="padding:16px;border-top:1px solid #eee;">
-            <div style="font-size:11px;color:#999;">Available From</div>
-            <div style="font-size:14px;color:#222;">%s</div>
-          </td>
-        </tr>
-
-        <tr>
-          <td style="padding:16px;border-top:1px solid #eee;">
-            <div style="font-size:11px;color:#999;">Due Date</div>
-            <div style="font-size:14px;color:#222;">%s</div>
-          </td>
-        </tr>
-
-      </table>
-
-      <!-- DEADLINE -->
-      <table role="presentation" width="100%%" style="margin-top:25px;">
-        <tr>
-          <td style="padding:16px;
-                     background:#fff8ee;
-                     border:1px solid #f5d89a;
-                     border-radius:10px;
-                     color:#7a5000;
-                     font-size:13px;">
-            <strong>Deadline:</strong> Within %s
-          </td>
-        </tr>
-      </table>
-
-      <!-- BUTTON -->
-      <div style="text-align:center;margin-top:30px;">
-        <a href="https://www.gradeforge.tech"
-           style="display:inline-block;
-                  background-color:#9A2236;
-                  color:#ffffff;
-                  text-decoration:none;
-                  padding:14px 36px;
-                  border-radius:30px;
-                  font-weight:bold;">
-          Open Assignment →
-        </a>
-      </div>
-
-    </td>
-  </tr>
-</table>
-
-</body>
-</html>
-""",
-                courseName,
-                courseName,
-                assignmentName,
-                description,
-                totalPoints,
-                availableFrom,
-                dueDate,
-                countdown
-        );
-
-
-
-
-        emailService.sendEmailsWithHtml(recipientEmails, subject, content);
-    }
 }

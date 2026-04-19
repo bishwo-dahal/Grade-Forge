@@ -4,8 +4,12 @@ export default defineConfig({
   title: "Grade-Forge",
   description: "User manual for students, faculty, grading assistants, and university administrators.",
   base: "/docs/",
+  head: [
+    ["link", { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }],
+  ],
 
   themeConfig: {
+    logo: "/favicon.svg",
     nav: [
       { text: "Home", link: "/" },
       { text: "Manual overview", link: "/manual/overview" },
@@ -41,6 +45,7 @@ export default defineConfig({
           items: [
             { text: "Sign-in and account", link: "/manual/features/sign-in-and-account" },
             { text: "Courses and classes", link: "/manual/features/courses-and-classes" },
+            { text: "Parent and section courses", link: "/manual/features/parent-section-courses" },
             { text: "Assignments and editor", link: "/manual/features/assignments-and-editor" },
             { text: "Tests and submissions", link: "/manual/features/tests-and-submissions" },
             { text: "Grading and feedback", link: "/manual/features/grading-and-feedback" },
@@ -94,6 +99,7 @@ export default defineConfig({
           items: [
             { text: "Sign-in and account", link: "/manual/features/sign-in-and-account" },
             { text: "Courses and classes", link: "/manual/features/courses-and-classes" },
+            { text: "Parent and section courses", link: "/manual/features/parent-section-courses" },
             { text: "Assignments and editor", link: "/manual/features/assignments-and-editor" },
             { text: "Tests and submissions", link: "/manual/features/tests-and-submissions" },
             { text: "Grading and feedback", link: "/manual/features/grading-and-feedback" },

@@ -26,6 +26,7 @@ import {
   RefreshCcw,
   ChevronRight,
   FileUp,
+  Link2,
   Zap,
 } from "lucide-react";
 import type {
@@ -57,7 +58,12 @@ import {
   toggleFacultyCourseActive,
   updateFacultyCourse,
   deleteFacultyAssignment,
+  detachFacultyAssignmentInherit,
   getCourseCoverImageUrl,
+  createSectionCourse,
+  linkSectionCourse,
+  unlinkSectionCourse,
+  listFacultyCoursesBySemester,
 } from "../../services/classService";
 import type { CourseApiResponse } from "../../services/classService";
 import { createFacultyMainGroup, listFacultyCourseGroups } from "../../services/courseGroupService";
@@ -142,7 +148,8 @@ export function FacultyClassPage() {
     getFacultyClassHeaderById(resolvedId)
       .then(setClassHeader)
       .catch(() => setClassHeader(null));
-  }, [classId]);
+    // Refetch when switching sections so counts (e.g. linked sections) stay fresh after Settings changes.
+  }, [classId, activeSection]);
 
   const courseFullName =
     classHeader?.code && classHeader?.name
@@ -197,16 +204,27 @@ export function FacultyClassPage() {
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-[#F5F4F6]">
+          {/* Top Header — linked main/section course context + roster actions */}
           <header className="bg-white border-b border-gray-200 px-8 py-6">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-3 mb-2">
                   <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
                     {classData.code}: {classData.name}
                   </h1>
                   <span className="px-3 py-1 bg-[#5A7ACD] text-white text-[11px] font-semibold rounded uppercase">
                     {classData.role}
                   </span>
+                  {(classHeader?.linkedSectionCount ?? 0) > 0 && !classHeader?.parentCourseId ? (
+                    <Link
+                      to={`/faculty/class/${resolvedClassId}/settings`}
+                      className="rounded-full border border-[#5A7ACD]/45 bg-[#EEF2FA] px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#345079] hover:bg-[#E2E9F7]"
+                      title="Manage linked section courses"
+                    >
+                      Main · {classHeader?.linkedSectionCount} section
+                      {(classHeader?.linkedSectionCount ?? 0) === 1 ? "" : "s"}
+                    </Link>
+                  ) : null}
                 </div>
                 <div className="flex items-center gap-4 text-[13px] text-gray-600">
                   <span>{classData.semester}</span>
@@ -214,6 +232,44 @@ export function FacultyClassPage() {
                   <span>{classData.section}</span>
                 </div>
               </div>
+              {(classHeader?.parentCourseId != null && classHeader.parentCourse) || activeSection === "students" ? (
+                <div className="flex shrink-0 flex-col items-end gap-3">
+                  {classHeader?.parentCourseId != null && classHeader.parentCourse ? (
+                    <div className="flex max-w-sm flex-col gap-2 border-r-2 border-amber-400 pr-2.5">
+                      <p className="text-right text-[12px] leading-snug text-amber-950">
+                        <strong>Linked section</strong> of{" "}
+                        <strong>
+                          {classHeader.parentCourse.courseCode}: {classHeader.parentCourse.name}
+                        </strong>
+                      </p>
+                      <div className="flex w-full justify-end pt-0.5">
+                        <Link
+                          to={`/faculty/class/${classHeader.parentCourse.id}/assignments`}
+                          className="inline-flex items-center rounded-lg bg-[#2B2A2A] px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#3a3939]"
+                        >
+                          Open main course
+                        </Link>
+                      </div>
+                    </div>
+                  ) : null}
+                  {/* NOTE: Student-roster actions live in the top header so they align with the page-level action position. */}
+                  {activeSection === "students" ? (
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
+                        <Download className="w-4 h-4" strokeWidth={2} />
+                        <span>Import from Canvas</span>
+                      </button>
+                      <button
+                        onClick={() => setIsAddStudentModalOpen(true)}
+                        className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
+                      >
+                        <Plus className="w-4 h-4" strokeWidth={2} />
+                        <span>Add Student</span>
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </header>
 
@@ -247,9 +303,28 @@ function AssignmentsSection() {
   // NOTE: Assignments now load from backend-driven class service mapping.
   const [assignments, setAssignments] = useState<FacultyAssignment[]>([]);
   const [isAssignmentsLoading, setIsAssignmentsLoading] = useState(true);
+  const [isSectionCourse, setIsSectionCourse] = useState(false);
   const [openAssignmentActionsId, setOpenAssignmentActionsId] = useState<string | null>(null);
   const [assignmentDeleteTarget, setAssignmentDeleteTarget] = useState<FacultyAssignment | null>(null);
   const [isDeletingAssignment, setIsDeletingAssignment] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const detail = await getFacultyCourseDetailsById(resolvedClassId);
+        if (!cancelled) {
+          setIsSectionCourse(Boolean(detail.parentCourseId));
+        }
+      } catch {
+        if (!cancelled) setIsSectionCourse(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedClassId]);
+
   const loadAssignments = useCallback(async () => {
     // FIX: Centralize assignment reload so header/footer actions reuse the same backend-driven refresh path.
     setIsAssignmentsLoading(true);
@@ -291,7 +366,9 @@ function AssignmentsSection() {
         <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
           <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Assignments</h2>
           <p className="text-[13px] text-gray-600">
-            Create, publish, and manage course assignments
+            {isSectionCourse
+              ? "Content and tests sync from your main course. You can still adjust due dates per section here; use the banner to open the main course for other edits."
+              : "Create, publish, and manage course assignments"}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -309,14 +386,16 @@ function AssignmentsSection() {
             <RefreshCcw className={`w-4 h-4 ${isAssignmentsLoading ? "animate-spin" : ""}`} strokeWidth={2} />
             <span>{isAssignmentsLoading ? "Refreshing..." : "Refresh"}</span>
           </button>
-          <Link
-            to={`/faculty/class/${resolvedClassId}/assignments/create`}
-            // NOTE: Assignment creation now uses a standalone page route so faculty can manage the full form flow.
-            className="flex items-center gap-2 px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
-          >
-            <Plus className="w-4 h-4" strokeWidth={2} />
-            <span>Create Assignment</span>
-          </Link>
+          {!isSectionCourse ? (
+            <Link
+              to={`/faculty/class/${resolvedClassId}/assignments/create`}
+              // NOTE: Assignment creation now uses a standalone page route so faculty can manage the full form flow.
+              className="flex items-center gap-2 px-4 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
+            >
+              <Plus className="w-4 h-4" strokeWidth={2} />
+              <span>Create Assignment</span>
+            </Link>
+          ) : null}
         </div>
       </div>
 
@@ -392,12 +471,19 @@ function AssignmentsSection() {
                   className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${index === assignments.length - 1 ? 'border-b-0' : ''}`}
                 >
                   <td className="px-6 py-4 text-center">
-                    <Link
-                      to={`/faculty/class/${resolvedClassId}/assignment/${assignment.id}`}
-                      className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
-                    >
-                      {assignment.name}
-                    </Link>
+                    <div className="flex flex-col items-center gap-1">
+                      <Link
+                        to={`/faculty/class/${resolvedClassId}/assignment/${assignment.id}`}
+                        className="text-[14px] font-medium text-[#2B2A2A] hover:text-[#5A7ACD] transition-colors"
+                      >
+                        {assignment.name}
+                      </Link>
+                      {assignment.inheritedFromMain ? (
+                        <span className="rounded-full border border-amber-300/60 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+                          From main course
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-center">
                     <span className="inline-flex items-center text-[12px] font-medium text-gray-700">
@@ -444,18 +530,41 @@ function AssignmentsSection() {
                       </button>
                       {openAssignmentActionsId === assignment.id ? (
                         <div
-                          className="absolute right-0 top-9 z-20 w-12 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                          className="absolute right-0 top-9 z-20 min-w-[11rem] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
                           onClick={(event) => event.stopPropagation()}
                         >
                           <Link
                             to={`/faculty/class/${resolvedClassId}/assignments/${assignment.id}/edit`}
                             onClick={() => setOpenAssignmentActionsId(null)}
                             aria-label="Edit assignment"
-                            title="Edit assignment"
-                            className="flex w-full items-center justify-center px-1 py-2 text-[#2B2A2A] hover:bg-gray-50"
+                            title={
+                              assignment.inheritedFromMain
+                                ? "Edit dates for this section; description and tests still follow the main course while linked."
+                                : "Edit assignment"
+                            }
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50"
                           >
-                            <Edit className="h-4 w-4" strokeWidth={2} />
+                            <Edit className="h-4 w-4 shrink-0" strokeWidth={2} />
+                            Edit
                           </Link>
+                          {assignment.inheritedFromMain ? (
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 border-t border-gray-200 px-3 py-2 text-left text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50"
+                              onClick={async () => {
+                                setOpenAssignmentActionsId(null);
+                                try {
+                                  await detachFacultyAssignmentInherit(assignment.id);
+                                  toast.success("This assignment is no longer synced from the main course.");
+                                  await loadAssignments();
+                                } catch (error) {
+                                  toast.error(getErrorMessage(error));
+                                }
+                              }}
+                            >
+                              Detach from main
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             onClick={() => {
@@ -464,9 +573,13 @@ function AssignmentsSection() {
                             }}
                             aria-label="Delete assignment"
                             title="Delete assignment"
-                            className="flex w-full items-center justify-center border-t border-gray-200 px-1 py-2 text-[#C23A42] hover:bg-[#FFF5F5]"
+                            disabled={assignment.inheritedFromMain}
+                            className={`flex w-full items-center gap-2 border-t border-gray-200 px-3 py-2 text-left text-[12px] font-medium text-[#C23A42] hover:bg-[#FFF5F5] ${
+                              assignment.inheritedFromMain ? "cursor-not-allowed opacity-40" : ""
+                            }`}
                           >
-                            <Trash2 className="h-4 w-4" strokeWidth={2} />
+                            <Trash2 className="h-4 w-4 shrink-0" strokeWidth={2} />
+                            Delete
                           </button>
                         </div>
                       ) : null}
@@ -3214,6 +3327,17 @@ function SettingsSection({ classId }: { classId: string }) {
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
 
+  const [newSectionLabel, setNewSectionLabel] = useState("");
+  const [newSectionName, setNewSectionName] = useState("");
+  const [newSectionCode, setNewSectionCode] = useState("");
+  const [creatingSection, setCreatingSection] = useState(false);
+  const [selectedLinkCourseId, setSelectedLinkCourseId] = useState("");
+  const [linkOptions, setLinkOptions] = useState<CourseApiResponse[]>([]);
+  const [loadingLinkOptions, setLoadingLinkOptions] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
+  const [isUnlinkConfirmOpen, setIsUnlinkConfirmOpen] = useState(false);
+  const [linkingSection, setLinkingSection] = useState(false);
+
   useEffect(() => {
     if (!coverImageFile) {
       setCoverPreviewUrl(null);
@@ -3274,6 +3398,98 @@ function SettingsSection({ classId }: { classId: string }) {
       isCancelled = true;
     };
   }, [classId]);
+
+  useEffect(() => {
+    if (!course || course.parentCourseId != null || course.semester?.id == null) {
+      setLinkOptions([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingLinkOptions(true);
+    listFacultyCoursesBySemester(course.semester.id, { sectionLinkEligible: true })
+      .then((list) => {
+        if (cancelled) return;
+        const attachedIds = new Set((course.sectionCourses ?? []).map((s) => s.id));
+        setLinkOptions(
+          list.filter(
+            (c) => c.id !== course.id && !c.parentCourseId && !attachedIds.has(c.id),
+          ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setLinkOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingLinkOptions(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [course?.id, course?.parentCourseId, course?.semester?.id, course?.sectionCourses]);
+
+  async function refreshCourseDetail() {
+    const refreshed = await getFacultyCourseDetailsById(classId);
+    setCourse(refreshed);
+    return refreshed;
+  }
+
+  async function handleCreateSection() {
+    const label = newSectionLabel.trim();
+    if (!label) {
+      toast.error("Section label is required (for example A or 02).");
+      return;
+    }
+    setCreatingSection(true);
+    try {
+      await createSectionCourse(classId, {
+        section: label,
+        name: newSectionName.trim() || undefined,
+        courseCode: newSectionCode.trim() || undefined,
+      });
+      toast.success("Section course created.");
+      setNewSectionLabel("");
+      setNewSectionName("");
+      setNewSectionCode("");
+      await refreshCourseDetail();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setCreatingSection(false);
+    }
+  }
+
+  async function handleLinkExistingSection() {
+    const childId = Number(selectedLinkCourseId);
+    if (!Number.isFinite(childId) || childId <= 0) {
+      toast.error("Select a course to link.");
+      return;
+    }
+    setLinkingSection(true);
+    try {
+      await linkSectionCourse(classId, childId);
+      toast.success("Course linked as a section.");
+      setSelectedLinkCourseId("");
+      await refreshCourseDetail();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setLinkingSection(false);
+    }
+  }
+
+  async function handleUnlinkFromMain() {
+    setUnlinking(true);
+    try {
+      await unlinkSectionCourse(classId);
+      toast.success("This course is no longer linked to a main course.");
+      setIsUnlinkConfirmOpen(false);
+      await refreshCourseDetail();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setUnlinking(false);
+    }
+  }
 
   async function handleSave() {
     setIsSaving(true);
@@ -3349,6 +3565,34 @@ function SettingsSection({ classId }: { classId: string }) {
       {error ? (
         <div className="mb-4 rounded-xl border border-[#F3CDD1] bg-[#FDEBEC] px-3 py-2 text-[13px] text-[#C23A42]">
           {error}
+        </div>
+      ) : null}
+
+      {!isLoading && course?.parentCourseId ? (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-950">
+          <p className="font-semibold text-amber-950">Section course</p>
+          <p className="mt-1 text-amber-900/90">
+            This class is linked to main course{" "}
+            {course.parentCourse ? (
+              <Link
+                to={`/faculty/class/${course.parentCourse.id}/settings`}
+                className="font-medium text-[#5A7ACD] underline-offset-2 hover:underline"
+              >
+                {course.parentCourse.courseCode}: {course.parentCourse.name}
+              </Link>
+            ) : (
+              `#${course.parentCourseId}`
+            )}
+            . Assignments and tests are authored there unless you detach.
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsUnlinkConfirmOpen(true)}
+            disabled={unlinking || isSaving || isDeleting}
+            className="mt-3 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-[12px] font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-60"
+          >
+            Unlink from main course
+          </button>
         </div>
       ) : null}
 
@@ -3521,6 +3765,148 @@ function SettingsSection({ classId }: { classId: string }) {
                 )}
               </div>
             </div>
+
+            {!course.parentCourseId ? (
+              <div className="mt-8 rounded-xl border border-gray-200 bg-gray-50/80 p-6">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Section courses</h3>
+                    <p className="mt-1 max-w-2xl text-[13px] text-gray-600">
+                      Add sections for this main course. New sections copy course metadata; assignments and tests sync from here.
+                      To link an existing course, it must have no assignments and the same semester.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div className="rounded-xl border border-gray-200 bg-white p-4">
+                    <p className="text-[13px] font-semibold text-[#2B2A2A]">Linked sections</p>
+                    {(course.sectionCourses?.length ?? 0) === 0 ? (
+                      <p className="mt-3 text-[13px] text-gray-600">No section courses yet.</p>
+                    ) : (
+                      <ul className="mt-3 space-y-2">
+                        {(course.sectionCourses ?? []).map((sec) => (
+                          <li key={sec.id}>
+                            <Link
+                              to={`/faculty/class/${sec.id}/settings`}
+                              className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-[13px] text-[#2B2A2A] transition-colors hover:border-[#5A7ACD]/40 hover:bg-[#FAFBFF]"
+                            >
+                              <span className="min-w-0 truncate font-medium">
+                                {sec.courseCode}: {sec.name}
+                                <span className="font-normal text-gray-500">
+                                  {sec.section ? ` · ${sec.section}` : ""}
+                                </span>
+                              </span>
+                              <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400" strokeWidth={2} aria-hidden />
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <p className="flex items-center gap-2 text-[13px] font-semibold text-[#2B2A2A]">
+                        <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
+                        Create new section
+                      </p>
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div className="sm:col-span-1">
+                          <label htmlFor="gf-new-section-label" className="mb-1 block text-[12px] font-medium text-gray-600">
+                            Section label <span className="text-[#C23A42]">*</span>
+                          </label>
+                          <input
+                            id="gf-new-section-label"
+                            value={newSectionLabel}
+                            onChange={(e) => setNewSectionLabel(e.target.value)}
+                            placeholder="e.g. A"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] outline-none ring-[#5A7ACD] focus:ring-2"
+                            disabled={creatingSection}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="gf-new-section-name" className="mb-1 block text-[12px] font-medium text-gray-600">
+                            Name (optional)
+                          </label>
+                          <input
+                            id="gf-new-section-name"
+                            value={newSectionName}
+                            onChange={(e) => setNewSectionName(e.target.value)}
+                            placeholder="Defaults to main name"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] outline-none ring-[#5A7ACD] focus:ring-2"
+                            disabled={creatingSection}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="gf-new-section-code" className="mb-1 block text-[12px] font-medium text-gray-600">
+                            Course code (optional)
+                          </label>
+                          <input
+                            id="gf-new-section-code"
+                            value={newSectionCode}
+                            onChange={(e) => setNewSectionCode(e.target.value)}
+                            placeholder="Defaults to main code"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] outline-none ring-[#5A7ACD] focus:ring-2"
+                            disabled={creatingSection}
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void handleCreateSection()}
+                        disabled={creatingSection || !newSectionLabel.trim()}
+                        className="mt-4 rounded-lg bg-[#5A7ACD] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#4a6abd] disabled:opacity-60"
+                      >
+                        {creatingSection ? "Creating…" : "Create section course"}
+                      </button>
+                    </div>
+
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <p className="flex items-center gap-2 text-[13px] font-semibold text-[#2B2A2A]">
+                        <Link2 className="h-4 w-4" strokeWidth={2} aria-hidden />
+                        Link existing course
+                      </p>
+                      <p className="mt-1 text-[12px] text-gray-600">
+                        Only courses with zero assignments in the same semester appear here.
+                      </p>
+                      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <div className="min-w-0 flex-1">
+                          <label htmlFor="gf-link-section-select" className="mb-1 block text-[12px] font-medium text-gray-600">
+                            Course
+                          </label>
+                          <select
+                            id="gf-link-section-select"
+                            value={selectedLinkCourseId}
+                            onChange={(e) => setSelectedLinkCourseId(e.target.value)}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] outline-none ring-[#5A7ACD] focus:ring-2"
+                            disabled={linkingSection || loadingLinkOptions}
+                          >
+                            <option value="">
+                              {loadingLinkOptions ? "Loading courses…" : "Select a course…"}
+                            </option>
+                            {linkOptions.map((c) => (
+                              <option key={c.id} value={String(c.id)}>
+                                {c.courseCode}: {c.name}
+                                {c.section ? ` (${c.section})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleLinkExistingSection()}
+                          disabled={linkingSection || !selectedLinkCourseId}
+                          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-[13px] font-semibold text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
+                        >
+                          {linkingSection ? "Linking…" : "Link as section"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </>
         )}
       </div>
@@ -3780,6 +4166,51 @@ function SettingsSection({ classId }: { classId: string }) {
                   className="rounded-xl bg-[#C23A42] px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-[#a92f36] disabled:opacity-60"
                 >
                   {isDeleting ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {isUnlinkConfirmOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white shadow-xl">
+            <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-6 py-4">
+              <div className="pt-1">
+                <h3 className="text-[16px] font-semibold text-[#2B2A2A]">Unlink from main course</h3>
+                <p className="mt-1 text-[13px] text-gray-600">
+                  This class stays as its own course with its current assignments. It will no longer receive updates from the main
+                  course.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => !unlinking && setIsUnlinkConfirmOpen(false)}
+                disabled={unlinking}
+                className="rounded-xl border border-gray-200 bg-white p-2 hover:bg-gray-50 disabled:opacity-60"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="px-6 py-5">
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => !unlinking && setIsUnlinkConfirmOpen(false)}
+                  disabled={unlinking}
+                  className="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-[14px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleUnlinkFromMain()}
+                  disabled={unlinking}
+                  className="rounded-xl bg-[#5A7ACD] px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-[#4a6abd] disabled:opacity-60"
+                >
+                  {unlinking ? "Unlinking…" : "Unlink"}
                 </button>
               </div>
             </div>

@@ -595,6 +595,20 @@ export interface CourseApiResponse {
     department: string;
     qualifications: string;
   } | null;
+  /** Present when this course is a section linked to a main course. */
+  parentCourseId?: number | null;
+  parentCourse?: {
+    id: number;
+    name: string;
+    courseCode: string;
+    section: string | null;
+  } | null;
+  sectionCourses?: Array<{
+    id: number;
+    name: string;
+    courseCode: string;
+    section: string | null;
+  }>;
 }
 
 /** Cover image URL for display; uses `public/ulm.jpg` when API has no cover. */
@@ -628,6 +642,9 @@ interface AssignmentApiResponse {
   availableFrom: string | null;
   dueDate: string | null;
   lateDueDate: string | null;
+  sourceAssignmentId?: number | null;
+  inheritSyncEnabled?: boolean | null;
+  lastInheritedAt?: string | null;
 }
 
 interface SubmissionApiResponse {
@@ -1000,6 +1017,7 @@ async function getFacultyCourseMetrics(courseId: number): Promise<FacultyCourseM
 
 function mapFacultyCourseToCard(course: CourseApiResponse, metrics?: FacultyCourseMetrics): FacultyCourseCard {
   const iconData = buildCourseIcon(course.courseCode || course.name);
+  const sectionChildren = !course.parentCourseId ? (course.sectionCourses?.length ?? 0) : 0;
   return {
     id: String(course.id),
     title: course.name,
@@ -1010,6 +1028,7 @@ function mapFacultyCourseToCard(course: CourseApiResponse, metrics?: FacultyCour
     icon: iconData.icon,
     iconBg: iconData.iconBg,
     coverImageUrl: getCourseCoverImageUrl(course),
+    ...(sectionChildren > 0 ? { linkedSectionCount: sectionChildren } : {}),
   };
 }
 
@@ -1023,12 +1042,15 @@ function mapFacultyCourseToWorkspaceItem(
     course.semester?.name ??
     (typeof course.semesterId === "number" ? semesterNameById.get(course.semesterId) : undefined) ??
     "TBD";
+  const sectionChildren = !course.parentCourseId ? (course.sectionCourses?.length ?? 0) : 0;
   return {
     id: String(course.id),
     title: course.name,
     code: course.courseCode,
     section: course.section ?? "TBD",
     semester: resolvedSemesterName,
+    isLinkedSection: Boolean(course.parentCourseId),
+    ...(sectionChildren > 0 ? { linkedSectionCount: sectionChildren } : {}),
     isActive: Boolean(course.active),
     // NOTE: Faculty My Classes cards now show backend-derived metrics; non-modeled fields keep explicit placeholders.
     students: metrics.students,
@@ -1132,8 +1154,16 @@ export async function listFacultySemesters(): Promise<FacultySemesterOption[]> {
   }));
 }
 
-export async function listFacultyCoursesBySemester(semesterId: number): Promise<CourseApiResponse[]> {
-  const { data } = await api.get<CourseApiResponse[]>(`/api/v1/faculty/courses/semester/${semesterId}`);
+export async function listFacultyCoursesBySemester(
+  semesterId: number,
+  options?: { sectionLinkEligible?: boolean },
+): Promise<CourseApiResponse[]> {
+  const { data } = await api.get<CourseApiResponse[]>(`/api/v1/faculty/courses/semester/${semesterId}`, {
+    params:
+      options?.sectionLinkEligible === true
+        ? { sectionLinkEligible: true }
+        : undefined,
+  });
   return data;
 }
 
@@ -1335,6 +1365,7 @@ export async function getClassHeaderById(classId: string): Promise<ClassHeader> 
 export async function getFacultyClassHeaderById(classId: string): Promise<ClassHeader> {
   const courseId = toCourseId(classId);
   const course = await getFacultyCourseById(courseId);
+  const sectionChildren = !course.parentCourseId ? (course.sectionCourses?.length ?? 0) : 0;
   return {
     id: String(course.id),
     code: course.courseCode,
@@ -1344,6 +1375,9 @@ export async function getFacultyClassHeaderById(classId: string): Promise<ClassH
     instructor: course.faculty?.name ?? "TBD",
     role: "Instructor",
     coverImageUrl: getCourseCoverImageUrl(course),
+    parentCourseId: course.parentCourseId ?? null,
+    parentCourse: course.parentCourse ?? null,
+    ...(sectionChildren > 0 ? { linkedSectionCount: sectionChildren } : {}),
   };
 }
 
@@ -1711,6 +1745,11 @@ export async function listFacultyAssignments(classId: string): Promise<FacultyAs
       status = "closed";
     }
 
+    const inheritedFromMain =
+      typeof assignment.sourceAssignmentId === "number" &&
+      assignment.sourceAssignmentId > 0 &&
+      assignment.inheritSyncEnabled !== false;
+
     return {
       id: String(assignment.id),
       name: assignment.name,
@@ -1722,6 +1761,7 @@ export async function listFacultyAssignments(classId: string): Promise<FacultyAs
       submissions: submissions.length,
       totalStudents,
       status,
+      inheritedFromMain,
     };
   });
 }
@@ -1732,4 +1772,42 @@ export async function deleteFacultyAssignment(assignmentId: string): Promise<voi
     throw new Error("Invalid assignment id.");
   }
   await api.delete(`/api/v1/faculty/assignments/${parsedAssignmentId}`);
+}
+
+/** Stops receiving updates from the main-course assignment for this section copy. */
+export async function detachFacultyAssignmentInherit(assignmentId: string): Promise<void> {
+  const parsed = Number(assignmentId);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error("Invalid assignment id.");
+  }
+  await api.patch(`/api/v1/faculty/assignments/${parsed}/detach-inherit`);
+}
+
+export async function listSectionCoursesForParent(parentCourseId: string): Promise<CourseApiResponse[]> {
+  const id = toCourseId(parentCourseId);
+  const { data } = await api.get<CourseApiResponse[]>(`/api/v1/faculty/courses/${id}/sections`);
+  return data;
+}
+
+export async function createSectionCourse(
+  parentCourseId: string,
+  body: { section: string; name?: string; courseCode?: string },
+): Promise<CourseApiResponse> {
+  const id = toCourseId(parentCourseId);
+  const { data } = await api.post<CourseApiResponse>(`/api/v1/faculty/courses/${id}/sections`, body);
+  return data;
+}
+
+export async function linkSectionCourse(parentCourseId: string, childCourseId: number): Promise<CourseApiResponse> {
+  const id = toCourseId(parentCourseId);
+  const { data } = await api.post<CourseApiResponse>(`/api/v1/faculty/courses/${id}/link-section`, {
+    childCourseId,
+  });
+  return data;
+}
+
+export async function unlinkSectionCourse(sectionCourseId: string): Promise<CourseApiResponse> {
+  const id = toCourseId(sectionCourseId);
+  const { data } = await api.post<CourseApiResponse>(`/api/v1/faculty/courses/${id}/unlink-section`);
+  return data;
 }

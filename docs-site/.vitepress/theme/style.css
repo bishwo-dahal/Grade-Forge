@@ -1,0 +1,94 @@
+:root {
+  /* Grade Forge palette */
+  --gf-charcoal: #2b2a2a;
+  /* Faculty shell maroon (primary brand) */
+  --gf-maroon: #7a1226;
+  --gf-maroon-2: #8a1e33;
+  --gf-maroon-3: #9f3549;
+  --gf-amber: #feb05d;
+
+  /* Brand (links, accents, buttons) */
+  --vp-c-brand-1: var(--gf-maroon);
+  --vp-c-brand-2: var(--gf-maroon-2);
+  --vp-c-brand-3: var(--gf-maroon-3);
+  --vp-c-brand-soft: rgba(122, 18, 38, 0.14);
+
+  /* Typography */
+  --vp-c-text-1: #1f2430;
+  --vp-c-text-2: #30415f;
+  --vp-c-text-3: #6d7b91;
+
+  /* Surfaces (light) */
+  --vp-c-bg: #f5f4f6;
+  --vp-c-bg-alt: #ffffff;
+  --vp-c-bg-soft: rgba(255, 255, 255, 0.85);
+  --vp-c-bg-elv: #ffffff;
+  --vp-c-bg-elv-up: #ffffff;
+
+  /* Borders */
+  --vp-c-divider: rgba(31, 36, 48, 0.10);
+  --vp-c-gutter: rgba(31, 36, 48, 0.08);
+
+  /* Home hero */
+  --vp-home-hero-name-color: var(--gf-charcoal);
+  --vp-home-hero-image-background-image: linear-gradient(
+    135deg,
+    rgba(90, 122, 205, 0.25),
+    rgba(254, 176, 93, 0.25)
+  );
+  --vp-home-hero-image-filter: blur(28px);
+}
+
+.dark {
+  /* Brand stays consistent in dark mode */
+  --vp-c-brand-1: #e08b9a;
+  --vp-c-brand-2: #d86a7d;
+  --vp-c-brand-3: #c75367;
+  --vp-c-brand-soft: rgba(216, 106, 125, 0.14);
+
+  /* Typography */
+  --vp-c-text-1: rgba(255, 255, 255, 0.92);
+  --vp-c-text-2: rgba(255, 255, 255, 0.75);
+  --vp-c-text-3: rgba(255, 255, 255, 0.55);
+
+  /* Surfaces (dark) */
+  --vp-c-bg: #121416;
+  --vp-c-bg-alt: #16191c;
+  --vp-c-bg-soft: rgba(255, 255, 255, 0.04);
+  --vp-c-bg-elv: #16191c;
+  --vp-c-bg-elv-up: #1b1f23;
+
+  /* Borders */
+  --vp-c-divider: rgba(255, 255, 255, 0.10);
+  --vp-c-gutter: rgba(255, 255, 255, 0.06);
+
+  --vp-home-hero-name-color: rgba(255, 255, 255, 0.92);
+}
+
+/* Make nav + sidebar feel closer to app surfaces */
+.VPNavBar,
+.VPSidebar,
+.VPFooter {
+  border-color: var(--vp-c-divider);
+}
+
+.VPNavBar.has-sidebar .content,
+.VPSidebar {
+  background-color: var(--vp-c-bg-alt);
+}
+
+/* Buttons: slightly more "app-like" */
+.VPButton.brand {
+  background-color: var(--vp-c-brand-1);
+  border-color: var(--vp-c-brand-1);
+}
+.VPButton.brand:hover {
+  background-color: var(--vp-c-brand-2);
+  border-color: var(--vp-c-brand-2);
+}
+
+/* Accent inline code a bit (subtle) */
+.vp-doc :not(pre) > code {
+  background: var(--vp-c-brand-soft);
+}
+

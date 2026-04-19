@@ -10,6 +10,7 @@ import com.grade.forge.testsuite.dto.TestSuiteResponse;
 import com.grade.forge.testsuite.entity.TestCase;
 import com.grade.forge.testsuite.entity.TestSuite;
 import com.grade.forge.testsuite.repository.TestSuiteRepository;
+import com.grade.forge.coursemgmt.service.CourseSectionSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,7 @@ public class TestSuiteService {
 
     private final TestSuiteRepository testSuiteRepository;
     private final AssignmentRepository assignmentRepository;
+    private final CourseSectionSyncService courseSectionSyncService;
 
     public Optional<TestSuiteResponse> getByAssignmentId(Long assignmentId) {
         return testSuiteRepository.findByAssignment_Id(assignmentId)
@@ -67,9 +69,7 @@ public class TestSuiteService {
     public TestSuiteResponse create(String facultyEmail, Long assignmentId, TestSuiteRequest request) {
         Assignment assignment = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId));
-        if (!assignment.getCourse().getFaculty().getEmail().equalsIgnoreCase(facultyEmail)) {
-            throw new IllegalArgumentException("You are not allowed to manage test suite for this assignment");
-        }
+        assertCanManageTestSuiteForAssignment(assignment, facultyEmail);
         if (testSuiteRepository.findByAssignment_Id(assignmentId).isPresent()) {
             throw new IllegalArgumentException("Test suite already exists for this assignment");
         }
@@ -80,6 +80,7 @@ public class TestSuiteService {
         List<TestCase> cases = mapToTestCases(request.getTestCases(), suite);
         suite.setTestCases(cases);
         TestSuite saved = testSuiteRepository.save(suite);
+        courseSectionSyncService.syncParentTestSuiteToSections(assignmentId);
         return mapToResponse(saved);
     }
 
@@ -87,16 +88,25 @@ public class TestSuiteService {
     public TestSuiteResponse update(String facultyEmail, Long assignmentId, TestSuiteRequest request) {
         TestSuite suite = testSuiteRepository.findByAssignment_Id(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test suite not found for assignment id: " + assignmentId));
-        if (!suite.getAssignment().getCourse().getFaculty().getEmail().equalsIgnoreCase(facultyEmail)) {
-            throw new IllegalArgumentException("You are not allowed to manage test suite for this assignment");
-        }
+        assertCanManageTestSuiteForAssignment(suite.getAssignment(), facultyEmail);
         suite.setTitle(request.getTitle() != null ? request.getTitle() : suite.getTitle());
         suite.setDescription(request.getDescription());
         suite.getTestCases().clear();
         List<TestCase> cases = mapToTestCases(request.getTestCases(), suite);
         suite.getTestCases().addAll(cases);
         TestSuite saved = testSuiteRepository.save(suite);
+        courseSectionSyncService.syncParentTestSuiteToSections(assignmentId);
         return mapToResponse(saved);
+    }
+
+    private void assertCanManageTestSuiteForAssignment(Assignment assignment, String facultyEmail) {
+        if (!assignment.getCourse().getFaculty().getEmail().equalsIgnoreCase(facultyEmail)) {
+            throw new IllegalArgumentException("You are not allowed to manage test suite for this assignment");
+        }
+        if (assignment.getSourceAssignment() != null && Boolean.TRUE.equals(assignment.getInheritSyncEnabled())) {
+            throw new IllegalArgumentException(
+                    "This assignment is synced from the main course. Edit tests on the main course, or detach sync on this copy first.");
+        }
     }
 
     private List<TestCase> mapToTestCases(List<TestCaseRequest> requests, TestSuite suite) {

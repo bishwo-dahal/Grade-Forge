@@ -39,4 +39,8 @@ public class AssignmentResponse {
     private String rubricName;
     private Long mainGroupId;
     private String mainGroupName;
+    /** Parent assignment id when this row is a synced section copy. */
+    private Long sourceAssignmentId;
+    private Boolean inheritSyncEnabled;
+    private LocalDateTime lastInheritedAt;
 }

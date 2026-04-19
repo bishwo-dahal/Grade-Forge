@@ -140,7 +140,12 @@ public class GraderReportRunnerService {
             Assignment assignment = assignmentRepository.findById(report.getAssignment().getId())
                     .orElseThrow(() -> new ResourceNotFoundException("Assignment not found: " + report.getAssignment().getId()));
 
-            List<Submission> submissions = submissionRepository.findByAssignment_Id(assignment.getId());
+            List<Long> assignmentIds = resolveLinkedAssignmentIdsForReport(assignment);
+            List<Submission> submissions = assignmentIds.size() == 1
+                    ? submissionRepository.findByAssignment_Id(assignment.getId())
+                    : submissionRepository.findByAssignment_IdIn(assignmentIds);
+            // Deterministic ordering helps debugging and stable grader inputs.
+            submissions.sort(Comparator.comparing(Submission::getId));
             if (submissions.isEmpty()) {
                 String emptyResult = buildEmptyResultJson(assignment.getId().toString());
                 report.setResultJson(emptyResult);
@@ -153,7 +158,7 @@ public class GraderReportRunnerService {
 
             workDir = createWorkDir(reportId);
             writeSubmissionFiles(workDir, submissions);
-            Map<String, Object> inputJson = buildGraderInput(assignment, submissions, workDir);
+            Map<String, Object> inputJson = buildGraderInput(assignment, submissions, workDir, assignmentIds);
             Path inputPath = workDir.resolve(INPUT_FILENAME);
             Files.writeString(inputPath, objectMapper.writeValueAsString(inputJson), StandardCharsets.UTF_8);
 
@@ -220,7 +225,7 @@ public class GraderReportRunnerService {
         return n.replaceAll("\\.\\.", "");
     }
 
-    private Map<String, Object> buildGraderInput(Assignment assignment, List<Submission> submissions, Path workDir) {
+    private Map<String, Object> buildGraderInput(Assignment assignment, List<Submission> submissions, Path workDir, List<Long> assignmentIds) {
         int publicTests = 1;
         int privateTests = 1;
         List<TestCase> testCases = Collections.emptyList();
@@ -248,8 +253,10 @@ public class GraderReportRunnerService {
         }
         Map<Long, SubmissionAuthorshipTriage> triageBySubmissionId = new HashMap<>();
         if (facultyId != null) {
-            for (SubmissionAuthorshipTriage t : submissionAuthorshipTriageRepository
-                    .findBySubmission_Assignment_IdAndFaculty_Id(assignment.getId(), facultyId)) {
+            List<SubmissionAuthorshipTriage> rows = assignmentIds.size() == 1
+                    ? submissionAuthorshipTriageRepository.findBySubmission_Assignment_IdAndFaculty_Id(assignment.getId(), facultyId)
+                    : submissionAuthorshipTriageRepository.findBySubmission_Assignment_IdInAndFaculty_Id(assignmentIds, facultyId);
+            for (SubmissionAuthorshipTriage t : rows) {
                 if (t.getSubmission() != null && t.getSubmission().getId() != null) {
                     triageBySubmissionId.put(t.getSubmission().getId(), t);
                 }
@@ -310,6 +317,27 @@ public class GraderReportRunnerService {
         input.put("weights", weights);
         input.put("submissions", submissionEntries);
         return input;
+    }
+
+    /**
+     * For plagiarism/AI reports, include submissions across the linked assignment family.
+     * If called on a section-copy assignment, include its main assignment and other synced section copies.
+     * If called on a main assignment, include all synced section copies (and the main itself).
+     */
+    private List<Long> resolveLinkedAssignmentIdsForReport(Assignment assignment) {
+        Assignment root = assignment.getSourceAssignment() != null ? assignment.getSourceAssignment() : assignment;
+        Long rootId = root.getId();
+        if (rootId == null) {
+            return List.of(assignment.getId());
+        }
+        List<Long> ids = new ArrayList<>();
+        ids.add(rootId);
+        for (Assignment child : assignmentRepository.findBySourceAssignment_IdAndInheritSyncEnabledIsTrue(rootId)) {
+            if (child.getId() != null) {
+                ids.add(child.getId());
+            }
+        }
+        return ids.stream().distinct().toList();
     }
 
     private String invokeGrader(String inputPath) throws IOException, InterruptedException {

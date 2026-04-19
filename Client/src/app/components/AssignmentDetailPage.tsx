@@ -225,10 +225,10 @@ export function AssignmentDetailPage({
       const zip = new JSZip();
       await Promise.all(
         rowsWithFiles.map(async (row) => {
-          const safeStudentName = (row.studentName || `submission-${row.submissionId}`).replace(
-            /[\\/:*?"<>|]/g,
-            "_",
-          );
+          const nameBase = (row.studentName || `submission-${row.submissionId}`)
+            .replace(/[\\/:*?"<>|]/g, "_")
+            .trim() || "student";
+          const safeStudentName = row.studentId ? `${nameBase}_${row.studentId}` : nameBase;
           const folder = zip.folder(safeStudentName);
           if (!folder) return;
           const files =
@@ -745,7 +745,15 @@ export function AssignmentDetailPage({
             <div className="flex items-center gap-2">
               <Inbox className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
               <div>
-                <h2 className="text-[16px] font-semibold text-[#2B2A2A]">Submissions</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-[16px] font-semibold text-[#2B2A2A]">Submissions</h2>
+                  {submissionsCountLabel ? (
+                    <span className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-[12px] font-medium text-[#2B2A2A]">
+                      {submissionsCountLabel}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-[13px] text-gray-600">{submissionsSectionSubtitle}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">

@@ -61,6 +61,15 @@ public class AssignmentController {
         return new ResponseEntity<>(updated, HttpStatus.OK);
     }
 
+    @PatchMapping("/{id}/detach-inherit")
+    public ResponseEntity<AssignmentResponse> detachSectionAssignmentInherit(
+            Authentication authentication,
+            @PathVariable Long id) {
+        AssignmentResponse updated = assignmentService.detachSectionAssignmentInherit(id);
+        activityLogService.log(authentication, "Detached section assignment inherit", "Assignment ID: " + id, "success");
+        return ResponseEntity.ok(updated);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteAssignment(Authentication authentication, @PathVariable Long id) {
         AssignmentResponse existing = assignmentService.getAssignment(id);
