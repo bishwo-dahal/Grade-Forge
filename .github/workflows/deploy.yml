@@ -140,6 +140,8 @@ jobs:
           CLOUD_AWS_CREDENTIAL_ACCESS_KEY_VAL="${{ secrets.CLOUD_AWS_CREDENTIAL_ACCESS_KEY }}"
           CLOUD_AWS_CREDENTIAL_SECRET_KEY_VAL="${{ secrets.CLOUD_AWS_CREDENTIAL_SECRET_KEY }}"
           CLOUD_AWS_REGION_VAL="${{ secrets.CLOUD_AWS_REGION }}"
+          CANVAS_TOKEN_VAL="${{ secrets.CANVAS_TOKEN }}"
+          CANVAS_BASE_URL_VAL="${{ secrets.CANVAS_BASE_URL }}"
 
           missing_required=""
           if [ -z "${SPRING_DATASOURCE_URL_VAL}" ]; then missing_required="${missing_required} SPRING_DATASOURCE_URL"; fi
@@ -149,6 +151,7 @@ jobs:
           if [ -z "${CLOUD_AWS_CREDENTIAL_ACCESS_KEY_VAL}" ]; then missing_required="${missing_required} CLOUD_AWS_CREDENTIAL_ACCESS_KEY"; fi
           if [ -z "${CLOUD_AWS_CREDENTIAL_SECRET_KEY_VAL}" ]; then missing_required="${missing_required} CLOUD_AWS_CREDENTIAL_SECRET_KEY"; fi
           if [ -z "${CLOUD_AWS_REGION_VAL}" ]; then missing_required="${missing_required} CLOUD_AWS_REGION"; fi
+          if [ -z "${CANVAS_TOKEN_VAL}" ]; then missing_required="${missing_required} CANVAS_TOKEN"; fi
           if [ -n "${missing_required}" ]; then
             echo "ERROR: Missing required GitHub secrets for Docker deploy:${missing_required}"
             echo "Set these in GitHub repo settings → Secrets and variables → Actions."
@@ -200,6 +203,7 @@ jobs:
             -e "CLOUD_AWS_CREDENTIAL_ACCESS_KEY=${CLOUD_AWS_CREDENTIAL_ACCESS_KEY_VAL}"
             -e "CLOUD_AWS_CREDENTIAL_SECRET_KEY=${CLOUD_AWS_CREDENTIAL_SECRET_KEY_VAL}"
             -e "CLOUD_AWS_REGION=${CLOUD_AWS_REGION_VAL}"
+            -e "CANVAS_TOKEN=${CANVAS_TOKEN_VAL}"
             -e "GRADER_LLM_AI_SIGNAL_ENABLED=${GRADER_LLM_AI_SIGNAL_ENABLED_VAL}"
             -e "GRADER_LLM_AI_SIGNAL_URL=${GRADER_LLM_AI_SIGNAL_URL_VAL}"
             -e "GRADER_LLM_AI_SIGNAL_MODEL=${GRADER_LLM_AI_SIGNAL_MODEL_VAL}"
@@ -215,6 +219,7 @@ jobs:
           [ -n "${SPRING_MAIL_PORT_VAL}" ] && run_args+=( -e "SPRING_MAIL_PORT=${SPRING_MAIL_PORT_VAL}" )
           [ -n "${SPRING_MAIL_USERNAME_VAL}" ] && run_args+=( -e "SPRING_MAIL_USERNAME=${SPRING_MAIL_USERNAME_VAL}" )
           [ -n "${SPRING_MAIL_PASSWORD_VAL}" ] && run_args+=( -e "SPRING_MAIL_PASSWORD=${SPRING_MAIL_PASSWORD_VAL}" )
+          [ -n "${CANVAS_BASE_URL_VAL}" ] && run_args+=( -e "CANVAS_BASE_URL=${CANVAS_BASE_URL_VAL}" )
 
           docker run "${run_args[@]}" --name "${CONTAINER_NAME}" "bishwodahal/grade-forge:${IMAGE_TAG}"
           echo "Deployed bishwodahal/grade-forge:${IMAGE_TAG} on port ${PORT} (container: ${CONTAINER_NAME})"

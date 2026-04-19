@@ -96,7 +96,7 @@ function FacultyRightPanelView({
 
   // Days with assignment deadlines
   return (
-    <aside className="w-80 bg-white border-l border-[#C9C4C9] flex-shrink-0 overflow-y-auto">
+    <aside className="w-72 bg-white border-l border-[#C9C4C9] flex-shrink-0 overflow-y-auto">
       <div className="p-6">
         {/* Calendar */}
         <div className="mb-8">

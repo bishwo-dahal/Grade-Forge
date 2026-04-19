@@ -4,7 +4,6 @@ import {
   Settings,
   ChevronLeft,
   FileText,
-  Send,
   BarChart3,
   Plus,
   Upload,
@@ -33,9 +32,8 @@ import {
 import type {
   ClassHeader,
   ClassCreateFormData,
-  ClassRecentActivity,
   FacultyAssignment,
-  FacultyDashboardStat,
+  CanvasCourseStudent,
   FacultyStudentEmailSuggestion,
   FacultyRosterStats,
   FacultyRosterStudentRow,
@@ -46,16 +44,16 @@ import type { MainGroupResponse } from "../../types/courseGroup";
 import type { ClassSubmissionItem, SpeedGradingAssignmentOption } from "../../types/submission";
 import {
   dropStudentFromCourse,
+  enrollFacultyStudentsBulk,
   enrollStudentByEmail,
   getFacultyClassHeaderById,
   deleteFacultyCourse,
   getFacultyCourseDetailsById,
-  listClassRecentActivity,
   listFacultyAssignments,
   listFacultySemesters,
   listFacultyStudentEmailSuggestions,
+  listCanvasCourseStudents,
   listFacultyRosterRows,
-  listFacultyDashboardStats,
   searchFacultyStudentByEmail,
   toggleFacultyCourseActive,
   updateFacultyCourse,
@@ -67,7 +65,6 @@ import {
   unlinkSectionCourse,
   listFacultyCoursesBySemester,
 } from "../../services/classService";
-
 import type { CourseApiResponse } from "../../services/classService";
 import { createFacultyMainGroup, listFacultyCourseGroups } from "../../services/courseGroupService";
 import { listClassSubmissions } from "../../services/submissionService";
@@ -101,6 +98,7 @@ import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection as TopBarSettingsSection } from "./layout/AuthTopBar";
 import { FacultyClassSidebar } from "./layout/FacultyClassSidebar";
+import { DEFAULT_COURSE_COVER_IMAGE } from "../../constants/defaultCourseCover";
 
 const SECTION_PATH_SEGMENTS = [
   "assignments",
@@ -166,6 +164,7 @@ export function FacultyClassPage() {
     semester: "",
     instructor: "",
     role: "",
+    coverImageUrl: DEFAULT_COURSE_COVER_IMAGE,
   };
   const loggedInUser = getAuthenticatedUser();
   const displayName = loggedInUser?.name ?? "Dr. Sarah Miller";
@@ -203,264 +202,97 @@ export function FacultyClassPage() {
           onLogout={handleLogout}
         />
 
-        {/* Top Header */}
-        <header className="bg-white border-b border-gray-200 px-8 py-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-3 mb-2">
-                <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
-                  {classData.code}: {classData.name}
-                </h1>
-                <span className="px-3 py-1 bg-[#5A7ACD] text-white text-[11px] font-semibold rounded uppercase">
-                  {classData.role}
-                </span>
-                {(classHeader?.linkedSectionCount ?? 0) > 0 && !classHeader?.parentCourseId ? (
-                  <Link
-                    to={`/faculty/class/${resolvedClassId}/settings`}
-                    className="rounded-full border border-[#5A7ACD]/45 bg-[#EEF2FA] px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#345079] hover:bg-[#E2E9F7]"
-                    title="Manage linked section courses"
-                  >
-                    Main · {classHeader?.linkedSectionCount} section
-                    {(classHeader?.linkedSectionCount ?? 0) === 1 ? "" : "s"}
-                  </Link>
-                ) : null}
-              </div>
-              <div className="flex items-center gap-4 text-[13px] text-gray-600">
-                <span>{classData.semester}</span>
-                <span className="text-gray-300">&bull;</span>
-                <span>{classData.section}</span>
-              </div>
-            </div>
-            {(classHeader?.parentCourseId != null && classHeader.parentCourse) || activeSection === "students" ? (
-              <div className="flex shrink-0 flex-col items-end gap-3">
-                {classHeader?.parentCourseId != null && classHeader.parentCourse ? (
-                  <div className="flex max-w-sm flex-col gap-2 border-r-2 border-amber-400 pr-2.5">
-                    <p className="text-right text-[12px] leading-snug text-amber-950">
-                      <strong>Linked section</strong> of{" "}
-                      <strong>
-                        {classHeader.parentCourse.courseCode}: {classHeader.parentCourse.name}
-                      </strong>
-                    </p>
-                    <div className="flex w-full justify-end pt-0.5">
-                      <Link
-                        to={`/faculty/class/${classHeader.parentCourse.id}/assignments`}
-                        className="inline-flex items-center rounded-lg bg-[#2B2A2A] px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#3a3939]"
-                      >
-                        Open main course
-                      </Link>
-                    </div>
-                  </div>
-                ) : null}
-                {/* NOTE: Student-roster actions live in the top header so they align with the page-level action position. */}
-                {activeSection === "students" ? (
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
-                      <Download className="w-4 h-4" strokeWidth={2} />
-                      <span>Import from Canvas</span>
-                    </button>
-                    <button
-                      onClick={() => setIsAddStudentModalOpen(true)}
-                      className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
-                    >
-                      <Plus className="w-4 h-4" strokeWidth={2} />
-                      <span>Add Student</span>
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </header>
-
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-8 py-6">
-{activeSection === "assignments" && <AssignmentsSection />}
-            {activeSection === "grades" && (
-              <GradesSection courseFullName={courseFullName} facultyName={facultyName} />
-            )}
-            {activeSection === "students" && (
-              <StudentsSection
-                isAddStudentModalOpen={isAddStudentModalOpen}
-                onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
-                onOpenAddStudentModal={() => setIsAddStudentModalOpen(true)}
-              />
-            )}
-            {activeSection === "assistants" && <AssistantsSection />}
-            {activeSection === "groups" && <GroupsSection />}
-            {activeSection === "settings" && <SettingsSection classId={resolvedClassId} />}
+        <main className="flex-1 overflow-y-auto bg-[#F5F4F6]">
+          {/* Top Header — linked main/section course context + roster actions */}
+          <header className="bg-white border-b border-gray-200 px-8 py-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-3 mb-2">
+                  <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
+                    {classData.code}: {classData.name}
+                  </h1>
+                  <span className="px-3 py-1 bg-[#5A7ACD] text-white text-[11px] font-semibold rounded uppercase">
+                    {classData.role}
+                  </span>
+                  {(classHeader?.linkedSectionCount ?? 0) > 0 && !classHeader?.parentCourseId ? (
+                    <Link
+                      to={`/faculty/class/${resolvedClassId}/settings`}
+                      className="rounded-full border border-[#5A7ACD]/45 bg-[#EEF2FA] px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#345079] hover:bg-[#E2E9F7]"
+                      title="Manage linked section courses"
+                    >
+                      Main · {classHeader?.linkedSectionCount} section
+                      {(classHeader?.linkedSectionCount ?? 0) === 1 ? "" : "s"}
+                    </Link>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-4 text-[13px] text-gray-600">
+                  <span>{classData.semester}</span>
+                  <span className="text-gray-300">&bull;</span>
+                  <span>{classData.section}</span>
+                </div>
+              </div>
+              {(classHeader?.parentCourseId != null && classHeader.parentCourse) || activeSection === "students" ? (
+                <div className="flex shrink-0 flex-col items-end gap-3">
+                  {classHeader?.parentCourseId != null && classHeader.parentCourse ? (
+                    <div className="flex max-w-sm flex-col gap-2 border-r-2 border-amber-400 pr-2.5">
+                      <p className="text-right text-[12px] leading-snug text-amber-950">
+                        <strong>Linked section</strong> of{" "}
+                        <strong>
+                          {classHeader.parentCourse.courseCode}: {classHeader.parentCourse.name}
+                        </strong>
+                      </p>
+                      <div className="flex w-full justify-end pt-0.5">
+                        <Link
+                          to={`/faculty/class/${classHeader.parentCourse.id}/assignments`}
+                          className="inline-flex items-center rounded-lg bg-[#2B2A2A] px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#3a3939]"
+                        >
+                          Open main course
+                        </Link>
+                      </div>
+                    </div>
+                  ) : null}
+                  {/* NOTE: Student-roster actions live in the top header so they align with the page-level action position. */}
+                  {activeSection === "students" ? (
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
+                        <Download className="w-4 h-4" strokeWidth={2} />
+                        <span>Import from Canvas</span>
+                      </button>
+                      <button
+                        onClick={() => setIsAddStudentModalOpen(true)}
+                        className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
+                      >
+                        <Plus className="w-4 h-4" strokeWidth={2} />
+                        <span>Add Student</span>
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </header>
+
+          <div className="min-h-full bg-[#F5F4F6]">
+            <div className="max-w-7xl mx-auto px-8 py-6">
+              {activeSection === "assignments" && <AssignmentsSection />}
+              {activeSection === "grades" && (
+                <GradesSection courseFullName={courseFullName} facultyName={facultyName} />
+              )}
+              {activeSection === "students" && (
+                <StudentsSection
+                  isAddStudentModalOpen={isAddStudentModalOpen}
+                  onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
+                  onOpenAddStudentModal={() => setIsAddStudentModalOpen(true)}
+                />
+              )}
+              {activeSection === "assistants" && <AssistantsSection />}
+              {activeSection === "groups" && <GroupsSection />}
+              {activeSection === "settings" && <SettingsSection classId={resolvedClassId} />}
+            </div>
           </div>
         </main>
       </div>
-    </div>
-  );
-}
-
-// Navigation Item Component - links to section route
-function NavItem({
-  icon,
-  label,
-  active,
-  to,
-  badge,
-  rail = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  active: boolean;
-  to: string;
-  badge?: number;
-  rail?: boolean;
-}) {
-  return (
-    <li>
-      <Link
-        to={to}
-        title={rail ? label : undefined}
-        className={`
-          relative flex w-full items-center rounded-lg text-[13px] font-medium transition-colors
-          ${rail ? "justify-center px-0 py-2.5" : "justify-between gap-3 px-3 py-2.5"}
-          ${active ? "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]" : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]"}
-        `}
-      >
-        <div className={`flex items-center ${rail ? "justify-center" : "gap-3"}`}>
-          {icon}
-          {rail ? <span className="sr-only">{label}</span> : <span>{label}</span>}
-        </div>
-        {!rail && badge !== undefined && badge > 0 && (
-          <span
-            className={`
-              px-2 py-0.5 text-[11px] font-semibold rounded-full
-              ${active ? "bg-[#7A1226] text-white" : "bg-[#9F3549] text-white"}
-            `}
-          >
-            {badge}
-          </span>
-        )}
-        {rail && badge !== undefined && badge > 0 && (
-          <span className="absolute right-1 top-1 h-2 min-w-2 rounded-full bg-[#9F3549]" aria-hidden />
-        )}
-      </Link>
-    </li>
-  );
-}
-
-// Placeholder sections - will be implemented
-function DashboardSection({ courseFullName }: { courseFullName: string }) {
-  const { classId } = useParams();
-  // NOTE: Dashboard stats and activity now load from backend-driven service calls.
-  const [recentActivity, setRecentActivity] = useState<ClassRecentActivity[]>([]);
-  const [stats, setStats] = useState<FacultyDashboardStat[]>([]);
-
-  useEffect(() => {
-    const resolvedId = classId || "1";
-    listClassRecentActivity(resolvedId).then(setRecentActivity);
-    listFacultyDashboardStats(resolvedId).then(setStats);
-  }, [classId]);
-
-  const activityIconMap = {
-    send: Send,
-    check: CheckCircle2,
-    "user-plus": UserPlus,
-  } as const;
-
-  const statIconMap = {
-    users: Users,
-    "file-text": FileText,
-    clock: Clock,
-    alert: AlertCircle,
-  } as const;
-
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">{courseFullName || "Class Dashboard"}</h2>
-        <p className="text-[13px] text-gray-600">
-          Overview of your class activity and statistics
-        </p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {stats.map((stat) => {
-          const StatIcon = statIconMap[stat.iconKey];
-          return (
-            <StatCard
-              key={stat.label}
-              label={stat.label}
-              value={stat.value}
-              icon={<StatIcon className="w-5 h-5" strokeWidth={2} />}
-              iconBg={stat.iconBg}
-              iconColor={stat.iconColor}
-              badge={stat.badge}
-            />
-          );
-        })}
-      </div>
-
-      {/* Recent Activity */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[15px] font-semibold text-[#2B2A2A]">Recent Activity</h3>
-          <button className="text-[12px] text-gray-500 hover:text-[#2B2A2A]">View All</button>
-        </div>
-        <div className="space-y-4">
-          {recentActivity.length > 0 ? (
-            recentActivity.map((activity) => {
-              const ActivityIcon = activityIconMap[activity.iconKey];
-              return (
-                <div
-                  key={activity.id}
-                  className="flex items-start gap-3 pb-4 border-b border-gray-100 last:border-b-0 last:pb-0"
-                >
-                  <div className={`mt-0.5 w-8 h-8 ${activity.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                    <ActivityIcon className={`w-4 h-4 ${activity.iconColor}`} strokeWidth={2} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[14px] text-[#2B2A2A]">{activity.message}</p>
-                    <p className="text-[12px] text-gray-500 mt-0.5">{activity.time}</p>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <p className="text-[13px] text-gray-600">No recent class activity yet.</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  icon,
-  iconBg,
-  iconColor,
-  badge,
-}: {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-  iconBg: string;
-  iconColor: string;
-  badge?: boolean;
-}) {
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 p-5">
-      <div className="flex items-start justify-between mb-3">
-        <div className={`w-10 h-10 ${iconBg} rounded-lg flex items-center justify-center`}>
-          <span className={iconColor}>{icon}</span>
-        </div>
-        {badge && (
-          <span className="px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-semibold rounded uppercase">
-            Action Needed
-          </span>
-        )}
-      </div>
-      <div className="text-[28px] font-semibold text-[#2B2A2A] mb-1">{value}</div>
-      <div className="text-[13px] text-gray-600">{label}</div>
     </div>
   );
 }
@@ -531,8 +363,8 @@ function AssignmentsSection() {
   return (
     <div onClick={() => setOpenAssignmentActionsId(null)}>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Assignments</h2>
+        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Assignments</h2>
           <p className="text-[13px] text-gray-600">
             {isSectionCourse
               ? "Content and tests sync from your main course. You can still adjust due dates per section here; use the banner to open the main course for other edits."
@@ -1319,8 +1151,8 @@ function GradesSection({
   return (
     <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Grades</h2>
+        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Grades</h2>
           <p className="text-[13px] text-gray-600">
             View and manage student grades for this course
           </p>
@@ -1723,7 +1555,7 @@ function downloadSampleStudentCsv(): void {
   URL.revokeObjectURL(url);
 }
 
-type AddStudentMode = "choice" | "manual" | "csv";
+type AddStudentMode = "choice" | "manual" | "csv" | "canvas";
 
 function StudentGradesModal({
   student,
@@ -1873,6 +1705,13 @@ function StudentsSection({
   const [fileImportResults, setFileImportResults] = useState<{ email: string; name: string; status: "success" | "error"; message?: string }[]>([]);
   const [isFileImporting, setIsFileImporting] = useState(false);
   const [successModalMessage, setSuccessModalMessage] = useState<string | null>(null);
+  const [canvasStudents, setCanvasStudents] = useState<CanvasCourseStudent[]>([]);
+  const [canvasStudentsError, setCanvasStudentsError] = useState<string | null>(null);
+  const [isCanvasStudentsLoading, setIsCanvasStudentsLoading] = useState(false);
+  const [canvasSearchValue, setCanvasSearchValue] = useState("");
+  const [isEnrollAllCanvasLoading, setIsEnrollAllCanvasLoading] = useState(false);
+  const [canvasEnrollLoadingById, setCanvasEnrollLoadingById] = useState<Record<string, boolean>>({});
+  const [enrolledCanvasStudentIds, setEnrolledCanvasStudentIds] = useState<Record<string, boolean>>({});
 
   const courseId = useMemo(() => Number(resolvedId) || 0, [resolvedId]);
 
@@ -1921,6 +1760,13 @@ function StudentsSection({
     setIsEnrollLoading(false);
     setParsedFileRows(null);
     setFileImportResults([]);
+    setCanvasStudents([]);
+    setCanvasStudentsError(null);
+    setCanvasSearchValue("");
+    setIsCanvasStudentsLoading(false);
+    setIsEnrollAllCanvasLoading(false);
+    setCanvasEnrollLoadingById({});
+    setEnrolledCanvasStudentIds({});
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -1950,7 +1796,7 @@ function StudentsSection({
     const results: { email: string; name: string; status: "success" | "error"; message?: string }[] = [];
     for (const row of parsedFileRows) {
       try {
-        await enrollStudentByEmail(resolvedId, row.email);
+        await enrollStudentByEmail(resolvedId, row.email, null);
         results.push({ email: row.email, name: row.name, status: "success" });
       } catch (err) {
         results.push({ email: row.email, name: row.name, status: "error", message: getErrorMessage(err) });
@@ -2027,6 +1873,42 @@ function StudentsSection({
       window.clearTimeout(timer);
     };
   }, [isAddStudentModalOpen, addMode, lookupEmail, resolvedId]);
+
+  useEffect(() => {
+    if (!isAddStudentModalOpen || addMode !== "canvas") {
+      return;
+    }
+    setIsCanvasStudentsLoading(true);
+    setCanvasStudentsError(null);
+    listCanvasCourseStudents(resolvedId)
+      .then((rows) => {
+        setCanvasStudents(rows);
+      })
+      .catch((error) => {
+        setCanvasStudents([]);
+        setCanvasStudentsError(getErrorMessage(error));
+      })
+      .finally(() => {
+        setIsCanvasStudentsLoading(false);
+      });
+  }, [isAddStudentModalOpen, addMode, resolvedId]);
+
+  const filteredCanvasStudents = useMemo(() => {
+    const normalizedQuery = canvasSearchValue.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return canvasStudents;
+    }
+    return canvasStudents.filter((student) => {
+      const idMatch =
+        student.canvasUserId != null && String(student.canvasUserId).includes(normalizedQuery);
+      return (
+        idMatch ||
+        student.name.toLowerCase().includes(normalizedQuery) ||
+        student.loginId.toLowerCase().includes(normalizedQuery) ||
+        student.state.toLowerCase().includes(normalizedQuery)
+      );
+    });
+  }, [canvasStudents, canvasSearchValue]);
 
   const getDisplayedAvgScore = useCallback(
     (row: FacultyRosterStudentRow): number => {
@@ -2148,7 +2030,7 @@ function StudentsSection({
     setIsEnrollLoading(true);
     setFeedbackMessage(null);
     try {
-      await enrollStudentByEmail(resolvedId, lookupResult.studentEmail);
+      await enrollStudentByEmail(resolvedId, lookupResult.studentEmail, null);
       setFeedbackMessage({ tone: "success", text: `${lookupResult.studentName} was enrolled successfully.` });
       await loadRoster();
       closeAddStudentModal();
@@ -2160,13 +2042,131 @@ function StudentsSection({
     }
   };
 
+  const handleCanvasEnrollOne = async (student: CanvasCourseStudent) => {
+    const loginId = student.loginId.trim();
+    if (!loginId) {
+      toast.error(`Cannot enroll ${student.name}: missing login ID.`);
+      return;
+    }
+
+    setCanvasEnrollLoadingById((previous) => ({ ...previous, [student.id]: true }));
+    try {
+      await enrollStudentByEmail(resolvedId, loginId, student.canvasUserId ?? null);
+      setEnrolledCanvasStudentIds((previous) => ({ ...previous, [student.id]: true }));
+      toast.success(`${student.name} enrolled successfully.`);
+      await loadRoster();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setCanvasEnrollLoadingById((previous) => ({ ...previous, [student.id]: false }));
+    }
+  };
+
+  const handleCanvasEnrollAll = async () => {
+    if (filteredCanvasStudents.length < 1) {
+      return;
+    }
+
+    const candidates = filteredCanvasStudents.filter(
+      (student) => student.loginId.trim().length > 0 && !enrolledCanvasStudentIds[student.id],
+    );
+    if (candidates.length < 1) {
+      toast.info("No eligible Canvas students to enroll.");
+      return;
+    }
+
+    setIsEnrollAllCanvasLoading(true);
+    try {
+      const settled = await Promise.allSettled(
+        candidates.map(async (student) => {
+          const matched = await searchFacultyStudentByEmail(resolvedId, student.loginId.trim());
+          return { student, matched };
+        }),
+      );
+
+      type BulkRow = { studentId: number; canvasId: number | null; rowIds: string[] };
+      const byStudentId = new Map<number, BulkRow>();
+      let skipped = 0;
+
+      for (const outcome of settled) {
+        if (outcome.status === "rejected") {
+          skipped += 1;
+          continue;
+        }
+        const { student, matched } = outcome.value;
+        if (matched.alreadyInCourse || matched.studentId == null) {
+          skipped += 1;
+          continue;
+        }
+        const sid = matched.studentId;
+        const canvasId = student.canvasUserId ?? null;
+        const existing = byStudentId.get(sid);
+        if (existing) {
+          existing.rowIds.push(student.id);
+          if (existing.canvasId == null && canvasId != null) {
+            existing.canvasId = canvasId;
+          }
+        } else {
+          byStudentId.set(sid, { studentId: sid, canvasId, rowIds: [student.id] });
+        }
+      }
+
+      const bulkItems = Array.from(byStudentId.values()).map((row) => ({
+        studentId: row.studentId,
+        canvasId: row.canvasId,
+      }));
+
+      if (bulkItems.length < 1) {
+        toast.error(
+          skipped > 0
+            ? "Students not found or students already enrolled."
+            : "No eligible Canvas students to enroll.",
+        );
+        return;
+      }
+
+      await enrollFacultyStudentsBulk(resolvedId, bulkItems);
+
+      setEnrolledCanvasStudentIds((previous) => {
+        const next = { ...previous };
+        for (const row of byStudentId.values()) {
+          for (const id of row.rowIds) {
+            next[id] = true;
+          }
+        }
+        return next;
+      });
+
+      toast.success(
+        `${bulkItems.length} student${bulkItems.length === 1 ? "" : "s"} enrolled successfully.`,
+      );
+      if (skipped > 0) {
+        toast.info(
+          `${skipped} row${skipped === 1 ? "" : "s"} skipped (not found, already enrolled, or missing match).`,
+        );
+      }
+      await loadRoster();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsEnrollAllCanvasLoading(false);
+    }
+  };
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between gap-3">
         <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Student Roster</h2>
         <div className="flex flex-wrap items-center gap-2">
-          <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
-            <Download className="w-4 h-4" strokeWidth={2} />
+          <button
+            type="button"
+            onClick={() => {
+              setAddMode("canvas");
+              onOpenAddStudentModal();
+            }}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors"
+          >
+            <Users className="w-4 h-4" strokeWidth={2} />
             <span>Import from Canvas</span>
           </button>
           <button
@@ -2404,11 +2404,11 @@ function StudentsSection({
 
             <div className="p-5">
               {addMode === "choice" ? (
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <button
                     type="button"
                     onClick={() => setAddMode("manual")}
-                    className="flex-1 flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left"
+                    className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left"
                   >
                     <div className="p-2.5 rounded-lg bg-[#5A7ACD]/10">
                       <Search className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
@@ -2419,13 +2419,26 @@ function StudentsSection({
                   <button
                     type="button"
                     onClick={() => setAddMode("csv")}
-                    className="flex-1 flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left"
+                    className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left"
                   >
                     <div className="p-2.5 rounded-lg bg-[#5A7ACD]/10">
                       <FileUp className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
                     </div>
                     <h4 className="text-[15px] font-semibold text-[#2B2A2A]">Add from CSV file</h4>
                     <p className="text-[13px] text-gray-600">Upload a CSV with student information to add multiple students</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddMode("canvas")}
+                    className="flex flex-col items-start gap-2 p-5 rounded-xl border border-gray-200 bg-white hover:bg-[#F9FAFC] hover:border-[#5A7ACD]/30 transition-colors text-left sm:col-span-2 lg:col-span-1"
+                  >
+                    <div className="p-2.5 rounded-lg bg-[#5A7ACD]/10">
+                      <Users className="w-5 h-5 text-[#5A7ACD]" strokeWidth={2} />
+                    </div>
+                    <h4 className="text-[15px] font-semibold text-[#2B2A2A]">Import from Canvas</h4>
+                    <p className="text-[13px] text-gray-600">
+                      Load students from the Canvas course linked to this class and enroll by login ID
+                    </p>
                   </button>
                 </div>
               ) : addMode === "manual" ? (
@@ -2550,7 +2563,7 @@ function StudentsSection({
                 </p>
               ) : null}
                 </>
-              ) : (
+              ) : addMode === "csv" ? (
                 <div className="overflow-y-auto max-h-[70vh]">
                   <p className="text-[13px] text-gray-600 mb-3">
                     Upload a CSV or text file with one student per line. Use <strong>name, email</strong> or <strong>email</strong> only. Header row (e.g. &quot;name,email&quot;) is ignored.
@@ -2626,6 +2639,86 @@ function StudentsSection({
                       )}
                     </>
                   )}
+                </div>
+              ) : (
+                <div className="flex max-h-[70vh] flex-col gap-4 overflow-hidden">
+                  <p className="text-[13px] text-gray-600">
+                    Each row uses the student&apos;s Canvas login ID to find their Grade-Forge account before enrolling.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative min-w-[200px] flex-1">
+                      <Search
+                        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                        strokeWidth={2}
+                      />
+                      <input
+                        value={canvasSearchValue}
+                        onChange={(event) => setCanvasSearchValue(event.target.value)}
+                        type="text"
+                        placeholder="Filter by name, login, Canvas ID, or state…"
+                        className="h-10 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-[13px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/25"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleCanvasEnrollAll()}
+                      disabled={
+                        isCanvasStudentsLoading ||
+                        isEnrollAllCanvasLoading ||
+                        filteredCanvasStudents.length < 1
+                      }
+                      className="h-10 shrink-0 rounded-xl bg-[#2B2A2A] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#3a3939] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isEnrollAllCanvasLoading ? "Enrolling all…" : "Add all students"}
+                    </button>
+                  </div>
+                  {canvasStudentsError ? (
+                    <p className="text-[13px] text-red-600">{canvasStudentsError}</p>
+                  ) : null}
+                  <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-gray-200 bg-white">
+                    {isCanvasStudentsLoading ? (
+                      <div className="flex justify-center py-10">
+                        <RefreshCcw className="h-8 w-8 animate-spin text-gray-400" strokeWidth={2} />
+                      </div>
+                    ) : filteredCanvasStudents.length > 0 ? (
+                      <ul className="divide-y divide-gray-100">
+                        {filteredCanvasStudents.map((student) => (
+                          <li
+                            key={student.id}
+                            className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[14px] font-medium text-[#2B2A2A]">{student.name}</p>
+                              <p className="text-[12px] text-gray-600">
+                                ID: {student.canvasUserId != null ? student.canvasUserId : "N/A"} • Login:{" "}
+                                {student.loginId || "—"} • {student.state || "—"}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void handleCanvasEnrollOne(student)}
+                              disabled={
+                                !student.loginId.trim() ||
+                                Boolean(canvasEnrollLoadingById[student.id]) ||
+                                Boolean(enrolledCanvasStudentIds[student.id])
+                              }
+                              className="h-9 shrink-0 rounded-lg bg-[#5A7ACD] px-3 text-[12px] font-medium text-white transition-colors hover:bg-[#4e6fbd] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {canvasEnrollLoadingById[student.id]
+                                ? "Adding…"
+                                : enrolledCanvasStudentIds[student.id]
+                                  ? "Added"
+                                  : "Add"}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="px-4 py-10 text-center text-[13px] text-gray-500">
+                        No Canvas students to show. Confirm this course has a Canvas course ID configured.
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -2801,8 +2894,8 @@ function AssistantsSection() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Grading Assistants</h2>
+        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Grading Assistants</h2>
           <p className="text-[13px] text-gray-600">
             Assign grading assistants to this course. They can help grade submissions.
           </p>
@@ -2832,7 +2925,7 @@ function AssistantsSection() {
             No grading assistants assigned to this course yet.
           </p>
           <p className="text-[13px] text-gray-500 mb-4">
-            Create grading assistants from the dashboard, then assign them here.
+            Create grading assistants from the Home tab, then assign them here.
           </p>
           <Link
             to="/faculty/grading-assistants"
@@ -3072,8 +3165,8 @@ function GroupsSection() {
   return (
     <div>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Main groups</h2>
+        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Main groups</h2>
           <p className="text-[13px] text-gray-600">
             Open a group to create subgroups and assign students by dragging them from the roster.
           </p>
@@ -3463,8 +3556,10 @@ function SettingsSection({ classId }: { classId: string }) {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Class Settings</h2>
-        <p className="text-[13px] text-gray-600">Edit course metadata and control visibility</p>
+        <div className="inline-block rounded-lg border border-gray-300 bg-white px-4 py-2">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Class Settings</h2>
+          <p className="text-[13px] text-gray-600">Edit course metadata and control visibility</p>
+        </div>
       </div>
 
       {error ? (

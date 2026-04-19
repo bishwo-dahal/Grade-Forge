@@ -1,14 +1,27 @@
-import React from "react";
-import { Link } from "react-router";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router";
 import {
   BarChart3,
   ChevronLeft,
   FileText,
+  LogOut,
   Settings,
   UserPlus,
   Users,
   UsersRound,
 } from "lucide-react";
+import { clearAuthenticated } from "../../auth";
+import { buildLogoutConfirmationMessage, queueAuthNotification } from "../../authNotifications";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
 import { useSidebarPinnedCollapsed } from "./useSidebarPinnedCollapsed";
 import { SidebarPinnedCollapseFooter } from "./SidebarPinnedCollapseFooter";
 
@@ -67,15 +80,25 @@ export function FacultyClassSidebar({
   classId: string;
   activeSection?: string;
 }) {
+  const navigate = useNavigate();
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const { pinnedCollapsed } = useSidebarPinnedCollapsed();
 
+  const handleConfirmLogout = () => {
+    queueAuthNotification(buildLogoutConfirmationMessage("faculty"));
+    setIsLogoutDialogOpen(false);
+    clearAuthenticated();
+    navigate("/signin", { replace: true });
+  };
+
   return (
+    <>
     <aside
-      className={`flex flex-shrink-0 flex-col border-r border-[#65101F] bg-[#7A1226] transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+      className={`flex min-h-0 flex-shrink-0 flex-col self-stretch border-r border-[#65101F] bg-[#7A1226] transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
         pinnedCollapsed ? "w-[78px]" : "w-64"
       }`}
     >
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Logo Header */}
         <div
           className={`flex h-[64px] items-center border-b border-[#65101F] bg-white ${
@@ -169,12 +192,53 @@ export function FacultyClassSidebar({
           </ul>
         </nav>
 
-        <SidebarPinnedCollapseFooter
-          variant="maroon"
-          rail={pinnedCollapsed}
-          expandedInset="flush"
-        />
+        <div className="flex w-full min-w-0 shrink-0 flex-col border-t border-white/15">
+          <div className={`py-2 ${pinnedCollapsed ? "flex justify-center px-1" : "px-3"}`}>
+            <button
+              type="button"
+              onClick={() => setIsLogoutDialogOpen(true)}
+              title="Log out"
+              aria-label="Log out"
+              className={`
+                relative flex w-full items-center rounded-lg text-[13px] font-medium transition-colors
+                text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]
+                ${pinnedCollapsed ? "justify-center px-0 py-2.5" : "justify-between gap-3 px-3 py-2.5"}
+              `}
+            >
+              <div className={`flex items-center ${pinnedCollapsed ? "justify-center" : "gap-3"}`}>
+                <LogOut className="h-4 w-4 shrink-0" strokeWidth={2} />
+                {pinnedCollapsed ? <span className="sr-only">Log out</span> : <span>Log out</span>}
+              </div>
+            </button>
+          </div>
+          <SidebarPinnedCollapseFooter
+            variant="maroon"
+            rail={pinnedCollapsed}
+            expandedInset="flush"
+            withAccessoryAbove
+          />
+        </div>
       </div>
     </aside>
+    <AlertDialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Confirm logout</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to log out from this account?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-red-600 hover:bg-red-700 focus-visible:ring-red-600"
+            onClick={handleConfirmLogout}
+          >
+            Log out
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

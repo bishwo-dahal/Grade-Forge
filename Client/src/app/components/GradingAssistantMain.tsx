@@ -1,12 +1,26 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import type { GradingAssistantCourseResponse } from "../../types/gradingAssistantCourse";
 import { listGradingAssistantCourses } from "../../services/gradingAssistantCourseService";
+import { clearAuthenticated } from "../auth";
+import { buildLogoutConfirmationMessage, queueAuthNotification } from "../authNotifications";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
 import { GradingAssistantCourseCard } from "./gradingAssistant/GradingAssistantCourseCard";
 
 export function GradingAssistantMain() {
+  const navigate = useNavigate();
   const [courses, setCourses] = useState<GradingAssistantCourseResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
 
   useEffect(() => {
     listGradingAssistantCourses()
@@ -15,17 +29,33 @@ export function GradingAssistantMain() {
       .finally(() => setIsLoading(false));
   }, []);
 
+  const handleConfirmLogout = () => {
+    queueAuthNotification(buildLogoutConfirmationMessage("gradingAssistant"));
+    setIsLogoutDialogOpen(false);
+    clearAuthenticated();
+    navigate("/signin", { replace: true });
+  };
+
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
       <div className="max-w-7xl mx-auto px-8 py-6">
-        <div className="flex items-center justify-between mb-5">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-[#2B2A2A]">My Assigned Courses</h2>
-          <Link
-            to="/grading-assistant/courses"
-            className="text-[13px] text-[#5A7ACD] hover:text-[#4a6abd] font-medium"
-          >
-            View All Courses &rarr;
-          </Link>
+          <div className="flex flex-wrap items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setIsLogoutDialogOpen(true)}
+              className="text-[13px] font-medium text-[#5D667A] underline-offset-2 hover:text-[#7A1226] hover:underline"
+            >
+              Log out
+            </button>
+            <Link
+              to="/grading-assistant/courses"
+              className="text-[13px] font-medium text-[#5A7ACD] hover:text-[#4a6abd]"
+            >
+              View All Courses &rarr;
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -61,6 +91,25 @@ export function GradingAssistantMain() {
           </div>
         )}
       </div>
+      <AlertDialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm logout</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to log out from this account?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 focus-visible:ring-red-600"
+              onClick={handleConfirmLogout}
+            >
+              Log out
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

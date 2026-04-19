@@ -9,6 +9,7 @@ export interface ClassHeader {
   instructor: string;
   instructorEmail?: string;
   role?: string;
+  coverImageUrl?: string;
   /** When set, this class workspace is a linked section of a main course. */
   parentCourseId?: number | null;
   parentCourse?: {
@@ -247,6 +248,17 @@ export interface FacultyStudentEmailSuggestion {
   canvasUserId: string;
   currentStatus: string;
   alreadyInCourse: boolean;
+}
+
+export interface CanvasCourseStudent {
+  /** Stable row key for React and enroll loading state (prefers Canvas user id when the API returns it). */
+  id: string;
+  /** Canvas user id from the API `id` field when present. */
+  canvasUserId: number | null;
+  name: string;
+  loginId: string;
+  state: string;
+  createdAt: string;
 }
 
 // NOTE: UI-driven roster row shape for faculty student table; keep aligned to rendered columns only.

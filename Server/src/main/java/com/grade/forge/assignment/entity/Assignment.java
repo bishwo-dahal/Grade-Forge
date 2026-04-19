@@ -91,4 +91,7 @@ public class Assignment {
     @Column(name = "last_inherited_at")
     private LocalDateTime lastInheritedAt;
 
+    @Column(name = "canvas_assignment_id")
+    private Long canvasAssignmentId;
+
 }

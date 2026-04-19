@@ -50,7 +50,9 @@ export function CourseCoverCardShell({
         </>
         {imageOverlay ? <div className="relative z-[1]">{imageOverlay}</div> : null}
       </div>
-      <div className="relative flex min-h-0 flex-1 flex-col border-t border-gray-100 bg-white">{children}</div>
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-t border-gray-100 bg-white">
+        <div className="relative z-[1] flex min-h-0 flex-1 flex-col">{children}</div>
+      </div>
     </div>
   );
 }
