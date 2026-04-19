@@ -2,3 +2,9 @@
 @import './tailwind.css';
 @import './theme.css';
 @import './editor-overrides.css';
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
