@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff, Pencil, Camera } from "lucide-react";
+import { Bell, Settings, ChevronLeft, User, Lock, X, Eye, EyeOff, Pencil, Camera, Mail, Smartphone, Monitor, Sun, Moon, Type } from "lucide-react";
 import type { UserProfile } from "../../types/user";
 import type { FacultyResponse, FacultyUpdateRequest } from "../../types/faculty";
 import type { GradingAssistantResponse } from "../../types/gradingAssistant";
+import type { StudentResponse } from "../../types/student";
 import {
   getFacultyProfile,
   getStudentProfile,
@@ -11,12 +12,14 @@ import {
   updatePassword,
 } from "../../services/authService";
 import { getCurrentFaculty, updateCurrentFaculty } from "../../services/facultyService";
+import { getCurrentStudent, updateCurrentStudent } from "../../services/studentService";
 import { getCurrentGradingAssistantProfile } from "../../services/gradingAssistantService";
 import { patchCurrentUserProfile } from "../../services/userService";
 import { clearAuthenticated, getAuthenticatedRole, getAuthenticatedUser, getToken, setAuthenticated } from "../auth";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import { ProfileAvatarCircle } from "./layout/ProfileAvatarCircle";
+import { Switch } from "./ui/switch";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
@@ -48,11 +51,19 @@ export function SettingsPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showRepeatPassword, setShowRepeatPassword] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [studentProfile, setStudentProfile] = useState<StudentResponse | null>(null);
+  const [studentProfileLoading, setStudentProfileLoading] = useState(false);
+  const [studentProfileError, setStudentProfileError] = useState<string | null>(null);
+  const [studentMajorEdit, setStudentMajorEdit] = useState("");
   const [isEditingStudent, setIsEditingStudent] = useState(false);
   const [studentNameEdit, setStudentNameEdit] = useState("");
   const [studentProfilePicture, setStudentProfilePicture] = useState<File | null>(null);
   const [studentProfilePreviewUrl, setStudentProfilePreviewUrl] = useState<string | null>(null);
   const [updatingStudentAccount, setUpdatingStudentAccount] = useState(false);
+  const [notifToggles, setNotifToggles] = useState({ submission: true, grade: true, feedback: true, deadline: true, waitlist: false, email: true, push: false });
+  const [appearanceTheme, setAppearanceTheme] = useState<"Light" | "Dark" | "System">("Light");
+  const [appearanceFontSize, setAppearanceFontSize] = useState<"Small" | "Default" | "Large">("Default");
+  const [appearanceDensity, setAppearanceDensity] = useState<"Compact" | "Comfortable" | "Spacious">("Comfortable");
   const [facultyProfilePicture, setFacultyProfilePicture] = useState<File | null>(null);
   const [facultyProfilePreviewUrl, setFacultyProfilePreviewUrl] = useState<string | null>(null);
   const [isEditingGa, setIsEditingGa] = useState(false);
@@ -120,6 +131,14 @@ export function SettingsPage() {
     }
 
     getStudentProfile().then(setProfile);
+    setStudentProfileLoading(true);
+    getCurrentStudent()
+      .then((data) => {
+        setStudentProfile(data);
+        setStudentMajorEdit(data.major ?? "");
+      })
+      .catch(() => setStudentProfileError("Failed to load student profile."))
+      .finally(() => setStudentProfileLoading(false));
   }, [role]);
 
   useEffect(() => {
@@ -311,17 +330,26 @@ export function SettingsPage() {
     }
     const nameChanged = trimmed !== (loggedInUser.name ?? "").trim();
     const hasFile = Boolean(studentProfilePicture && studentProfilePicture.size > 0);
-    if (!nameChanged && !hasFile) {
+    const majorTrimmed = studentMajorEdit.trim();
+    const majorChanged = majorTrimmed !== (studentProfile?.major ?? "").trim();
+    if (!nameChanged && !hasFile && !majorChanged) {
       toast.info("No changes to save.");
       return;
     }
 
     setUpdatingStudentAccount(true);
     try {
-      await patchCurrentUserProfile({
-        name: nameChanged ? trimmed : undefined,
-        file: hasFile ? studentProfilePicture : undefined,
-      });
+      if (nameChanged || hasFile) {
+        await patchCurrentUserProfile({
+          name: nameChanged ? trimmed : undefined,
+          file: hasFile ? studentProfilePicture : undefined,
+        });
+      }
+      if (majorChanged) {
+        const updated = await updateCurrentStudent({ major: majorTrimmed || null });
+        setStudentProfile(updated);
+        setStudentMajorEdit(updated.major ?? "");
+      }
       try {
         await refreshAuthSessionFromMe();
       } catch (refreshErr: unknown) {
@@ -343,6 +371,7 @@ export function SettingsPage() {
 
   const cancelStudentAccountEdit = () => {
     setStudentNameEdit(loggedInUser?.name ?? displayName);
+    setStudentMajorEdit(studentProfile?.major ?? "");
     setStudentProfilePicture(null);
     setIsEditingStudent(false);
   };
@@ -548,9 +577,26 @@ export function SettingsPage() {
           </Link>
 
           <h1 className="text-[38px] leading-none font-bold text-[#2B2A2A] mb-3">Settings</h1>
-          <p className="text-[14px] text-gray-600 mb-8">Manage your account preferences and settings</p>
+          <p className="text-[14px] text-gray-600 mb-6">Manage your account preferences and settings</p>
 
-          <div className={`space-y-6 ${viewMode === "faculty" && activeSection === "profile" ? "max-w-[1100px]" : "max-w-[710px]"}`}>
+          <div className="flex gap-1 mb-8 border-b border-gray-200">
+            {(["profile", "security", "notifications", "appearance"] as const).map((section) => (
+              <button
+                key={section}
+                type="button"
+                onClick={() => goToSettingsSection(section)}
+                className={`px-4 py-2.5 text-[14px] font-medium capitalize transition-colors border-b-2 -mb-px ${
+                  activeSection === section
+                    ? "border-[#5A7ACD] text-[#5A7ACD]"
+                    : "border-transparent text-gray-500 hover:text-[#2B2A2A]"
+                }`}
+              >
+                {section === "notifications" ? "Notifications" : section.charAt(0).toUpperCase() + section.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          <div className={`space-y-6 ${(viewMode === "faculty" || viewMode === "student") && activeSection === "profile" ? "max-w-[1100px]" : "max-w-[710px]"}`}>
             {activeSection === "profile" && (
               <section className="bg-white rounded-2xl border border-gray-200 p-6">
                   <h2 className="text-[28px] font-semibold text-[#2B2A2A] mb-5 flex items-center gap-2">
@@ -1010,82 +1056,110 @@ export function SettingsPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      <div>
-                        <label htmlFor="settings-student-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
-                          Full Name
-                        </label>
-                        <input
-                          id="settings-student-full-name"
-                          value={isEditingStudent ? studentNameEdit : displayName}
-                          onChange={(e) => setStudentNameEdit(e.target.value)}
-                          readOnly={!isEditingStudent}
-                          className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${
-                            isEditingStudent
-                              ? "text-[#2B2A2A] focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
-                              : "bg-gray-50 text-gray-700"
-                          }`}
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="settings-student-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
-                          Email Address
-                        </label>
-                        <input
-                          id="settings-student-email"
-                          value={displayEmail}
-                          readOnly
-                          disabled
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-500 cursor-not-allowed opacity-90"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="settings-student-id" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
-                          Student ID
-                        </label>
-                        <input
-                          id="settings-student-id"
-                          value={displayStudentId}
-                          readOnly
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
-                        />
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3 pt-1">
-                        {isEditingStudent ? (
-                          <>
+                    <>
+                      {studentProfileLoading && (
+                        <p className="text-[14px] text-gray-600 mb-4">Loading profile…</p>
+                      )}
+                      {studentProfileError && !studentProfileLoading && (
+                        <div className="mb-4 py-2 px-3 bg-red-50 border border-red-200 rounded-lg text-[13px] text-red-700">
+                          {studentProfileError}
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+                        <div>
+                          <label htmlFor="settings-student-full-name" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                            Full Name
+                          </label>
+                          <input
+                            id="settings-student-full-name"
+                            value={isEditingStudent ? studentNameEdit : displayName}
+                            onChange={(e) => setStudentNameEdit(e.target.value)}
+                            readOnly={!isEditingStudent}
+                            className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${
+                              isEditingStudent
+                                ? "text-[#2B2A2A] focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                                : "bg-gray-50 text-gray-700"
+                            }`}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="settings-student-email" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                            Email Address
+                          </label>
+                          <input
+                            id="settings-student-email"
+                            value={displayEmail}
+                            readOnly
+                            disabled
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-500 cursor-not-allowed opacity-90"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="settings-student-cwid" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                            Student ID (CWID)
+                          </label>
+                          <input
+                            id="settings-student-cwid"
+                            value={studentProfile?.cwid ?? ""}
+                            readOnly
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-700 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="settings-student-major" className="block text-[14px] text-[#2B2A2A] mb-2 font-medium">
+                            Major
+                          </label>
+                          <input
+                            id="settings-student-major"
+                            value={isEditingStudent ? studentMajorEdit : (studentProfile?.major ?? "")}
+                            onChange={(e) => setStudentMajorEdit(e.target.value)}
+                            readOnly={!isEditingStudent}
+                            placeholder="e.g. Computer Science"
+                            className={`w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] focus:outline-none ${
+                              isEditingStudent
+                                ? "text-[#2B2A2A] placeholder:text-gray-400 focus:ring-2 focus:ring-[#5A7ACD] focus:border-transparent"
+                                : "bg-gray-50 text-gray-700"
+                            }`}
+                          />
+                        </div>
+                        <div className="md:col-span-2 lg:col-span-3 pt-2 flex items-center gap-3">
+                          {isEditingStudent ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={cancelStudentAccountEdit}
+                                disabled={updatingStudentAccount}
+                                className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 bg-white hover:bg-gray-50 rounded-xl text-[14px] font-medium text-[#2B2A2A] transition-colors disabled:opacity-60"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleStudentAccountSave}
+                                disabled={updatingStudentAccount}
+                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5A606B] hover:bg-[#474D56] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
+                              >
+                                {updatingStudentAccount ? "Saving…" : "Save changes"}
+                              </button>
+                            </>
+                          ) : (
                             <button
                               type="button"
-                              onClick={cancelStudentAccountEdit}
-                              disabled={updatingStudentAccount}
-                              className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 bg-white hover:bg-gray-50 rounded-xl text-[14px] font-medium text-[#2B2A2A] transition-colors disabled:opacity-60"
+                              onClick={() => {
+                                setStudentNameEdit(loggedInUser?.name ?? displayName);
+                                setStudentMajorEdit(studentProfile?.major ?? "");
+                                setStudentProfilePicture(null);
+                                setIsEditingStudent(true);
+                              }}
+                              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5A606B] hover:bg-[#474D56] rounded-xl text-[14px] font-semibold text-white transition-colors"
                             >
-                              Cancel
+                              <Pencil className="w-4 h-4" strokeWidth={2} />
+                              Edit account
                             </button>
-                            <button
-                              type="button"
-                              onClick={handleStudentAccountSave}
-                              disabled={updatingStudentAccount}
-                              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] disabled:opacity-60 rounded-xl text-[14px] font-semibold text-white transition-colors"
-                            >
-                              {updatingStudentAccount ? "Saving…" : "Save changes"}
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setStudentNameEdit(displayName);
-                              setStudentProfilePicture(null);
-                              setIsEditingStudent(true);
-                            }}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A1226] hover:bg-[#65101F] rounded-xl text-[14px] font-semibold text-white transition-colors"
-                          >
-                            <Pencil className="w-4 h-4" strokeWidth={2} />
-                            Edit account
-                          </button>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </>
                   )}
               </section>
             )}
@@ -1117,27 +1191,149 @@ export function SettingsPage() {
 
             {activeSection === "notifications" && (
               <section className="bg-white rounded-2xl border border-gray-200 p-6">
-                  <h2 className="text-[28px] font-semibold text-[#2B2A2A] mb-3 flex items-center gap-2">
-                    <Bell className="w-6 h-6 text-[#5A7ACD]" strokeWidth={2} />
-                    <span>Notifications</span>
-                  </h2>
-                  <p className="text-[14px] text-gray-600">
-                    Control how you receive updates about assignments, grades, and class activity. Notification controls
-                    will live here.
-                  </p>
+                <h2 className="text-[28px] font-semibold text-[#2B2A2A] mb-1 flex items-center gap-2">
+                  <Bell className="w-6 h-6 text-[#5A7ACD]" strokeWidth={2} />
+                  <span>Notifications</span>
+                </h2>
+                <p className="text-[13px] text-gray-500 mb-6">Choose how and when you want to be notified.</p>
+
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-[13px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Activity</p>
+                    <div className="divide-y divide-gray-100">
+                      {([
+                        { key: "submission" as const, label: "Submission received", desc: "When your code submission is recorded successfully" },
+                        { key: "grade" as const, label: "Grade published", desc: "When a grade is posted for one of your submissions" },
+                        { key: "feedback" as const, label: "Feedback available", desc: "When an instructor leaves feedback on your work" },
+                        { key: "deadline" as const, label: "Deadline reminder", desc: "24 hours before an assignment is due" },
+                        { key: "waitlist" as const, label: "Waitlist update", desc: "When your waitlist position changes for a course" },
+                      ]).map(({ key, label, desc }) => (
+                        <div key={key} className="flex items-center justify-between py-3.5">
+                          <div className="min-w-0 pr-6">
+                            <p className="text-[14px] font-medium text-[#2B2A2A]">{label}</p>
+                            <p className="text-[12px] text-gray-400 mt-0.5">{desc}</p>
+                          </div>
+                          <Switch
+                            checked={notifToggles[key]}
+                            onCheckedChange={(checked) => setNotifToggles((t) => ({ ...t, [key]: checked }))}
+                            className="data-[state=checked]:bg-[#5A7ACD] data-[state=unchecked]:bg-gray-200"
+                            aria-label={label}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[13px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Delivery channels</p>
+                    <div className="divide-y divide-gray-100">
+                      {([
+                        { key: "email" as const, icon: <Mail className="w-4 h-4" />, label: "Email", desc: "Receive notifications at your university email" },
+                        { key: "push" as const, icon: <Smartphone className="w-4 h-4" />, label: "Push notifications", desc: "Browser or mobile push alerts" },
+                      ]).map(({ key, icon, label, desc }) => (
+                        <div key={key} className="flex items-center justify-between py-3.5">
+                          <div className="flex items-center gap-3 min-w-0 pr-6">
+                            <span className="text-gray-400">{icon}</span>
+                            <div>
+                              <p className="text-[14px] font-medium text-[#2B2A2A]">{label}</p>
+                              <p className="text-[12px] text-gray-400 mt-0.5">{desc}</p>
+                            </div>
+                          </div>
+                          <Switch
+                            checked={notifToggles[key]}
+                            onCheckedChange={(checked) => setNotifToggles((t) => ({ ...t, [key]: checked }))}
+                            className="data-[state=checked]:bg-[#5A7ACD] data-[state=unchecked]:bg-gray-200"
+                            aria-label={label}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </section>
             )}
 
             {activeSection === "appearance" && (
               <section className="bg-white rounded-2xl border border-gray-200 p-6">
-                  <h2 className="text-[28px] font-semibold text-[#2B2A2A] mb-3 flex items-center gap-2">
-                    <Settings className="w-6 h-6 text-[#5A7ACD]" strokeWidth={2} />
-                    <span>Appearance</span>
-                  </h2>
-                  <p className="text-[14px] text-gray-600">
-                    Choose between light and dark modes and customize how Grade Forge looks. Theme options will be added
-                    here.
-                  </p>
+                <h2 className="text-[28px] font-semibold text-[#2B2A2A] mb-1 flex items-center gap-2">
+                  <Settings className="w-6 h-6 text-[#5A7ACD]" strokeWidth={2} />
+                  <span>Appearance</span>
+                </h2>
+                <p className="text-[13px] text-gray-500 mb-6">Customize how Grade Forge looks for you.</p>
+
+                <div className="space-y-7">
+                  <div>
+                    <p className="text-[14px] font-medium text-[#2B2A2A] mb-3">Theme</p>
+                    <div className="flex gap-3">
+                      {([
+                        { icon: <Sun className="w-5 h-5" />, label: "Light" as const },
+                        { icon: <Moon className="w-5 h-5" />, label: "Dark" as const },
+                        { icon: <Monitor className="w-5 h-5" />, label: "System" as const },
+                      ]).map(({ icon, label }) => (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => setAppearanceTheme(label)}
+                          className={`flex flex-col items-center gap-2 px-6 py-4 rounded-xl border text-[13px] font-medium transition-colors ${
+                            appearanceTheme === label
+                              ? "border-[#5A7ACD] bg-blue-50/40 text-[#5A7ACD]"
+                              : "border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-300 hover:bg-gray-100"
+                          }`}
+                        >
+                          {icon}
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[14px] font-medium text-[#2B2A2A] mb-3 flex items-center gap-2">
+                      <Type className="w-4 h-4 text-gray-400" />
+                      Font size
+                    </p>
+                    <div className="flex items-center gap-3">
+                      {(["Small", "Default", "Large"] as const).map((size) => (
+                        <button
+                          key={size}
+                          type="button"
+                          onClick={() => setAppearanceFontSize(size)}
+                          className={`px-4 py-2 rounded-lg border text-[13px] font-medium transition-colors ${
+                            appearanceFontSize === size
+                              ? "border-[#5A7ACD] text-[#5A7ACD] bg-blue-50/30"
+                              : "border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-300 hover:bg-gray-100"
+                          }`}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[14px] font-medium text-[#2B2A2A] mb-3">Interface density</p>
+                    <div className="flex gap-3">
+                      {(["Compact", "Comfortable", "Spacious"] as const).map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => setAppearanceDensity(d)}
+                          className={`px-4 py-2 rounded-lg border text-[13px] font-medium transition-colors ${
+                            appearanceDensity === d
+                              ? "border-[#5A7ACD] text-[#5A7ACD] bg-blue-50/30"
+                              : "border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-300 hover:bg-gray-100"
+                          }`}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-[12px] text-gray-400 mt-6 pt-4 border-t border-gray-100">
+                  Appearance settings are coming soon.
+                </p>
               </section>
             )}
           </div>
