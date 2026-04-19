@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -180,11 +181,14 @@ public class EnrollmentService {
             Student canvasStudent = studentRepository.findById(studentId)
                     .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
 
-            if(canvasStudent != null && !canvasId.toString().equals(canvasStudent.getCanvasUserId())) {
-                canvasStudent.setCanvasUserId(canvasId.toString());
-                studentRepository.save(canvasStudent);
+        if (canvasStudent != null) {
+            String newCanvasId = (canvasId != null) ? canvasId.toString() : null;
 
+            if (!Objects.equals(newCanvasId, canvasStudent.getCanvasUserId())) {
+                canvasStudent.setCanvasUserId(newCanvasId);
+                studentRepository.save(canvasStudent);
             }
+        }
 
 
 
