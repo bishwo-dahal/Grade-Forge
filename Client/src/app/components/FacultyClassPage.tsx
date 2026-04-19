@@ -196,10 +196,7 @@ export function FacultyClassPage() {
         />
 
         {/* Main Content */}
-        <main
-          className="flex-1 overflow-y-auto bg-fixed bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: `url("${classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}")` }}
-        >
+        <main className="flex-1 overflow-y-auto bg-[#F5F4F6]">
           <header className="bg-white border-b border-gray-200 px-8 py-6">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -220,7 +217,7 @@ export function FacultyClassPage() {
             </div>
           </header>
 
-          <div className="min-h-full bg-white/15 backdrop-blur-xl backdrop-saturate-150">
+          <div className="min-h-full bg-[#F5F4F6]">
             <div className="max-w-7xl mx-auto px-8 py-6">
               {activeSection === "assignments" && <AssignmentsSection />}
               {activeSection === "grades" && (

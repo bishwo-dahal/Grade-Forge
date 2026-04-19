@@ -112,10 +112,7 @@ export function ClassPage() {
         />
 
         {/* Main Content */}
-        <main
-          className="flex-1 overflow-y-auto bg-fixed bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: `url("${classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}")` }}
-        >
+        <main className="flex-1 overflow-y-auto bg-[#F5F4F6]">
           {/* Top Header */}
           <header className="bg-white border-b border-gray-200 px-8 py-6">
             <div className="flex items-start justify-between">
@@ -136,12 +133,12 @@ export function ClassPage() {
             </div>
           </header>
 
-          <div className="min-h-full bg-white/15 backdrop-blur-xl backdrop-saturate-150">
+          <div className="min-h-full bg-[#F5F4F6]">
             <div className="max-w-7xl mx-auto px-8 py-6">
               <div className="mb-4">
                 <Link
                   to="/dashboard"
-                  className="inline-flex items-center gap-2 rounded-md border border-white/70 bg-white/75 px-3 py-1.5 text-[13px] text-[#1F2430] shadow-sm backdrop-blur-md transition-colors hover:bg-white"
+                  className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-[13px] text-[#1F2430] shadow-sm transition-colors hover:bg-gray-50"
                 >
                   <ChevronLeft className="w-4 h-4" strokeWidth={2} />
                   <span>Back to Main Dashboard</span>
