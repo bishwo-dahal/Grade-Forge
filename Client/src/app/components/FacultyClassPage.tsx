@@ -4,7 +4,6 @@ import {
   Settings,
   ChevronLeft,
   FileText,
-  Send,
   BarChart3,
   Plus,
   Upload,
@@ -32,9 +31,7 @@ import {
 import type {
   ClassHeader,
   ClassCreateFormData,
-  ClassRecentActivity,
   FacultyAssignment,
-  FacultyDashboardStat,
   CanvasCourseStudent,
   FacultyStudentEmailSuggestion,
   FacultyRosterStats,
@@ -51,13 +48,11 @@ import {
   getFacultyClassHeaderById,
   deleteFacultyCourse,
   getFacultyCourseDetailsById,
-  listClassRecentActivity,
   listFacultyAssignments,
   listFacultySemesters,
   listFacultyStudentEmailSuggestions,
   listCanvasCourseStudents,
   listFacultyRosterRows,
-  listFacultyDashboardStats,
   searchFacultyStudentByEmail,
   toggleFacultyCourseActive,
   updateFacultyCourse,
@@ -97,6 +92,7 @@ import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection as TopBarSettingsSection } from "./layout/AuthTopBar";
 import { FacultyClassSidebar } from "./layout/FacultyClassSidebar";
+import { DEFAULT_COURSE_COVER_IMAGE } from "../../constants/defaultCourseCover";
 
 const SECTION_PATH_SEGMENTS = [
   "assignments",
@@ -161,6 +157,7 @@ export function FacultyClassPage() {
     semester: "",
     instructor: "",
     role: "",
+    coverImageUrl: DEFAULT_COURSE_COVER_IMAGE,
   };
   const loggedInUser = getAuthenticatedUser();
   const displayName = loggedInUser?.name ?? "Dr. Sarah Miller";
@@ -198,196 +195,51 @@ export function FacultyClassPage() {
           onLogout={handleLogout}
         />
 
-
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-8 py-6">
-{activeSection === "assignments" && <AssignmentsSection />}
-            {activeSection === "grades" && (
-              <GradesSection courseFullName={courseFullName} facultyName={facultyName} />
-            )}
-            {activeSection === "students" && (
-              <StudentsSection
-                isAddStudentModalOpen={isAddStudentModalOpen}
-                onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
-                onOpenAddStudentModal={() => setIsAddStudentModalOpen(true)}
-              />
-            )}
-            {activeSection === "assistants" && <AssistantsSection />}
-            {activeSection === "groups" && <GroupsSection />}
-            {activeSection === "settings" && <SettingsSection classId={resolvedClassId} />}
+        <main
+          className="flex-1 overflow-y-auto bg-fixed bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url("${classData.coverImageUrl || DEFAULT_COURSE_COVER_IMAGE}")` }}
+        >
+          <header className="bg-white border-b border-gray-200 px-8 py-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
+                    {classData.code}: {classData.name}
+                  </h1>
+                  <span className="px-3 py-1 bg-[#5A7ACD] text-white text-[11px] font-semibold rounded uppercase">
+                    {classData.role}
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 text-[13px] text-gray-600">
+                  <span>{classData.semester}</span>
+                  <span className="text-gray-300">&bull;</span>
+                  <span>{classData.section}</span>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <div className="min-h-full bg-white/15 backdrop-blur-xl backdrop-saturate-150">
+            <div className="max-w-7xl mx-auto px-8 py-6">
+              {activeSection === "assignments" && <AssignmentsSection />}
+              {activeSection === "grades" && (
+                <GradesSection courseFullName={courseFullName} facultyName={facultyName} />
+              )}
+              {activeSection === "students" && (
+                <StudentsSection
+                  isAddStudentModalOpen={isAddStudentModalOpen}
+                  onCloseAddStudentModal={() => setIsAddStudentModalOpen(false)}
+                  onOpenAddStudentModal={() => setIsAddStudentModalOpen(true)}
+                />
+              )}
+              {activeSection === "assistants" && <AssistantsSection />}
+              {activeSection === "groups" && <GroupsSection />}
+              {activeSection === "settings" && <SettingsSection classId={resolvedClassId} />}
+            </div>
           </div>
         </main>
       </div>
-    </div>
-  );
-}
-
-// Navigation Item Component - links to section route
-function NavItem({
-  icon,
-  label,
-  active,
-  to,
-  badge,
-  rail = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  active: boolean;
-  to: string;
-  badge?: number;
-  rail?: boolean;
-}) {
-  return (
-    <li>
-      <Link
-        to={to}
-        title={rail ? label : undefined}
-        className={`
-          relative flex w-full items-center rounded-lg text-[13px] font-medium transition-colors
-          ${rail ? "justify-center px-0 py-2.5" : "justify-between gap-3 px-3 py-2.5"}
-          ${active ? "bg-white text-[#7A1226] shadow-[0_8px_18px_rgba(0,0,0,0.16)]" : "text-[#F5E5E8] hover:text-white hover:bg-[#8A1E33]"}
-        `}
-      >
-        <div className={`flex items-center ${rail ? "justify-center" : "gap-3"}`}>
-          {icon}
-          {rail ? <span className="sr-only">{label}</span> : <span>{label}</span>}
-        </div>
-        {!rail && badge !== undefined && badge > 0 && (
-          <span
-            className={`
-              px-2 py-0.5 text-[11px] font-semibold rounded-full
-              ${active ? "bg-[#7A1226] text-white" : "bg-[#9F3549] text-white"}
-            `}
-          >
-            {badge}
-          </span>
-        )}
-        {rail && badge !== undefined && badge > 0 && (
-          <span className="absolute right-1 top-1 h-2 min-w-2 rounded-full bg-[#9F3549]" aria-hidden />
-        )}
-      </Link>
-    </li>
-  );
-}
-
-// Placeholder sections - will be implemented
-function DashboardSection({ courseFullName }: { courseFullName: string }) {
-  const { classId } = useParams();
-  // NOTE: Dashboard stats and activity now load from backend-driven service calls.
-  const [recentActivity, setRecentActivity] = useState<ClassRecentActivity[]>([]);
-  const [stats, setStats] = useState<FacultyDashboardStat[]>([]);
-
-  useEffect(() => {
-    const resolvedId = classId || "1";
-    listClassRecentActivity(resolvedId).then(setRecentActivity);
-    listFacultyDashboardStats(resolvedId).then(setStats);
-  }, [classId]);
-
-  const activityIconMap = {
-    send: Send,
-    check: CheckCircle2,
-    "user-plus": UserPlus,
-  } as const;
-
-  const statIconMap = {
-    users: Users,
-    "file-text": FileText,
-    clock: Clock,
-    alert: AlertCircle,
-  } as const;
-
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">{courseFullName || "Class Dashboard"}</h2>
-        <p className="text-[13px] text-gray-600">
-          Overview of your class activity and statistics
-        </p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {stats.map((stat) => {
-          const StatIcon = statIconMap[stat.iconKey];
-          return (
-            <StatCard
-              key={stat.label}
-              label={stat.label}
-              value={stat.value}
-              icon={<StatIcon className="w-5 h-5" strokeWidth={2} />}
-              iconBg={stat.iconBg}
-              iconColor={stat.iconColor}
-              badge={stat.badge}
-            />
-          );
-        })}
-      </div>
-
-      {/* Recent Activity */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[15px] font-semibold text-[#2B2A2A]">Recent Activity</h3>
-          <button className="text-[12px] text-gray-500 hover:text-[#2B2A2A]">View All</button>
-        </div>
-        <div className="space-y-4">
-          {recentActivity.length > 0 ? (
-            recentActivity.map((activity) => {
-              const ActivityIcon = activityIconMap[activity.iconKey];
-              return (
-                <div
-                  key={activity.id}
-                  className="flex items-start gap-3 pb-4 border-b border-gray-100 last:border-b-0 last:pb-0"
-                >
-                  <div className={`mt-0.5 w-8 h-8 ${activity.iconBg} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                    <ActivityIcon className={`w-4 h-4 ${activity.iconColor}`} strokeWidth={2} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[14px] text-[#2B2A2A]">{activity.message}</p>
-                    <p className="text-[12px] text-gray-500 mt-0.5">{activity.time}</p>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <p className="text-[13px] text-gray-600">No recent class activity yet.</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  icon,
-  iconBg,
-  iconColor,
-  badge,
-}: {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-  iconBg: string;
-  iconColor: string;
-  badge?: boolean;
-}) {
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 p-5">
-      <div className="flex items-start justify-between mb-3">
-        <div className={`w-10 h-10 ${iconBg} rounded-lg flex items-center justify-center`}>
-          <span className={iconColor}>{icon}</span>
-        </div>
-        {badge && (
-          <span className="px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-semibold rounded uppercase">
-            Action Needed
-          </span>
-        )}
-      </div>
-      <div className="text-[28px] font-semibold text-[#2B2A2A] mb-1">{value}</div>
-      <div className="text-[13px] text-gray-600">{label}</div>
     </div>
   );
 }
@@ -439,8 +291,8 @@ function AssignmentsSection() {
   return (
     <div onClick={() => setOpenAssignmentActionsId(null)}>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Assignments</h2>
+        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Assignments</h2>
           <p className="text-[13px] text-gray-600">
             Create, publish, and manage course assignments
           </p>
@@ -1189,8 +1041,8 @@ function GradesSection({
   return (
     <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Grades</h2>
+        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Grades</h2>
           <p className="text-[13px] text-gray-600">
             View and manage student grades for this course
           </p>
@@ -2932,8 +2784,8 @@ function AssistantsSection() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Grading Assistants</h2>
+        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Grading Assistants</h2>
           <p className="text-[13px] text-gray-600">
             Assign grading assistants to this course. They can help grade submissions.
           </p>
@@ -2963,7 +2815,7 @@ function AssistantsSection() {
             No grading assistants assigned to this course yet.
           </p>
           <p className="text-[13px] text-gray-500 mb-4">
-            Create grading assistants from the dashboard, then assign them here.
+            Create grading assistants from the Home tab, then assign them here.
           </p>
           <Link
             to="/faculty/grading-assistants"
@@ -3203,8 +3055,8 @@ function GroupsSection() {
   return (
     <div>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Main groups</h2>
+        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Main groups</h2>
           <p className="text-[13px] text-gray-600">
             Open a group to create subgroups and assign students by dragging them from the roster.
           </p>
@@ -3491,8 +3343,10 @@ function SettingsSection({ classId }: { classId: string }) {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Class Settings</h2>
-        <p className="text-[13px] text-gray-600">Edit course metadata and control visibility</p>
+        <div className="inline-block rounded-lg border border-gray-300 bg-white px-4 py-2">
+          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Class Settings</h2>
+          <p className="text-[13px] text-gray-600">Edit course metadata and control visibility</p>
+        </div>
       </div>
 
       {error ? (

@@ -9,6 +9,7 @@ export interface ClassHeader {
   instructor: string;
   instructorEmail?: string;
   role?: string;
+  coverImageUrl?: string;
 }
 
 export interface ClassOverviewItem {
