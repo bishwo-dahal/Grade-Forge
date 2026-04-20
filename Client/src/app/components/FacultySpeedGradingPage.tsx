@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { AlertCircle, ArrowRight, CheckCircle2, ChevronLeft, Loader2, X } from "lucide-react";
 import { CodeWorkspace } from "./assignment/CodeWorkspace";
+import { getGraderReportLatest } from "../../services/graderReportService";
+import type { GraderReportResultPayload } from "../../types/graderReport";
 import { getAssignmentDetailById, listRubricCategories } from "../../services/assignmentService";
 import {
   fetchSubmissionFileText,
@@ -53,6 +55,21 @@ function getErrorMessage(error: unknown): string {
 
 function isUngradedSubmission(row: FacultyAssignmentSubmissionRow): boolean {
   return row.marks === null || row.marks === undefined;
+}
+
+type GraderReportStudentSummary = {
+  similarityScore: number;
+  matchesCount?: number;
+  warning?: string | null;
+  aiRiskScore: number;
+  aiRiskLevel: "none" | "low" | "medium" | "high";
+};
+
+function formatAiRiskLevelLabel(level: GraderReportStudentSummary["aiRiskLevel"]): string {
+  if (level === "high") return "High";
+  if (level === "medium") return "Med";
+  if (level === "low") return "Low";
+  return "None";
 }
 
 function buildLatestSubmissionQueue(rows: FacultyAssignmentSubmissionRow[]): FacultyAssignmentSubmissionRow[] {
@@ -175,6 +192,10 @@ export function FacultySpeedGradingPage() {
   const [workspacePreviewPayload, setWorkspacePreviewPayload] = useState<FacultyEditorPreviewPayload | null>(null);
   const [isWorkspacePreviewLoading, setIsWorkspacePreviewLoading] = useState(false);
   const [workspacePreviewError, setWorkspacePreviewError] = useState<string | null>(null);
+  const [plagSummary, setPlagSummary] = useState<{
+    byStudent: Record<string, GraderReportStudentSummary>;
+    loading: boolean;
+  }>({ byStudent: {}, loading: false });
 
   const [testSummary, setTestSummary] = useState<SpeedGradingTestSummary>({
     hasRun: false,
@@ -251,6 +272,66 @@ export function FacultySpeedGradingPage() {
     () => allSubmissionRows.find((row) => row.submissionId === selectedSubmissionId) ?? null,
     [allSubmissionRows, selectedSubmissionId],
   );
+
+  useEffect(() => {
+    const aId = Number(resolvedAssignmentId);
+    if (!Number.isFinite(aId) || aId <= 0) {
+      setPlagSummary({ byStudent: {}, loading: false });
+      return;
+    }
+
+    let cancelled = false;
+    setPlagSummary((prev) => ({ ...prev, loading: true }));
+    (async () => {
+      try {
+        const report = await getGraderReportLatest(aId);
+        if (!report || !report.result || report.status !== "COMPLETED") {
+          if (!cancelled) setPlagSummary({ byStudent: {}, loading: false });
+          return;
+        }
+
+        let payload: GraderReportResultPayload | null = null;
+        try {
+          payload = JSON.parse(report.result) as GraderReportResultPayload;
+        } catch {
+          if (!cancelled) setPlagSummary({ byStudent: {}, loading: false });
+          return;
+        }
+
+        const map: Record<string, GraderReportStudentSummary> = {};
+        for (const row of payload.results) {
+          const rawLevel = row.ai_features?.risk_level;
+          const aiRiskLevel: GraderReportStudentSummary["aiRiskLevel"] =
+            rawLevel === "high" || rawLevel === "medium" || rawLevel === "low" || rawLevel === "none"
+              ? rawLevel
+              : "none";
+          const rs = row.ai_features?.risk_score;
+          const aiRiskScore = typeof rs === "number" && Number.isFinite(rs) ? Math.max(0, Math.min(1, rs)) : 0;
+          map[row.student_id] = {
+            similarityScore: row.similarity_score ?? 0,
+            matchesCount: row.matches_count,
+            warning: row.similarity_warning ?? null,
+            aiRiskScore,
+            aiRiskLevel,
+          };
+        }
+
+        if (!cancelled) setPlagSummary({ byStudent: map, loading: false });
+      } catch {
+        if (!cancelled) setPlagSummary({ byStudent: {}, loading: false });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedAssignmentId]);
+
+  const selectedPlag = useMemo(() => {
+    const studentId = selectedSubmission?.studentId;
+    if (!studentId) return null;
+    return plagSummary.byStudent[studentId] ?? null;
+  }, [plagSummary.byStudent, selectedSubmission?.studentId]);
 
   const studentAttemptOptions = useMemo(() => {
     if (!selectedSubmission) {
@@ -838,10 +919,12 @@ export function FacultySpeedGradingPage() {
                 </div>
 
                 <div className="h-full min-w-0 rounded-xl border border-gray-200 p-3">
-                  <div className="flex items-center gap-3">
-                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500 leading-none">Test results</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500 leading-none">
+                      Tests
+                    </p>
                     {testSummary.hasRun ? (
-                      <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+                      <div className="grid min-w-0 grid-cols-2 gap-2">
                         <div className="flex min-w-0 items-center justify-between gap-2 overflow-hidden rounded-lg bg-[#EEF3FF] px-3 py-2">
                           <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-gray-600 leading-none">Public</p>
                           <p className="whitespace-nowrap text-[13px] font-semibold leading-none text-[#2B2A2A]">
@@ -857,18 +940,89 @@ export function FacultySpeedGradingPage() {
                       </div>
                     ) : null}
                   </div>
+
                   {isTestSummaryLoading ? (
                     <div className="mt-2 flex h-10 items-center text-[12px] text-gray-600">
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={2} />
-                      Loading latest run...
+                      Loading tests…
                     </div>
                   ) : testSummaryError ? (
                     <p className="mt-2 text-[12px] text-[#C23A42]">{testSummaryError}</p>
-                  ) : testSummary.hasRun ? (
-                    null
-                  ) : (
+                  ) : testSummary.hasRun ? null : (
                     <p className="mt-2 text-[12px] text-gray-600">No test run available yet.</p>
                   )}
+
+                  <div className="mt-3 border-t border-gray-200 pt-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 leading-none">
+                        Plagiarism
+                      </p>
+                      {selectedPlag?.warning ? (
+                        <p className="truncate text-[11px] text-amber-700" title={selectedPlag.warning}>
+                          {selectedPlag.warning}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    {plagSummary.loading ? (
+                      <div className="mt-2 flex h-10 items-center text-[12px] text-gray-600">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={2} />
+                        Loading…
+                      </div>
+                    ) : selectedPlag ? (
+                      <div
+                        title="Similarity % and AI risk for this student."
+                        className="mt-2 grid grid-cols-2 gap-3"
+                      >
+                        <div className="min-w-0 rounded-lg bg-[#F8FAFC] px-3 py-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-medium text-gray-600">Plag</span>
+                            <span className="text-[11px] font-semibold text-[#2B2A2A]">
+                              {Math.round((selectedPlag.similarityScore ?? 0) * 100)}%
+                            </span>
+                          </div>
+                          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                            <div
+                              className="h-full rounded-full bg-amber-500"
+                              style={{
+                                width: `${Math.max(
+                                  0,
+                                  Math.min(100, Math.round((selectedPlag.similarityScore ?? 0) * 100)),
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="min-w-0 rounded-lg bg-[#F8FAFC] px-3 py-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-medium text-gray-600">AI</span>
+                            <span className="text-[11px] font-semibold text-[#2B2A2A]">
+                              {Math.round((selectedPlag.aiRiskScore ?? 0) * 100)}%
+                            </span>
+                          </div>
+                          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                            <div
+                              className="h-full rounded-full bg-emerald-600"
+                              style={{
+                                width: `${Math.max(
+                                  0,
+                                  Math.min(100, Math.round((selectedPlag.aiRiskScore ?? 0) * 100)),
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                          {selectedPlag.aiRiskLevel !== "none" ? (
+                            <p className="mt-1 text-[11px] text-gray-600">
+                              {formatAiRiskLevelLabel(selectedPlag.aiRiskLevel)}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-[12px] text-gray-600">—</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
