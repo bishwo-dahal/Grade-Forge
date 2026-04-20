@@ -2,12 +2,12 @@
 
 This table is written for readers, not developers. Cells use **Yes**, **No**, or a short condition. **Path** and **Example URL** help you jump to the right screen.
 
-Example URLs use `https://gradeforge.tech`; numeric ids in paths are samples only.
+Example URLs use the ULM deployment [https://ulm.gradeforge.tech](https://ulm.gradeforge.tech); numeric ids in paths are samples only.
 
 | Action | Student | Faculty | Grading assistant | University admin | Path | Example URL |
 | ------ | ------- | ------- | ----------------- | ---------------- | ---- | ----------- |
-| Sign up | Yes | Yes | Yes | Yes | `/signup` | `https://gradeforge.tech/signup` |
-| Sign in | Yes | Yes | Yes | Yes | `/signin` | `https://gradeforge.tech/signin` |
+| Sign up | Yes | Yes | Yes | Yes | `/signup` | [https://ulm.gradeforge.tech/signup](https://ulm.gradeforge.tech/signup) |
+| Sign in | Yes | Yes | Yes | Yes | `/signin` | [https://ulm.gradeforge.tech/signin](https://ulm.gradeforge.tech/signin) |
 | Student first-time registration | Yes | No | No | No | `/complete-registration` | …/complete-registration |
 | Student / faculty / GA settings | Yes | Yes | Yes | No (use admin settings) | `/settings` | …/settings |
 | University admin settings | No | No | No | Yes | `/university-admin/settings` | …/university-admin/settings |

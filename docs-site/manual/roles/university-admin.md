@@ -9,4 +9,4 @@ You work in the **University admin** shell: **Faculty**, **Semesters**, **Course
 3. [Lifecycle](../lifecycle) shows how your setup connects to faculty and student work.
 
 **Path (default landing):** `/university-admin/faculty`  
-**Example URL:** `https://gradeforge.tech/university-admin/faculty`
+**Example URL:** [https://ulm.gradeforge.tech/university-admin/faculty](https://ulm.gradeforge.tech/university-admin/faculty)

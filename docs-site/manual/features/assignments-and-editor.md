@@ -5,7 +5,7 @@
 1. Use **Assignments** in the sidebar, or open one from a class, or follow an instructor link.
 
 **Path:** `/assignment/{assignmentId}`  
-**Example URL:** `https://gradeforge.tech/assignment/12`
+**Example URL:** [https://ulm.gradeforge.tech/assignment/12](https://ulm.gradeforge.tech/assignment/12)
 
 ## What are the tabs on the assignment page?
 
@@ -18,7 +18,7 @@ Typical tabs (labels may vary slightly):
 - **Results** … submissions, runs, and feedback or grades when released.
 
 **Path:** `/assignment/{assignmentId}`  
-**Example URL:** `https://gradeforge.tech/assignment/12`
+**Example URL:** [https://ulm.gradeforge.tech/assignment/12](https://ulm.gradeforge.tech/assignment/12)
 
 ## How does a faculty member create an assignment?
 
@@ -27,28 +27,28 @@ Typical tabs (labels may vary slightly):
 3. Save or publish per your workflow.
 
 **Path:** `/faculty/class/{classId}/assignments/create`  
-**Example URL:** `https://gradeforge.tech/faculty/class/4/assignments/create`
+**Example URL:** [https://ulm.gradeforge.tech/faculty/class/4/assignments/create](https://ulm.gradeforge.tech/faculty/class/4/assignments/create)
 
 ## How does a faculty member edit an assignment?
 
 1. From the class **Assignments** list, choose **Edit** on a row.
 
 **Path:** `/faculty/class/{classId}/assignments/{assignmentId}/edit`  
-**Example URL:** `https://gradeforge.tech/faculty/class/4/assignments/12/edit`
+**Example URL:** [https://ulm.gradeforge.tech/faculty/class/4/assignments/12/edit](https://ulm.gradeforge.tech/faculty/class/4/assignments/12/edit)
 
 ## How does a faculty member open assignment management from the class?
 
 1. From **Assignments** inside the class, open the assignment row.
 
 **Path:** `/faculty/class/{classId}/assignment/{assignmentId}`  
-**Example URL:** `https://gradeforge.tech/faculty/class/4/assignment/12`
+**Example URL:** [https://ulm.gradeforge.tech/faculty/class/4/assignment/12](https://ulm.gradeforge.tech/faculty/class/4/assignment/12)
 
 ## How does a faculty member use the shortcut assignment URL?
 
 1. When you have a direct link with only the assignment id, use:
 
 **Path:** `/faculty/assignment/{assignmentId}`  
-**Example URL:** `https://gradeforge.tech/faculty/assignment/12`
+**Example URL:** [https://ulm.gradeforge.tech/faculty/assignment/12](https://ulm.gradeforge.tech/faculty/assignment/12)
 
 ## Editor and files
 

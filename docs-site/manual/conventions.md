@@ -1,12 +1,12 @@
 # URLs in this manual
 
-Paths match the Grade-Forge web app after you sign in. Your real address bar looks like:
+Paths match the Grade-Forge web app after you sign in. For the **University of Louisiana Monroe** deployment, your address bar looks like:
 
-`https://gradeforge.tech` **+** path (for example `/assignment/12`).
+**[https://ulm.gradeforge.tech](https://ulm.gradeforge.tech)** + path (for example `/assignment/12`).
 
-If your school runs its own deployment, swap the host for that origin; the path part stays the same.
+If your school runs a different host, swap the origin; the path part stays the same.
 
-**Example URLs** in this manual use **`https://gradeforge.tech`** plus sample numbers such as `4` or `12`. Those numbers are placeholders: use the course, class, assignment, and submission ids from your own account.
+**Example URLs** in this manual use **[https://ulm.gradeforge.tech](https://ulm.gradeforge.tech)** plus sample numbers such as `4` or `12`. Those numbers are placeholders: use the course, class, assignment, and submission ids from your own account.
 
 We never use `localhost` here. The same paths work in production and in local development; only the origin changes.
 
@@ -18,7 +18,7 @@ We never use `localhost` here. The same paths work in production and in local de
 
 PNG files for the manual live in the repo under `public/manual/images/` (relative to `docs-site/`). Use Playwright from `docs-site/`: run `npm run docs:capture-screenshots:install` once, then `npm run docs:capture-screenshots`.
 
-**Deployed app:** the capture script defaults to `https://gradeforge.tech` for app routes.
+**Deployed app:** the capture script defaults to [https://ulm.gradeforge.tech](https://ulm.gradeforge.tech) for app routes.
 
 **Local dev (no public host):** run Spring on port 8080 and the Client dev server on 5173 (Vite proxies `/docs` to the server). Set one origin for both app and manual pages:
 

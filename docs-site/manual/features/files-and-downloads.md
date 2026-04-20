@@ -7,7 +7,7 @@ Assignments and submissions use **file upload** and **download** links. Your bro
 Use the assignment workspace upload control when it appears. Allowed extensions depend on the assignment **language** (for example Python or Java).
 
 **Path:** `/assignment/{assignmentId}`  
-**Example URL:** `https://gradeforge.tech/assignment/12`
+**Example URL:** [https://ulm.gradeforge.tech/assignment/12](https://ulm.gradeforge.tech/assignment/12)
 
 ## Downloading instructor or submission files
 

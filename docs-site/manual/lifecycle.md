@@ -12,4 +12,4 @@ This is a common flow. Your school may vary steps.
 8. **Students** return to the same **assignment** to see status, test output, and **feedback or grades** your instructor chose to expose (usually under **Results** or the grading tab area).
 
 **Path (student assignment hub):** `/assignment/{assignmentId}`  
-**Example URL:** `https://gradeforge.tech/assignment/12`
+**Example URL:** [https://ulm.gradeforge.tech/assignment/12](https://ulm.gradeforge.tech/assignment/12)
