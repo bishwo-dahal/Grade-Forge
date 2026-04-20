@@ -21,7 +21,11 @@ import { AuthShell } from "../layout/AuthShell";
 import { AuthTopBar } from "../layout/AuthTopBar";
 import type { SettingsSection } from "../layout/AuthTopBar";
 import { SubmissionGradingPanel } from "../grading/SubmissionGradingPanel";
-import { getLatestGraderReportForStudent } from "../../../services/graderReportService";
+import {
+  getLatestGraderReportForStudent,
+  pollGraderReportUntilDone,
+  requestGraderReport,
+} from "../../../services/graderReportService";
 import type { GraderReportResultItem } from "../../../types/graderReport";
 
 function formatDate(iso: string | null | undefined): string {
@@ -59,6 +63,10 @@ export function GradingAssistantSubmissionDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [plagResult, setPlagResult] = useState<GraderReportResultItem | null>(null);
   const [plagStatus, setPlagStatus] = useState<"idle" | "loading" | "none" | "error">("idle");
+  const [plagRunStatus, setPlagRunStatus] = useState<
+    "idle" | "requesting" | "running" | "completed" | "failed"
+  >("idle");
+  const [plagRunMessage, setPlagRunMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!classId || !assignmentId || !submissionId) {
@@ -170,6 +178,37 @@ export function GradingAssistantSubmissionDetailPage() {
     await Promise.all(promises);
     const updated = await getGradesBySubmission(subId);
     setGrades(updated);
+  };
+
+  const handleRunPlagiarismReport = async () => {
+    const aId = Number(assignmentId);
+    if (!Number.isFinite(aId) || aId <= 0 || !submission) return;
+    setPlagRunStatus("requesting");
+    setPlagRunMessage(null);
+    try {
+      await requestGraderReport(aId);
+      setPlagRunStatus("running");
+      setPlagRunMessage("Queued. Generating Plagiarism & AI report...");
+      const done = await pollGraderReportUntilDone(aId, { intervalMs: 3000, timeoutMs: 300000 });
+      if (done.status === "COMPLETED") {
+        const latest = await getLatestGraderReportForStudent(aId, submission.studentId);
+        if (!latest) {
+          setPlagResult(null);
+          setPlagStatus("none");
+        } else {
+          setPlagResult(latest.student);
+          setPlagStatus("idle");
+        }
+        setPlagRunStatus("completed");
+        setPlagRunMessage("Plagiarism & AI report completed.");
+      } else {
+        setPlagRunStatus("failed");
+        setPlagRunMessage(done.errorMessage ?? "Plagiarism & AI report failed.");
+      }
+    } catch (error) {
+      setPlagRunStatus("failed");
+      setPlagRunMessage(error instanceof Error ? error.message : "Failed to run Plagiarism & AI report.");
+    }
   };
 
   return (
@@ -346,14 +385,37 @@ export function GradingAssistantSubmissionDetailPage() {
 
                   <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                     <div className="px-5 py-3 border-b border-gray-200">
-                      <h2 className="text-[14px] font-semibold text-[#2B2A2A]">
-                        Plagiarism & AI (latest report)
-                      </h2>
-                      <p className="text-[12px] text-gray-500">
-                        Shows this student&apos;s row from the latest grader report for this assignment.
-                      </p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h2 className="text-[14px] font-semibold text-[#2B2A2A]">
+                            Plagiarism & AI (latest report)
+                          </h2>
+                          <p className="text-[12px] text-gray-500">
+                            Shows this student&apos;s row from the latest grader report for this assignment.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleRunPlagiarismReport()}
+                          disabled={
+                            plagRunStatus === "requesting" ||
+                            plagRunStatus === "running" ||
+                            !assignmentId
+                          }
+                          className="rounded-lg border border-[#2B2A2A] bg-[#2B2A2A] px-3 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-[#3A3939] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {plagRunStatus === "requesting" || plagRunStatus === "running"
+                            ? "Running..."
+                            : "Run Plagiarism & AI report"}
+                        </button>
+                      </div>
                     </div>
                     <div className="px-5 py-4 text-[13px] text-gray-700">
+                      {plagRunMessage ? (
+                        <p className={plagRunStatus === "failed" ? "mb-2 text-red-600" : "mb-2 text-gray-600"}>
+                          {plagRunMessage}
+                        </p>
+                      ) : null}
                       {plagStatus === "loading" && <p>Loading Plagiarism & AI report…</p>}
                       {plagStatus === "error" && (
                         <p className="text-red-600">Unable to load Plagiarism & AI report.</p>
