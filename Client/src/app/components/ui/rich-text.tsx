@@ -1,17 +1,18 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import DOMPurify from "dompurify";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { createLowlight, common } from "lowlight";
+import hljs from "highlight.js/lib/core";
 import javascript from "highlight.js/lib/languages/javascript";
 import typescript from "highlight.js/lib/languages/typescript";
 import python from "highlight.js/lib/languages/python";
 import java from "highlight.js/lib/languages/java";
 import cpp from "highlight.js/lib/languages/cpp";
 import plaintext from "highlight.js/lib/languages/plaintext";
-import "highlight.js/styles/github-dark.css";
+import "highlight.js/styles/github-dark-dimmed.css";
 import {
   Bold,
   Code,
@@ -31,6 +32,13 @@ lowlight.register("typescript", typescript);
 lowlight.register("python", python);
 lowlight.register("java", java);
 lowlight.register("cpp", cpp);
+
+hljs.registerLanguage("plaintext", plaintext);
+hljs.registerLanguage("javascript", javascript);
+hljs.registerLanguage("typescript", typescript);
+hljs.registerLanguage("python", python);
+hljs.registerLanguage("java", java);
+hljs.registerLanguage("cpp", cpp);
 
 function isProbablyHtml(value: string): boolean {
   return /<\/?[a-z][\s\S]*>/i.test(value);
@@ -52,6 +60,7 @@ function normalizeInitialContent(value: string): string {
 }
 
 export function RichTextViewer({ value, className }: { value: string; className?: string }) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const sanitized = useMemo(
     () =>
       DOMPurify.sanitize(value ?? "", {
@@ -67,16 +76,74 @@ export function RichTextViewer({ value, className }: { value: string; className?
     return <p className={className ?? "whitespace-pre-wrap"}>{value}</p>;
   }
 
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const blocks = root.querySelectorAll("pre code");
+    blocks.forEach((block) => {
+      try {
+        hljs.highlightElement(block as HTMLElement);
+      } catch {
+        // If highlighting fails, keep plain rendering.
+      }
+    });
+  }, [sanitized]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    const pres = Array.from(root.querySelectorAll("pre"));
+    pres.forEach((pre) => {
+      const existing = pre.querySelector("[data-gf-copy-btn]");
+      if (existing) return;
+
+      pre.classList.add("gf-codeblock");
+      pre.style.position = "relative";
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.setAttribute("data-gf-copy-btn", "true");
+      button.textContent = "Copy";
+      button.className =
+        "gf-copy-btn absolute right-2 top-2 rounded-md border border-gray-200 bg-white/90 px-2 py-1 text-[11px] font-medium text-gray-700 shadow-sm hover:bg-white";
+
+      const code = pre.querySelector("code");
+      button.addEventListener("click", async () => {
+        try {
+          const text = code?.textContent ?? "";
+          await navigator.clipboard.writeText(text);
+          const prev = button.textContent;
+          button.textContent = "Copied";
+          window.setTimeout(() => {
+            button.textContent = prev ?? "Copy";
+          }, 1200);
+        } catch {
+          // Ignore clipboard failures (permissions / insecure context).
+        }
+      });
+
+      pre.appendChild(button);
+    });
+  }, [sanitized]);
+
   return (
     <div
+      ref={rootRef}
       className={
         (className ?? "") +
-        " prose prose-sm max-w-none prose-pre:bg-[#111827] prose-pre:text-gray-100 prose-pre:border prose-pre:border-gray-800 prose-pre:rounded-lg prose-pre:px-4 prose-pre:py-3 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded"
+        " prose prose-sm max-w-none prose-pre:bg-slate-900/90 prose-pre:text-slate-50 prose-pre:border prose-pre:border-slate-700 prose-pre:rounded-lg prose-pre:px-4 prose-pre:py-3 prose-code:bg-slate-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded"
       }
       // Sanitized above.
       dangerouslySetInnerHTML={{ __html: sanitized }}
     />
   );
+}
+
+export function richTextToPlainText(value: string): string {
+  const raw = value ?? "";
+  if (raw.trim() === "") return "";
+  return DOMPurify.sanitize(raw, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
 }
 
 export function RichTextEditor({
