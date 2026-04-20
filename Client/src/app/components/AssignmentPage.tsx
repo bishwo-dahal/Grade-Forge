@@ -561,6 +561,38 @@ export function AssignmentPage() {
                       customStdin={customStdin}
                       onCustomStdinChange={setCustomStdin}
                     />
+                  ) : isStudentRole ? (
+                    <PublicTestsPanel
+                      testCases={[]}
+                      onRunTests={handleRunTests}
+                      isRunning={runLoading}
+                      runError={runError}
+                      runResult={
+                        runResult
+                          ? {
+                              passedCount: runResult.passedCount,
+                              totalCount: runResult.totalCount,
+                              results: runResult.results.map(
+                                (r, i): PublicTestCase => ({
+                                  id: r.testCaseId ?? i,
+                                  name: r.testCaseTitle,
+                                  passed: r.passed ?? undefined,
+                                  input: "",
+                                  inputFileName: null,
+                                  expectedOutput: r.expectedOutput ?? "",
+                                  actualOutput: r.actualOutput ?? r.errorMessage ?? "",
+                                  executionTime: r.runtimeMs != null ? `${r.runtimeMs}ms` : undefined,
+                                })
+                              ),
+                            }
+                          : null
+                      }
+                      runStatus={runResult?.status ?? null}
+                      showCustomStdin
+                      customStdin={customStdin}
+                      onCustomStdinChange={setCustomStdin}
+                      showPublicNote={false}
+                    />
                   ) : (
                     <div className="p-6">
                       <h2 className="text-lg font-semibold text-[#2B2A2A]">Test Cases</h2>
