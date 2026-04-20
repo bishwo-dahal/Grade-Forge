@@ -212,6 +212,7 @@ export function FacultySpeedGradingPage() {
 
   const [rubricScores, setRubricScores] = useState<string[]>([]);
   const [rubricExistingGrades, setRubricExistingGrades] = useState<Record<number, { awardedScore: number; feedback?: string | null }>>({});
+  const [rubricComments, setRubricComments] = useState<string[]>([]);
   const [directMarksInput, setDirectMarksInput] = useState<string>("");
   const [feedbackInput, setFeedbackInput] = useState<string>("");
   const [gradeError, setGradeError] = useState<string | null>(null);
@@ -422,6 +423,7 @@ export function FacultySpeedGradingPage() {
     if (rubricScoreFields.length === 0) {
       setRubricExistingGrades({});
       setRubricScores([]);
+      setRubricComments([]);
       setDirectMarksInput(marks != null ? formatMax2Decimals(marks) : "");
       return;
     }
@@ -452,6 +454,13 @@ export function FacultySpeedGradingPage() {
                 : "",
             ),
           );
+          setRubricComments(
+            rubricScoreFields.map((field) =>
+              field.criterionId != null && byCriterionId[field.criterionId]
+                ? (byCriterionId[field.criterionId]!.feedback ?? "") ?? ""
+                : "",
+            ),
+          );
           return;
         }
 
@@ -460,6 +469,7 @@ export function FacultySpeedGradingPage() {
             ? seedRubricScoreInputs(flatRubricCriteria, marks, assignment?.points.total ?? rubricMarksTotal)
             : rubricScoreFields.map(() => ""),
         );
+        setRubricComments(rubricScoreFields.map(() => ""));
       })
       .catch(() => {
         if (cancelled) {
@@ -471,6 +481,7 @@ export function FacultySpeedGradingPage() {
             ? seedRubricScoreInputs(flatRubricCriteria, marks, assignment?.points.total ?? rubricMarksTotal)
             : rubricScoreFields.map(() => ""),
         );
+        setRubricComments(rubricScoreFields.map(() => ""));
       });
 
     return () => {
@@ -664,13 +675,14 @@ export function FacultySpeedGradingPage() {
             return {
               rubricSubCriteriaId: field.criterionId,
               awardedScore: roundTo2(parseScoreInput(rubricScores[index] ?? "")),
-              feedback: null,
+              feedback: rubricComments[index]?.trim() ? rubricComments[index]!.trim() : null,
             };
           })
           .filter(
             (
               item,
-            ): item is { rubricSubCriteriaId: number; awardedScore: number; feedback: null } => item != null,
+            ): item is { rubricSubCriteriaId: number; awardedScore: number; feedback: string | null } =>
+              item != null,
           );
 
         if (grades.length > 0) {
@@ -742,6 +754,7 @@ export function FacultySpeedGradingPage() {
     directMarks,
     feedbackInput,
     rubricExistingGrades,
+    rubricComments,
     rubricScores,
     rubricMarksTotal,
     rubricScoreFields.length,
@@ -1046,29 +1059,46 @@ export function FacultySpeedGradingPage() {
                       {rubricScoreFields.map((rubric, index) => (
                         <div
                           key={rubric.id}
-                          className="grid grid-cols-[minmax(0,1fr)_78px_96px] items-center gap-3 rounded-xl border border-gray-100 bg-[#FBFCFE] px-3 py-3"
+                          className="rounded-xl border border-gray-100 bg-[#FBFCFE] px-3 py-3"
                         >
-                          <div className="min-w-0">
-                            <p className="truncate text-[13px] font-medium text-[#2B2A2A]">{rubric.label}</p>
+                          <div className="grid grid-cols-[minmax(0,1fr)_78px_96px] items-center gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-[13px] font-medium text-[#2B2A2A]">{rubric.label}</p>
+                            </div>
+                            <p className="text-right text-[12px] text-gray-500">/ {rubric.maxPoints}</p>
+                            <input
+                              type="number"
+                              min={0}
+                              max={rubric.maxPoints}
+                              step="0.01"
+                              value={rubricScores[index] ?? ""}
+                              onChange={(event) => {
+                                const raw = event.target.value;
+                                const display = normalizeDecimalInput(raw, 0, rubric.maxPoints);
+                                if (display == null) return;
+                                setRubricScores((prev) => {
+                                  const next = [...prev];
+                                  next[index] = display;
+                                  return next;
+                                });
+                              }}
+                              className="h-10 w-full rounded-lg border border-gray-300 px-3 text-right text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#DCE5F8]"
+                            />
                           </div>
-                          <p className="text-right text-[12px] text-gray-500">/ {rubric.maxPoints}</p>
+
                           <input
-                            type="number"
-                            min={0}
-                            max={rubric.maxPoints}
-                            step="0.01"
-                            value={rubricScores[index] ?? ""}
+                            type="text"
+                            value={rubricComments[index] ?? ""}
                             onChange={(event) => {
-                              const raw = event.target.value;
-                              const display = normalizeDecimalInput(raw, 0, rubric.maxPoints);
-                              if (display == null) return;
-                              setRubricScores((prev) => {
+                              const value = event.target.value;
+                              setRubricComments((prev) => {
                                 const next = [...prev];
-                                next[index] = display;
+                                next[index] = value;
                                 return next;
                               });
                             }}
-                            className="h-10 w-full rounded-lg border border-gray-300 px-3 text-right text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#DCE5F8]"
+                            className="mt-2 h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-[12px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#DCE5F8]"
+                            placeholder="Comment (optional)"
                           />
                         </div>
                       ))}
