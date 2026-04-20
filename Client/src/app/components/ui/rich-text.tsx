@@ -104,19 +104,43 @@ export function RichTextViewer({ value, className }: { value: string; className?
       const button = document.createElement("button");
       button.type = "button";
       button.setAttribute("data-gf-copy-btn", "true");
-      button.textContent = "Copy";
+      button.setAttribute("aria-label", "Copy code");
+      button.setAttribute("title", "Copy");
       button.className =
-        "gf-copy-btn absolute right-2 top-2 rounded-md border border-gray-200 bg-white/90 px-2 py-1 text-[11px] font-medium text-gray-700 shadow-sm hover:bg-white";
+        "gf-copy-btn absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-600/60 bg-slate-950/30 text-slate-100 shadow-sm hover:bg-slate-950/50";
+
+      // Render a lucide Copy icon into the button.
+      const svg =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>' +
+        '<path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>' +
+        "</svg>";
+      button.innerHTML = svg;
 
       const code = pre.querySelector("code");
       button.addEventListener("click", async () => {
         try {
           const text = code?.textContent ?? "";
           await navigator.clipboard.writeText(text);
-          const prev = button.textContent;
-          button.textContent = "Copied";
+          const prevTitle = button.getAttribute("title");
+          button.setAttribute("title", "Copied");
+
+          // Visible hint (small badge) so users know it worked.
+          const existingHint = pre.querySelector("[data-gf-copied-hint]");
+          if (!existingHint) {
+            const hint = document.createElement("span");
+            hint.setAttribute("data-gf-copied-hint", "true");
+            hint.textContent = "Copied";
+            hint.className =
+              "absolute right-10 top-2 rounded-md border border-slate-600/60 bg-slate-950/50 px-2 py-1 text-[11px] font-medium text-slate-100 shadow-sm";
+            pre.appendChild(hint);
+            window.setTimeout(() => {
+              hint.remove();
+            }, 1200);
+          }
+
           window.setTimeout(() => {
-            button.textContent = prev ?? "Copy";
+            button.setAttribute("title", prevTitle ?? "Copy");
           }, 1200);
         } catch {
           // Ignore clipboard failures (permissions / insecure context).
