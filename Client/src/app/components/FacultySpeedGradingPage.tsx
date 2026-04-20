@@ -1,7 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { AlertCircle, ArrowRight, CheckCircle2, ChevronLeft, Loader2, X } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  ChevronLeft,
+  Loader2,
+  Users,
+  X,
+} from "lucide-react";
 import { CodeWorkspace } from "./assignment/CodeWorkspace";
+import { PublicTestsPanel } from "./assignment/PublicTestsPanel";
+import { PlagiarismReportPanel } from "./assignment/PlagiarismReportPanel";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { getGraderReportLatest } from "../../services/graderReportService";
 import type { GraderReportResultPayload } from "../../types/graderReport";
 import { getAssignmentDetailById, listRubricCategories } from "../../services/assignmentService";
@@ -24,6 +35,7 @@ import type {
   FacultyAssignmentSubmissionRow,
   SpeedGradingTestSummary,
 } from "../../types/submission";
+import type { PublicTestCase } from "../../types/submission";
 import type { TestRunJobStatusResponse } from "../../types/runTests";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 import { formatMax2Decimals, roundTo2 } from "../../utils/number";
@@ -196,6 +208,8 @@ export function FacultySpeedGradingPage() {
     byStudent: Record<string, GraderReportStudentSummary>;
     loading: boolean;
   }>({ byStudent: {}, loading: false });
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [detailsModalTab, setDetailsModalTab] = useState<"tests" | "plagiarism" | "group">("tests");
 
   const [testSummary, setTestSummary] = useState<SpeedGradingTestSummary>({
     hasRun: false,
@@ -273,6 +287,21 @@ export function FacultySpeedGradingPage() {
     () => allSubmissionRows.find((row) => row.submissionId === selectedSubmissionId) ?? null,
     [allSubmissionRows, selectedSubmissionId],
   );
+
+  const modalTestsResult = useMemo(() => {
+    if (!runResult) return null;
+    const results: PublicTestCase[] = (runResult.results ?? []).map((r, i) => ({
+      id: r.testCaseId ?? i,
+      name: r.testCaseTitle,
+      passed: r.passed ?? undefined,
+      input: "",
+      inputFileName: null,
+      expectedOutput: r.expectedOutput ?? "",
+      actualOutput: r.actualOutput ?? r.errorMessage ?? "",
+      executionTime: r.runtimeMs != null ? `${r.runtimeMs}ms` : undefined,
+    }));
+    return { passedCount: runResult.passedCount, totalCount: runResult.totalCount, results };
+  }, [runResult]);
 
   useEffect(() => {
     const aId = Number(resolvedAssignmentId);
@@ -932,112 +961,230 @@ export function FacultySpeedGradingPage() {
                 </div>
 
                 <div className="h-full min-w-0 rounded-xl border border-gray-200 p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500 leading-none">
-                      Tests
-                    </p>
-                    {testSummary.hasRun ? (
-                      <div className="grid min-w-0 grid-cols-2 gap-2">
-                        <div className="flex min-w-0 items-center justify-between gap-2 overflow-hidden rounded-lg bg-[#EEF3FF] px-3 py-2">
-                          <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-gray-600 leading-none">Public</p>
-                          <p className="whitespace-nowrap text-[13px] font-semibold leading-none text-[#2B2A2A]">
-                            {testSummary.publicPassed}/{testSummary.publicTotal}
-                          </p>
-                        </div>
-                        <div className="flex min-w-0 items-center justify-between gap-2 overflow-hidden rounded-lg bg-[#FFF3E3] px-3 py-2">
-                          <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-gray-600 leading-none">Private</p>
-                          <p className="whitespace-nowrap text-[13px] font-semibold leading-none text-[#2B2A2A]">
-                            {testSummary.privatePassed}/{testSummary.privateTotal}
-                          </p>
-                        </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        setDetailsModalTab("tests");
+                        setIsDetailsModalOpen(true);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setDetailsModalTab("tests");
+                          setIsDetailsModalOpen(true);
+                        }
+                      }}
+                      title="Open tests details"
+                      className="min-w-0 flex-1 rounded-lg outline-none transition-colors hover:bg-gray-50 focus:ring-2 focus:ring-[#5A7ACD]/30 px-2 py-2 -mx-2 -my-2"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500 leading-none">
+                          Tests
+                        </p>
+                        {testSummary.hasRun ? (
+                          <div className="grid min-w-0 grid-cols-2 gap-2 text-left">
+                            <div className="flex min-w-0 cursor-pointer items-center justify-between gap-2 overflow-hidden rounded-lg bg-[#EEF3FF] px-3 py-2">
+                              <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-gray-600 leading-none">
+                                Public
+                              </p>
+                              <p className="whitespace-nowrap text-[13px] font-semibold leading-none text-[#2B2A2A]">
+                                {testSummary.publicPassed}/{testSummary.publicTotal}
+                              </p>
+                            </div>
+                            <div className="flex min-w-0 cursor-pointer items-center justify-between gap-2 overflow-hidden rounded-lg bg-[#FFF3E3] px-3 py-2">
+                              <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-gray-600 leading-none">
+                                Private
+                              </p>
+                              <p className="whitespace-nowrap text-[13px] font-semibold leading-none text-[#2B2A2A]">
+                                {testSummary.privatePassed}/{testSummary.privateTotal}
+                              </p>
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
+
+                      {isTestSummaryLoading ? (
+                        <div className="mt-2 flex h-10 items-center text-[12px] text-gray-600">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={2} />
+                          Loading tests…
+                        </div>
+                      ) : testSummaryError ? (
+                        <p className="mt-2 text-[12px] text-[#C23A42]">{testSummaryError}</p>
+                      ) : testSummary.hasRun ? null : (
+                        <p className="mt-2 text-[12px] text-gray-600">No test run available yet.</p>
+                      )}
+                    </div>
+
+                    {selectedSubmission?.subGroupName?.trim() ||
+                    (selectedSubmission?.subGroupMembers?.length ?? 0) > 0 ? (
+                      <button
+                        type="button"
+                        aria-label="Open group details"
+                        title="Group"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setDetailsModalTab("group");
+                          setIsDetailsModalOpen(true);
+                        }}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-[#2B2A2A]"
+                      >
+                        <Users className="h-4 w-4" strokeWidth={2} />
+                      </button>
                     ) : null}
                   </div>
 
-                  {isTestSummaryLoading ? (
-                    <div className="mt-2 flex h-10 items-center text-[12px] text-gray-600">
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={2} />
-                      Loading tests…
-                    </div>
-                  ) : testSummaryError ? (
-                    <p className="mt-2 text-[12px] text-[#C23A42]">{testSummaryError}</p>
-                  ) : testSummary.hasRun ? null : (
-                    <p className="mt-2 text-[12px] text-gray-600">No test run available yet.</p>
-                  )}
-
                   <div className="mt-3 border-t border-gray-200 pt-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 leading-none">
-                        Plagiarism
-                      </p>
-                      {selectedPlag?.warning ? (
-                        <p className="truncate text-[11px] text-amber-700" title={selectedPlag.warning}>
-                          {selectedPlag.warning}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        setDetailsModalTab("plagiarism");
+                        setIsDetailsModalOpen(true);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setDetailsModalTab("plagiarism");
+                          setIsDetailsModalOpen(true);
+                        }
+                      }}
+                      title="Open Plagiarism & AI details"
+                      className="rounded-lg outline-none transition-colors hover:bg-gray-50 focus:ring-2 focus:ring-[#5A7ACD]/30 px-2 py-2 -mx-2 -my-2"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 leading-none">
+                          Plagiarism
                         </p>
-                      ) : null}
+                        {selectedPlag ? (
+                          <div className="grid min-w-0 grid-cols-2 gap-2 text-left">
+                            <div className="flex min-w-0 cursor-pointer items-center justify-between gap-2 overflow-hidden rounded-lg bg-amber-50 px-3 py-2 transition-colors hover:bg-amber-100">
+                              <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-amber-700 leading-none">
+                                Plag
+                              </p>
+                              <p className="whitespace-nowrap text-[13px] font-semibold leading-none text-amber-900">
+                                {Math.round((selectedPlag.similarityScore ?? 0) * 100)}%
+                              </p>
+                            </div>
+                            <div className="flex min-w-0 cursor-pointer items-center justify-between gap-2 overflow-hidden rounded-lg bg-emerald-50 px-3 py-2 transition-colors hover:bg-emerald-100">
+                              <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-emerald-700 leading-none">
+                                AI
+                              </p>
+                              <p className="whitespace-nowrap text-[13px] font-semibold leading-none text-emerald-900">
+                                {Math.round((selectedPlag.aiRiskScore ?? 0) * 100)}%
+                              </p>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {plagSummary.loading ? (
+                        <div className="mt-2 flex h-9 items-center text-[11px] text-gray-600">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={2} />
+                          Loading…
+                        </div>
+                      ) : selectedPlag ? null : (
+                        <p className="mt-2 text-[11px] text-gray-600">—</p>
+                      )}
                     </div>
-
-                    {plagSummary.loading ? (
-                      <div className="mt-2 flex h-10 items-center text-[12px] text-gray-600">
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={2} />
-                        Loading…
-                      </div>
-                    ) : selectedPlag ? (
-                      <div
-                        title="Similarity % and AI risk for this student."
-                        className="mt-2 grid grid-cols-2 gap-3"
-                      >
-                        <div className="min-w-0 rounded-lg bg-[#F8FAFC] px-3 py-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[11px] font-medium text-gray-600">Plag</span>
-                            <span className="text-[11px] font-semibold text-[#2B2A2A]">
-                              {Math.round((selectedPlag.similarityScore ?? 0) * 100)}%
-                            </span>
-                          </div>
-                          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                            <div
-                              className="h-full rounded-full bg-amber-500"
-                              style={{
-                                width: `${Math.max(
-                                  0,
-                                  Math.min(100, Math.round((selectedPlag.similarityScore ?? 0) * 100)),
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="min-w-0 rounded-lg bg-[#F8FAFC] px-3 py-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[11px] font-medium text-gray-600">AI</span>
-                            <span className="text-[11px] font-semibold text-[#2B2A2A]">
-                              {Math.round((selectedPlag.aiRiskScore ?? 0) * 100)}%
-                            </span>
-                          </div>
-                          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                            <div
-                              className="h-full rounded-full bg-emerald-600"
-                              style={{
-                                width: `${Math.max(
-                                  0,
-                                  Math.min(100, Math.round((selectedPlag.aiRiskScore ?? 0) * 100)),
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                          {selectedPlag.aiRiskLevel !== "none" ? (
-                            <p className="mt-1 text-[11px] text-gray-600">
-                              {formatAiRiskLevelLabel(selectedPlag.aiRiskLevel)}
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="mt-2 text-[12px] text-gray-600">—</p>
-                    )}
                   </div>
                 </div>
               </div>
+
+              <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
+                <DialogContent className="w-[84vw] sm:w-[84vw] max-w-none sm:max-w-none p-0 overflow-hidden">
+                  <DialogHeader className="border-b border-gray-200 px-5 py-4">
+                    <DialogTitle className="text-[15px] font-semibold text-[#2B2A2A]">
+                      {detailsModalTab === "tests"
+                        ? "Tests"
+                        : detailsModalTab === "plagiarism"
+                          ? "Plagiarism & AI"
+                          : "Group"}
+                    </DialogTitle>
+                    <div className="mt-3 flex gap-2">
+                      {(
+                        [
+                          { id: "tests" as const, label: "Tests" },
+                          { id: "plagiarism" as const, label: "Plagiarism & AI" },
+                          { id: "group" as const, label: "Group" },
+                        ] as const
+                      ).map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setDetailsModalTab(tab.id)}
+                          className={
+                            "rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors " +
+                            (detailsModalTab === tab.id
+                              ? "bg-[#2B2A2A] text-white"
+                              : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-[#2B2A2A]")
+                          }
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                  </DialogHeader>
+
+                  <div className="max-h-[75vh] overflow-y-auto">
+                    {detailsModalTab === "tests" ? (
+                      <PublicTestsPanel
+                        testCases={[]}
+                        onRunTests={() => void handleRunTests()}
+                        isRunning={runLoading}
+                        runError={runError}
+                        runResult={modalTestsResult}
+                        runStatus={runResult?.status ?? null}
+                        showPublicNote={false}
+                        showCustomStdin={false}
+                      />
+                    ) : detailsModalTab === "plagiarism" ? (
+                      <PlagiarismReportPanel
+                        assignmentId={resolvedAssignmentId}
+                        isFaculty
+                        studentId={selectedSubmission?.studentId ?? null}
+                      />
+                    ) : (
+                      <div className="p-6">
+                        <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                          Subgroup
+                        </h3>
+                        <p className="text-[14px] font-medium text-[#2B2A2A]">
+                          {selectedSubmission?.subGroupName?.trim() ? selectedSubmission.subGroupName : "—"}
+                        </p>
+                        <div className="mt-5">
+                          <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                            Members
+                          </h3>
+                          {(selectedSubmission?.subGroupMembers?.length ?? 0) > 0 ? (
+                            <div className="space-y-2">
+                              {(selectedSubmission?.subGroupMembers ?? []).map((member) => (
+                                <div
+                                  key={member.id}
+                                  className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
+                                >
+                                  <div className="min-w-0">
+                                    <p className="truncate text-[13px] font-medium text-[#2B2A2A]">
+                                      {member.name}
+                                    </p>
+                                    <p className="truncate text-[12px] text-gray-500">{member.email}</p>
+                                  </div>
+                                  <span className="flex-shrink-0 text-[11px] uppercase tracking-wide text-gray-400">
+                                    {member.cwid}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-[13px] text-gray-600">No group assigned for this submission.</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200">
                 <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-3 py-3">
