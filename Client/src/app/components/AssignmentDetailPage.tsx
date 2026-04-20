@@ -41,6 +41,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "./ui/alert-dialog";
+import { RichTextViewer } from "./ui/rich-text";
 
 /** Normalized assignment summary for shared AssignmentDetailPage (Faculty + Grading Assistant). */
 export interface AssignmentDetailPageAssignment {
@@ -492,9 +493,10 @@ export function AssignmentDetailPage({
                     Description
                   </h3>
                   {assignment.description ? (
-                    <p className="text-[14px] text-[#2B2A2A] whitespace-pre-wrap">
-                      {assignment.description}
-                    </p>
+                    <RichTextViewer
+                      value={assignment.description}
+                      className="text-[14px] text-[#2B2A2A] whitespace-pre-wrap"
+                    />
                   ) : (
                     <p className="text-[14px] text-gray-500">No description was provided for this assignment.</p>
                   )}
