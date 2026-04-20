@@ -297,18 +297,13 @@ Model “virtual users” with think time, for example:
 ### 11) Test deliverables (what you submit)
 
 - Test plan (this document)
-- Evidence artifacts (screenshots/log excerpts) for:
-  - Auth + RBAC checks
-  - Submission + run-tests + grading flow
-  - Grader report generation
-  - Load test summary (RPS + latency + error rate)
-- Known issues / risks (if any) with mitigations
+- All evidence are attached in the same folder
 
 ---
 
-### 12) Appendix: Optional scope extensions (include only if required)
+### 12) Optional scope extensions (include only if required)
 
-The following are common scope extensions that may be included if required by the course rubric or stakeholder requirements:
+The following are common extensions that may be included if required by the course rubric or stakeholder requirements:
 
 - Canvas integration testing (API connectivity, import/sync flows, failure handling)
 - Email notification testing (SMTP configuration, delivery failures, template validation)
