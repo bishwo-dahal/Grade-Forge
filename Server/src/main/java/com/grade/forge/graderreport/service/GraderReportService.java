@@ -10,9 +10,14 @@ import com.grade.forge.graderreport.entity.GraderReport;
 import com.grade.forge.graderreport.enums.GraderReportStatus;
 import com.grade.forge.graderreport.enums.GraderReportTriggerType;
 import com.grade.forge.graderreport.repository.GraderReportRepository;
+import com.grade.forge.gradingassistant.entity.GradingAssistant;
+import com.grade.forge.gradingassistant.repository.GradingAssistantRepository;
+import com.grade.forge.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Objects;
 
 /**
  * Faculty-facing service for grader reports: request generation and get latest.
@@ -25,6 +30,7 @@ public class GraderReportService {
     private final AssignmentRepository assignmentRepository;
     private final FacultyRepository facultyRepository;
     private final GraderReportQueueService graderReportQueueService;
+    private final UserRepository userRepository;
 
     /**
      * Ensure the faculty member (by email) teaches the course that owns this assignment.
@@ -32,9 +38,11 @@ public class GraderReportService {
     public void ensureFacultyCanAccessAssignment(String facultyEmail, Long assignmentId) {
         Assignment assignment = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId));
-        Faculty faculty = facultyRepository.findByEmail(facultyEmail)
-                .orElseThrow(() -> new ResourceNotFoundException("Faculty not found with email: " + facultyEmail));
-        if (!assignment.getCourse().getFaculty().getId().equals(faculty.getId())) {
+
+        Faculty faculty = facultyRepository.findByEmail(facultyEmail).orElse(null);
+        GradingAssistant gradingAssistant = Objects.requireNonNull(userRepository.findByEmail(facultyEmail).orElse(null)).getGradingAssistant();
+
+        if (gradingAssistant == null && faculty == null) {
             throw new IllegalArgumentException("You are not allowed to access grader reports for this assignment.");
         }
     }

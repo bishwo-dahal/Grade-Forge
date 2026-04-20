@@ -17,6 +17,14 @@ export interface GradingAssistantSubmissionResponse {
   grade?: number | null;
   submittedAt?: string | null;
   status?: string | null;
+  subGroupId?: number | null;
+  subGroupName?: string | null;
+  subGroupMembers?: Array<{
+    id: number;
+    name: string;
+    email: string;
+    cwid: string;
+  }> | null;
 }
 
 export interface SubmissionFileResponse {

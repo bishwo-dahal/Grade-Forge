@@ -48,6 +48,8 @@ import type { Rubric } from "../../types/rubric";
 import type { TestSuiteDetail } from "../../types/testSuite";
 import type { TestRunJobStatusResponse } from "../../types/runTests";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
+import { getStudentAssignmentSubGroup } from "../../services/courseGroupService";
+import type { SubGroupResponse } from "../../types/courseGroup";
 
 type TabType = 'description' | 'tests' | 'rubric' | 'group' | 'results';
 
@@ -62,6 +64,7 @@ export function AssignmentPage() {
   const authenticatedRole = getAuthenticatedRole();
   const isStudentRole = authenticatedRole === "STUDENT";
   const isFacultyRole = authenticatedRole === "FACULTY";
+  const showSidebar = isFacultyRole;
   const sidebarViewMode = isFacultyRole ? "faculty" : "student";
 
   const [activeTab, setActiveTab] = useState<TabType>(() => {
@@ -93,6 +96,9 @@ export function AssignmentPage() {
   const [runResult, setRunResult] = useState<TestRunJobStatusResponse | null>(null);
   /** Custom stdin for "run with my input" (students); lives in Test Cases tab, used when Run Tests is clicked. */
   const [customStdin, setCustomStdin] = useState("");
+  const [studentAssignmentSubGroup, setStudentAssignmentSubGroup] = useState<SubGroupResponse | null>(null);
+  const [studentAssignmentSubGroupLoading, setStudentAssignmentSubGroupLoading] = useState(false);
+  const [studentAssignmentSubGroupError, setStudentAssignmentSubGroupError] = useState<string | null>(null);
 
   const selectedFacultySubmission = useMemo(() => {
     if (!isFacultyRole || !submissionId) return null;
@@ -215,6 +221,41 @@ export function AssignmentPage() {
     }, 15000);
     return () => window.clearInterval(refreshInterval);
   }, [activeTab, assignmentId, isFacultyRole, loadAssignmentWorkspace]);
+
+  useEffect(() => {
+    if (!isStudentRole || activeTab !== "group") {
+      return;
+    }
+    const courseId = assignment?.courseId;
+    const resolvedAssignmentId = assignmentId ?? assignment?.id;
+    if (!courseId || !resolvedAssignmentId) {
+      setStudentAssignmentSubGroup(null);
+      setStudentAssignmentSubGroupError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setStudentAssignmentSubGroupLoading(true);
+    setStudentAssignmentSubGroupError(null);
+    getStudentAssignmentSubGroup(String(courseId), resolvedAssignmentId)
+      .then((group) => {
+        if (cancelled) return;
+        setStudentAssignmentSubGroup(group);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setStudentAssignmentSubGroup(null);
+        setStudentAssignmentSubGroupError(getErrorMessage(error));
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setStudentAssignmentSubGroupLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, assignment?.courseId, assignment?.id, assignmentId, isStudentRole]);
 
   const handleStudentSubmit = async (files: File[]) => {
     const resolvedId = assignmentId || "1";
@@ -348,7 +389,7 @@ export function AssignmentPage() {
   if (isLoading) {
     return (
       <div className="flex h-screen bg-[#F5F2F2]">
-        <GradeForgeSidebar viewMode={sidebarViewMode} compactOnly />
+        {showSidebar ? <GradeForgeSidebar viewMode={sidebarViewMode} compactOnly /> : null}
         <div className="flex min-w-0 flex-1 flex-col bg-[#F5F2F2]">
           {/* NOTE: Skeleton shell keeps assignment workspace visible while backend data initializes. */}
           <div className="bg-white border-b border-gray-200 px-6 py-3">
@@ -377,7 +418,7 @@ export function AssignmentPage() {
     if (errorMessage) {
       return (
         <div className="flex h-screen bg-[#F5F2F2]">
-          <GradeForgeSidebar viewMode={sidebarViewMode} compactOnly />
+          {showSidebar ? <GradeForgeSidebar viewMode={sidebarViewMode} compactOnly /> : null}
           <div className="flex min-w-0 flex-1 items-center justify-center text-[14px] text-[#C23A42]">
             {errorMessage}
           </div>
@@ -386,7 +427,7 @@ export function AssignmentPage() {
     }
     return (
       <div className="flex h-screen bg-[#F5F2F2]">
-        <GradeForgeSidebar viewMode={sidebarViewMode} compactOnly />
+        {showSidebar ? <GradeForgeSidebar viewMode={sidebarViewMode} compactOnly /> : null}
         <div className="flex min-w-0 flex-1 items-center justify-center text-[14px] text-gray-600">
           Assignment not found.
         </div>
@@ -396,7 +437,7 @@ export function AssignmentPage() {
 
   return (
     <div className="flex h-screen bg-[#F5F2F2]">
-      <GradeForgeSidebar viewMode={sidebarViewMode} compactOnly />
+      {showSidebar ? <GradeForgeSidebar viewMode={sidebarViewMode} compactOnly /> : null}
 
       <div className="flex min-w-0 flex-1 flex-col bg-[#F5F2F2]">
         {/* Top Navigation Breadcrumb */}
@@ -562,16 +603,20 @@ export function AssignmentPage() {
                         )}
                       </>
                     ) : (
-                      <>
+                      <div className="pl-3">
                         <div className="pb-2 border-b border-gray-200 mb-4">
                           <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Group</h3>
                           <p className="text-[14px] font-medium text-[#2B2A2A]">
-                            {assignment?.mainGroupName ?? "—"}
+                            {studentAssignmentSubGroup?.name ?? assignment?.subGroupName ?? assignment?.mainGroupName ?? "—"}
                           </p>
                         </div>
-                        {assignment?.subGroupMembers?.length ? (
+                        {studentAssignmentSubGroupLoading ? (
+                          <p className="text-[13px] text-gray-600">Loading group details...</p>
+                        ) : studentAssignmentSubGroupError ? (
+                          <p className="text-[13px] text-red-600">{studentAssignmentSubGroupError}</p>
+                        ) : (studentAssignmentSubGroup?.students?.length ?? 0) > 0 ? (
                           <div className="space-y-2">
-                            {assignment.subGroupMembers.map((m) => (
+                            {(studentAssignmentSubGroup?.students ?? []).map((m) => (
                               <div
                                 key={m.id}
                                 className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2"
@@ -589,7 +634,7 @@ export function AssignmentPage() {
                         ) : (
                           <p className="text-[13px] text-gray-600">No group assigned for this submission.</p>
                         )}
-                      </>
+                      </div>
                     )}
                   </div>
                 )}

@@ -15,6 +15,14 @@ export async function listSubmissionsByAssignment(
   return data ?? [];
 }
 
+export async function getSubmissionById(
+  submissionId: number | string
+): Promise<GradingAssistantSubmissionResponse> {
+  const id = Number(submissionId);
+  const { data } = await api.get<GradingAssistantSubmissionResponse>(`${BASE}/${id}`);
+  return data;
+}
+
 export async function updateSubmissionGrade(
   submissionId: number | string,
   payload: SubmissionGradeRequest

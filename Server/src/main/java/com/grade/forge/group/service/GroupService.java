@@ -1,5 +1,7 @@
 package com.grade.forge.group.service;
 
+import com.grade.forge.assignment.entity.Assignment;
+import com.grade.forge.assignment.repository.AssignmentRepository;
 import com.grade.forge.coursemgmt.entity.Course;
 import com.grade.forge.coursemgmt.repository.CourseRepository;
 import com.grade.forge.enrollment.repository.EnrollmentRepository;
@@ -37,6 +39,7 @@ public class GroupService {
     private final FacultyRepository facultyRepository;
     private final MainGroupRepository mainGroupRepository;
     private final SubGroupRepository subGroupRepository;
+    private final AssignmentRepository assignmentRepository;
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
     private final EnrollmentRepository enrollmentRepository;
@@ -149,6 +152,26 @@ public class GroupService {
         }
         List<MainGroup> groups = mainGroupRepository.findByCourse_Id(courseId);
         return groups.stream().map(this::mapMainGroup).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public SubGroupResponse getAssignmentGroupForStudent(String studentEmail, Long courseId, Long assignmentId) {
+        Student student = getStudentByEmail(studentEmail);
+        if (!enrollmentRepository.existsByStudent_IdAndCourse_Id(student.getId(), courseId)) {
+            throw new IllegalArgumentException("You are not enrolled in this course");
+        }
+
+        Assignment assignment = assignmentRepository.findByIdAndCourse_Id(assignmentId, courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found for course"));
+
+        MainGroup mainGroup = assignment.getMainGroup();
+        if (mainGroup == null) {
+            return null;
+        }
+
+        return subGroupRepository.findByMainGroup_IdAndStudents_Id(mainGroup.getId(), student.getId())
+                .map(this::mapSubGroup)
+                .orElse(null);
     }
 
     private Course getCourseOwnedByFaculty(String facultyEmail, Long courseId) {

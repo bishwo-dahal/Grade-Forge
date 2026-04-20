@@ -2,6 +2,7 @@ package com.grade.forge.group.controller;
 
 import com.grade.forge.configuration.security.CustomUserDetails;
 import com.grade.forge.group.dto.MainGroupResponse;
+import com.grade.forge.group.dto.SubGroupResponse;
 import com.grade.forge.group.service.GroupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,5 +28,20 @@ public class StudentGroupController {
         List<MainGroupResponse> response = groupService.listCourseGroupsForStudent(customUserDetails.getUsername(), courseId);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
+
+    @GetMapping("/assignments/{assignmentId}")
+    public ResponseEntity<SubGroupResponse> getAssignmentGroupForLoggedInStudent(
+            @AuthenticationPrincipal CustomUserDetails customUserDetails,
+            @PathVariable Long courseId,
+            @PathVariable Long assignmentId) {
+        SubGroupResponse response = groupService.getAssignmentGroupForStudent(
+                customUserDetails.getUsername(),
+                courseId,
+                assignmentId
+        );
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+
 }
 
