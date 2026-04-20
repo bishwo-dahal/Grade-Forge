@@ -21,6 +21,7 @@ import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 import { toast } from "sonner";
+import { RichTextEditor } from "./ui/rich-text";
 
 interface FacultyCreateAssignmentViewProps {
   // NOTE: This component is presentation-only. Data and handlers are injected by the page/container.
@@ -158,15 +159,14 @@ function FacultyCreateAssignmentView({
                   <label htmlFor="assignment-description" className="mb-2 block text-[14px] font-medium text-[#1F2430]">
                     Description <span className="text-[#D84E57]">*</span>
                   </label>
-                  <textarea
-                    id="assignment-description"
-                    value={form.description}
-                    onChange={(event) => onFieldChange("description", event.target.value)}
-                    rows={5}
-                    placeholder="Describe the assignment requirements and expected outcomes..."
-                    disabled={contentLocked}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-[14px] text-[#1F2430] placeholder:text-[#9CA6B6] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A7ACD] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-600"
-                  />
+                  <div id="assignment-description">
+                    <RichTextEditor
+                      value={form.description}
+                      onChange={(html) => onFieldChange("description", html)}
+                      disabled={contentLocked}
+                      placeholder="Describe the assignment requirements and expected outcomes..."
+                    />
+                  </div>
                 </div>
                 <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
                   <div>

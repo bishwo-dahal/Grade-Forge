@@ -11,6 +11,7 @@ import com.grade.forge.testsuite.entity.TestCase;
 import com.grade.forge.testsuite.entity.TestSuite;
 import com.grade.forge.testsuite.repository.TestSuiteRepository;
 import com.grade.forge.coursemgmt.service.CourseSectionSyncService;
+import com.grade.forge.execution.repository.TestCaseResultRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,7 @@ public class TestSuiteService {
     private final TestSuiteRepository testSuiteRepository;
     private final AssignmentRepository assignmentRepository;
     private final CourseSectionSyncService courseSectionSyncService;
+    private final TestCaseResultRepository testCaseResultRepository;
 
     public Optional<TestSuiteResponse> getByAssignmentId(Long assignmentId) {
         return testSuiteRepository.findByAssignment_Id(assignmentId)
@@ -91,6 +93,19 @@ public class TestSuiteService {
         assertCanManageTestSuiteForAssignment(suite.getAssignment(), facultyEmail);
         suite.setTitle(request.getTitle() != null ? request.getTitle() : suite.getTitle());
         suite.setDescription(request.getDescription());
+
+        // IMPORTANT: Existing test runs/results may reference old test case IDs.
+        // Clearing the collection deletes those test cases (orphanRemoval), which would violate FK constraints.
+        List<Long> existingCaseIds = suite.getTestCases() == null
+                ? List.of()
+                : suite.getTestCases().stream()
+                .map(TestCase::getId)
+                .filter(id -> id != null && id > 0)
+                .toList();
+        if (!existingCaseIds.isEmpty()) {
+            testCaseResultRepository.deleteByTestCase_IdIn(existingCaseIds);
+        }
+
         suite.getTestCases().clear();
         List<TestCase> cases = mapToTestCases(request.getTestCases(), suite);
         suite.getTestCases().addAll(cases);

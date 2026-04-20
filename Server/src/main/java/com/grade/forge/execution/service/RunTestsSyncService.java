@@ -83,10 +83,6 @@ public class RunTestsSyncService {
         Assignment assignment = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found: " + assignmentId));
 
-        if (assignment.getTestSuite() == null) {
-            throw new IllegalArgumentException("Assignment has no test suite; cannot run tests.");
-        }
-
         if (files == null || files.isEmpty()) {
             throw new IllegalArgumentException("At least one file is required.");
         }
@@ -105,19 +101,15 @@ public class RunTestsSyncService {
         }
 
         // Run all test cases (public + private). Student-facing APIs filter private elsewhere.
-        List<TestCase> testCases = testCaseRepository.findByTestSuite_Id(assignment.getTestSuite().getId());
+        // If the assignment has no test suite, treat it as "no tests" and allow a single ad-hoc run.
+        List<TestCase> testCases = assignment.getTestSuite() == null
+                ? List.of()
+                : testCaseRepository.findByTestSuite_Id(assignment.getTestSuite().getId());
         boolean hasCustomStdin = customStdin != null && !customStdin.isBlank();
 
-        if (testCases.isEmpty() && !hasCustomStdin) {
-            return TestRunJobStatusResponse.builder()
-                    .id(null)
-                    .submissionId(null)
-                    .status(TestRunJobStatus.COMPLETED)
-                    .results(List.of())
-                    .passedCount(0)
-                    .totalCount(0)
-                    .build();
-        }
+        // NOTE: If there are no test cases, still allow students to "Run" their code once
+        // (with empty stdin unless they provided customStdin).
+        boolean shouldRunAdhoc = testCases.isEmpty();
 
         Path workDir;
         try {
@@ -151,9 +143,13 @@ public class RunTestsSyncService {
             for (TestCase tc : testCases) {
                 results.add(runOneTest(workDir, language, mainFile, mainClass, tc));
             }
-            // Optional custom stdin run (e.g. for students to try their own input).
-            if (customStdin != null && !customStdin.isBlank()) {
-                results.add(runOneCustomRun(workDir, language, mainFile, mainClass, customStdin));
+            // Ad-hoc run: when no tests exist, run once (empty stdin or customStdin).
+            if (shouldRunAdhoc) {
+                results.add(runOneAdhocRun(workDir, language, mainFile, mainClass,
+                        hasCustomStdin ? customStdin : "", hasCustomStdin ? "Custom input" : "Run"));
+            } else if (hasCustomStdin) {
+                // Optional custom stdin run (e.g. for students to try their own input).
+                results.add(runOneAdhocRun(workDir, language, mainFile, mainClass, customStdin, "Custom input"));
             }
 
             int passed = (int) results.stream().filter(r -> Boolean.TRUE.equals(r.getPassed())).count();
@@ -168,6 +164,7 @@ public class RunTestsSyncService {
                     .build();
         } catch (Exception e) {
             log.warn("Run tests failed for assignment {}", assignmentId, e);
+            int plannedTotal = testCases.size() + ((shouldRunAdhoc || hasCustomStdin) ? 1 : 0);
             return TestRunJobStatusResponse.builder()
                     .id(null)
                     .submissionId(null)
@@ -175,7 +172,7 @@ public class RunTestsSyncService {
                     .errorMessage(e.getMessage() != null ? e.getMessage() : "Test execution failed")
                     .results(List.of())
                     .passedCount(0)
-                    .totalCount(testCases.size())
+                    .totalCount(plannedTotal)
                     .build();
         } finally {
             deleteRecursively(workDir);
@@ -231,19 +228,25 @@ public class RunTestsSyncService {
     }
 
     /**
-     * Run once with custom stdin (no test case). Used for student "try my own input" runs.
-     * Returns a result with title "Custom input", no expected output, and passed=null.
+     * Run once without a test case ("ad-hoc run"). Used when there are no tests, or when students provide custom stdin.
+     * Returns a result with no expected output, and passed=null.
      */
-    private TestCaseResultItem runOneCustomRun(Path workDir, ProgrammingLanguage language, String mainFile, String mainClass, String customStdin) {
+    private TestCaseResultItem runOneAdhocRun(
+            Path workDir,
+            ProgrammingLanguage language,
+            String mainFile,
+            String mainClass,
+            String stdin,
+            String title) {
         long start = System.currentTimeMillis();
-        DockerRunResult run = executeInDocker(workDir, language, mainFile, mainClass, customStdin, null, start);
+        DockerRunResult run = executeInDocker(workDir, language, mainFile, mainClass, stdin != null ? stdin : "", null, start);
         if (run.setupError != null) {
-            return customRunFailResult(start, run.setupError);
+            return adhocRunFailResult(start, title, run.setupError);
         }
         String actual = run.output != null ? run.output.trim() : "";
         return TestCaseResultItem.builder()
                 .testCaseId(null)
-                .testCaseTitle("Custom input")
+                .testCaseTitle(title != null && !title.isBlank() ? title : "Run")
                 .passed(null)
                 .actualOutput(actual)
                 .expectedOutput(null)
@@ -254,10 +257,10 @@ public class RunTestsSyncService {
                 .build();
     }
 
-    private static TestCaseResultItem customRunFailResult(long start, String errorMessage) {
+    private static TestCaseResultItem adhocRunFailResult(long start, String title, String errorMessage) {
         return TestCaseResultItem.builder()
                 .testCaseId(null)
-                .testCaseTitle("Custom input")
+                .testCaseTitle(title != null && !title.isBlank() ? title : "Run")
                 .passed(null)
                 .actualOutput(null)
                 .expectedOutput(null)
