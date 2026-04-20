@@ -256,7 +256,7 @@ public class AuthService {
 
         // IMPORTANT: Profile is complete only when student row exists and all required fields are present.
         return studentRepository.findByUserId(user.getId())
-                .map(student -> hasText(student.getCwid()) && hasText(student.getMajor()) && hasText(student.getCanvasUserId()))
+                .map(student -> hasText(student.getCwid()) && hasText(student.getMajor()))
                 .orElse(false);
     }
 
