@@ -26,6 +26,7 @@ import type { GradingAssistantSubmissionResponse } from "../../types/gradingAssi
 import { getAssignmentByCourse } from "../../services/gradingAssistantAssignmentService";
 import { getRubric } from "../../services/gradingAssistantRubricService";
 import { listSubmissionsByAssignment } from "../../services/gradingAssistantSubmissionService";
+import { getTestSuiteByAssignment } from "../../services/testSuiteService";
 import { toast } from "sonner";
 import { clearAuthenticated, getAuthenticatedUser } from "../auth";
 import { AuthShell } from "./layout/AuthShell";
@@ -1214,6 +1215,23 @@ function mapGARubric(
   };
 }
 
+function mapGATestSuite(
+  suite: Awaited<ReturnType<typeof getTestSuiteByAssignment>> | null,
+  loading: boolean,
+): AssignmentDetailPageTestSuiteSection | null {
+  if (!suite && !loading) return null;
+  return {
+    title: suite?.title ?? "Test Suite",
+    description: suite?.description ?? null,
+    testCases:
+      suite?.testCases?.map((testCase) => ({
+        title: testCase.title ?? "Untitled",
+        isPrivate: Boolean(testCase.isPrivate),
+      })) ?? [],
+    loading,
+  };
+}
+
 function mapGASubmissions(
   list: GradingAssistantSubmissionResponse[]
 ): AssignmentDetailPageSubmissionRow[] {
@@ -1275,6 +1293,8 @@ export function GradingAssistantAssignmentDetailPage() {
   const [assignment, setAssignment] = useState<AssignmentDetailResponse | null>(null);
   const [rubric, setRubric] = useState<GradingAssistantRubricResponse | null>(null);
   const [submissions, setSubmissions] = useState<GradingAssistantSubmissionResponse[]>([]);
+  const [testSuite, setTestSuite] = useState<Awaited<ReturnType<typeof getTestSuiteByAssignment>> | null>(null);
+  const [testSuiteLoading, setTestSuiteLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [rubricLoading, setRubricLoading] = useState(false);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
@@ -1316,6 +1336,17 @@ export function GradingAssistantAssignmentDetailPage() {
     if (!assignmentId) return;
     const aId = Number(assignmentId);
     if (!aId) return;
+    setTestSuiteLoading(true);
+    getTestSuiteByAssignment(String(aId))
+      .then(setTestSuite)
+      .catch(() => setTestSuite(null))
+      .finally(() => setTestSuiteLoading(false));
+  }, [assignmentId]);
+
+  useEffect(() => {
+    if (!assignmentId) return;
+    const aId = Number(assignmentId);
+    if (!aId) return;
     setSubmissionsLoading(true);
     listSubmissionsByAssignment(aId)
       .then(setSubmissions)
@@ -1345,6 +1376,10 @@ export function GradingAssistantAssignmentDetailPage() {
 
   const pageAssignment = useMemo(() => mapGAAssignment(assignment), [assignment]);
   const pageRubric = useMemo(() => mapGARubric(rubric, rubricLoading), [rubric, rubricLoading]);
+  const pageTestSuite = useMemo(
+    () => mapGATestSuite(testSuite, testSuiteLoading),
+    [testSuite, testSuiteLoading],
+  );
   const pageSubmissions = useMemo(() => mapGASubmissions(submissions), [submissions]);
 
   return (
@@ -1374,6 +1409,7 @@ export function GradingAssistantAssignmentDetailPage() {
           loading={loading}
           submissionsLoading={submissionsLoading}
           error={error}
+          testSuiteSection={pageTestSuite}
           onRefreshSubmissions={reloadSubmissions}
           submissionsSectionSubtitle="Review and grade student submissions for this assignment."
         />
