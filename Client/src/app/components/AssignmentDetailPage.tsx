@@ -1389,7 +1389,7 @@ export function GradingAssistantAssignmentDetailPage() {
         <AuthTopBar
           roleView="gradingAssistant"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search..."
+          showSearch={false}
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />

@@ -118,3 +118,18 @@ export async function listStudentCourseGroups(classId: string): Promise<MainGrou
   const { data } = await api.get<MainGroupResponse[]>(`/api/v1/student/courses/${courseId}/groups`);
   return data ?? [];
 }
+
+export async function getStudentAssignmentSubGroup(
+  classId: string,
+  assignmentId: string | number,
+): Promise<SubGroupResponse> {
+  const courseId = parseCourseId(classId);
+  const parsedAssignmentId = Number(assignmentId);
+  if (!Number.isFinite(parsedAssignmentId) || parsedAssignmentId <= 0) {
+    throw new Error("Invalid assignment id.");
+  }
+  const { data } = await api.get<SubGroupResponse>(
+    `/api/v1/student/courses/${courseId}/groups/assignments/${parsedAssignmentId}`,
+  );
+  return data;
+}

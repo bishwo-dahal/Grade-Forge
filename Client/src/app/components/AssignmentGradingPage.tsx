@@ -35,6 +35,7 @@ import { getRunTestsLatest, requestRunTests, runTestsWithFiles, pollRunTestsUnti
 import { getAssignmentByCourse } from "../../services/gradingAssistantAssignmentService";
 import { getRubric } from "../../services/gradingAssistantRubricService";
 import {
+  getSubmissionById,
   listSubmissionsByAssignment,
   updateSubmissionGrade,
 } from "../../services/gradingAssistantSubmissionService";
@@ -44,7 +45,6 @@ import {
   replaceGASubmissionGrades,
 } from "../../services/gradingAssistantSubmissionGradeService";
 import { clearAuthenticated, getAuthenticatedUser, getAuthenticatedRole } from "../auth";
-import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
 import type { AssignmentDetail, AssignmentDescription } from "../../types/assignment";
@@ -175,16 +175,28 @@ function buildAssignmentDetailFromGA(
   name: string,
   courseName: string,
   dueDate: string,
-  options: { submissionMarks?: number | null; totalPoints?: number | null } = {}
+  options: {
+    submissionMarks?: number | null;
+    totalPoints?: number | null;
+    submissionStatus?: string | null;
+  } = {}
 ): AssignmentDetail {
-  const { submissionMarks = null, totalPoints = 0 } = options;
+  const { submissionMarks = null, totalPoints = 0, submissionStatus = null } = options;
+  const normalizedStatus =
+    submissionStatus?.toLowerCase() === "graded"
+      ? "graded"
+      : submissionStatus?.toLowerCase() === "submitted"
+        ? "submitted"
+        : submissionMarks != null
+          ? "graded"
+          : "submitted";
   return {
     id: "",
     title: name,
     course: courseName,
     courseCode: "",
     dueDate: formatDate(dueDate),
-    status: submissionMarks != null ? "graded" : "submitted",
+    status: normalizedStatus,
     points: { earned: submissionMarks ?? null, total: totalPoints ?? 0 },
     submissionsUsed: 0,
     submissionsAllowed: null,
@@ -344,15 +356,10 @@ export function AssignmentGradingPage() {
     const aId = Number(assignmentId);
     const sId = Number(submissionId);
     if (!cId || !aId || !sId) throw new Error("Invalid IDs");
-    const [assignData, list] = await Promise.all([
+    const [assignData, sub] = await Promise.all([
       getAssignmentByCourse(cId, aId),
-      listSubmissionsByAssignment(aId),
+      getSubmissionById(sId),
     ]);
-    const sub = list.find((s) => (s.submissionId ?? s.id) === sId) ?? null;
-    if (!sub) {
-      setError("Submission not found.");
-      return;
-    }
     const rubricId = assignData.rubricId ?? null;
     let totalPoints = assignData.totalPoints ?? null;
     if (rubricId != null) {
@@ -387,7 +394,11 @@ export function AssignmentGradingPage() {
         assignData.name,
         assignData.courseName ?? "",
         sub.submittedAt ?? assignData.dueDate ?? "",
-        { submissionMarks: sub.marks ?? null, totalPoints }
+        {
+          submissionMarks: sub.marks ?? sub.grade ?? null,
+          totalPoints,
+          submissionStatus: sub.status,
+        }
       )
     );
     setDescription({
@@ -400,11 +411,19 @@ export function AssignmentGradingPage() {
     });
     setStudentName(sub.studentName ?? sub.studentEmail ?? `Submission #${sub.submissionId ?? sub.id}`);
     setStudentEmail(sub.studentEmail ?? null);
+    setStudentId(sub.studentId != null ? String(sub.studentId) : null);
     setSubmittedAt(formatDate(sub.submittedAt ?? undefined));
-    setSubGroupName(null);
-    setSubGroupMembers([]);
+    setSubGroupName(sub.subGroupName ?? null);
+    setSubGroupMembers(
+      (sub.subGroupMembers ?? []).map((member) => ({
+        id: member.id,
+        name: member.name,
+        email: member.email,
+        cwid: member.cwid,
+      })),
+    );
     setSubmissionLanguage(assignData.languageName ?? "Python");
-    setSubmissionMarks(sub.marks ?? null);
+    setSubmissionMarks(sub.marks ?? sub.grade ?? null);
     setSubmissionFeedback(sub.feedback ?? "");
     const files = sub.files ?? [];
     if (files.length > 0) {
@@ -686,7 +705,7 @@ export function AssignmentGradingPage() {
         setGradeSubmitting(false);
       }
     },
-    [submissionId, isFaculty, rubricExistingGrades],
+    [submissionId, isFaculty, isGA, rubricExistingGrades],
   );
 
   const codeWorkspaceAssignment = useMemo(
@@ -845,7 +864,7 @@ export function AssignmentGradingPage() {
                   </div>
 
                   {/* Grade & feedback section */}
-                  {isFaculty ? (
+                  {isFaculty || isGA ? (
                     <div className="mt-3 pt-3 border-t border-gray-200">
                       <div className="flex items-start justify-between gap-3 mb-1">
                         <div className="min-w-0">
@@ -912,7 +931,7 @@ export function AssignmentGradingPage() {
                         { id: "tests" as const, label: "Tests" },
                         { id: "plagiarism" as const, label: "Plagiarism & AI" },
                         { id: "rubric" as const, label: "Grading Rubric" },
-                        ...(isFaculty ? [{ id: "group" as const, label: "Group" }] : []),
+                        ...(isFaculty || isGA ? [{ id: "group" as const, label: "Group" }] : []),
                       ] as const
                     ).map((tab) => (
                       <button
@@ -1051,7 +1070,7 @@ export function AssignmentGradingPage() {
                     </>
                   )}
                   {activeTab === "rubric" && <GradingRubricPanel rubricCategories={rubricCategories} />}
-                  {activeTab === "group" && isFaculty && (
+                  {activeTab === "group" && (isFaculty || isGA) && (
                     <div className="px-6 py-5">
                       <div className="mb-4">
                         <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
@@ -1159,19 +1178,16 @@ export function AssignmentGradingPage() {
       navigate("/signin", { replace: true });
     };
     return (
-      <AuthShell
-        roleView="gradingAssistant"
-        topBar={
+      <div className="flex h-screen w-full flex-col bg-[#F5F2F2]">
           <AuthTopBar
             roleView="gradingAssistant"
             profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-            searchPlaceholder="Search..."
+          showSearch={false}
             onSettingsSectionSelect={goToSettingsSection}
             onLogout={handleLogout}
           />
-        }
-        mainContent={mainContent}
-      />
+        {mainContent}
+      </div>
     );
   }
 
