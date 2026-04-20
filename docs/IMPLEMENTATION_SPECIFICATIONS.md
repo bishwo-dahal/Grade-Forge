@@ -12,6 +12,13 @@
 - **Docs**: VitePress served under `/docs`
 - **Deployment**: Docker container on AWS EC2 (CI builds and deploys over SSH)
 
+### Team members
+
+- Bipin Shrestha
+- Damir Filaretov
+- Balkrishna Basnet
+- Bishwo Dahal
+
 ### Languages / frameworks (and how they’re used)
 
 - **TypeScript + React 18 + Vite 6**
