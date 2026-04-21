@@ -84,7 +84,7 @@ import type {
 } from "../../types/gradeReport";
 import type { GradingAssistantResponse } from "../../types/gradingAssistant";
 import type { CourseAssistantResponse } from "../../types/courseAssistant";
-import { SegmentedFilter, type SegmentedFilterItem } from "./ui/SegmentedFilter";
+import { SegmentedFilter } from "./ui/SegmentedFilter";
 import { ConfirmationModal, TimedSuccessModal } from "./ui/ActionFeedbackModal";
 import {
   Tooltip,
@@ -109,7 +109,6 @@ const SECTION_PATH_SEGMENTS = [
 ] as const;
 
 type SectionType = (typeof SECTION_PATH_SEGMENTS)[number];
-type RosterFilter = "all" | "active" | "inactive";
 
 function isValidSection(segment: string | undefined): segment is SectionType {
   return segment != null && SECTION_PATH_SEGMENTS.includes(segment as SectionType);
@@ -196,7 +195,7 @@ export function FacultyClassPage() {
           roleView="faculty"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
           showSearch={false}
-          pageTitle={courseFullName || "Class Dashboard"}
+          pageTitle=""
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />
@@ -1632,7 +1631,6 @@ function StudentsSection({
 
   // NOTE: Main page search only filters existing roster rows.
   const [rosterRows, setRosterRows] = useState<FacultyRosterStudentRow[]>([]);
-  const [activeFilter, setActiveFilter] = useState<RosterFilter>("all");
   const [rosterSearchValue, setRosterSearchValue] = useState("");
   const [isRosterLoading, setIsRosterLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -1900,29 +1898,13 @@ function StudentsSection({
     };
   }, [rosterRows, getDisplayedAvgScore]);
 
-  const filterItems = useMemo<SegmentedFilterItem<RosterFilter>[]>(() => {
-    const activeCount = rosterRows.filter((row) => row.status === "active").length;
-    const inactiveCount = rosterRows.filter((row) => row.status === "inactive").length;
-    return [
-      { id: "all", label: "All", count: rosterRows.length },
-      { id: "active", label: "Active", count: activeCount },
-      { id: "inactive", label: "Inactive", count: inactiveCount },
-    ];
-  }, [rosterRows]);
-
   const filteredRows = useMemo(() => {
     const normalizedQuery = rosterSearchValue.trim().toLowerCase();
-    return rosterRows.filter((row) => {
-      const filterMatches = activeFilter === "all" ? true : row.status === activeFilter;
-      if (!filterMatches) {
-        return false;
-      }
-      if (!normalizedQuery) {
-        return true;
-      }
-      return row.name.toLowerCase().includes(normalizedQuery) || row.email.toLowerCase().includes(normalizedQuery);
-    });
-  }, [activeFilter, rosterRows, rosterSearchValue]);
+    if (!normalizedQuery) return rosterRows;
+    return rosterRows.filter(
+      (row) => row.name.toLowerCase().includes(normalizedQuery) || row.email.toLowerCase().includes(normalizedQuery),
+    );
+  }, [rosterRows, rosterSearchValue]);
 
   const selectedStudentGradeRow = useMemo(() => {
     if (!selectedGradeStudent || !studentGradeReport) {
@@ -2126,12 +2108,6 @@ function StudentsSection({
               className="w-full h-11 rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/25"
             />
           </div>
-          <SegmentedFilter
-            className="md:ml-1"
-            items={filterItems}
-            value={activeFilter}
-            onValueChange={(value) => setActiveFilter(value)}
-          />
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Avg mode</span>
             <SegmentedFilter
