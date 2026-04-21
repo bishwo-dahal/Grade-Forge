@@ -32,6 +32,8 @@ From the public **landing** page you can open **Sign up** or **Sign in**:
 **Path:** `/complete-registration`  
 **Example URL:** [https://ulm.gradeforge.tech/complete-registration](https://ulm.gradeforge.tech/complete-registration)
 
+![Complete registration page for first-time students](/manual/images/student_complete_registration.png)
+
 ## How do I change my profile, password, notifications, or theme?
 
 **Students, faculty, and grading assistants**
