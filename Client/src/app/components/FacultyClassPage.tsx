@@ -2132,6 +2132,17 @@ function StudentsSection({
             value={activeFilter}
             onValueChange={(value) => setActiveFilter(value)}
           />
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Avg mode</span>
+            <SegmentedFilter
+              items={[
+                { id: "gradedOnly" as const, label: "Graded only" },
+                { id: "includeMissing" as const, label: "Include missing as 0" },
+              ]}
+              value={avgMode}
+              onValueChange={(value) => setAvgMode(value)}
+            />
+          </div>
           <button
             onClick={onOpenAddStudentModal}
             className="ml-auto flex shrink-0 items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
@@ -2139,17 +2150,6 @@ function StudentsSection({
             <Plus className="w-4 h-4" strokeWidth={2} />
             <span>Add Student</span>
           </button>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Avg mode</span>
-          <SegmentedFilter
-            items={[
-              { id: "gradedOnly" as const, label: "Graded only" },
-              { id: "includeMissing" as const, label: "Include missing as 0" },
-            ]}
-            value={avgMode}
-            onValueChange={(value) => setAvgMode(value)}
-          />
         </div>
       </div>
 
