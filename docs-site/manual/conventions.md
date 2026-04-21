@@ -12,7 +12,7 @@ We never use `localhost` here. The same paths work in production and in local de
 
 **Path:** always shown for in-app tasks (placeholders in `{curlyBraces}` mean “your id here”).
 
-**Example URL:** shown when a full link makes the page easier to read.
+**Example URL:** shown when a full link makes the page easier to read. Whenever you see **`Example URL:`**, the value is a **markdown link** (`[https://…](https://…)`) so you can open it directly in the browser (sample ids such as `4` or `12` are placeholders).
 
 ## Regenerating screenshots
 

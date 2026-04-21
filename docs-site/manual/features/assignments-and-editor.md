@@ -54,4 +54,5 @@ Typical tabs (labels may vary slightly):
 
 Students and faculty may see a **file tree** and **tabs** for multiple files. Save work in the editor before **Run tests** or **Submit** if the page does not auto-save everything you expect.
 
-**Path:** Same assignment path as above.
+**Path:** Same assignment path as above.  
+**Example URL:** [https://ulm.gradeforge.tech/assignment/12](https://ulm.gradeforge.tech/assignment/12)
