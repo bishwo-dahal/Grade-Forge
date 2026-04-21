@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { CheckCircle, XCircle, Lock, Eye, Loader2 } from "lucide-react";
+import { Eye, Loader2 } from "lucide-react";
 import type { AssignmentResult, RubricCategory } from "../../../types/grade";
 import type { FacultyAssignmentSubmissionRow } from "../../../types/submission";
 import type { StudentSubmissionGradesResponse } from "../../../types/studentSubmissionGrade";
@@ -197,13 +197,15 @@ export function ResultsPanel({
         </div>
       )}
 
-      {/* Rubric Breakdown — combined table when studentRubric + grades, else list or placeholder */}
+      {/* Rubric Breakdown — only shown when real grading data exists */}
+      {((studentRubric && studentSubmissionGrades?.grades && studentSubmissionGrades.grades.length > 0) ||
+        (studentSubmissionGrades?.grades && studentSubmissionGrades.grades.length > 0)) && (
       <div className="mb-6">
         <h3 className="text-[13px] font-semibold text-[#5A7ACD] mb-3 flex items-center gap-2 uppercase tracking-wide">
           <div className="w-0.5 h-4 bg-[#5A7ACD] rounded-full"></div>
           {studentRubric?.name ? `${studentRubric.name} — Breakdown` : "Rubric Breakdown"}
         </h3>
-        
+
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           {studentRubric && studentSubmissionGrades?.grades && studentSubmissionGrades.grades.length > 0 ? (
             (() => {
@@ -440,99 +442,10 @@ export function ResultsPanel({
                 </span>
               </div>
             </>
-          ) : (
-            results.rubricBreakdown.map((item, index) => (
-              <div
-                key={index}
-                className={`p-4 ${index !== results.rubricBreakdown.length - 1 ? "border-b border-gray-100" : ""}`}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <div className="text-[13px] font-semibold text-[#2B2A2A] mb-0.5">
-                      {item.category}
-                    </div>
-                    {item.feedback && (
-                      <div className="text-[11px] text-gray-600 italic mt-0.5">
-                        {item.feedback}
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-right ml-6">
-                    <div className="text-[14px] font-bold text-[#2B2A2A]">
-                      {item.earned}/{item.total}
-                    </div>
-                  </div>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2">
-                  <div
-                    className="h-1.5 rounded-full transition-all duration-1000"
-                    style={{
-                      width: `${item.total ? (item.earned / item.total) * 100 : 0}%`,
-                      backgroundColor: item.earned === item.total ? "#5A7ACD" : "#FEB05D",
-                    }}
-                  />
-                </div>
-              </div>
-            ))
           )}
         </div>
       </div>
-
-      {/* Private Tests */}
-      <div className="mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="p-4 border-b border-gray-100">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[13px] font-semibold text-[#2B2A2A]">
-                <Lock className="w-3.5 h-3.5 text-[#FEB05D]" strokeWidth={2} />
-                Private Tests
-              </div>
-              <div className="text-[13px] font-bold text-[#FEB05D]">
-                {results.privateTestsPassed}/{results.privateTestsTotal} Passed
-              </div>
-            </div>
-          </div>
-          
-          <div className="p-4">
-            {/* Test Result Icons */}
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {results.privateTestResults.map((passed, index) => (
-                <div
-                  key={index}
-                  className={`w-6 h-6 rounded-md flex items-center justify-center ${
-                    passed 
-                      ? 'bg-green-100 text-green-600' 
-                      : 'bg-red-100 text-red-600'
-                  }`}
-                >
-                  {passed ? (
-                    <CheckCircle className="w-3.5 h-3.5" strokeWidth={2.5} />
-                  ) : (
-                    <XCircle className="w-3.5 h-3.5" strokeWidth={2.5} />
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Failed Test Details */}
-            {results.failedTests.length > 0 && (
-              <div className="pt-3 border-t border-gray-100">
-                <div className="space-y-1.5">
-                  {results.failedTests.map((test, index) => (
-                    <div 
-                      key={index}
-                      className="text-[11px] text-gray-600 flex items-start gap-2"
-                    >
-                      <span className="text-red-500 mt-0.5">&bull;</span>
-                      <span>{test}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Back Button */}
       <div>
