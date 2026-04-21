@@ -1,27 +1,22 @@
-import { ChevronLeft, ChevronRight, Bell, CheckCircle2, Circle, AlertCircle, Clock, FileText } from "lucide-react";
+import { Clock, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import type { AlertItem, CalendarDay, DeadlineItem, TaskItem } from "../../types/notification";
+import type { AlertItem, DeadlineItem } from "../../types/notification";
 import type { PendingSubmissionItem } from "../../types/submission";
-import { getFacultyDeadlineDays, listFacultyAlerts, listGradingTasks, listUpcomingDeadlines } from "../../services/notificationService";
+import { listFacultyAlerts, listUpcomingDeadlines } from "../../services/notificationService";
 import { listPendingSubmissions } from "../../services/submissionService";
 
 interface FacultyRightPanelViewProps {
   // NOTE: Props keep the right panel view reusable and data-agnostic.
-  currentDate: Date;
   alerts: AlertItem[];
-  deadlineDays: CalendarDay[];
   pendingSubmissions: PendingSubmissionItem[];
   upcomingDeadlines: DeadlineItem[];
   isLoading: boolean;
 }
 
 export function FacultyRightPanel() {
-  const [currentDate] = useState(new Date(2023, 9, 22)); // October 22, 2023
   // NOTE: Data now comes from the mock service to create a clean backend integration seam.
-  const [gradingTasks, setGradingTasks] = useState<TaskItem[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
-  const [deadlineDays, setDeadlineDays] = useState<CalendarDay[]>([]);
   const [pendingSubmissions, setPendingSubmissions] = useState<PendingSubmissionItem[]>([]);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<DeadlineItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,16 +25,12 @@ export function FacultyRightPanel() {
     // NOTE: One loading state keeps all right-panel cards visible while async sections are fetched together.
     setIsLoading(true);
     Promise.all([
-      listGradingTasks(),
       listFacultyAlerts(),
-      getFacultyDeadlineDays(),
       listPendingSubmissions(),
       listUpcomingDeadlines(),
     ])
-      .then(([gradingTasksData, alertsData, deadlineDaysData, pendingSubmissionsData, upcomingDeadlinesData]) => {
-        setGradingTasks(gradingTasksData);
+      .then(([alertsData, pendingSubmissionsData, upcomingDeadlinesData]) => {
         setAlerts(alertsData);
-        setDeadlineDays(deadlineDaysData);
         setPendingSubmissions(pendingSubmissionsData);
         setUpcomingDeadlines(upcomingDeadlinesData);
       })
@@ -48,9 +39,7 @@ export function FacultyRightPanel() {
 
   return (
     <FacultyRightPanelView
-      currentDate={currentDate}
       alerts={alerts}
-      deadlineDays={deadlineDays}
       pendingSubmissions={pendingSubmissions}
       upcomingDeadlines={upcomingDeadlines}
       isLoading={isLoading}
@@ -59,98 +48,15 @@ export function FacultyRightPanel() {
 }
 
 function FacultyRightPanelView({
-  currentDate,
   alerts,
-  deadlineDays,
   pendingSubmissions,
   upcomingDeadlines,
   isLoading,
 }: FacultyRightPanelViewProps) {
   // NOTE: View-only component; data loading lives in the container above.
-  // Generate calendar days
-  const getDaysInMonth = (date: Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay();
-
-    const days = [];
-    
-    // Add empty cells for days before the month starts
-    for (let i = 0; i < startingDayOfWeek; i++) {
-      days.push(null);
-    }
-    
-    // Add the days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      days.push(day);
-    }
-    
-    return days;
-  };
-
-  const days = getDaysInMonth(currentDate);
-  const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-
-  // Days with assignment deadlines
   return (
     <aside className="w-72 bg-white border-l border-[#C9C4C9] flex-shrink-0 overflow-y-auto">
       <div className="p-6">
-        {/* Calendar */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[13px] font-semibold text-[#1F2430]">
-              Assignment Deadlines
-            </h3>
-            <div className="flex items-center gap-1">
-              {/* Accessibility: icon-only controls need labels for screen readers. */}
-              <button aria-label="Previous month" className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 transition-colors">
-                <ChevronLeft className="w-4 h-4 text-gray-600" strokeWidth={2} />
-              </button>
-              <button aria-label="Next month" className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 transition-colors">
-                <ChevronRight className="w-4 h-4 text-gray-600" strokeWidth={2} />
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-[#F7F6F8] rounded-md p-4 border border-[#E4E0E5]">
-            <div className="text-[12px] font-medium text-gray-900 mb-3 text-center">
-              {monthName}
-            </div>
-
-            {/* Weekday headers */}
-            <div className="grid grid-cols-7 gap-1 mb-2">
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-                <div key={i} className="text-[10px] text-gray-400 text-center font-medium">
-                  {day}
-                </div>
-              ))}
-            </div>
-
-            {/* Calendar days */}
-            <div className="grid grid-cols-7 gap-1">
-              {days.map((day, index) => (
-                <div
-                  key={index}
-                  className={`
-                    aspect-square flex items-center justify-center text-[11px] rounded-lg
-                    ${!day ? '' : 'hover:bg-gray-100 cursor-pointer'}
-                    ${day === 22 ? 'bg-[#1F2430] text-white font-semibold' : 'text-gray-700'}
-                    ${day && deadlineDays.includes(day) && day !== 22 ? 'relative' : ''}
-                  `}
-                >
-                  {day}
-                  {day && deadlineDays.includes(day) && day !== 22 && (
-                    <div className="absolute bottom-1 w-1 h-1 bg-[#9F3549] rounded-full"></div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
         {/* Pending Submissions */}
         <div className="mb-8">
           <h3 className="text-[13px] font-semibold text-[#1F2430] mb-4">
