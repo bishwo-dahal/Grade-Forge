@@ -54,7 +54,6 @@ const UniversityAdminWorkspace = lazyNamed(
   () => import("./components/UniversityAdminWorkspace"),
   "UniversityAdminWorkspace",
 );
-const UniversityCoursesPage = lazyNamed(() => import("./components/UniversityCoursesPage"), "UniversityCoursesPage");
 const UniversityFacultyPage = lazyNamed(() => import("./components/UniversityFacultyPage"), "UniversityFacultyPage");
 const UniversityLanguagesPage = lazyNamed(
   () => import("./components/UniversityLanguagesPage"),
@@ -352,10 +351,6 @@ export const router = createBrowserRouter([
       {
         path: "semesters",
         Component: UniversitySemestersPage,
-      },
-      {
-        path: "courses",
-        Component: UniversityCoursesPage,
       },
       {
         path: "languages",

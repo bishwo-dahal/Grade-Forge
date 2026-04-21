@@ -79,7 +79,6 @@ export function GradeForgeSidebar({ viewMode, compactOnly = false }: GradeForgeS
   const universityItems: SidebarNavItem[] = [
     { icon: Users, label: "Faculty", to: "/university-admin/faculty" },
     { icon: Calendar, label: "Semesters", to: "/university-admin/semesters" },
-    { icon: BookOpen, label: "Courses", to: "/university-admin/courses" },
     // NOTE: Languages management has its own university section route for easier backend ownership boundaries.
     { icon: Code2, label: "Languages", to: "/university-admin/languages" },
     { icon: UserSearch, label: "Manage Users", to: "/university-admin/manage-users" },
