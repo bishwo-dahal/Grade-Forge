@@ -9,6 +9,7 @@ import { clearAuthenticated, getAuthenticatedUser } from "../../auth";
 import { AuthShell } from "../layout/AuthShell";
 import { AuthTopBar } from "../layout/AuthTopBar";
 import type { SettingsSection } from "../layout/AuthTopBar";
+import { richTextToPlainText } from "../ui/rich-text";
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -232,7 +233,7 @@ export function GradingAssistantClassPage() {
                                     </Link>
                                     {a.description && (
                                       <p className="mt-0.5 text-[13px] text-gray-600 line-clamp-2">
-                                        {a.description}
+                                        {richTextToPlainText(a.description)}
                                       </p>
                                     )}
                                   </div>

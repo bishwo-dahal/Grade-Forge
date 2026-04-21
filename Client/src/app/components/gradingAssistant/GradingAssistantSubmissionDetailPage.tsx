@@ -27,6 +27,7 @@ import {
   requestGraderReport,
 } from "../../../services/graderReportService";
 import type { GraderReportResultItem } from "../../../types/graderReport";
+import { RichTextViewer } from "../ui/rich-text";
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -295,9 +296,10 @@ export function GradingAssistantSubmissionDetailPage() {
                             <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
                               Description
                             </h3>
-                            <p className="text-[13px] text-[#2B2A2A] whitespace-pre-wrap">
-                              {assignment.description}
-                            </p>
+                            <RichTextViewer
+                              value={assignment.description}
+                              className="text-[13px] text-[#2B2A2A] whitespace-pre-wrap"
+                            />
                           </div>
                         )}
                         {rubric?.criteria && rubric.criteria.length > 0 && (
