@@ -252,22 +252,6 @@ export function FacultyClassPage() {
                       </div>
                     </div>
                   ) : null}
-                  {/* NOTE: Student-roster actions live in the top header so they align with the page-level action position. */}
-                  {activeSection === "students" ? (
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
-                        <Download className="w-4 h-4" strokeWidth={2} />
-                        <span>Import from Canvas</span>
-                      </button>
-                      <button
-                        onClick={() => setIsAddStudentModalOpen(true)}
-                        className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
-                      >
-                        <Plus className="w-4 h-4" strokeWidth={2} />
-                        <span>Add Student</span>
-                      </button>
-                    </div>
-                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -2157,26 +2141,13 @@ function StudentsSection({
     <div>
       <div className="mb-6 flex items-center justify-between gap-3">
         <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Student Roster</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setAddMode("canvas");
-              onOpenAddStudentModal();
-            }}
-            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors"
-          >
-            <Users className="w-4 h-4" strokeWidth={2} />
-            <span>Import from Canvas</span>
-          </button>
-          <button
-            onClick={onOpenAddStudentModal}
-            className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
-          >
-            <Plus className="w-4 h-4" strokeWidth={2} />
-            <span>Add Student</span>
-          </button>
-        </div>
+        <button
+          onClick={onOpenAddStudentModal}
+          className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
+        >
+          <Plus className="w-4 h-4" strokeWidth={2} />
+          <span>Add Student</span>
+        </button>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
