@@ -1,6 +1,5 @@
 import { Navigate, useNavigate } from "react-router";
 import { GradeForgeMain } from "./GradeForgeMain";
-import { GradeForgeRightPanel } from "./GradeForgeRightPanel";
 import { FacultyMain } from "./FacultyMain";
 import { FacultyRightPanel } from "./FacultyRightPanel";
 import { GradingAssistantMain } from "./GradingAssistantMain";
@@ -64,7 +63,7 @@ export function GradeForgeDashboard() {
         : <FacultyMain />;
 
   const rightPanel =
-    viewMode === "student" ? <GradeForgeRightPanel /> : viewMode === "gradingAssistant" ? undefined : <FacultyRightPanel />;
+    viewMode === "student" || viewMode === "gradingAssistant" ? undefined : <FacultyRightPanel />;
 
   return (
     <AuthShell
