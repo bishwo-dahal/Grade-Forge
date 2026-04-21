@@ -159,8 +159,20 @@ export interface DeadlineGroup {
   items: DeadlineItem[];
 }
 
+export interface StudentCourseCardItem {
+  id: string;
+  title: string;
+  code: string;
+  coverImageUrl: string;
+  submittedCount: number;
+  totalAssignments: number;
+  avgScore: number;
+  activeAssignments: number;
+}
+
 export interface StudentDashboardData {
   stats: StudentDashboardStats;
+  courseCards: StudentCourseCardItem[];
   recentGrades: RecentGradeItem[];
   deadlineGroups: DeadlineGroup[];
 }
@@ -291,8 +303,40 @@ export async function getStudentDashboardData(): Promise<StudentDashboardData> {
   gradeItems.sort((a, b) => b.sortKey - a.sortKey);
   const recentGrades = gradeItems.slice(0, 6).map(({ sortKey: _sk, ...item }) => item);
 
+  const now = Date.now();
+  const courseCards: StudentCourseCardItem[] = publishedCourses.map((course) => {
+    const assignments = snapshot.assignmentsByCourseId.get(course.id) ?? [];
+    let submittedCount = 0;
+    let gradedTotal = 0;
+    let gradedEarned = 0;
+    let activeAssignments = 0;
+    for (const assignment of assignments) {
+      const subs = snapshot.submissionsByAssignmentId.get(assignment.id) ?? [];
+      const latest = pickLatest(subs);
+      if (latest) submittedCount++;
+      if (latest?.marks !== null && latest?.marks !== undefined) {
+        gradedEarned += latest.marks;
+        gradedTotal += assignment.totalPoints;
+      }
+      const dueAt = assignment.dueDate ? new Date(assignment.dueDate).getTime() : null;
+      if (dueAt === null || dueAt > now) activeAssignments++;
+    }
+    const avgScore = gradedTotal > 0 ? Math.round((gradedEarned / gradedTotal) * 100) : 0;
+    return {
+      id: String(course.id),
+      title: course.name,
+      code: course.courseCode,
+      coverImageUrl: course.imageUrl?.trim() || "/ulm.jpg",
+      submittedCount,
+      totalAssignments: assignments.length,
+      avgScore,
+      activeAssignments,
+    };
+  });
+
   return {
     stats: { enrolledCourses, pendingSubmissions, gradedThisWeek },
+    courseCards,
     recentGrades,
     deadlineGroups: buildDeadlineGroups(snapshot),
   };
