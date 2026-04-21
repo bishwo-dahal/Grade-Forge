@@ -15,4 +15,4 @@ Your sidebar shows **Grading** with **Dashboard** and **Courses**. You only see 
 3. Open a **submission** and fill the rubric and feedback your instructor expects.
 
 **Path (courses):** `/grading-assistant/courses`  
-**Example URL:** `https://gradeforge.tech/grading-assistant/courses`
+**Example URL:** [https://ulm.gradeforge.tech/grading-assistant/courses](https://ulm.gradeforge.tech/grading-assistant/courses)

@@ -85,6 +85,11 @@ mvn spring-boot:run
 
 The repo builds a **single Docker image** (frontend static assets baked into the Spring Boot JAR) and deploys it to an **EC2** host over SSH. See **`.github/workflows/deploy.yml`**.
 
+### ULM production (University of Louisiana Monroe)
+
+- **Web application:** [https://ulm.gradeforge.tech](https://ulm.gradeforge.tech)
+- **Built-in product manual (same host):** [https://ulm.gradeforge.tech/docs/](https://ulm.gradeforge.tech/docs/)
+
 ### 1) Prepare the EC2 server
 
 - Use **Amazon Linux 2** (or similar) with **`ec2-user`** SSH access.
@@ -137,19 +142,18 @@ Use **8081** if you deployed the **`production`** branch. Expect HTTP **200** fr
 
 Install Ollama on the **host** (not in the app image), pull a model, then set GitHub secret **`GRADER_LLM_AI_SIGNAL_ENABLED`** to **`true`**. Details: **Production: Ollama + Docker (EC2)**.
 
-### 6) Optional: Nginx reverse proxy + HTTPS (`gradeforge.tech`)
+### 6) Optional: Nginx reverse proxy + HTTPS (example: `ulm.gradeforge.tech`)
 
-This is a reference layout for the next time you put **Nginx** on **Amazon Linux / RHEL-style** EC2, with **Route 53** DNS and **Let’s Encrypt**. Nginx listens on **80/443**; your Grade-Forge containers stay on **localhost** ports (no port in the public URL).
+This is a reference layout for **Nginx** on **Amazon Linux / RHEL-style** EC2, with **Route 53** DNS and **Let’s Encrypt**. Nginx listens on **80/443**; your Grade-Forge containers stay on **localhost** ports (no port in the public URL).
 
-**Map proxy ports to whatever you actually run.** The GitHub Actions deploy in this repo typically publishes **`8080`** for `main` and **`8081`** for `production`. If you prefer **`8181`** for a second app (e.g. `prod.gradeforge.tech`), change `proxy_pass` below to match your `docker run -p` choices.
+**Map proxy ports to whatever you actually run.** The GitHub Actions deploy in this repo typically publishes **`8080`** for `main` and **`8081`** for `production`. Adjust `proxy_pass` to match your `docker run -p` choices.
 
 #### DNS (Route 53)
 
 | Name | Type | Value |
 |------|------|--------|
-| `gradeforge.tech` | A | EC2 public IP |
-| `www.gradeforge.tech` | A | EC2 public IP (optional) |
-| `prod.gradeforge.tech` | A | EC2 public IP |
+| `ulm.gradeforge.tech` | A | EC2 public IP |
+| `www.ulm.gradeforge.tech` | A | EC2 public IP (optional) |
 
 Allow a few minutes for propagation.
 
@@ -181,13 +185,13 @@ curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8081/
 
 #### HTTP-only Nginx config first (then Certbot adds TLS)
 
-On Amazon Linux, site snippets often live under **`/etc/nginx/conf.d/`**. Create **`/etc/nginx/conf.d/gradeforge.conf`** with **HTTP only** first so **`certbot --nginx`** can obtain certificates and install SSL without referencing missing files:
+On Amazon Linux, site snippets often live under **`/etc/nginx/conf.d/`**. Create **`/etc/nginx/conf.d/ulm-gradeforge.conf`** with **HTTP only** first so **`certbot --nginx`** can obtain certificates and install SSL without referencing missing files:
 
 ```nginx
 # Main app → localhost:8080 (change if your container uses another host port)
 server {
     listen 80;
-    server_name gradeforge.tech www.gradeforge.tech;
+    server_name ulm.gradeforge.tech www.ulm.gradeforge.tech;
 
     location / {
         proxy_pass http://127.0.0.1:8080;
@@ -199,20 +203,19 @@ server {
     }
 }
 
-# Second hostname → second backend (example: 8081; use 8181 if that is your mapping)
-server {
-    listen 80;
-    server_name prod.gradeforge.tech;
-
-    location / {
-        proxy_pass http://127.0.0.1:8081;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
+# Optional: second hostname → second backend on another port (e.g. 8081 for a staging container)
+# server {
+#     listen 80;
+#     server_name staging.ulm.gradeforge.tech;
+#     location / {
+#         proxy_pass http://127.0.0.1:8081;
+#         proxy_http_version 1.1;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#     }
+# }
 ```
 
 ```bash
@@ -223,10 +226,10 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ```bash
 sudo yum install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d gradeforge.tech -d www.gradeforge.tech -d prod.gradeforge.tech
+sudo certbot --nginx -d ulm.gradeforge.tech -d www.ulm.gradeforge.tech
 ```
 
-Follow prompts: agree to terms, choose **redirect HTTP to HTTPS** when offered. Certbot will adjust the Nginx config and store certs under **`/etc/letsencrypt/live/gradeforge.tech/`** (first `-d` name).
+Follow prompts: agree to terms, choose **redirect HTTP to HTTPS** when offered. Certbot will adjust the Nginx config and store certs under **`/etc/letsencrypt/live/ulm.gradeforge.tech/`** (first `-d` name).
 
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
@@ -237,8 +240,8 @@ Renewal is normally handled by a **systemd timer** or **cron** installed with Ce
 
 #### Verify
 
-- `https://gradeforge.tech` → first backend.
-- `https://prod.gradeforge.tech` → second backend (if configured).
+- [https://ulm.gradeforge.tech](https://ulm.gradeforge.tech) → backend on `localhost:8080` (or the port you mapped).
+- If you add a second `server` block, open the matching hostname in the browser to confirm the second backend.
 
 ---
 

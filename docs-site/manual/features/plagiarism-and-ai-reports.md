@@ -17,7 +17,7 @@ If you use a **main course** with **linked sections**, running a report for an a
 3. Click **Run** (or **Run Plagiarism and AI report**). Large classes can take minutes.
 
 **Path:** `/faculty/class/{classId}/assignment/{assignmentId}/submission/{submissionId}` (Plagiarism tab)  
-**Example URL:** `https://gradeforge.tech/faculty/class/4/assignment/12/submission/99`
+**Example URL:** [https://ulm.gradeforge.tech/faculty/class/4/assignment/12/submission/99](https://ulm.gradeforge.tech/faculty/class/4/assignment/12/submission/99)
 
 ## What if the tab says no report yet?
 

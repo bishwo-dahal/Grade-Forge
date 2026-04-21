@@ -2,6 +2,8 @@ package com.grade.forge.user.service;
 
 import com.grade.forge.exceptionhandler.ResourceNotFoundException;
 import com.grade.forge.storage.service.FileStorageService;
+import com.grade.forge.user.dto.UserPreferencesRequest;
+import com.grade.forge.user.dto.UserPreferencesResponse;
 import com.grade.forge.user.dto.UserProfilePictureResponse;
 import com.grade.forge.user.dto.UserProfileResponse;
 import com.grade.forge.user.entity.UserProfilePicture;
@@ -12,6 +14,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -41,6 +46,26 @@ public class UserService implements UserServiceInterface {
 
 		Users savedUser = userRepository.save(user);
 		return mapToProfileResponse(savedUser);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public UserPreferencesResponse getCurrentUserPreferences(String email) {
+		Users user = userRepository.findByEmail(email)
+				.orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+		Map<String, Object> prefs = user.getPreferences() != null ? user.getPreferences() : new HashMap<>();
+		return UserPreferencesResponse.builder().preferences(prefs).build();
+	}
+
+	@Override
+	public UserPreferencesResponse putCurrentUserPreferences(String email, UserPreferencesRequest request) {
+		Users user = userRepository.findByEmail(email)
+				.orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+		Map<String, Object> next = request != null && request.getPreferences() != null ? request.getPreferences() : new HashMap<>();
+		user.setPreferences(next);
+		Users saved = userRepository.save(user);
+		Map<String, Object> prefs = saved.getPreferences() != null ? saved.getPreferences() : new HashMap<>();
+		return UserPreferencesResponse.builder().preferences(prefs).build();
 	}
 
 	@Override

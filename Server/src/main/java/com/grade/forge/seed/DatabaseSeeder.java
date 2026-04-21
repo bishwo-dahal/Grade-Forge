@@ -148,6 +148,9 @@ public class DatabaseSeeder implements CommandLineRunner {
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(rawPassword));
         user.setRole(role);
+        if (user.getPreferences() == null) {
+            user.setPreferences(new java.util.HashMap<>());
+        }
         userRepository.save(user);
         log.info("Created {} → {}", role, email);
     }

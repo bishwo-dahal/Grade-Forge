@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, type ComponentProps, type ComponentType } from "react";
 import { createBrowserRouter, Navigate } from "react-router";
+import { DocumentTitleRoot } from "./DocumentTitleRoot";
 import { GradeForgeDashboard } from "./components/GradeForgeDashboard";
 import { ProtectedRoute } from "./ProtectedRoute";
 import SignUpPage from "./components/SignUpPage";
@@ -140,6 +141,9 @@ const FacultySpeedGradingPage = lazyNamed(
 );
 
 export const router = createBrowserRouter([
+  {
+    element: <DocumentTitleRoot />,
+    children: [
   {
     path: "/",
     Component: LandingPage,
@@ -497,5 +501,7 @@ export const router = createBrowserRouter([
   {
     path: "*",
     element: <NotFoundPage />,
+  },
+    ],
   },
 ]);

@@ -20,4 +20,4 @@ Grading is always tied to a **class** and an **assignment**, not a separate glob
 4. Grade from the assignment or **Speed grading** when submissions arrive.
 
 **Path (create assignment):** `/faculty/class/{classId}/assignments/create`  
-**Example URL:** `https://gradeforge.tech/faculty/class/4/assignments/create`
+**Example URL:** [https://ulm.gradeforge.tech/faculty/class/4/assignments/create](https://ulm.gradeforge.tech/faculty/class/4/assignments/create)

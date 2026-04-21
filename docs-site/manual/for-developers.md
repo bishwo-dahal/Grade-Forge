@@ -9,7 +9,7 @@ The Spring Boot app exposes **OpenAPI** and **Swagger UI** when enabled (paths a
 - **Swagger UI:** `/swagger-ui.html` and under `/swagger-ui/`
 - **OpenAPI JSON:** `/v3/api-docs`
 
-Use your deployed **origin** in front of these paths (for example `https://gradeforge.tech/swagger-ui.html`). Self-hosted installs replace the host with their own.
+Use your deployed **origin** in front of these paths — for ULM: [Swagger UI](https://ulm.gradeforge.tech/swagger-ui.html). Self-hosted installs replace the host with their own.
 
 REST APIs live under **`/api/...`** and usually require a **Bearer token** from sign-in.
 

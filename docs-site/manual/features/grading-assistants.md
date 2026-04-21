@@ -10,21 +10,21 @@ Grading assistants help instructors **grade** inside **courses** they are assign
 2. Open **Courses** in the sidebar.
 
 **Path:** `/grading-assistant/courses`  
-**Example URL:** `https://gradeforge.tech/grading-assistant/courses`
+**Example URL:** [https://ulm.gradeforge.tech/grading-assistant/courses](https://ulm.gradeforge.tech/grading-assistant/courses)
 
 ## How do I open an assignment?
 
 1. Open a class, then choose an assignment.
 
 **Path:** `/grading-assistant/class/{classId}/assignment/{assignmentId}`  
-**Example URL:** `https://gradeforge.tech/grading-assistant/class/4/assignment/12`
+**Example URL:** [https://ulm.gradeforge.tech/grading-assistant/class/4/assignment/12](https://ulm.gradeforge.tech/grading-assistant/class/4/assignment/12)
 
 ## Where are my account settings?
 
 Use **Settings** in the sidebar (same route as students and faculty, not the university admin settings path).
 
 **Path:** `/settings`  
-**Example URL:** `https://gradeforge.tech/settings`
+**Example URL:** [https://ulm.gradeforge.tech/settings](https://ulm.gradeforge.tech/settings)
 
 ## Who assigns me to a course?
 

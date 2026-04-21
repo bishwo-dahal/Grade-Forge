@@ -91,6 +91,9 @@ public class AuthService {
         newUser.setEmail(signupRequest.getEmail());
         newUser.setPassword(encodedPassword);
         newUser.setRole(resolvedRole);
+        if (newUser.getPreferences() == null) {
+            newUser.setPreferences(new HashMap<>());
+        }
         log.info("Creating user with email={} role={}", newUser.getEmail(), newUser.getRole());
         Users savedUser = userRepository.save(newUser);
 

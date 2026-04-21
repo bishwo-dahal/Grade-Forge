@@ -11,11 +11,19 @@ import {
   refreshAuthSessionFromMe,
   updatePassword,
 } from "../../services/authService";
+import {
+  getCurrentUserPreferences,
+  putCurrentUserPreferences,
+  type AppearanceDensity,
+  type AppearanceFontSize,
+  type AppearanceTheme,
+} from "../../services/userPreferencesService";
 import { getCurrentFaculty, updateCurrentFaculty } from "../../services/facultyService";
 import { getCurrentStudent, updateCurrentStudent } from "../../services/studentService";
 import { getCurrentGradingAssistantProfile } from "../../services/gradingAssistantService";
 import { patchCurrentUserProfile } from "../../services/userService";
 import { clearAuthenticated, getAuthenticatedRole, getAuthenticatedUser, getToken, setAuthenticated } from "../auth";
+import { applyUserAppearancePreferences } from "../appearance";
 import { AuthShell } from "./layout/AuthShell";
 import { AuthTopBar } from "./layout/AuthTopBar";
 import { ProfileAvatarCircle } from "./layout/ProfileAvatarCircle";
@@ -61,9 +69,10 @@ export function SettingsPage() {
   const [studentProfilePreviewUrl, setStudentProfilePreviewUrl] = useState<string | null>(null);
   const [updatingStudentAccount, setUpdatingStudentAccount] = useState(false);
   const [notifToggles, setNotifToggles] = useState({ submission: true, grade: true, feedback: true, deadline: true, waitlist: false, email: true, push: false });
-  const [appearanceTheme, setAppearanceTheme] = useState<"Light" | "Dark" | "System">("Light");
-  const [appearanceFontSize, setAppearanceFontSize] = useState<"Small" | "Default" | "Large">("Default");
-  const [appearanceDensity, setAppearanceDensity] = useState<"Compact" | "Comfortable" | "Spacious">("Comfortable");
+  const [appearanceTheme, setAppearanceTheme] = useState<AppearanceTheme>("System");
+  const [appearanceFontSize, setAppearanceFontSize] = useState<AppearanceFontSize>("Default");
+  const [appearanceDensity, setAppearanceDensity] = useState<AppearanceDensity>("Comfortable");
+  const [appearanceDyslexicFont, setAppearanceDyslexicFont] = useState(false);
   const [facultyProfilePicture, setFacultyProfilePicture] = useState<File | null>(null);
   const [facultyProfilePreviewUrl, setFacultyProfilePreviewUrl] = useState<string | null>(null);
   const [isEditingGa, setIsEditingGa] = useState(false);
@@ -95,6 +104,22 @@ export function SettingsPage() {
           : "student";
 
   useEffect(() => {
+    // Load and apply current user's appearance preferences (all roles).
+    if (getToken()) {
+      getCurrentUserPreferences()
+        .then(({ preferences }) => {
+          const a = preferences?.appearance ?? {};
+          setAppearanceTheme((a.theme as AppearanceTheme) ?? "System");
+          setAppearanceFontSize((a.fontSize as AppearanceFontSize) ?? "Default");
+          setAppearanceDensity((a.density as AppearanceDensity) ?? "Comfortable");
+          setAppearanceDyslexicFont(a.dyslexicFont === true);
+          applyUserAppearancePreferences(preferences);
+        })
+        .catch(() => {
+          // ignore; defaults apply
+        });
+    }
+
     if (role === "FACULTY") {
       setFacultyLoading(true);
       setFacultyProfileError(null);
@@ -140,6 +165,28 @@ export function SettingsPage() {
       .catch(() => setStudentProfileError("Failed to load student profile."))
       .finally(() => setStudentProfileLoading(false));
   }, [role]);
+
+  const persistAppearance = async (next: {
+    theme?: AppearanceTheme;
+    fontSize?: AppearanceFontSize;
+    density?: AppearanceDensity;
+    dyslexicFont?: boolean;
+  }) => {
+    const preferences = {
+      appearance: {
+        theme: next.theme ?? appearanceTheme,
+        fontSize: next.fontSize ?? appearanceFontSize,
+        density: next.density ?? appearanceDensity,
+        dyslexicFont: next.dyslexicFont ?? appearanceDyslexicFont,
+      },
+    };
+    try {
+      const res = await putCurrentUserPreferences(preferences);
+      applyUserAppearancePreferences(res.preferences);
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, "Failed to save appearance settings."));
+    }
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -1273,7 +1320,10 @@ export function SettingsPage() {
                         <button
                           key={label}
                           type="button"
-                          onClick={() => setAppearanceTheme(label)}
+                          onClick={() => {
+                            setAppearanceTheme(label);
+                            void persistAppearance({ theme: label });
+                          }}
                           className={`flex flex-col items-center gap-2 px-6 py-4 rounded-xl border text-[13px] font-medium transition-colors ${
                             appearanceTheme === label
                               ? "border-[#5A7ACD] bg-blue-50/40 text-[#5A7ACD]"
@@ -1297,7 +1347,10 @@ export function SettingsPage() {
                         <button
                           key={size}
                           type="button"
-                          onClick={() => setAppearanceFontSize(size)}
+                          onClick={() => {
+                            setAppearanceFontSize(size);
+                            void persistAppearance({ fontSize: size });
+                          }}
                           className={`px-4 py-2 rounded-lg border text-[13px] font-medium transition-colors ${
                             appearanceFontSize === size
                               ? "border-[#5A7ACD] text-[#5A7ACD] bg-blue-50/30"
@@ -1317,7 +1370,10 @@ export function SettingsPage() {
                         <button
                           key={d}
                           type="button"
-                          onClick={() => setAppearanceDensity(d)}
+                          onClick={() => {
+                            setAppearanceDensity(d);
+                            void persistAppearance({ density: d });
+                          }}
                           className={`px-4 py-2 rounded-lg border text-[13px] font-medium transition-colors ${
                             appearanceDensity === d
                               ? "border-[#5A7ACD] text-[#5A7ACD] bg-blue-50/30"
@@ -1329,10 +1385,28 @@ export function SettingsPage() {
                       ))}
                     </div>
                   </div>
+
+                  <div className="pt-2">
+                    <div className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="text-[14px] font-medium text-[#2B2A2A]">Dyslexic-friendly font</p>
+                        <p className="text-[12px] text-gray-600">
+                          Improves readability by switching the app font globally.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={appearanceDyslexicFont}
+                        onCheckedChange={(checked) => {
+                          setAppearanceDyslexicFont(checked);
+                          void persistAppearance({ dyslexicFont: checked });
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <p className="text-[12px] text-gray-400 mt-6 pt-4 border-t border-gray-100">
-                  Appearance settings are coming soon.
+                  Appearance settings are saved to your account and apply everywhere you sign in.
                 </p>
               </section>
             )}

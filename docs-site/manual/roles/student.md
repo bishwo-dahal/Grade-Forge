@@ -18,4 +18,4 @@ You use the **Learning** sidebar: **Dashboard**, **My courses**, **Assignments**
 4. Return later to **Results** for feedback.
 
 **Path (assignments list):** `/student/assignments`  
-**Example URL:** `https://gradeforge.tech/student/assignments`
+**Example URL:** [https://ulm.gradeforge.tech/student/assignments](https://ulm.gradeforge.tech/student/assignments)

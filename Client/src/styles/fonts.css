@@ -1,6 +1,14 @@
 @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap");
+@import "@fontsource/opendyslexic/400.css";
+@import "@fontsource/opendyslexic/700.css";
 
 :root {
   /* NOTE: Centralized app-wide font token so all current and future pages share Montserrat by default. */
   --font-family-base: "Montserrat", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-family-dyslexic: "OpenDyslexic", "Atkinson Hyperlegible", "Segoe UI", Arial, sans-serif;
+}
+
+/* Accessibility: dyslexic-friendly font toggle (applies globally via CSS var swap). */
+html.gf-font-dyslexic {
+  --font-family-base: var(--font-family-dyslexic);
 }

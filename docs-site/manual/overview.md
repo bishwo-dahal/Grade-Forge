@@ -2,6 +2,8 @@
 
 Grade-Forge is a web app for university coding courses: classes, assignments, submissions, automated tests, grading, rubrics, and optional similarity and AI-related reports for instructors.
 
+**University of Louisiana Monroe deployment:** open the live app at **[https://ulm.gradeforge.tech](https://ulm.gradeforge.tech)**. This manual is also served from the same host at **[https://ulm.gradeforge.tech/docs/](https://ulm.gradeforge.tech/docs/)**.
+
 ## Screenshots
 
 **App landing** (public home before you sign in):
