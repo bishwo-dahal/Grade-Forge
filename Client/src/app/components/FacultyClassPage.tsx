@@ -347,14 +347,6 @@ function AssignmentsSection() {
   return (
     <div onClick={() => setOpenAssignmentActionsId(null)}>
       <div className="flex items-center justify-between mb-6">
-        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Assignments</h2>
-          <p className="text-[13px] text-gray-600">
-            {isSectionCourse
-              ? "Content and tests sync from your main course. You can still adjust due dates per section here; use the banner to open the main course for other edits."
-              : "Create, publish, and manage course assignments"}
-          </p>
-        </div>
         <div className="flex items-center gap-3">
           <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors">
             <Upload className="w-4 h-4" strokeWidth={2} />
@@ -714,12 +706,6 @@ function SubmissionsSection() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Submissions</h2>
-          <p className="text-[13px] text-gray-600">
-            Review and grade student submissions
-          </p>
-        </div>
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -1135,12 +1121,6 @@ function GradesSection({
   return (
     <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Grades</h2>
-          <p className="text-[13px] text-gray-600">
-            View and manage student grades for this course
-          </p>
-        </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
@@ -2140,7 +2120,6 @@ function StudentsSection({
   return (
     <div>
       <div className="mb-6 flex items-center justify-between gap-3">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Student Roster</h2>
         <button
           onClick={onOpenAddStudentModal}
           className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
@@ -2865,12 +2844,6 @@ function AssistantsSection() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Grading Assistants</h2>
-          <p className="text-[13px] text-gray-600">
-            Assign grading assistants to this course. They can help grade submissions.
-          </p>
-        </div>
         <button
           type="button"
           onClick={() => {
@@ -3136,12 +3109,6 @@ function GroupsSection() {
   return (
     <div>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Main groups</h2>
-          <p className="text-[13px] text-gray-600">
-            Open a group to create subgroups and assign students by dragging them from the roster.
-          </p>
-        </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -3526,13 +3493,6 @@ function SettingsSection({ classId }: { classId: string }) {
 
   return (
     <div>
-      <div className="mb-6">
-        <div className="inline-block rounded-lg border border-gray-300 bg-white px-4 py-2">
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Class Settings</h2>
-          <p className="text-[13px] text-gray-600">Edit course metadata and control visibility</p>
-        </div>
-      </div>
-
       {error ? (
         <div className="mb-4 rounded-xl border border-[#F3CDD1] bg-[#FDEBEC] px-3 py-2 text-[13px] text-[#C23A42]">
           {error}
