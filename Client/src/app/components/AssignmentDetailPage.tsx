@@ -41,6 +41,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "./ui/alert-dialog";
+import { RichTextViewer } from "./ui/rich-text";
 
 /** Normalized assignment summary for shared AssignmentDetailPage (Faculty + Grading Assistant). */
 export interface AssignmentDetailPageAssignment {
@@ -492,9 +493,10 @@ export function AssignmentDetailPage({
                     Description
                   </h3>
                   {assignment.description ? (
-                    <p className="text-[14px] text-[#2B2A2A] whitespace-pre-wrap">
-                      {assignment.description}
-                    </p>
+                    <RichTextViewer
+                      value={assignment.description}
+                      className="text-[14px] text-[#2B2A2A] whitespace-pre-wrap"
+                    />
                   ) : (
                     <p className="text-[14px] text-gray-500">No description was provided for this assignment.</p>
                   )}
@@ -774,13 +776,14 @@ export function AssignmentDetailPage({
                 type="button"
                 onClick={() => void handleDownloadAll()}
                 disabled={downloadingAll || submissions.length === 0}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
+                aria-label="Download all submissions"
+                title={downloadingAll ? "Preparing download…" : "Download all submissions"}
+                className="inline-flex h-9 w-9 items-center justify-center bg-white border border-gray-300 rounded-lg text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:opacity-60"
               >
                 <Download
                   className={`w-4 h-4 ${downloadingAll ? "animate-pulse" : ""}`}
                   strokeWidth={2}
                 />
-                <span>{downloadingAll ? "Preparing…" : "Download All"}</span>
               </button>
               {onPostBulkGradesToCanvas ? (
                 <button
@@ -791,7 +794,7 @@ export function AssignmentDetailPage({
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-[12px] font-medium text-[#2B2A2A] hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <CloudUpload className="w-4 h-4" strokeWidth={2} />
-                  <span>Post all grades to Canvas</span>
+                  <span>Post to Canvas</span>
                 </button>
               ) : null}
               {speedGradingLink ? (

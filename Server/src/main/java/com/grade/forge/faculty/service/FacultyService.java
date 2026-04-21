@@ -44,6 +44,9 @@ public class FacultyService implements FacultyServiceInterface {
         user.setPassword(passwordEncoder.encode(facultyCreateRequest.getPassword()));
         user.setRole(Role.FACULTY);
         user.setName(facultyCreateRequest.getName());
+        if (user.getPreferences() == null) {
+            user.setPreferences(new java.util.HashMap<>());
+        }
 
 //        User Saving is done first because of the foreign key constraint with faculty. Faculty has a user_id column that references the users table, so we need to have the user saved first to get the generated id to set in the faculty entity.
         Users savedUser = userRepository.save(user);

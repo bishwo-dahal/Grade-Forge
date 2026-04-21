@@ -1,5 +1,6 @@
 import { Download } from "lucide-react";
 import type { AssignmentDescription } from "../../../types/assignment";
+import { RichTextViewer } from "../ui/rich-text";
 
 interface DescriptionPanelProps {
   // NOTE: Data is injected by the page to keep this panel presentation-only.
@@ -18,14 +19,18 @@ export function DescriptionPanel({
   }
 
   return (
-    <div className="p-6 prose prose-sm max-w-none">
+    <div className="p-6">
       {/* Assignment Description */}
       {description.problemDescription.length > 0 && (
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-[#2B2A2A] mb-4">Problem Description</h2>
           <div className="text-[14px] text-gray-700 leading-relaxed space-y-4">
             {description.problemDescription.map((paragraph, index) => (
-              <p key={index}>{paragraph}</p>
+              <RichTextViewer
+                key={index}
+                value={paragraph}
+                className="text-[14px] text-gray-700 leading-relaxed whitespace-pre-wrap"
+              />
             ))}
           </div>
         </div>

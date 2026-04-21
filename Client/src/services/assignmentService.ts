@@ -215,8 +215,10 @@ async function listFacultyRubricOptions(): Promise<RubricOptionApiResponse[]> {
     return data;
   } catch (error: any) {
     const status = error?.response?.status as number | undefined;
-    if (status === 404) {
-      // FIX: Backend returns 404 when faculty has no rubrics yet; keep create-assignment page usable with empty options.
+    const messageRaw = error?.response?.data?.message ?? error?.response?.data?.error ?? error?.message;
+    const message = typeof messageRaw === "string" ? messageRaw : "";
+    if (status === 404 || (status === 400 && /rubric not found/i.test(message))) {
+      // FIX: Backend may return 400/404 when faculty has no rubrics yet; keep create-assignment page usable with empty options.
       return [];
     }
     throw error;

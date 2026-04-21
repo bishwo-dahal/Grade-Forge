@@ -1,7 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { AlertCircle, ArrowRight, CheckCircle2, ChevronLeft, Loader2, X } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  ChevronLeft,
+  Loader2,
+  Users,
+  X,
+} from "lucide-react";
 import { CodeWorkspace } from "./assignment/CodeWorkspace";
+import { PublicTestsPanel } from "./assignment/PublicTestsPanel";
+import { PlagiarismReportPanel } from "./assignment/PlagiarismReportPanel";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
+import { getGraderReportLatest } from "../../services/graderReportService";
+import type { GraderReportResultPayload } from "../../types/graderReport";
 import { getAssignmentDetailById, listRubricCategories } from "../../services/assignmentService";
 import {
   fetchSubmissionFileText,
@@ -22,6 +35,7 @@ import type {
   FacultyAssignmentSubmissionRow,
   SpeedGradingTestSummary,
 } from "../../types/submission";
+import type { PublicTestCase } from "../../types/submission";
 import type { TestRunJobStatusResponse } from "../../types/runTests";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 import { formatMax2Decimals, roundTo2 } from "../../utils/number";
@@ -53,6 +67,21 @@ function getErrorMessage(error: unknown): string {
 
 function isUngradedSubmission(row: FacultyAssignmentSubmissionRow): boolean {
   return row.marks === null || row.marks === undefined;
+}
+
+type GraderReportStudentSummary = {
+  similarityScore: number;
+  matchesCount?: number;
+  warning?: string | null;
+  aiRiskScore: number;
+  aiRiskLevel: "none" | "low" | "medium" | "high";
+};
+
+function formatAiRiskLevelLabel(level: GraderReportStudentSummary["aiRiskLevel"]): string {
+  if (level === "high") return "High";
+  if (level === "medium") return "Med";
+  if (level === "low") return "Low";
+  return "None";
 }
 
 function buildLatestSubmissionQueue(rows: FacultyAssignmentSubmissionRow[]): FacultyAssignmentSubmissionRow[] {
@@ -175,6 +204,12 @@ export function FacultySpeedGradingPage() {
   const [workspacePreviewPayload, setWorkspacePreviewPayload] = useState<FacultyEditorPreviewPayload | null>(null);
   const [isWorkspacePreviewLoading, setIsWorkspacePreviewLoading] = useState(false);
   const [workspacePreviewError, setWorkspacePreviewError] = useState<string | null>(null);
+  const [plagSummary, setPlagSummary] = useState<{
+    byStudent: Record<string, GraderReportStudentSummary>;
+    loading: boolean;
+  }>({ byStudent: {}, loading: false });
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [detailsModalTab, setDetailsModalTab] = useState<"tests" | "plagiarism" | "group">("tests");
 
   const [testSummary, setTestSummary] = useState<SpeedGradingTestSummary>({
     hasRun: false,
@@ -191,6 +226,7 @@ export function FacultySpeedGradingPage() {
 
   const [rubricScores, setRubricScores] = useState<string[]>([]);
   const [rubricExistingGrades, setRubricExistingGrades] = useState<Record<number, { awardedScore: number; feedback?: string | null }>>({});
+  const [rubricComments, setRubricComments] = useState<string[]>([]);
   const [directMarksInput, setDirectMarksInput] = useState<string>("");
   const [feedbackInput, setFeedbackInput] = useState<string>("");
   const [gradeError, setGradeError] = useState<string | null>(null);
@@ -251,6 +287,81 @@ export function FacultySpeedGradingPage() {
     () => allSubmissionRows.find((row) => row.submissionId === selectedSubmissionId) ?? null,
     [allSubmissionRows, selectedSubmissionId],
   );
+
+  const modalTestsResult = useMemo(() => {
+    if (!runResult) return null;
+    const results: PublicTestCase[] = (runResult.results ?? []).map((r, i) => ({
+      id: r.testCaseId ?? i,
+      name: r.testCaseTitle,
+      passed: r.passed ?? undefined,
+      input: "",
+      inputFileName: null,
+      expectedOutput: r.expectedOutput ?? "",
+      actualOutput: r.actualOutput ?? r.errorMessage ?? "",
+      executionTime: r.runtimeMs != null ? `${r.runtimeMs}ms` : undefined,
+    }));
+    return { passedCount: runResult.passedCount, totalCount: runResult.totalCount, results };
+  }, [runResult]);
+
+  useEffect(() => {
+    const aId = Number(resolvedAssignmentId);
+    if (!Number.isFinite(aId) || aId <= 0) {
+      setPlagSummary({ byStudent: {}, loading: false });
+      return;
+    }
+
+    let cancelled = false;
+    setPlagSummary((prev) => ({ ...prev, loading: true }));
+    (async () => {
+      try {
+        const report = await getGraderReportLatest(aId);
+        if (!report || !report.result || report.status !== "COMPLETED") {
+          if (!cancelled) setPlagSummary({ byStudent: {}, loading: false });
+          return;
+        }
+
+        let payload: GraderReportResultPayload | null = null;
+        try {
+          payload = JSON.parse(report.result) as GraderReportResultPayload;
+        } catch {
+          if (!cancelled) setPlagSummary({ byStudent: {}, loading: false });
+          return;
+        }
+
+        const map: Record<string, GraderReportStudentSummary> = {};
+        for (const row of payload.results) {
+          const rawLevel = row.ai_features?.risk_level;
+          const aiRiskLevel: GraderReportStudentSummary["aiRiskLevel"] =
+            rawLevel === "high" || rawLevel === "medium" || rawLevel === "low" || rawLevel === "none"
+              ? rawLevel
+              : "none";
+          const rs = row.ai_features?.risk_score;
+          const aiRiskScore = typeof rs === "number" && Number.isFinite(rs) ? Math.max(0, Math.min(1, rs)) : 0;
+          map[row.student_id] = {
+            similarityScore: row.similarity_score ?? 0,
+            matchesCount: row.matches_count,
+            warning: row.similarity_warning ?? null,
+            aiRiskScore,
+            aiRiskLevel,
+          };
+        }
+
+        if (!cancelled) setPlagSummary({ byStudent: map, loading: false });
+      } catch {
+        if (!cancelled) setPlagSummary({ byStudent: {}, loading: false });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedAssignmentId]);
+
+  const selectedPlag = useMemo(() => {
+    const studentId = selectedSubmission?.studentId;
+    if (!studentId) return null;
+    return plagSummary.byStudent[studentId] ?? null;
+  }, [plagSummary.byStudent, selectedSubmission?.studentId]);
 
   const studentAttemptOptions = useMemo(() => {
     if (!selectedSubmission) {
@@ -341,6 +452,7 @@ export function FacultySpeedGradingPage() {
     if (rubricScoreFields.length === 0) {
       setRubricExistingGrades({});
       setRubricScores([]);
+      setRubricComments([]);
       setDirectMarksInput(marks != null ? formatMax2Decimals(marks) : "");
       return;
     }
@@ -371,6 +483,13 @@ export function FacultySpeedGradingPage() {
                 : "",
             ),
           );
+          setRubricComments(
+            rubricScoreFields.map((field) =>
+              field.criterionId != null && byCriterionId[field.criterionId]
+                ? (byCriterionId[field.criterionId]!.feedback ?? "") ?? ""
+                : "",
+            ),
+          );
           return;
         }
 
@@ -379,6 +498,7 @@ export function FacultySpeedGradingPage() {
             ? seedRubricScoreInputs(flatRubricCriteria, marks, assignment?.points.total ?? rubricMarksTotal)
             : rubricScoreFields.map(() => ""),
         );
+        setRubricComments(rubricScoreFields.map(() => ""));
       })
       .catch(() => {
         if (cancelled) {
@@ -390,6 +510,7 @@ export function FacultySpeedGradingPage() {
             ? seedRubricScoreInputs(flatRubricCriteria, marks, assignment?.points.total ?? rubricMarksTotal)
             : rubricScoreFields.map(() => ""),
         );
+        setRubricComments(rubricScoreFields.map(() => ""));
       });
 
     return () => {
@@ -583,13 +704,14 @@ export function FacultySpeedGradingPage() {
             return {
               rubricSubCriteriaId: field.criterionId,
               awardedScore: roundTo2(parseScoreInput(rubricScores[index] ?? "")),
-              feedback: null,
+              feedback: rubricComments[index]?.trim() ? rubricComments[index]!.trim() : null,
             };
           })
           .filter(
             (
               item,
-            ): item is { rubricSubCriteriaId: number; awardedScore: number; feedback: null } => item != null,
+            ): item is { rubricSubCriteriaId: number; awardedScore: number; feedback: string | null } =>
+              item != null,
           );
 
         if (grades.length > 0) {
@@ -661,6 +783,7 @@ export function FacultySpeedGradingPage() {
     directMarks,
     feedbackInput,
     rubricExistingGrades,
+    rubricComments,
     rubricScores,
     rubricMarksTotal,
     rubricScoreFields.length,
@@ -838,39 +961,230 @@ export function FacultySpeedGradingPage() {
                 </div>
 
                 <div className="h-full min-w-0 rounded-xl border border-gray-200 p-3">
-                  <div className="flex items-center gap-3">
-                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500 leading-none">Test results</p>
-                    {testSummary.hasRun ? (
-                      <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
-                        <div className="flex min-w-0 items-center justify-between gap-2 overflow-hidden rounded-lg bg-[#EEF3FF] px-3 py-2">
-                          <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-gray-600 leading-none">Public</p>
-                          <p className="whitespace-nowrap text-[13px] font-semibold leading-none text-[#2B2A2A]">
-                            {testSummary.publicPassed}/{testSummary.publicTotal}
-                          </p>
-                        </div>
-                        <div className="flex min-w-0 items-center justify-between gap-2 overflow-hidden rounded-lg bg-[#FFF3E3] px-3 py-2">
-                          <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-gray-600 leading-none">Private</p>
-                          <p className="whitespace-nowrap text-[13px] font-semibold leading-none text-[#2B2A2A]">
-                            {testSummary.privatePassed}/{testSummary.privateTotal}
-                          </p>
-                        </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        setDetailsModalTab("tests");
+                        setIsDetailsModalOpen(true);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setDetailsModalTab("tests");
+                          setIsDetailsModalOpen(true);
+                        }
+                      }}
+                      title="Open tests details"
+                      className="min-w-0 flex-1 rounded-lg outline-none transition-colors hover:bg-gray-50 focus:ring-2 focus:ring-[#5A7ACD]/30 px-2 py-2 -mx-2 -my-2"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500 leading-none">
+                          Tests
+                        </p>
+                        {testSummary.hasRun ? (
+                          <div className="grid min-w-0 grid-cols-2 gap-2 text-left">
+                            <div className="flex min-w-0 cursor-pointer items-center justify-between gap-2 overflow-hidden rounded-lg bg-[#EEF3FF] px-3 py-2">
+                              <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-gray-600 leading-none">
+                                Public
+                              </p>
+                              <p className="whitespace-nowrap text-[13px] font-semibold leading-none text-[#2B2A2A]">
+                                {testSummary.publicPassed}/{testSummary.publicTotal}
+                              </p>
+                            </div>
+                            <div className="flex min-w-0 cursor-pointer items-center justify-between gap-2 overflow-hidden rounded-lg bg-[#FFF3E3] px-3 py-2">
+                              <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-gray-600 leading-none">
+                                Private
+                              </p>
+                              <p className="whitespace-nowrap text-[13px] font-semibold leading-none text-[#2B2A2A]">
+                                {testSummary.privatePassed}/{testSummary.privateTotal}
+                              </p>
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
+
+                      {isTestSummaryLoading ? (
+                        <div className="mt-2 flex h-10 items-center text-[12px] text-gray-600">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={2} />
+                          Loading tests…
+                        </div>
+                      ) : testSummaryError ? (
+                        <p className="mt-2 text-[12px] text-[#C23A42]">{testSummaryError}</p>
+                      ) : testSummary.hasRun ? null : (
+                        <p className="mt-2 text-[12px] text-gray-600">No test run available yet.</p>
+                      )}
+                    </div>
+
+                    {selectedSubmission?.subGroupName?.trim() ||
+                    (selectedSubmission?.subGroupMembers?.length ?? 0) > 0 ? (
+                      <button
+                        type="button"
+                        aria-label="Open group details"
+                        title="Group"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setDetailsModalTab("group");
+                          setIsDetailsModalOpen(true);
+                        }}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-[#2B2A2A]"
+                      >
+                        <Users className="h-4 w-4" strokeWidth={2} />
+                      </button>
                     ) : null}
                   </div>
-                  {isTestSummaryLoading ? (
-                    <div className="mt-2 flex h-10 items-center text-[12px] text-gray-600">
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={2} />
-                      Loading latest run...
+
+                  <div className="mt-3 border-t border-gray-200 pt-3">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        setDetailsModalTab("plagiarism");
+                        setIsDetailsModalOpen(true);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setDetailsModalTab("plagiarism");
+                          setIsDetailsModalOpen(true);
+                        }
+                      }}
+                      title="Open Plagiarism & AI details"
+                      className="rounded-lg outline-none transition-colors hover:bg-gray-50 focus:ring-2 focus:ring-[#5A7ACD]/30 px-2 py-2 -mx-2 -my-2"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 leading-none">
+                          Plagiarism
+                        </p>
+                        {selectedPlag ? (
+                          <div className="grid min-w-0 grid-cols-2 gap-2 text-left">
+                            <div className="flex min-w-0 cursor-pointer items-center justify-between gap-2 overflow-hidden rounded-lg bg-amber-50 px-3 py-2 transition-colors hover:bg-amber-100">
+                              <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-amber-700 leading-none">
+                                Plag
+                              </p>
+                              <p className="whitespace-nowrap text-[13px] font-semibold leading-none text-amber-900">
+                                {Math.round((selectedPlag.similarityScore ?? 0) * 100)}%
+                              </p>
+                            </div>
+                            <div className="flex min-w-0 cursor-pointer items-center justify-between gap-2 overflow-hidden rounded-lg bg-emerald-50 px-3 py-2 transition-colors hover:bg-emerald-100">
+                              <p className="whitespace-nowrap text-[10px] uppercase tracking-wide text-emerald-700 leading-none">
+                                AI
+                              </p>
+                              <p className="whitespace-nowrap text-[13px] font-semibold leading-none text-emerald-900">
+                                {Math.round((selectedPlag.aiRiskScore ?? 0) * 100)}%
+                              </p>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {plagSummary.loading ? (
+                        <div className="mt-2 flex h-9 items-center text-[11px] text-gray-600">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={2} />
+                          Loading…
+                        </div>
+                      ) : selectedPlag ? null : (
+                        <p className="mt-2 text-[11px] text-gray-600">—</p>
+                      )}
                     </div>
-                  ) : testSummaryError ? (
-                    <p className="mt-2 text-[12px] text-[#C23A42]">{testSummaryError}</p>
-                  ) : testSummary.hasRun ? (
-                    null
-                  ) : (
-                    <p className="mt-2 text-[12px] text-gray-600">No test run available yet.</p>
-                  )}
+                  </div>
                 </div>
               </div>
+
+              <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
+                <DialogContent className="w-[84vw] sm:w-[84vw] max-w-none sm:max-w-none p-0 overflow-hidden">
+                  <DialogHeader className="border-b border-gray-200 px-5 py-4">
+                    <DialogTitle className="text-[15px] font-semibold text-[#2B2A2A]">
+                      {detailsModalTab === "tests"
+                        ? "Tests"
+                        : detailsModalTab === "plagiarism"
+                          ? "Plagiarism & AI"
+                          : "Group"}
+                    </DialogTitle>
+                    <div className="mt-3 flex gap-2">
+                      {(
+                        [
+                          { id: "tests" as const, label: "Tests" },
+                          { id: "plagiarism" as const, label: "Plagiarism & AI" },
+                          { id: "group" as const, label: "Group" },
+                        ] as const
+                      ).map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setDetailsModalTab(tab.id)}
+                          className={
+                            "rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors " +
+                            (detailsModalTab === tab.id
+                              ? "bg-[#2B2A2A] text-white"
+                              : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-[#2B2A2A]")
+                          }
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                  </DialogHeader>
+
+                  <div className="max-h-[75vh] overflow-y-auto">
+                    {detailsModalTab === "tests" ? (
+                      <PublicTestsPanel
+                        testCases={[]}
+                        onRunTests={() => void handleRunTests()}
+                        isRunning={runLoading}
+                        runError={runError}
+                        runResult={modalTestsResult}
+                        runStatus={runResult?.status ?? null}
+                        showPublicNote={false}
+                        showCustomStdin={false}
+                      />
+                    ) : detailsModalTab === "plagiarism" ? (
+                      <PlagiarismReportPanel
+                        assignmentId={resolvedAssignmentId}
+                        isFaculty
+                        studentId={selectedSubmission?.studentId ?? null}
+                      />
+                    ) : (
+                      <div className="p-6">
+                        <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                          Subgroup
+                        </h3>
+                        <p className="text-[14px] font-medium text-[#2B2A2A]">
+                          {selectedSubmission?.subGroupName?.trim() ? selectedSubmission.subGroupName : "—"}
+                        </p>
+                        <div className="mt-5">
+                          <h3 className="text-[12px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                            Members
+                          </h3>
+                          {(selectedSubmission?.subGroupMembers?.length ?? 0) > 0 ? (
+                            <div className="space-y-2">
+                              {(selectedSubmission?.subGroupMembers ?? []).map((member) => (
+                                <div
+                                  key={member.id}
+                                  className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
+                                >
+                                  <div className="min-w-0">
+                                    <p className="truncate text-[13px] font-medium text-[#2B2A2A]">
+                                      {member.name}
+                                    </p>
+                                    <p className="truncate text-[12px] text-gray-500">{member.email}</p>
+                                  </div>
+                                  <span className="flex-shrink-0 text-[11px] uppercase tracking-wide text-gray-400">
+                                    {member.cwid}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-[13px] text-gray-600">No group assigned for this submission.</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200">
                 <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-3 py-3">
@@ -892,29 +1206,46 @@ export function FacultySpeedGradingPage() {
                       {rubricScoreFields.map((rubric, index) => (
                         <div
                           key={rubric.id}
-                          className="grid grid-cols-[minmax(0,1fr)_78px_96px] items-center gap-3 rounded-xl border border-gray-100 bg-[#FBFCFE] px-3 py-3"
+                          className="rounded-xl border border-gray-100 bg-[#FBFCFE] px-3 py-3"
                         >
-                          <div className="min-w-0">
-                            <p className="truncate text-[13px] font-medium text-[#2B2A2A]">{rubric.label}</p>
+                          <div className="grid grid-cols-[minmax(0,1fr)_78px_96px] items-center gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-[13px] font-medium text-[#2B2A2A]">{rubric.label}</p>
+                            </div>
+                            <p className="text-right text-[12px] text-gray-500">/ {rubric.maxPoints}</p>
+                            <input
+                              type="number"
+                              min={0}
+                              max={rubric.maxPoints}
+                              step="0.01"
+                              value={rubricScores[index] ?? ""}
+                              onChange={(event) => {
+                                const raw = event.target.value;
+                                const display = normalizeDecimalInput(raw, 0, rubric.maxPoints);
+                                if (display == null) return;
+                                setRubricScores((prev) => {
+                                  const next = [...prev];
+                                  next[index] = display;
+                                  return next;
+                                });
+                              }}
+                              className="h-10 w-full rounded-lg border border-gray-300 px-3 text-right text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#DCE5F8]"
+                            />
                           </div>
-                          <p className="text-right text-[12px] text-gray-500">/ {rubric.maxPoints}</p>
+
                           <input
-                            type="number"
-                            min={0}
-                            max={rubric.maxPoints}
-                            step="0.01"
-                            value={rubricScores[index] ?? ""}
+                            type="text"
+                            value={rubricComments[index] ?? ""}
                             onChange={(event) => {
-                              const raw = event.target.value;
-                              const display = normalizeDecimalInput(raw, 0, rubric.maxPoints);
-                              if (display == null) return;
-                              setRubricScores((prev) => {
+                              const value = event.target.value;
+                              setRubricComments((prev) => {
                                 const next = [...prev];
-                                next[index] = display;
+                                next[index] = value;
                                 return next;
                               });
                             }}
-                            className="h-10 w-full rounded-lg border border-gray-300 px-3 text-right text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#DCE5F8]"
+                            className="mt-2 h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-[12px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#DCE5F8]"
+                            placeholder="Comment (optional)"
                           />
                         </div>
                       ))}

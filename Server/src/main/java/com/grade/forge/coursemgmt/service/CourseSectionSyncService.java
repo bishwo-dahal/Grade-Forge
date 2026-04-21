@@ -12,6 +12,7 @@ import com.grade.forge.testsuite.entity.TestCase;
 import com.grade.forge.testsuite.entity.TestSuite;
 import com.grade.forge.testsuite.repository.TestSuiteRepository;
 import com.grade.forge.storage.service.FileStorageService;
+import com.grade.forge.execution.repository.TestCaseResultRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +36,7 @@ public class CourseSectionSyncService {
     private final TestSuiteRepository testSuiteRepository;
     private final FileStorageService fileStorageService;
     private final AssignmentNotificationService assignmentNotificationService;
+    private final TestCaseResultRepository testCaseResultRepository;
 
     public void syncParentAssignmentCreateToSections(Assignment parentAssignment) {
         Course course = parentAssignment.getCourse();
@@ -192,6 +194,17 @@ public class CourseSectionSyncService {
             childSuite = childSuiteOpt.get();
             childSuite.setTitle(parentSuite.getTitle() != null ? parentSuite.getTitle() : childSuite.getTitle());
             childSuite.setDescription(parentSuite.getDescription());
+
+            List<Long> existingCaseIds = childSuite.getTestCases() == null
+                    ? List.of()
+                    : childSuite.getTestCases().stream()
+                    .map(TestCase::getId)
+                    .filter(id -> id != null && id > 0)
+                    .toList();
+            if (!existingCaseIds.isEmpty()) {
+                testCaseResultRepository.deleteByTestCase_IdIn(existingCaseIds);
+            }
+
             childSuite.getTestCases().clear();
         }
         for (TestCase pc : parentCases) {
