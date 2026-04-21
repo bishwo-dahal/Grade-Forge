@@ -1,3 +1,4 @@
+import type React from "react";
 import { LogOut, Plus, Search } from "lucide-react";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import {
@@ -36,6 +37,7 @@ export interface AuthTopBarProps {
   showSearch?: boolean;
   searchPlaceholder?: string;
   pageTitle?: string;
+  titleContent?: React.ReactNode;
   primaryActionLabel?: string;
   onPrimaryAction?: () => void;
   isSettingsActive?: boolean;
@@ -49,6 +51,7 @@ export function AuthTopBar({
   showSearch = true,
   searchPlaceholder = "Search...",
   pageTitle,
+  titleContent,
   primaryActionLabel,
   onPrimaryAction,
   isSettingsActive: _isSettingsActive = false,
@@ -106,6 +109,8 @@ export function AuthTopBar({
                   />
                 </div>
               </div>
+            ) : titleContent ? (
+              <div className="flex min-w-0 items-center">{titleContent}</div>
             ) : pageTitle ? (
               <div className="flex items-center">
                 <h1 className="text-[22px] font-semibold tracking-tight text-[#1F2430]">{pageTitle}</h1>
