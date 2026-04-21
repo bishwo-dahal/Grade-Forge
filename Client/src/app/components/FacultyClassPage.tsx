@@ -2114,16 +2114,6 @@ function StudentsSection({
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <button
-          onClick={onOpenAddStudentModal}
-          className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
-        >
-          <Plus className="w-4 h-4" strokeWidth={2} />
-          <span>Add Student</span>
-        </button>
-      </div>
-
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
         <div className="flex flex-wrap items-center gap-3 md:flex-nowrap">
           <div className="relative w-full md:w-auto md:flex-1 md:max-w-[460px]">
@@ -2142,6 +2132,13 @@ function StudentsSection({
             value={activeFilter}
             onValueChange={(value) => setActiveFilter(value)}
           />
+          <button
+            onClick={onOpenAddStudentModal}
+            className="ml-auto flex shrink-0 items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" strokeWidth={2} />
+            <span>Add Student</span>
+          </button>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Avg mode</span>
