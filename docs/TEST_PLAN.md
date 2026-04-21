@@ -5,6 +5,7 @@
 - **Use separate test accounts and tokens** for any scripted/automated testing. Do **not** reuse real production user tokens.
 - Prefer **staging** for automation. In **production**, run **read-only** tests and smoke checks only.
 - Avoid endpoints that can **create/update/delete** data unless you are testing in an isolated environment with synthetic data.
+- The ULM deployment is **[https://ulm.gradeforge.tech](https://ulm.gradeforge.tech)**. Treat it like production unless your team has a dedicated staging host.
 
 ### 1) Purpose
 

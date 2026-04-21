@@ -25,6 +25,18 @@ features:
     linkText: FAQ
 ---
 
+## ULM deployment
+
+- **Application:** [https://ulm.gradeforge.tech](https://ulm.gradeforge.tech)
+- **This manual in production:** [https://ulm.gradeforge.tech/docs/](https://ulm.gradeforge.tech/docs/)
+
+## Recent documentation updates
+
+- Example links in the manual now use the **ULM** host above (paths are unchanged).
+- **Database seeding** supports a **minimal** mode (reference data + optional bootstrap admin) versus a **demo** mode for local testing; production should avoid demo data.
+- **Load / stress testing** is documented with scripted checks, baseline tables, and production-safety guidance (separate test tokens; read-only checks in prod).
+- **Test plan** and **implementation specifications** are maintained as separate submission documents alongside this VitePress manual.
+
 The in-app **Documentation** link opens `/docs/`. The manual home looks like this:
 
 ![Documentation home](/manual/images/docs-home.png)

@@ -12,6 +12,11 @@
 - **Docs**: VitePress served under `/docs`
 - **Deployment**: Docker container on AWS EC2 (CI builds and deploys over SSH)
 
+### Live deployment (University of Louisiana Monroe)
+
+- **Web application:** [https://ulm.gradeforge.tech](https://ulm.gradeforge.tech)
+- **Product documentation (`/docs`):** [https://ulm.gradeforge.tech/docs/](https://ulm.gradeforge.tech/docs/)
+
 ### Team members
 
 - Bipin Shrestha
