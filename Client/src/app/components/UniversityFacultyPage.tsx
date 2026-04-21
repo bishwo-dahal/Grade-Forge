@@ -105,8 +105,6 @@ function UniversityFacultyView({
               <tr className="border-b border-gray-200 bg-[#FBFCFE]">
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Faculty Member</th>
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Department</th>
-                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Classes</th>
-                <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Students</th>
                 <th className="px-6 py-4 text-left text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Status</th>
                 <th className="px-6 py-4 text-right text-[12px] font-semibold tracking-wide text-[#345079] uppercase">Actions</th>
               </tr>
@@ -129,12 +127,6 @@ function UniversityFacultyView({
                         <div className="h-4 w-32 rounded bg-gray-200 animate-pulse" />
                       </td>
                       <td className="px-6 py-4">
-                        <div className="h-4 w-8 rounded bg-gray-200 animate-pulse" />
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="h-4 w-10 rounded bg-gray-200 animate-pulse" />
-                      </td>
-                      <td className="px-6 py-4">
                         <div className="h-7 w-20 rounded-full bg-gray-100 animate-pulse" />
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -146,7 +138,7 @@ function UniversityFacultyView({
 
               {!isLoading && filteredMembers.length === 0 && (
                 <tr>
-                  <td className="px-6 py-5 text-[14px] text-[#5D6A80]" colSpan={6}>
+                  <td className="px-6 py-5 text-[14px] text-[#5D6A80]" colSpan={4}>
                     No faculty members found.
                   </td>
                 </tr>
@@ -167,8 +159,6 @@ function UniversityFacultyView({
                       </div>
                     </td>
                     <td className="px-6 py-4 text-[14px] text-[#2D3B53]">{member.department}</td>
-                    <td className="px-6 py-4 text-[16px] font-semibold text-[#1F2430]">{member.classes}</td>
-                    <td className="px-6 py-4 text-[16px] font-semibold text-[#1F2430]">{member.students}</td>
                     <td className="px-6 py-4">
                       {member.status === "active" ? (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EAF5EC] px-3 py-1 text-[13px] text-[#0D9A4B]">

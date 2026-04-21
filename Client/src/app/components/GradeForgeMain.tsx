@@ -1,39 +1,43 @@
 import { useEffect, useState } from "react";
-import { EnrolledCourses } from "./EnrolledCourses";
-import { UpcomingAssignments } from "./UpcomingAssignments";
-import type { CourseCard } from "../../types/class";
-import type { UpcomingAssignment } from "../../types/assignment";
-import { listEnrolledCourses } from "../../services/classService";
-import { listUpcomingAssignments } from "../../services/assignmentService";
+import { StudentMyClassesSection } from "./student/StudentMyClassesSection";
+import { StudentDashboardStatsRow } from "./student/StudentDashboardStatsRow";
+import { StudentRecentGrades } from "./student/StudentRecentGrades";
+import { StudentUpcomingDeadlines } from "./student/StudentUpcomingDeadlines";
+import type { StudentDashboardData } from "../../services/studentCourseworkService";
+import { getStudentDashboardData } from "../../services/studentCourseworkService";
 
 export function GradeForgeMain() {
-  // NOTE: Dashboard content keeps its own data seam; only the shell/topbar moved to shared layout primitives.
-  const [courses, setCourses] = useState<CourseCard[]>([]);
-  const [upcomingAssignments, setUpcomingAssignments] = useState<UpcomingAssignment[]>([]);
-  const [isCoursesLoading, setIsCoursesLoading] = useState(true);
-  const [isUpcomingLoading, setIsUpcomingLoading] = useState(true);
+  const [data, setData] = useState<StudentDashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // NOTE: Separate loading flags keep each dashboard block visible with skeletons until its own data resolves.
-    listEnrolledCourses()
-      .then(setCourses)
-      .catch(() => setCourses([]))
-      .finally(() => setIsCoursesLoading(false));
-
-    listUpcomingAssignments()
-      .then(setUpcomingAssignments)
-      .catch(() => setUpcomingAssignments([]))
-      .finally(() => setIsUpcomingLoading(false));
+    getStudentDashboardData()
+      .then(setData)
+      .catch(() => setData(null))
+      .finally(() => setIsLoading(false));
   }, []);
 
   return (
     <main className="flex-1 overflow-y-auto bg-[#F5F2F2]">
-      {/* NOTE: Top navigation was removed from this component to eliminate duplicate shell markup. */}
-      <div className="px-6 py-6">
-        {/* CLEANUP: Removed welcome copy block per updated dashboard content requirements. */}
-
-        <EnrolledCourses courses={courses} isLoading={isCoursesLoading} />
-        <UpcomingAssignments assignments={upcomingAssignments} isLoading={isUpcomingLoading} />
+      <div className="px-6 py-6 flex flex-col gap-5">
+        <StudentMyClassesSection
+          items={data?.courseCards ?? []}
+          isLoading={isLoading}
+        />
+        <StudentDashboardStatsRow
+          stats={data?.stats ?? null}
+          isLoading={isLoading}
+        />
+        <div className="grid grid-cols-2 gap-5">
+          <StudentRecentGrades
+            grades={data?.recentGrades ?? []}
+            isLoading={isLoading}
+          />
+          <StudentUpcomingDeadlines
+            groups={data?.deadlineGroups ?? []}
+            isLoading={isLoading}
+          />
+        </div>
       </div>
     </main>
   );

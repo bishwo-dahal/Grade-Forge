@@ -6,7 +6,6 @@ import {
   FileText,
   BarChart3,
   Plus,
-  Upload,
   Users,
   UsersRound,
   CheckCircle2,
@@ -85,7 +84,7 @@ import type {
 } from "../../types/gradeReport";
 import type { GradingAssistantResponse } from "../../types/gradingAssistant";
 import type { CourseAssistantResponse } from "../../types/courseAssistant";
-import { SegmentedFilter, type SegmentedFilterItem } from "./ui/SegmentedFilter";
+import { SegmentedFilter } from "./ui/SegmentedFilter";
 import { ConfirmationModal, TimedSuccessModal } from "./ui/ActionFeedbackModal";
 import {
   Tooltip,
@@ -110,7 +109,6 @@ const SECTION_PATH_SEGMENTS = [
 ] as const;
 
 type SectionType = (typeof SECTION_PATH_SEGMENTS)[number];
-type RosterFilter = "all" | "active" | "inactive";
 
 function isValidSection(segment: string | undefined): segment is SectionType {
   return segment != null && SECTION_PATH_SEGMENTS.includes(segment as SectionType);
@@ -197,81 +195,40 @@ export function FacultyClassPage() {
           roleView="faculty"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
           showSearch={false}
-          pageTitle={courseFullName || "Class Dashboard"}
+          titleContent={
+            classData ? (
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="truncate text-[20px] font-semibold text-[#1F2430]">
+                  {classData.code}: {classData.name}
+                </span>
+                <span className="shrink-0 rounded bg-[#7A1226] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                  {classData.role}
+                </span>
+                {(classHeader?.linkedSectionCount ?? 0) > 0 && !classHeader?.parentCourseId ? (
+                  <Link
+                    to={`/faculty/class/${resolvedClassId}/settings`}
+                    className="shrink-0 rounded-full border border-[#5A7ACD]/45 bg-[#EEF2FA] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#345079] hover:bg-[#E2E9F7]"
+                  >
+                    Main · {classHeader?.linkedSectionCount} section{(classHeader?.linkedSectionCount ?? 0) === 1 ? "" : "s"}
+                  </Link>
+                ) : null}
+                {classHeader?.parentCourseId != null && classHeader.parentCourse ? (
+                  <Link
+                    to={`/faculty/class/${classHeader.parentCourse.id}/assignments`}
+                    className="shrink-0 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold text-amber-800 hover:bg-amber-100"
+                  >
+                    Section of {classHeader.parentCourse.courseCode} → Open main
+                  </Link>
+                ) : null}
+              </div>
+            ) : undefined
+          }
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-[#F5F4F6]">
-          {/* Top Header — linked main/section course context + roster actions */}
-          <header className="bg-white border-b border-gray-200 px-8 py-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-3 mb-2">
-                  <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
-                    {classData.code}: {classData.name}
-                  </h1>
-                  <span className="px-3 py-1 bg-[#5A7ACD] text-white text-[11px] font-semibold rounded uppercase">
-                    {classData.role}
-                  </span>
-                  {(classHeader?.linkedSectionCount ?? 0) > 0 && !classHeader?.parentCourseId ? (
-                    <Link
-                      to={`/faculty/class/${resolvedClassId}/settings`}
-                      className="rounded-full border border-[#5A7ACD]/45 bg-[#EEF2FA] px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#345079] hover:bg-[#E2E9F7]"
-                      title="Manage linked section courses"
-                    >
-                      Main · {classHeader?.linkedSectionCount} section
-                      {(classHeader?.linkedSectionCount ?? 0) === 1 ? "" : "s"}
-                    </Link>
-                  ) : null}
-                </div>
-                <div className="flex items-center gap-4 text-[13px] text-gray-600">
-                  <span>{classData.semester}</span>
-                  <span className="text-gray-300">&bull;</span>
-                  <span>{classData.section}</span>
-                </div>
-              </div>
-              {(classHeader?.parentCourseId != null && classHeader.parentCourse) || activeSection === "students" ? (
-                <div className="flex shrink-0 flex-col items-end gap-3">
-                  {classHeader?.parentCourseId != null && classHeader.parentCourse ? (
-                    <div className="flex max-w-sm flex-col gap-2 border-r-2 border-amber-400 pr-2.5">
-                      <p className="text-right text-[12px] leading-snug text-amber-950">
-                        <strong>Linked section</strong> of{" "}
-                        <strong>
-                          {classHeader.parentCourse.courseCode}: {classHeader.parentCourse.name}
-                        </strong>
-                      </p>
-                      <div className="flex w-full justify-end pt-0.5">
-                        <Link
-                          to={`/faculty/class/${classHeader.parentCourse.id}/assignments`}
-                          className="inline-flex items-center rounded-lg bg-[#2B2A2A] px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#3a3939]"
-                        >
-                          Open main course
-                        </Link>
-                      </div>
-                    </div>
-                  ) : null}
-                  {/* NOTE: Student-roster actions live in the top header so they align with the page-level action position. */}
-                  {activeSection === "students" ? (
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <button className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors">
-                        <Download className="w-4 h-4" strokeWidth={2} />
-                        <span>Import from Canvas</span>
-                      </button>
-                      <button
-                        onClick={() => setIsAddStudentModalOpen(true)}
-                        className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
-                      >
-                        <Plus className="w-4 h-4" strokeWidth={2} />
-                        <span>Add Student</span>
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          </header>
 
           <div className="min-h-full bg-[#F5F4F6]">
             <div className="max-w-7xl mx-auto px-8 py-6">
@@ -363,19 +320,7 @@ function AssignmentsSection() {
   return (
     <div onClick={() => setOpenAssignmentActionsId(null)}>
       <div className="flex items-center justify-between mb-6">
-        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Assignments</h2>
-          <p className="text-[13px] text-gray-600">
-            {isSectionCourse
-              ? "Content and tests sync from your main course. You can still adjust due dates per section here; use the banner to open the main course for other edits."
-              : "Create, publish, and manage course assignments"}
-          </p>
-        </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors">
-            <Upload className="w-4 h-4" strokeWidth={2} />
-            <span>Import</span>
-          </button>
           <button
             type="button"
             onClick={() => void loadAssignments()}
@@ -730,12 +675,6 @@ function SubmissionsSection() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A] mb-2">Submissions</h2>
-          <p className="text-[13px] text-gray-600">
-            Review and grade student submissions
-          </p>
-        </div>
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -1151,12 +1090,6 @@ function GradesSection({
   return (
     <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Grades</h2>
-          <p className="text-[13px] text-gray-600">
-            View and manage student grades for this course
-          </p>
-        </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
@@ -1673,7 +1606,6 @@ function StudentsSection({
 
   // NOTE: Main page search only filters existing roster rows.
   const [rosterRows, setRosterRows] = useState<FacultyRosterStudentRow[]>([]);
-  const [activeFilter, setActiveFilter] = useState<RosterFilter>("all");
   const [rosterSearchValue, setRosterSearchValue] = useState("");
   const [isRosterLoading, setIsRosterLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -1941,29 +1873,13 @@ function StudentsSection({
     };
   }, [rosterRows, getDisplayedAvgScore]);
 
-  const filterItems = useMemo<SegmentedFilterItem<RosterFilter>[]>(() => {
-    const activeCount = rosterRows.filter((row) => row.status === "active").length;
-    const inactiveCount = rosterRows.filter((row) => row.status === "inactive").length;
-    return [
-      { id: "all", label: "All", count: rosterRows.length },
-      { id: "active", label: "Active", count: activeCount },
-      { id: "inactive", label: "Inactive", count: inactiveCount },
-    ];
-  }, [rosterRows]);
-
   const filteredRows = useMemo(() => {
     const normalizedQuery = rosterSearchValue.trim().toLowerCase();
-    return rosterRows.filter((row) => {
-      const filterMatches = activeFilter === "all" ? true : row.status === activeFilter;
-      if (!filterMatches) {
-        return false;
-      }
-      if (!normalizedQuery) {
-        return true;
-      }
-      return row.name.toLowerCase().includes(normalizedQuery) || row.email.toLowerCase().includes(normalizedQuery);
-    });
-  }, [activeFilter, rosterRows, rosterSearchValue]);
+    if (!normalizedQuery) return rosterRows;
+    return rosterRows.filter(
+      (row) => row.name.toLowerCase().includes(normalizedQuery) || row.email.toLowerCase().includes(normalizedQuery),
+    );
+  }, [rosterRows, rosterSearchValue]);
 
   const selectedStudentGradeRow = useMemo(() => {
     if (!selectedGradeStudent || !studentGradeReport) {
@@ -2155,30 +2071,6 @@ function StudentsSection({
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Student Roster</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setAddMode("canvas");
-              onOpenAddStudentModal();
-            }}
-            className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#2B2A2A] rounded-lg text-[13px] font-medium transition-colors"
-          >
-            <Users className="w-4 h-4" strokeWidth={2} />
-            <span>Import from Canvas</span>
-          </button>
-          <button
-            onClick={onOpenAddStudentModal}
-            className="flex items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
-          >
-            <Plus className="w-4 h-4" strokeWidth={2} />
-            <span>Add Student</span>
-          </button>
-        </div>
-      </div>
-
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
         <div className="flex flex-wrap items-center gap-3 md:flex-nowrap">
           <div className="relative w-full md:w-auto md:flex-1 md:max-w-[460px]">
@@ -2191,23 +2083,24 @@ function StudentsSection({
               className="w-full h-11 rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-[14px] text-[#2B2A2A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5A7ACD]/25"
             />
           </div>
-          <SegmentedFilter
-            className="md:ml-1"
-            items={filterItems}
-            value={activeFilter}
-            onValueChange={(value) => setActiveFilter(value)}
-          />
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Avg mode</span>
-          <SegmentedFilter
-            items={[
-              { id: "gradedOnly" as const, label: "Graded only" },
-              { id: "includeMissing" as const, label: "Include missing as 0" },
-            ]}
-            value={avgMode}
-            onValueChange={(value) => setAvgMode(value)}
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Avg mode</span>
+            <SegmentedFilter
+              items={[
+                { id: "gradedOnly" as const, label: "Graded only" },
+                { id: "includeMissing" as const, label: "Include missing as 0" },
+              ]}
+              value={avgMode}
+              onValueChange={(value) => setAvgMode(value)}
+            />
+          </div>
+          <button
+            onClick={onOpenAddStudentModal}
+            className="ml-auto flex shrink-0 items-center gap-2 px-3.5 py-2 bg-[#2B2A2A] hover:bg-[#3a3939] text-white rounded-lg text-[13px] font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" strokeWidth={2} />
+            <span>Add Student</span>
+          </button>
         </div>
       </div>
 
@@ -2894,12 +2787,6 @@ function AssistantsSection() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Grading Assistants</h2>
-          <p className="text-[13px] text-gray-600">
-            Assign grading assistants to this course. They can help grade submissions.
-          </p>
-        </div>
         <button
           type="button"
           onClick={() => {
@@ -3165,12 +3052,6 @@ function GroupsSection() {
   return (
     <div>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="rounded-lg border border-gray-300 bg-white px-4 py-2">
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Main groups</h2>
-          <p className="text-[13px] text-gray-600">
-            Open a group to create subgroups and assign students by dragging them from the roster.
-          </p>
-        </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -3555,13 +3436,6 @@ function SettingsSection({ classId }: { classId: string }) {
 
   return (
     <div>
-      <div className="mb-6">
-        <div className="inline-block rounded-lg border border-gray-300 bg-white px-4 py-2">
-          <h2 className="text-[18px] font-semibold text-[#2B2A2A]">Class Settings</h2>
-          <p className="text-[13px] text-gray-600">Edit course metadata and control visibility</p>
-        </div>
-      </div>
-
       {error ? (
         <div className="mb-4 rounded-xl border border-[#F3CDD1] bg-[#FDEBEC] px-3 py-2 text-[13px] text-[#C23A42]">
           {error}

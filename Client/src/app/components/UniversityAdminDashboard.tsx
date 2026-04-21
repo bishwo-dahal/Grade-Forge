@@ -282,8 +282,6 @@ export function UniversityAdminDashboard() {
                   <tr className="border-b border-gray-200 bg-white">
                     <th className="text-left px-6 py-4 text-[11px] font-semibold tracking-wider text-[#345079] uppercase">Faculty Member</th>
                     <th className="text-left px-6 py-4 text-[11px] font-semibold tracking-wider text-[#345079] uppercase">Department</th>
-                    <th className="text-left px-6 py-4 text-[11px] font-semibold tracking-wider text-[#345079] uppercase">Classes</th>
-                    <th className="text-left px-6 py-4 text-[11px] font-semibold tracking-wider text-[#345079] uppercase">Students</th>
                     <th className="text-left px-6 py-4 text-[11px] font-semibold tracking-wider text-[#345079] uppercase">Status</th>
                     <th className="text-left px-6 py-4 text-[11px] font-semibold tracking-wider text-[#345079] uppercase">Actions</th>
                   </tr>
@@ -291,7 +289,7 @@ export function UniversityAdminDashboard() {
                 <tbody>
                   {facultyLoading && (
                     <tr>
-                      <td className="px-6 py-5 text-[15px] text-[#506080]" colSpan={6}>
+                      <td className="px-6 py-5 text-[15px] text-[#506080]" colSpan={4}>
                         Loading faculty members...
                       </td>
                     </tr>
@@ -299,7 +297,7 @@ export function UniversityAdminDashboard() {
 
                   {!facultyLoading && facultyMembers.length === 0 && (
                     <tr>
-                      <td className="px-6 py-5 text-[15px] text-[#506080]" colSpan={6}>
+                      <td className="px-6 py-5 text-[15px] text-[#506080]" colSpan={4}>
                         No faculty members found.
                       </td>
                     </tr>
@@ -320,8 +318,6 @@ export function UniversityAdminDashboard() {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-[15px] text-[#2D3B53]">{member.department}</td>
-                        <td className="px-6 py-4 text-[16px] font-semibold text-[#1F2430]">{member.classes}</td>
-                        <td className="px-6 py-4 text-[16px] font-semibold text-[#1F2430]">{member.students}</td>
                         <td className="px-6 py-4">
                           {member.status === "active" ? (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E5F6EA] px-3 py-1 text-[14px] text-[#0D9A4B]">
