@@ -355,50 +355,29 @@ export function FacultyGradingAssignmentDetailPage() {
           roleView="faculty"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
           showSearch={false}
+          titleContent={
+            classData ? (
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="truncate text-[20px] font-semibold text-[#1F2430]">
+                  {classData.code}: {classData.name}
+                </span>
+                <span className="shrink-0 rounded bg-[#7A1226] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                  {classData.role || "Instructor"}
+                </span>
+                {classHeader?.parentCourseId != null && classHeader.parentCourse ? (
+                  <Link
+                    to={`/faculty/class/${classHeader.parentCourse.id}/assignments`}
+                    className="shrink-0 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold text-amber-800 hover:bg-amber-100"
+                  >
+                    Section of {classHeader.parentCourse.courseCode} → Open main
+                  </Link>
+                ) : null}
+              </div>
+            ) : undefined
+          }
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />
-
-        <header className="bg-white border-b border-gray-200 px-8 py-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-3 mb-2">
-                <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
-                  {classData.code}: {classData.name}
-                </h1>
-                <span className="px-3 py-1 bg-[#5A7ACD] text-white text-[11px] font-semibold rounded uppercase">
-                  {classData.role || "Instructor"}
-                </span>
-              </div>
-              <div className="flex items-center gap-4 text-[13px] text-gray-600">
-                <span>{classData.instructor || "Instructor"}</span>
-                <span className="text-gray-300">&bull;</span>
-                <span>{classData.semester}</span>
-                <span className="text-gray-300">&bull;</span>
-                <span>{classData.section}</span>
-              </div>
-            </div>
-
-            {classHeader?.parentCourseId != null && classHeader.parentCourse ? (
-              <div className="flex shrink-0 flex-col items-end gap-2 border-r-2 border-amber-400 pr-2.5">
-                <p className="text-right text-[12px] leading-snug text-amber-950">
-                  <strong>Linked section</strong> of{" "}
-                  <strong>
-                    {classHeader.parentCourse.courseCode}: {classHeader.parentCourse.name}
-                  </strong>
-                </p>
-                <div className="flex w-full justify-end pt-0.5">
-                  <Link
-                    to={`/faculty/class/${classHeader.parentCourse.id}/assignments`}
-                    className="inline-flex items-center rounded-lg bg-[#2B2A2A] px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#3a3939]"
-                  >
-                    Open main course
-                  </Link>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </header>
 
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto px-8 py-6">

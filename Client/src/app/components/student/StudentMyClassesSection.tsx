@@ -48,7 +48,7 @@ export function StudentMyClassesSection({ items, isLoading }: Props) {
           visible.map((course) => (
             <Link
               key={course.id}
-              to={`/student/class/${course.id}`}
+              to={`/class/${course.id}`}
               className="group block overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md"
             >
               <CourseCoverCardShell
