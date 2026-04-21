@@ -14,8 +14,15 @@ function RouteLoadingFallback() {
   );
 }
 
+function reloadOnStaleChunk(e: unknown): never {
+  if (e instanceof TypeError && e.message.includes("Failed to fetch dynamically imported module")) {
+    window.location.reload();
+  }
+  throw e;
+}
+
 function lazyDefault<T extends ComponentType<any>>(loader: () => Promise<{ default: T }>) {
-  const LazyComponent = lazy(loader);
+  const LazyComponent = lazy(() => loader().catch(reloadOnStaleChunk));
   return function LazyDefaultRoute(props: ComponentProps<T>) {
     return (
       <Suspense fallback={<RouteLoadingFallback />}>
@@ -30,7 +37,7 @@ function lazyNamed<T extends ComponentType<any>>(
   exportName: string,
 ) {
   const LazyComponent = lazy(async () => {
-    const mod = await loader();
+    const mod = await loader().catch(reloadOnStaleChunk);
     return { default: mod[exportName] };
   });
 
