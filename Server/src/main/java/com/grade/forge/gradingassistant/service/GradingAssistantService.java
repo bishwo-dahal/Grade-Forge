@@ -42,6 +42,9 @@ public class GradingAssistantService {
         user.setEmail(request.getEmail().trim());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(Role.GRADING_ASSISTANT);
+        if (user.getPreferences() == null) {
+            user.setPreferences(new java.util.HashMap<>());
+        }
         Users savedUser = userRepository.save(user);
 
         GradingAssistant gradingAssistant = new GradingAssistant();
