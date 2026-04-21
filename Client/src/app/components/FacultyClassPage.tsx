@@ -6,7 +6,6 @@ import {
   FileText,
   BarChart3,
   Plus,
-  Upload,
   Users,
   UsersRound,
   CheckCircle2,
@@ -348,10 +347,6 @@ function AssignmentsSection() {
     <div onClick={() => setOpenAssignmentActionsId(null)}>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg text-[13px] font-medium transition-colors">
-            <Upload className="w-4 h-4" strokeWidth={2} />
-            <span>Import</span>
-          </button>
           <button
             type="button"
             onClick={() => void loadAssignments()}
