@@ -25,6 +25,19 @@ features:
     linkText: FAQ
 ---
 
+## How Grade-Forge Works
+
+Grade-Forge is a comprehensive educational platform designed to streamline and automate the coding assignment and grading lifecycle. It provides an integrated environment that empowers students, faculty, grading assistants, and university administrators to manage coursework efficiently.
+
+**Key capabilities include:**
+- **Automated Grading:** Execute and evaluate student code submissions securely against predefined test cases, providing immediate feedback.
+- **Unified Workspace:** Students can write, run, and submit code directly within the platform.
+- **Group Collaboration:** Seamlessly manage group assignments, team submissions, and shared feedback.
+- **Plagiarism Detection:** Leverage AI-powered tools to identify code similarities and maintain academic integrity.
+- **Course Management:** Faculty can organize calendars, upload materials, create rubrics, and track overall student performance.
+
+By centralizing these functions, Grade-Forge reduces manual grading overhead and ensures consistent, reliable outcomes for computer science and engineering programs.
+
 ## ULM deployment
 
 - **Application:** [https://ulm.gradeforge.tech](https://ulm.gradeforge.tech)
@@ -40,6 +53,12 @@ features:
 The in-app **Documentation** link opens `/docs/`. The manual home looks like this:
 
 ![Documentation home](/manual/images/docs-home.png)
+
+## Application Dashboard
+
+Here is a preview of the Grade-Forge faculty dashboard in production:
+
+![Grade-Forge Dashboard](/manual/images/faculty-dashboard-preview.png)
 
 ## Choose your role
 
