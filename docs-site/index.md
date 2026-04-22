@@ -25,6 +25,8 @@ features:
     linkText: FAQ
 ---
 
+![Grade-Forge Landing Page](/manual/images/landing.png)
+
 ## How Grade-Forge Works
 
 Grade-Forge is a comprehensive educational platform designed to streamline and automate the coding assignment and grading lifecycle. It provides an integrated environment that empowers students, faculty, grading assistants, and university administrators to manage coursework efficiently.

@@ -1,5 +1,7 @@
 # URLs in this manual
 
+![Grade-Forge Landing Page](/manual/images/landing.png)
+
 Paths match the Grade-Forge web app after you sign in. For the **University of Louisiana Monroe** deployment, your address bar looks like:
 
 **[https://ulm.gradeforge.tech](https://ulm.gradeforge.tech)** + path (for example `/assignment/12`).
