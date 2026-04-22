@@ -26,7 +26,7 @@ import type {
   TeachingAssistantProfile,
 } from "../types/class";
 import api from "../api/axios";
-import { DEFAULT_COURSE_COVER_IMAGE } from "../constants/defaultCourseCover";
+import { getCourseCoverImageUrl } from "../utils/courseCoverImageUrl";
 import { roundTo2 } from "../utils/number";
 import {
   getFacultyCourseworkSnapshot,
@@ -34,6 +34,8 @@ import {
 } from "./facultyCourseworkService";
 import { getCourseGradeReport } from "./gradeReportService";
 import { getStudentCourseworkSnapshot } from "./studentCourseworkService";
+
+export { getCourseCoverImageUrl };
 
 // NOTE: Centralized mock class/course data to create a single integration seam.
 // TODO(backend): Replace mock service with real API calls. Keep return shapes stable for the UI.
@@ -609,15 +611,6 @@ export interface CourseApiResponse {
     courseCode: string;
     section: string | null;
   }>;
-}
-
-/** Cover image URL for display; uses `public/ulm.jpg` when API has no cover. */
-export function getCourseCoverImageUrl(course: CourseApiResponse): string {
-  const fromImage = course.courseImage?.downloadUrl?.trim();
-  if (fromImage) return fromImage;
-  const legacy = course.imageUrl?.trim();
-  if (legacy) return legacy;
-  return DEFAULT_COURSE_COVER_IMAGE;
 }
 
 interface FacultySemesterApiResponse {

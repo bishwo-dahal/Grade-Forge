@@ -6,8 +6,16 @@ export interface FacultyCourseworkCourseApiResponse {
   courseCode: string;
   section: string | null;
   description: string | null;
+  /** Legacy; prefer `courseImage.downloadUrl` when the API includes it. */
   imageUrl: string | null;
-  courseImage?: { downloadUrl: string } | null;
+  courseImage?: {
+    id: number;
+    fileName: string;
+    fileKey: string;
+    fileType: string;
+    fileSize: number;
+    downloadUrl: string;
+  } | null;
   canvasCourseId: string | null;
   active: boolean;
   isPublished: boolean;
@@ -25,6 +33,14 @@ export interface FacultyCourseworkCourseApiResponse {
     department: string;
     qualifications: string;
   } | null;
+  /** Present when this course is a section linked to a main course. */
+  parentCourseId?: number | null;
+  sectionCourses?: Array<{
+    id: number;
+    name: string;
+    courseCode: string;
+    section: string | null;
+  }>;
 }
 
 export interface FacultyCourseworkAssignmentApiResponse {

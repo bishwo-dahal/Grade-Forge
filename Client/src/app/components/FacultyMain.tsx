@@ -11,7 +11,9 @@ import {
 } from "lucide-react";
 import { getFacultyCourseworkSnapshot } from "../../services/facultyCourseworkService";
 import type { FacultyCourseworkSnapshot } from "../../services/facultyCourseworkService";
+import { getCourseCoverImageUrl } from "../../utils/courseCoverImageUrl";
 import { CourseCoverCardShell } from "./CourseCoverCardShell";
+import { FacultyCourseHierarchyBadges } from "./FacultyCourseHierarchyBadges";
 
 // ── Derived data shapes ─────────────────────────────────────────────────────
 
@@ -46,6 +48,10 @@ interface CourseHealthItem {
   id: string;
   title: string;
   code: string;
+  section: string;
+  /** Main vs section row — same semantics as My Classes. */
+  isLinkedSection?: boolean;
+  linkedSectionCount?: number;
   students: number;
   activeAssignments: number;
   pendingGrading: number;
@@ -142,17 +148,21 @@ function deriveFromSnapshot(snapshot: FacultyCourseworkSnapshot) {
       graded.length > 0
         ? Math.round(graded.reduce((sum, s) => sum + Number(s.marks ?? 0), 0) / graded.length)
         : 0;
+    const sectionChildren = !course.parentCourseId ? (course.sectionCourses?.length ?? 0) : 0;
     return {
       id: String(course.id),
       title: course.name,
       code: course.courseCode,
+      section: course.section?.trim() ? course.section : "TBD",
+      isLinkedSection: Boolean(course.parentCourseId),
+      ...(sectionChildren > 0 ? { linkedSectionCount: sectionChildren } : {}),
       students: enrolled,
       activeAssignments: activeAssigCount,
       pendingGrading: pending,
       gradedCount: graded.length,
       totalSubmissions: subs.length,
       avgScore,
-      coverImageUrl: course.courseImage?.downloadUrl?.trim() || course.imageUrl?.trim() || "/ulm.jpg",
+      coverImageUrl: getCourseCoverImageUrl(course),
     };
   });
 
@@ -303,9 +313,15 @@ function MyClassesSection({ items, isLoading }: { items: CourseHealthItem[]; isL
                 }
               >
                 <div className="flex flex-col gap-1 p-3 pt-2">
-                  <h3 className="line-clamp-2 text-[13px] font-semibold leading-snug text-[#1F2430]">
-                    {course.title}
-                  </h3>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <h3 className="line-clamp-2 text-[13px] font-semibold leading-snug text-[#1F2430]">
+                      {course.title}
+                    </h3>
+                    <FacultyCourseHierarchyBadges course={course} />
+                  </div>
+                  <p className="text-[11px] leading-tight text-[#3E4E67]">
+                    {course.code} · Sec {course.section}
+                  </p>
                   <div className="mt-1 flex items-center gap-3 text-[11px] text-gray-500">
                     <span>{course.students} students</span>
                     <span>{course.activeAssignments} active</span>
@@ -641,10 +657,13 @@ function CourseHealthSection({ items, isLoading }: { items: CourseHealthItem[]; 
               <div key={course.id} className="rounded-2xl bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h3 className="truncate text-[13px] font-semibold text-[#1F2430]">
-                      {course.title}
-                    </h3>
-                    <span className="text-[11px] text-gray-400">{course.code}</span>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <h3 className="truncate text-[13px] font-semibold text-[#1F2430]">{course.title}</h3>
+                      <FacultyCourseHierarchyBadges course={course} />
+                    </div>
+                    <p className="text-[11px] leading-tight text-[#3E4E67]">
+                      {course.code} · Sec {course.section}
+                    </p>
                   </div>
                   <Link
                     to={`/faculty/class/${course.id}`}
