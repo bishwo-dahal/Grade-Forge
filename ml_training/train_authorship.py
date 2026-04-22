@@ -127,7 +127,17 @@ def main() -> int:
     clf.fit(X_train, y_train)
 
     y_pred = clf.predict(X_test)
-    print(classification_report(y_test, y_pred, target_names=list(LABEL_ORDER), zero_division=0))
+    # Some datasets/splits may not include all 3 classes in the holdout set (e.g. no "UNCLEAR").
+    # Force a stable label ordering so the report prints consistently and doesn't error.
+    print(
+        classification_report(
+            y_test,
+            y_pred,
+            labels=list(range(len(LABEL_ORDER))),
+            target_names=list(LABEL_ORDER),
+            zero_division=0,
+        )
+    )
 
     bundle = {
         "model": clf,

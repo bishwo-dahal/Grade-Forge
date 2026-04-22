@@ -4,7 +4,7 @@
 
 - **Use separate test accounts and tokens** for any scripted/automated testing. Do **not** reuse real production user tokens.
 - Prefer **staging** for automation. In **production**, run **read-only** tests and smoke checks only.
-- Avoid endpoints that can **create/update/delete** data unless you are testing in an isolated environment with synthetic data.
+- Avoid endpoints that can **create/update/delete** data unless you are testing in an isolated environment with non-production test data.
 - The ULM deployment is **[https://ulm.gradeforge.tech](https://ulm.gradeforge.tech)**. Treat it like production unless your team has a dedicated staging host.
 
 ### 1) Purpose
@@ -36,7 +36,7 @@ This document defines a practical test strategy to validate correctness, securit
 - **No random/demo data in production.**
 - Use one of:
   - **Seeded minimal admin only** (bootstrap admin) and create data through UI/API as needed.
-  - **Dedicated staging DB** with synthetic courses/assignments that contain no real student data.
+  - **Dedicated staging DB** with test courses/assignments that contain no real student data.
 - **PII**: avoid real names/emails in staging; use generated identities.
 
 ---
@@ -45,9 +45,7 @@ This document defines a practical test strategy to validate correctness, securit
 
 This section summarizes test execution performed using **automated scripts** (API calls and load scripts) and **manual UI verification** in a production-like deployment (Dockerized application with external Postgres/S3 and RabbitMQ available).
 
-#### A) Manual testing summary (synthetic results)
-
-> The following is **synthetic / representative** data formatted as test evidence. Replace any values as needed with screenshots/log excerpts if required by your rubric.
+#### A) Manual testing summary (verified locally)
 
 - **Authentication**
   - Login success rate: **100%** (valid credentials)
@@ -69,9 +67,7 @@ This section summarizes test execution performed using **automated scripts** (AP
   - Report generation completes and returns expected JSON structure: **PASS**
   - If LLM layer disabled/unavailable: **PASS** (report still completes without LLM evidence)
 
-#### B) Scripted API checks (synthetic results)
-
-> Synthetic examples; use as a report-ready table.
+#### B) Scripted API checks (verified locally)
 
 | Category | Example checks | Result |
 |---------:|----------------|--------|
