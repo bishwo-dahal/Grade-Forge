@@ -448,7 +448,7 @@ export function AssignmentPage() {
               Dashboard
             </Link>
             <span className="text-gray-300">/</span>
-            <Link to="/dashboard" className="text-gray-500 hover:text-[#2B2A2A]">{assignment.courseCode}</Link>
+            <Link to={`/class/${assignment.courseId}`} className="text-gray-500 hover:text-[#2B2A2A]">{assignment.courseCode}</Link>
             <span className="text-gray-300">/</span>
             <span className="text-[#2B2A2A] font-medium">Assignments</span>
           </div>

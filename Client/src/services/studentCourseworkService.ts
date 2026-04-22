@@ -142,6 +142,7 @@ export interface StudentDashboardStats {
   enrolledCourses: number;
   pendingSubmissions: number;
   gradedThisWeek: number;
+  dueThisWeek: number;
 }
 
 export interface RecentGradeItem {
@@ -277,9 +278,16 @@ export async function getStudentDashboardData(): Promise<StudentDashboardData> {
   const publishedCourses = snapshot.courses.filter((c) => c.isPublished);
   const enrolledCourses = publishedCourses.length;
 
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const nowMs = Date.now();
+  const sevenDaysAgo = nowMs - 7 * 24 * 60 * 60 * 1000;
+  const nowDate = new Date(nowMs);
+  const sunday = new Date(nowDate);
+  sunday.setDate(nowDate.getDate() + ((7 - nowDate.getDay()) % 7 || 7));
+  sunday.setHours(23, 59, 0, 0);
+  const sundayDeadline = sunday.getTime();
   let pendingSubmissions = 0;
   let gradedThisWeek = 0;
+  let dueThisWeek = 0;
   const gradeItems: Array<RecentGradeItem & { sortKey: number }> = [];
 
   for (const course of publishedCourses) {
@@ -290,8 +298,11 @@ export async function getStudentDashboardData(): Promise<StudentDashboardData> {
 
       if (!latest) {
         const dueAt = assignment.dueDate ? new Date(assignment.dueDate).getTime() : null;
-        if (dueAt === null || dueAt > Date.now()) {
+        if (dueAt === null || dueAt > nowMs) {
           pendingSubmissions++;
+        }
+        if (dueAt !== null && dueAt > nowMs && dueAt <= sundayDeadline) {
+          dueThisWeek++;
         }
       } else if (latest.marks !== null) {
         const submittedAt = new Date(latest.submittedAt).getTime();
@@ -313,7 +324,6 @@ export async function getStudentDashboardData(): Promise<StudentDashboardData> {
   gradeItems.sort((a, b) => b.sortKey - a.sortKey);
   const recentGrades = gradeItems.slice(0, 6).map(({ sortKey: _sk, ...item }) => item);
 
-  const now = Date.now();
   const courseCards: StudentCourseCardItem[] = publishedCourses.map((course) => {
     const assignments = snapshot.assignmentsByCourseId.get(course.id) ?? [];
     let submittedCount = 0;
@@ -329,7 +339,7 @@ export async function getStudentDashboardData(): Promise<StudentDashboardData> {
         gradedTotal += assignment.totalPoints;
       }
       const dueAt = assignment.dueDate ? new Date(assignment.dueDate).getTime() : null;
-      if (dueAt === null || dueAt > now) activeAssignments++;
+      if (dueAt === null || dueAt > nowMs) activeAssignments++;
     }
     const avgScore = gradedTotal > 0 ? Math.round((gradedEarned / gradedTotal) * 100) : 0;
     return {
@@ -345,7 +355,7 @@ export async function getStudentDashboardData(): Promise<StudentDashboardData> {
   });
 
   return {
-    stats: { enrolledCourses, pendingSubmissions, gradedThisWeek },
+    stats: { enrolledCourses, pendingSubmissions, gradedThisWeek, dueThisWeek },
     courseCards,
     recentGrades,
     deadlineGroups: buildDeadlineGroups(snapshot),
