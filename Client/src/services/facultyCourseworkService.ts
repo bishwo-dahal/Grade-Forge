@@ -43,6 +43,19 @@ export interface FacultyCourseworkAssignmentApiResponse {
   lateDueDate: string | null;
 }
 
+// Raw shape returned by the backend
+interface RawFacultySubmissionApiResponse {
+  submissionId: number;
+  studentId: number;
+  studentName: string;
+  studentEmail: string;
+  grade: number | null;
+  feedback: string | null;
+  status: string;
+  submittedAt: string;
+}
+
+// Normalized shape used throughout the app
 export interface FacultyCourseworkSubmissionApiResponse {
   id: number;
   assignmentId: number;
@@ -135,9 +148,22 @@ async function loadFacultyCourseworkSnapshot(): Promise<FacultyCourseworkSnapsho
   const allAssignments = assignmentEntries.flatMap(([, assignments]) => assignments);
   const submissionEntries = await Promise.all(
     allAssignments.map(async (assignment) => {
-      const { data } = await api.get<FacultyCourseworkSubmissionApiResponse[]>(
+      const { data: raw } = await api.get<RawFacultySubmissionApiResponse[]>(
         `/api/v1/faculty/submissions?assignmentId=${assignment.id}`,
       );
+      const data: FacultyCourseworkSubmissionApiResponse[] = raw.map((r) => ({
+        id: r.submissionId,
+        assignmentId: assignment.id,
+        assignmentName: assignment.name,
+        courseId: assignment.courseId,
+        courseName: assignment.courseName,
+        studentId: r.studentId,
+        studentName: r.studentName,
+        studentEmail: r.studentEmail,
+        marks: r.grade ?? null,
+        feedback: r.feedback ?? null,
+        submittedAt: r.submittedAt,
+      }));
       return [assignment.id, data] as const;
     }),
   );
