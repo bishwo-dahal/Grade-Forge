@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { BookOpen, Clock, CheckCircle, ChevronRight } from "lucide-react";
+import { BookOpen, Clock, CheckCircle, ChevronRight, CalendarClock } from "lucide-react";
 import type { StudentDashboardStats } from "../../../services/studentCourseworkService";
 
 interface StatCardProps {
@@ -62,6 +62,14 @@ export function StudentDashboardStatsRow({ stats, isLoading }: Props) {
         value={stats?.gradedThisWeek ?? null}
         iconBg="bg-green-50"
         icon={<CheckCircle size={20} className="text-green-600" />}
+        linkTo="/student/assignments"
+        isLoading={isLoading}
+      />
+      <StatCard
+        label="Due This Week"
+        value={stats?.dueThisWeek ?? null}
+        iconBg="bg-red-50"
+        icon={<CalendarClock size={20} className="text-red-500" />}
         linkTo="/student/assignments"
         isLoading={isLoading}
       />
