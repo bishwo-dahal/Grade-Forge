@@ -152,7 +152,7 @@ function deriveFromSnapshot(snapshot: FacultyCourseworkSnapshot) {
       gradedCount: graded.length,
       totalSubmissions: subs.length,
       avgScore,
-      coverImageUrl: course.imageUrl ?? null,
+      coverImageUrl: course.courseImage?.downloadUrl?.trim() || course.imageUrl?.trim() || "/ulm.jpg",
     };
   });
 

@@ -7,6 +7,7 @@ export interface StudentCourseworkCourseApiResponse {
   section: string | null;
   description: string | null;
   imageUrl: string | null;
+  courseImage?: { downloadUrl: string } | null;
   canvasCourseId: string | null;
   active: boolean;
   isPublished: boolean;
@@ -326,7 +327,7 @@ export async function getStudentDashboardData(): Promise<StudentDashboardData> {
       id: String(course.id),
       title: course.name,
       code: course.courseCode,
-      coverImageUrl: course.imageUrl?.trim() || "/ulm.jpg",
+      coverImageUrl: course.courseImage?.downloadUrl?.trim() || course.imageUrl?.trim() || "/ulm.jpg",
       submittedCount,
       totalAssignments: assignments.length,
       avgScore,
