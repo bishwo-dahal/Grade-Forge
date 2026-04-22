@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
-  ChevronLeft,
   Book,
   FileText,
   Megaphone,
@@ -106,44 +105,22 @@ export function ClassPage() {
         <AuthTopBar
           roleView="student"
           profile={{ name: displayName, email: displayEmail, initials: displayInitials }}
-          searchPlaceholder="Search calendar, assignments..."
+          showSearch={false}
+          titleContent={
+            classData ? (
+              <span className="truncate text-[20px] font-semibold text-[#1F2430]">
+                {classData.code}: {classData.name}
+              </span>
+            ) : undefined
+          }
           onSettingsSectionSelect={goToSettingsSection}
           onLogout={handleLogout}
         />
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-[#F5F4F6]">
-          {/* Top Header */}
-          <header className="bg-white border-b border-gray-200 px-8 py-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-[24px] font-semibold text-[#2B2A2A]">
-                    {classData.code}: {classData.name}
-                  </h1>
-                </div>
-                <div className="flex items-center gap-4 text-[13px] text-gray-600">
-                  <span>{classData.semester}</span>
-                  <span className="text-gray-300">&bull;</span>
-                  <span>{classData.section}</span>
-                  <span className="text-gray-300">&bull;</span>
-                  <span>Instructor: {classData.instructor}</span>
-                </div>
-              </div>
-            </div>
-          </header>
-
           <div className="min-h-full bg-[#F5F4F6]">
             <div className="max-w-7xl mx-auto px-8 py-6">
-              <div className="mb-4">
-                <Link
-                  to="/dashboard"
-                  className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-[13px] text-[#1F2430] shadow-sm transition-colors hover:bg-gray-50"
-                >
-                  <ChevronLeft className="w-4 h-4" strokeWidth={2} />
-                  <span>Back to Main Dashboard</span>
-                </Link>
-              </div>
 
               <section className="mb-6 rounded-xl border border-[#C9C4C9] bg-white p-2">
                 <div className="flex flex-wrap gap-2">
