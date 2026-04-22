@@ -1,4 +1,5 @@
 import api from "../api/axios";
+import { getCourseCoverImageUrl } from "../utils/courseCoverImageUrl";
 
 export interface StudentCourseworkCourseApiResponse {
   id: number;
@@ -6,7 +7,16 @@ export interface StudentCourseworkCourseApiResponse {
   courseCode: string;
   section: string | null;
   description: string | null;
+  /** Legacy; prefer `courseImage.downloadUrl` when the API includes it. */
   imageUrl: string | null;
+  courseImage?: {
+    id: number;
+    fileName: string;
+    fileKey: string;
+    fileType: string;
+    fileSize: number;
+    downloadUrl: string;
+  } | null;
   canvasCourseId: string | null;
   active: boolean;
   isPublished: boolean;
@@ -326,7 +336,7 @@ export async function getStudentDashboardData(): Promise<StudentDashboardData> {
       id: String(course.id),
       title: course.name,
       code: course.courseCode,
-      coverImageUrl: course.imageUrl?.trim() || "/ulm.jpg",
+      coverImageUrl: getCourseCoverImageUrl(course),
       submittedCount,
       totalAssignments: assignments.length,
       avgScore,
