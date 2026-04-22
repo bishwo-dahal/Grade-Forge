@@ -15,29 +15,9 @@ import { AuthTopBar } from "./layout/AuthTopBar";
 import type { SettingsSection } from "./layout/AuthTopBar";
 import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 import { CourseCoverCardShell } from "./CourseCoverCardShell";
+import { FacultyCourseHierarchyBadges } from "./FacultyCourseHierarchyBadges";
 
 type FacultyClassFilter = "active" | "archived";
-
-function FacultyCourseHierarchyBadges({ course }: { course: FacultyMyClassItem }) {
-  const mainCount = course.linkedSectionCount ?? 0;
-  return (
-    <div className="contents">
-      {mainCount > 0 ? (
-        <span
-          className="shrink-0 rounded-full border border-[#5A7ACD]/45 bg-[#EEF2FA] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#345079]"
-          title="Main course — assignments and tests sync to these section courses"
-        >
-          Main · {mainCount}
-        </span>
-      ) : null}
-      {course.isLinkedSection ? (
-        <span className="shrink-0 rounded-full border border-amber-300/70 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-900">
-          Section
-        </span>
-      ) : null}
-    </div>
-  );
-}
 
 interface FacultyMyClassesViewProps {
   // NOTE: This component is presentation-only. Data is injected by the page/container.

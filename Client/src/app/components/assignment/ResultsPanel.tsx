@@ -442,7 +442,7 @@ export function ResultsPanel({
                 </span>
               </div>
             </>
-          )}
+          ) : null}
         </div>
       </div>
       )}
