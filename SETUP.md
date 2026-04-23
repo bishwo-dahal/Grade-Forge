@@ -5,11 +5,78 @@
 - Java **21** (JDK)
 - Maven **3.9.x**
 - Node.js **18+** (recommended: latest LTS)
-- Docker (for RabbitMQ; also used by “run tests” in some environments)
+- Docker (RabbitMQ; also used by “run tests” sandboxing)
+- PostgreSQL (local dev DB) or a managed Postgres (RDS)
+
+If you want to deploy this in production, jump to **[Production deployment (EC2 + GitHub Actions)](#production-deployment-ec2--github-actions)**.
+
+## Repository layout (what runs where)
+
+- **`Client/`**: React + Vite SPA
+- **`Server/`**: Spring Boot REST API (serves the SPA + `/docs`)
+- **`grader/`**: Python grader pipeline (plagiarism/similarity/AI signals)
+- **`ml_training/`**: Python ML training (authorship triage model)
+- **`docs-site/`**: VitePress docs source (built into `/docs/` in production)
+
+---
+
+## Environment variables (required)
+
+Grade-Forge reads its runtime config from env vars (see `Server/env.example` and root `env.example`).
+
+### Minimum required for local dev
+
+- **Postgres**
+  - `SPRING_DATASOURCE_URL` (example: `jdbc:postgresql://localhost:5432/gradeforge`)
+  - `SPRING_DATASOURCE_USERNAME`
+  - `SPRING_DATASOURCE_PASSWORD`
+- **AWS S3** (required for file upload flows; you can run UI without it but S3-backed actions will fail)
+  - `CLOUD_AWS_S3_BUCKET_NAME`
+  - `CLOUD_AWS_CREDENTIAL_ACCESS_KEY`
+  - `CLOUD_AWS_CREDENTIAL_SECRET_KEY`
+  - `CLOUD_AWS_REGION`
+
+### Optional (but common)
+
+- **RabbitMQ** (used for async jobs; local dev uses Docker Compose below)
+  - `SPRING_RABBITMQ_HOST` (default `localhost`)
+  - `SPRING_RABBITMQ_PORT` (default `5672`)
+- **Grader pipeline**
+  - `GRADER_DIR` (default `../grader` when running from `Server/`)
+  - `GRADER_PYTHON_CMD` (default `python3`)
+- **ML training output**
+  - `ML_AUTHORSHIP_MODEL_PATH` (default in Docker image: `/app/authorship-model.joblib`)
+- **Ollama / LLM evidence layer**
+  - `GRADER_LLM_AI_SIGNAL_ENABLED` (default `true` in `application.properties`, but production defaults can override)
+  - `GRADER_LLM_AI_SIGNAL_URL` (default `http://localhost:11434/api/generate`)
+  - `GRADER_LLM_AI_SIGNAL_MODEL` (default `llama3`)
+
+---
 
 ## Run locally (dev)
 
-### 1) Start RabbitMQ
+### 0) Start Postgres
+
+You can run Postgres however you like (local install, Docker, or RDS). The backend needs the 3 `SPRING_DATASOURCE_*` vars.
+
+Quick Docker example (optional):
+
+```bash
+docker run --name gradeforge-postgres \
+  -e POSTGRES_DB=gradeforge \
+  -e POSTGRES_USER=gradeforge \
+  -e POSTGRES_PASSWORD=gradeforge \
+  -p 5432:5432 \
+  -d postgres:16-alpine
+```
+
+Then set:
+
+- `SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/gradeforge`
+- `SPRING_DATASOURCE_USERNAME=gradeforge`
+- `SPRING_DATASOURCE_PASSWORD=gradeforge`
+
+### 1) Start RabbitMQ (async jobs)
 
 From the project root:
 
@@ -21,7 +88,9 @@ RabbitMQ runs on:
 - AMQP: `localhost:5672` (user/pass: `guest` / `guest`)
 - UI: `http://localhost:15672`
 
-### 2) Run the backend
+### 2) Run the backend (Spring Boot)
+
+From the project root:
 
 ```bash
 cd Server
@@ -29,6 +98,11 @@ mvn spring-boot:run
 ```
 
 API: `http://localhost:8080`
+
+Notes:
+
+- DB schema updates are managed by Hibernate (`spring.jpa.hibernate.ddl-auto=update`).
+- If you ever see a boot error like “column … does not exist”, it means your DB schema is behind your code. Apply the schema change (or restart with the latest code) and retry.
 
 ### 3) Run the frontend
 
@@ -81,6 +155,46 @@ mvn spring-boot:run
 
 ---
 
+## Local features & troubleshooting
+
+### Run-tests sandbox (Docker-based code execution)
+
+The backend runs student code inside Docker containers (it calls the `docker` CLI). Requirements:
+
+- Docker installed and the backend process can execute `docker` (permissions/group)
+- The run-tests base work dir must be accessible (defaults are in `Server/src/main/resources/application.properties`)
+
+If an assignment has **no test cases**, the system still allows a single **ad-hoc “Run”** so students can execute their code and see output.
+
+### Appearance / accessibility preferences
+
+User preferences are stored as JSON in the database and applied globally in the UI:
+
+- Theme: **Light / Dark / System**
+- Font size
+- Density
+- **Dyslexic-friendly font** toggle (OpenDyslexic)
+
+These are edited in **Settings → Appearance** and saved to the signed-in user’s account.
+
+### ML training (authorship triage)
+
+University admins can train an authorship triage model from instructor labels:
+
+- UI: **University admin → ML training data → Train model**
+- Server runs: `ml_training/train_authorship.py`
+- Output: `joblib` written to `ML_AUTHORSHIP_MODEL_PATH` / `ml.authorship-model.path`
+
+If training fails due to missing Python deps, install:
+
+```bash
+pip install -r ml_training/requirements-train.txt
+```
+
+If training fails with a “Number of classes … does not match target_names” style error, it typically means your holdout split is missing one label class; update to the latest training script (it supports missing classes in the test split).
+
+---
+
 ## Production deployment (EC2 + GitHub Actions)
 
 The repo builds a **single Docker image** (frontend static assets baked into the Spring Boot JAR) and deploys it to an **EC2** host over SSH. See **`.github/workflows/deploy.yml`**.
@@ -94,6 +208,7 @@ The repo builds a **single Docker image** (frontend static assets baked into the
 
 - Use **Amazon Linux 2** (or similar) with **`ec2-user`** SSH access.
 - Install **Docker** and ensure `ec2-user` can run `docker` (often: `sudo usermod -aG docker ec2-user` and re-login).
+- Ensure your EC2 instance has enough **RAM** for Spring + Docker + Postgres/RabbitMQ if co-located. A common step up is `t3.medium` (4 GiB RAM).
 - Open inbound ports as needed:
   - **`8080`** — app when deployed from **`main`** (container `grade-forge-main`).
   - **`8081`** — app when deployed from **`production`** branch (container `grade-forge-production`).
@@ -329,6 +444,9 @@ With **`GRADER_LLM_AI_SIGNAL_ENABLED=false`**, similarity and heuristic AI triag
 ## Notes
 
 - If you’re missing AWS credentials locally, you can still run most UI flows; S3-backed submission file downloads will fail without `CLOUD_AWS_*` env vars.
+- Docker cleanup (build cache/images/containers) on a dev box or EC2 host:
+  - `docker system prune -a` (add `--volumes` if you really want to remove volumes)
+  - `docker builder prune -a`
 - If you need Node via nvm, install it like this:
 
 ```bash
@@ -339,6 +457,6 @@ nvm install 24
 
 ## Summary
 
-**Local dev:** `docker compose up -d` → run `Server` → run `Client`. Optional docs: see **Documentation (VitePress, optional)** above. Optional Ollama: see **Ollama (LLM)** above.
+**Local dev:** start Postgres → `docker compose up -d` → run `Server` → run `Client`. Optional docs: see **Documentation (VitePress, optional)** above. Optional Ollama: see **Ollama (LLM)** above.
 
 **Production:** EC2 + Docker + GitHub Actions — see **Production deployment (EC2 + GitHub Actions)**. Optional **Nginx + HTTPS** on the same host: **Optional: Nginx reverse proxy + HTTPS** in that section. LLM env vars and optional Ollama on the host: **Production: Ollama + Docker (EC2)** and **Production: GitHub Actions**.
