@@ -218,6 +218,33 @@ If you terminate **HTTPS on the same EC2 host with Nginx** (see **Optional: Ngin
 
 Otherwise put the app behind **HTTPS** in front of the instance (ALB, nginx on another host, Caddy, etc.); the workflow only publishes HTTP on the host ports above.
 
+#### 1A) OS modules to install (fresh instance)
+
+On Amazon Linux 2, after SSH:
+
+```bash
+sudo yum update -y
+sudo yum install -y git
+```
+
+Install Docker (if not already installed):
+
+```bash
+sudo yum install -y docker
+sudo systemctl enable docker
+sudo systemctl start docker
+sudo usermod -aG docker ec2-user
+```
+
+Log out/in so `ec2-user` picks up the `docker` group.
+
+Optional but recommended for debugging:
+
+```bash
+docker --version
+git --version
+```
+
 ### 2) Configure GitHub Actions secrets
 
 In the GitHub repo: **Settings → Secrets and variables → Actions**, add at least:
@@ -244,6 +271,48 @@ Optional **Plagiarism & AI / Ollama** secrets are listed in **Production: GitHub
 - **Manual:** **Actions → Docker Deployment for Grade Forge → Run workflow** — pick branch, optionally “deploy as main” on port 8080.
 
 The workflow builds and pushes **`bishwodahal/grade-forge:<branch-name>`**, then SSHs into EC2, pulls that image, ensures RabbitMQ is up, and runs **`docker run`** with your DB/S3/RabbitMQ and LLM env vars.
+
+### Sequence of deployment
+
+#### Start
+
+1. **Database first**: ensure Postgres/RDS is reachable from EC2 (`SPRING_DATASOURCE_URL` works).
+2. **RabbitMQ**:
+   - If you rely on the deploy workflow to start it, the first deploy will create/ensure the `gradeforge-rabbitmq` container.
+   - If you manage RabbitMQ yourself, ensure it is running and reachable at the host/port you set in `SPRING_RABBITMQ_*`.
+3. **App container**:
+   - Run the GitHub Actions deploy workflow (preferred), or pull/run the image manually.
+4. **Smoke test**:
+   - `curl http://127.0.0.1:8080/` (or `8081` depending on branch/port mapping)
+
+#### Stop
+
+1. Stop the Grade-Forge container(s) (names depend on workflow/branch), then RabbitMQ if it is co-located:
+
+```bash
+docker ps
+docker stop grade-forge-main || true
+docker stop grade-forge-production || true
+docker stop gradeforge-rabbitmq || true
+```
+
+2. Verify nothing is listening on the published ports:
+
+```bash
+docker ps
+```
+
+#### Common maintenance
+
+- View logs:
+
+```bash
+docker logs -n 200 grade-forge-main
+```
+
+- Clear Docker cache when disk fills up:
+  - `docker system prune -a` (add `--volumes` only if you intentionally want to delete volumes)
+  - `docker builder prune -a`
 
 ### 4) Smoke test
 
