@@ -1187,19 +1187,6 @@ export function FacultySpeedGradingPage() {
               </Dialog>
 
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200">
-                <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-3 py-3">
-                  <div>
-                    <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">
-                      {rubricScoreFields.length > 0 ? "Rubric grading" : "Direct grading"}
-                    </p>
-                    <p className="mt-1 text-[12px] text-gray-600">
-                      {rubricScoreFields.length > 0
-                        ? "Score each criterion and submit. The total is computed automatically."
-                        : "No rubric — enter the final score directly and submit."}
-                    </p>
-                  </div>
-                </div>
-
                 {rubricScoreFields.length > 0 ? (
                   <div className="flex-1 overflow-y-auto px-3 py-3">
                     <div className="space-y-2">
@@ -1208,11 +1195,8 @@ export function FacultySpeedGradingPage() {
                           key={rubric.id}
                           className="rounded-xl border border-gray-100 bg-[#FBFCFE] px-3 py-3"
                         >
-                          <div className="grid grid-cols-[minmax(0,1fr)_78px_96px] items-center gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate text-[13px] font-medium text-[#2B2A2A]">{rubric.label}</p>
-                            </div>
-                            <p className="text-right text-[12px] text-gray-500">/ {rubric.maxPoints}</p>
+                          <p className="text-[13px] font-medium text-[#2B2A2A]">{rubric.label}</p>
+                          <div className="mt-2 flex items-center gap-2">
                             <input
                               type="number"
                               min={0}
@@ -1229,8 +1213,9 @@ export function FacultySpeedGradingPage() {
                                   return next;
                                 });
                               }}
-                              className="h-10 w-full rounded-lg border border-gray-300 px-3 text-right text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#DCE5F8]"
+                              className="h-9 w-20 shrink-0 rounded-lg border border-gray-300 px-3 text-right text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none focus:ring-2 focus:ring-[#DCE5F8]"
                             />
+                            <p className="text-[12px] text-gray-500">/ {rubric.maxPoints}</p>
                           </div>
 
                           <input
@@ -1272,11 +1257,11 @@ export function FacultySpeedGradingPage() {
                   </div>
                 )}
 
-                <div className="border-t border-gray-200 bg-white px-3 py-3">
-                  <div className="flex items-end justify-between gap-3">
-                    <div className="inline-flex h-10 min-w-[120px] items-center justify-center gap-1.5 rounded-lg border border-[#E4E7EC] bg-[#F8FAFC] px-3">
+                <div className="border-t border-gray-200 bg-white px-3 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="inline-flex h-8 min-w-[110px] items-center justify-center gap-1.5 rounded-lg border border-[#E4E7EC] bg-[#F8FAFC] px-2.5">
                       <span className="text-[10px] uppercase tracking-wide text-gray-500 leading-none">Total:</span>
-                      <span className="text-[16px] font-semibold leading-none text-[#2B2A2A]">
+                      <span className="text-[14px] font-semibold leading-none text-[#2B2A2A]">
                         {rubricScoreFields.length > 0
                           ? formatMax2Decimals(computedRubricMarks)
                           : Number.isFinite(directMarks) ? formatMax2Decimals(directMarks) : "0"}
@@ -1287,20 +1272,20 @@ export function FacultySpeedGradingPage() {
                       type="button"
                       onClick={() => void handleSubmitGrade()}
                       disabled={!selectedSubmission || isGradeSubmitting}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#2B2A2A] px-5 text-[13px] font-medium text-white hover:bg-[#3a3939] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-8 items-center justify-center gap-2 rounded-lg bg-[#2B2A2A] px-4 text-[12px] font-medium text-white hover:bg-[#3a3939] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {isGradeSubmitting ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} /> : null}
+                      {isGradeSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} /> : null}
                       <span>{isGradeSubmitting ? "Saving..." : "Grade"}</span>
                     </button>
                   </div>
 
-                  <div className="mt-3 space-y-2">
-                    <label className="block text-[12px] font-medium text-[#2B2A2A]">Feedback</label>
+                  <div className="mt-2 space-y-1">
+                    <label className="block text-[11px] font-medium text-[#2B2A2A]">Feedback</label>
                     <textarea
-                      rows={3}
+                      rows={2}
                       value={feedbackInput}
                       onChange={(event) => setFeedbackInput(event.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-[13px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none"
+                      className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-[12px] text-[#2B2A2A] focus:border-[#5A7ACD] focus:outline-none"
                       placeholder="Add feedback for the student..."
                     />
                   </div>
